@@ -1,0 +1,22 @@
+# Makefile for general C source files, Linux version
+#
+# $Id: Makefile.Linux,v 1.5 2008/03/05 15:43:09 ali Exp $
+#
+
+CC      = gcc 
+COPTS   = -fPIC -Wall -O3
+LD      = ld 
+LDDIRS  = -L/usr/lib64 -L/usr/local/lib64 -L/usr/lib -L/usr/local/lib
+LDSHARED = -shared -lrt
+PYTHON_EXEC= python
+HEADER_INC = 
+
+# Don't change below here
+#
+PYTHON_BASE= $(shell ${PYTHON_EXEC} ../pypath.py base)
+PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version) -I${PYTHON_BASE}/lib/python$(shell ${PYTHON_EXEC} ../pypath.py version)/site-packages/numpy/core/include
+LDFLAGS = ${LDSHARED} ${LDDIRS}
+INC_DIRS = ${PYTHON_INC} ${HEADER_INC}
+CFLAGS  = ${COPTS} ${INC_DIRS}
+
+include Makefile.generic

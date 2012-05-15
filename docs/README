@@ -1,0 +1,12 @@
+This directory will eventually contain a comprehensive set of documentation
+explaining the AOSIM architecture, model designs, and science capabilities.
+
+To generate PDF documentation, type "make".  To read this documentation,
+use "acroread file.pdf"
+
+There is also some documentation in openoffice format (filename
+*.sxw), use "ooffice file.sxw" to view.  This will eventually be
+replaced by PDF documentation (latex source).
+
+To see documentation use:
+ls *.pdf *.sxw

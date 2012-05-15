@@ -1,0 +1,221 @@
+\newcommand{\cvsID}{$ $Id: fpgaMVM.tex,v 1.11 2006/08/08 07:01:37 ali Exp $ (CVS)$}
+\documentclass{article}
+\usepackage{tabularx}
+\newcommand{\mod}[1]{\texttt{#1}}
+\include{esohead}
+
+\begin{document}
+\include{fpgaMVMtitle}
+\include{esobody}
+\section{Scope}
+This document describes the details of the decision not to implement
+matrix-vector multiplication algorithms in the Cray XD1 FPGA
+acceleration available with the AO simulation software package which
+is funded by the rolling grant.
+
+This document is relevant to anyone who is involved with the
+development of the AO simulation software.  For a brief description on
+how to set up your own AO simulation, please read \citet{dummies}.
+This document can also be used by FPGA programmers who which to
+consider the various decisions made.
+
+\subsection{Overview}
+A matrix vector multiplication operation can be performed in a highly
+parallelised way, and so would appear ideal for implementing in an
+FPGA.  Additionally, during wavefront reconstruction, the main place
+where a matrix-vector multiplication (MVM) may be used in an AO
+simulation, the matrix is essentially constant, giving us the
+opertunity to achieve the best possible performance since the matrix
+can be passed to the FPGA only once.  
+
+However, even with all these advantages, it has been decided that it
+is not worth implementing the MVM algorithm and the reasons for this
+are provided here.
+
+\section{MVM performance}
+Given that the matrix in a wavefront reconstruction MVM does not
+change, it can be stored either in internal FPGA memory, in external
+memory local to the FPGA or in the host processor memory.  The
+Virtex-2 Pro in the Cray XD1 contains 464~KB internal memory and 16~MB
+external local memory.  We can therefore separate the MVM problem into
+three cases:
+
+\begin{enumerate}
+\item The matrix is less than 464~KB and can be stored in internal
+memory.
+\item The matrix is less than 16~MB and can be stored in local
+external memory.
+\item The matrix is greater than 16~MB and has to be stored in host
+processor memory.
+\end{enumerate}
+
+We assume that 32 bit floating point values will be used for the
+reconstruction (best case for FPGA performance improvement) and that
+the vector has a size $N_v$, while the matrix has dimensions $(N_y,
+N_v)$.  If a sparse matrix implementation is to be used, this will not
+affect the timing results considered here, only the algorithm
+implementation.  If $S$ is the fraction of the matrix used (the
+sparsity factor), then the matrix can be compressed to dimensions
+$(N_y, N_v\times S)$.  It is the size of this matrix (sparse or
+otherwise) that is considered here.
+
+\subsection{Processor timings}
+Table~\ref{tab:cputime} gives the timings for MVM for a few different
+(important) matrix and vector sizes.
+\begin{table}
+\begin{tabular}{llll}\hline
+Vector dimension & CPU processing time / s & Comment & FPGA processing
+time\\ \hline
+344 & 0.000322 & FPGA internal memory & 25-55 $\mu$s\\
+2048 & 0.00968 & FPGA local external memory & 2.6 ms\\
+16384 & 0.627 & Host processor memory & 0.67 s\\ \hline
+\end{tabular}
+\caption{A table showing CPU and FPGA processing timess for MVM, assuming a
+square matrix.  The FPGA timings are optimistic, the CPU timings are actual.}
+\label{tab:cputime}
+\end{table}
+
+\subsection{Matrix in internal memory}
+The Virtex-2 Pro-50 has 232 internal block memory banks (each 2~KB).  
+If the matrix is stored in internal memory, it is therefore possible
+to access 232 new matrix values every clock cycle (assuming no block
+memory is required for anything else, probably a poor assumption, but
+best case).  It the matrix is square, a $344\times344$ matrix is the
+largest that can be stored.  It will therefore take two clock cycles
+to read each matrix column or row.  The vector will be passed from
+host processor memory into the FPGA sequentially (the maximum
+bandwidth will allow two 32-bit floating point numbers every clock
+cycle at 199~MHz).  As each new vector value arrives, it can be
+multiplied by all of the matrix elements, and the intermediate results
+stored.  It will take two clock cycles to read all of the necessary
+matrix elements, so taking $344\times2+l=688+l$ clock cycles to perform
+the entire MVM, where $l$ is the pipeline latency of the floating
+point multiplication and addition operations, typically of order 10
+clock cycles (so can be ignored here).  This will therefore take
+approximately 3.5~$\mu$s to perform.  From the wavefront sensing
+pipeline, we know there is a host processor memory access latency of
+about 20~$\mu$s, so the total computation time is expected to be about
+23~$\mu$s, about 14 times faster than the software multiplication given
+in table~\ref{tab:cputime}.
+
+It should be noted that this assumes that 232 floating point
+multiplication and addition cores can be implemented simultaneously in
+the FPGA.  This is unlikely (maybe a factor of 10 too large), and so
+realistically, the hardware will take a factor of 10 times longer,
+maybe 55~$\mu$s including the latency, giving a performance
+improvement of only about 6 times.   
+
+If the matrix can be stored internally as 16 (or 18) bit floating
+point, the performance can be further improved, maybe by up to a
+factor of two, though this depends on the number of floating point
+arithmetic cores that can be implemented simultaneously.
+
+\subsection{Matrix in local external memory}
+The Cray XD1 FPGAs have four external memory banks, each 64 bits wide,
+meaning that 8 32-bit floating point numbers can be accessed each
+clock cycle.  A matrix of size $2048\times2048$ is the largest that
+can be stored in the external memory.  We must therefore wait
+$2048/8=256$ clock cycles to read all elements in a given column of
+the matrix, so taking 256 clock cycles (plus a pipelined latency) to
+operate on each new vector input value.  The total computation time
+will therefore be (ignoring the initial pipeline latency)
+$256\times2048=524288$ clock cycles, or 0.0026 seconds.  This is a
+factor of about four times faster than the software multiplication
+time of 0.00968 seconds.
+
+If the matrix is stored as 16 (or 18) bit floating point numbers, then
+16 such numbers can be accessed each clock cycle.  We must then wait
+for 128 clock cycles to read all elements of a given column of a
+$2048\times2048$ matrix, takling 262144 clock cycles (0.0013
+seconds).  This is therefore a factor of about eight times faster than
+the software multiplication time.
+
+\subsection{Matrix in host processor memory}
+If the matrix has to be stored in host processor memory, the MVM will
+be implemented by first loading the vector into the FPGA internal
+memory.  The matrix will then be loaded into the FPGA to be operated
+on at two floating point values per clock cycle, taking a total of
+about $16384\times16384/2$ clock cycles, or 0.67 seconds for the MVM
+to complete.  We have chosen a matrix here to be 1~GB in size, though
+in practice, they could be larger, though this would have little
+affect on the performance differences.  It should be noted that a MVM
+of this size will be performed faster on a CPU, and that the hardware
+FPGA timings are optimistic (in practice, the memory transfer to the
+FPGA from the processor memory is only about 85\% of the theoretical
+maximum assumed here).  
+
+If the matrix can be stored as 16 bit floating point numbers then four
+can be loaded into the FPGA every clock cycle, taking 0.34 seconds for
+the MVM to complete for a $16384\times 16384$ matrix.  This is then
+slightly better than the CPU computation time.  
+
+\section{Design considerations}
+We have seen that when the matrix in a MVM is small, some performance
+gain can be achieved by using an FPGA instead of a CPU.  However, once
+the matrix becomes too large to store in local FPGA memory, the CPU is
+able to perform the MVM in less time.  
+
+\subsection{ELT instrument considerations}
+A planet finder instrument for an ELT may have $500\times500$
+subapertures.  The (non-sparse) reconstruction matrix will then
+typicall have dimensions of $(500\times500\times2,
+500\times500\times2)$ assuming there are as many actuators as
+subapertures.  This would take 1~TB of memory to store.  If this
+matrix could be assumed to be sparse, with a sparsity factor of 0.001,
+this would still take 1~GB to store, and so the MVM would perform
+faster in software.  
+
+A more standard classical AO instrument on an ELT may have
+$75\times75$ subapertures, requiring 500~MB data for storage.  A
+typical sparsity factor might be somewhere between 0.02 -- 0.05,
+meaning that this matrix may or may not be storable in the FPGA
+external local memory.  At best, a performance gain of 4 times could
+be achieved by using the FPGAb (or 8 times, if the matrix could be
+stored as 16 bit floating point).  An MCAO or other more complex system
+would require a few times more memory than this, and so that matrix
+would have to be stored in host processor memory, giving no
+performance gain when using the FPGA.
+
+\subsection{VLT instrument considerations}
+Next generation instruments for VLT systems may have up to
+$30\times30$ subapertures (for example, HOT, though this is not
+sky-fieldable).  The reconstruction matrix for such a system would be
+about 13~MB in size, storable in the FPGA local external memory,
+giving a performance improvement of a factor of about four over a CPU
+implementation.  If this matrix was assumed sparse (S=0.03), it
+could be stored in FPGA internal memory, giving an even large
+performance improvement.  
+
+\subsection{Matrix precision}
+The precision of the reconstruction matrix is crucial if the FPGA is
+to be used to give preformance improvements.  If each sub-aperture
+contains $8\times8$ pixels, then a 10 bit centroid value would be
+sufficient to locate the centroid location to within less than 0.01 of
+a pixel.  There is therefore little point in having a reconstructor
+matrix with more precision, though floating point should be used to
+conserve dynamic range.  A 10 bit mantissa, and 6 bit exponent may
+therefore be sufficient to store this matrix.  If this is to be stored
+internally in the FPGA, a further 2 bits are available since these can
+be stored in the memory parity areas.
+
+\section{Conclusions}
+Implementation of a MVM algorithm in an FPGA would require some work.
+Additionally, the differences between an algorithm using internal and
+external memory would be sufficient to require a significant amount of
+work.  Because of the unsuitability of the FPGA algorithm for the
+ELT cases, it is probably not worth spending time to implement in
+hardware.  Even for VLT cases, the performance improvement is only a
+factor of four-six, small for a lot of effort.  It is therefore
+probably not worth implementing an FPGA based MVM algorithm for the
+XD1.  We are aiming for an ELT scale simulator, so the ELT
+reconstruction is the important consideration.
+
+If you disagree with any of these assumptions, calcuations of
+conclusions, do please discuss it.
+
+\pagebreak
+\bibliography{references}
+
+
+\printindex
+\end{document}

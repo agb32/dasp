@@ -1,0 +1,526 @@
+AO simulation tree   ($Id: README,v 1.36 2009/09/07 17:04:12 ali Exp $)
+==================
+See at end for info about installation of all the required software...
+
+Mostly python modules, some C (in cmod directory).  Examples in example
+directory.
+
+You will need to add the directory this file is in (the top-level aosim
+directory) into your PYTHONPATH
+
+e.g. if you are in the aosim top-level directory and running bash
+
+export PYTHONPATH=$PYTHONPATH:`pwd`
+
+Platform build notes
+====================
+
+Linux
+~~~~~
+   General build
+   -------------
+   Type 'make -s' in the top-level directory.
+
+Mac OS X 10.4
+~~~~~~~~~~~~~
+   Installation notes - note, these are old instructions, and may or may not work.  Installing everything from source (See below) is more likely to work.
+   ------------------
+
+   Python:
+       If your installation of Python is NOT the Apple default but rather via
+      Fink then you can attempt to install Python components using Fink. A
+      manual procedure is detailed here as the author installed Python
+      manually.
+
+   Perl:
+       There are requirements to use Perl, and if you need to install an
+      additional module then the best way is to use the `cpan' script
+      interface to CPAN. However, this uses a FTP interface so also install
+      LWP (manually) and use the following command inside of cpan to get
+      through the Durham firewall;
+
+      o conf ftp_proxy http://wwwcache.dur.ac.uk:8080/
+   
+   GCC version problems: There are places where GCC 4.0 (the preferred Apple
+   compiler) has problems and in preference 3.3 should be used. This can be
+   achieved by issuing the command;
+
+   sudo gcc_select 3.3
+
+   which is permanant so you can return to 4.0 by changing the appropriate
+   digits.
+
+   One time setup:
+   --------------
+   (1) Set the variable 'MACOSX_DEPLOYMENT_TARGET' to be '10.3'. Its a good idea
+   to set this in your .profile script so you can ignore this instruction in
+   future.
+
+   (2) Open a port in the firewall (note, this allows any computer in Durham to
+   control the simulation but this shouldn't be a problem as the
+   naughty people lie outside our network.)
+
+    1. Open 'System Preferences'
+    2. Open 'Sharing' (under 'Internet & Network')
+    3. Choose the 'Firewall' tab
+    4. Click on the lock icon to allow editing
+    5. Click 'New...'
+    6. For Port, choose 'Other'
+       TCP Port Number(s) is '9000-9001' (this allows two concurrent
+        simulations)
+       UDP Port Number(s) is blank
+       Description is up to you! I wrote 'CfAI aosim'
+    7. Click 'Ok' and the port will be opened.
+
+   (3) Build and install FFTW 2.x and FFTW 3.x (both need to be installed twice)
+      Do not use the 'fftwinstall.sh' script because it does not differentiate
+      between Darwin and Linux.
+
+    1. Obtain FFTW 2.1.5 from the website as a tarball
+    2. Unpack and enter the new directory
+    3. Configure using the following options;
+      ./configure --enable-shared --enable-prefix --enable-float
+    5. Build and check the process using 'make -s && make -s check'
+    6. If all was OK then install using 'make -s install'
+    7. Repeat 3-6 but remove the '--enable-float' option to configure.
+
+    1. Obtain FFTW3 from the website as a tarball
+    2. Unpack and enter the new directory
+    3. Configure using the following options;
+      ./configure --enable-shared --enable-fma --enable-float --enable-altivec
+    4. Edit libbench2/Makefile and remove all references to getopt and getopt1,
+       the following patch may help;
+      
+      168c168
+      < can-do.c caset.c dotens2.c getopt-utils.c info.c      \
+      ---
+      > can-do.c caset.c dotens2.c getopt-utils.c getopt.c getopt1.c info.c   \
+      185c185
+      <       info.$(OBJEXT) \
+      ---
+      >       getopt.$(OBJEXT) getopt1.$(OBJEXT) info.$(OBJEXT) \
+       
+    5. Build and check the process using 'make -s && make -s check'
+    6. If all was OK then install using 'make -s install'
+    7. Repeat 3-8 but for configure use the following options;
+      ./configure --enable-shared --enable-fma
+   
+   (4) Build and install GTK+ v2.0, and the Python bindings `pygtk'. The
+       version tested here was 2.4.9-8 and installed via Fink by selecting
+       'gtk+2' and related modules.  This also include `libglade'.
+     
+      Note: the version of libglade you use must correspond to the version of
+      GTK you have installed i.e. for the details above, use libglade 2.x where
+      x<=4.
+
+      Note: the version of pygtk used must correspond to the version of GTK you
+      have installed i.e. for the details above, use pygtk version 2.x and
+      where x<=4.
+
+      Note: for glade, you may require XML::Parser, a Perl module, in which
+      case get it from CPAN or install by hand. Also requires is `scrollkeeper'
+
+      Note: Ensure that libraries that pkg-config is compatible with (libglade,
+      pygtk,gtk+) are either in the default pkg-config path or add them
+      e.g. export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig/:/usr/lib/pkgconfig/
+
+      Note: You may have a problem with `libintl.h' not being found. Locate it
+      (look in /sw/include or /usr/local/include typically) and then let the C
+      compiler know the directory its in;
+      e.g. export CLFAGS=-I/sw/include/
+
+      1. Switch to GCC 3.3
+      2. Tell pygtk where python is (if the interpreter isn't called `python');
+      e.g. export PYTHON=`which python2.4`
+      
+      3. Configure the source tree. You need to know where the python source is
+      installed, and you can use the `pypath.py' script to automate this;
+      e.g. ./configure --prefix=`python2.4 pypath.py base`
+
+      4. Then type 'make -s' and then 'sudo make -s install'
+      5. Switch back to GCC 4.0
+
+   (5) Build and install PyGIST.
+      
+      Note: Under Mac OS X it is recommended that you install the X11 version by issuing the
+      following commands;
+
+      python setup.py --x11 config
+      python setup.py --x11 build
+      python setup.py --x11 install
+
+      The native Quartz version requires a framework Python (try typing `pythonw', if you get
+      an interpreter prompt then this is your framework version but you must have used it for
+      every installation to this point.)
+
+      Run the `gistdemolow.py' program, if it appears to hang and the processor usage reaches 100%
+      then you have suffered a problem which plauged this author. It was resolved by deleting all
+      previous installations, selecting GCC 3.3 (see above in `Installation Notes') and using
+      the commands listed above.
+
+   General build
+   -------------
+   Type 'make -s' in the top level directory. Omit the '-s' flag to see the actual instructions
+   being processed.
+
+Other notes
+===========
+
+Build process only tested on;
+
+aipc65
+   Mac OS X 10.4.2, python 2.3 (Apple supplied) & python 2.4
+losastacos
+   Suse Linux 2.6, python 2.4.1 64 bit
+aipc52
+   Fedora 4 Linux 2.6 python 2.4.1 32 bit
+"""Things needed before make will work (please up this list as necessary):
+   fftw3 compiled with --enable-shared --enable-threads
+   Numeric
+   Scientific python
+"""
+
+
+TODO (not in order):
+Compile Numeric using acml on the Cray.
+Data plotting - use of pylab or custom widget
+
+simctrl gui:  beep on warning (or make prominent)
+Fix CPU burn - seems to be when process finishes, which was sending data.
+
+
+
+INSTALLATION OF SOFTWARE
+
+
+#This is basically instructions on how to get a unix platform ready for the AO simulation.  Note, running this as a script may not work - instead, copy and paste commands one at a time to your shell.  Where wget is used, you should probably check that this points to the most recent version, by going to the website itself.  This needs to be run as root.
+#For cray specific commands, see the wiki.
+#Note, you may be better using your distros packages where available (apt-get or yum etc).  However for fftw, you'll need to compile the various options in...
+#Note, for ubuntu, you'll need to do apt-get install build-essential
+#to get the c libraries etc...
+
+#numpy-1.0.2 - on ubuntu: apt-get install python-scipy
+wget http://sourceforge.net/project/downloading.php?groupname=numpy&filename=numpy-1.0.2.tar.gz&use_mirror=ovh
+#install numpy.
+tar -zxvf numpy-1.0.2.tar.gz
+cd numpy-1.0.2
+python setup.py install >& instl.log
+cd ..
+
+#scipy uses blas and lapack.  These are downloaded below.  However, if
+#you are using AMD processor, you can use ACML, see instructions
+#further down.  Scipy can be difficult to install.  You might be
+#better off using pre-packaged files for your distro.  For example,
+#for Fedora, you would use "yum install scipy*".  This will also
+#install fftw, so before doing it, you should install fftw by hand
+#using all the different configs (see below).
+
+#scipy-0.5.2
+wget http://sourceforge.net/project/downloading.php?groupname=scipy&filename=scipy-0.5.2.tar.gz&use_mirror=kent
+#untar
+tar -zxvf scipy-0.5.2.tar.gz
+cd scipy-0.5.2
+
+#get BLAS and LAPACK and install.
+wget http://www.netlib.org/blas/blas.tgz
+tar xzf blas.tgz
+cd BLAS
+#possibly use gcc or gfortran here if g77 not found.
+g77 -fno-second-underscore -O2 -c *.f
+ar r libfblas.a *.o
+ranlib libfblas.a
+rm -rf *.o
+cp libfblas.a /usr/local/lib
+export BLAS=/usr/local/lib/libfblas.a
+cd ..
+wget http://www.netlib.org/lapack/lapack.tgz
+tar xzf lapack.tgz
+cd lapack-3.1.1
+cp INSTALL/make.inc.LINUX make.inc
+#now you must edit make.inc and change if necessary the following values:
+#OPTS = "-O2" and change g77 to gcc (2 places, or gfortran?)  On fedora systems you may need to do "yum install compat-gcc-34-g77" to get g77.  If you don't have g77, it probably means you're using gcc-4, in which case gfortran should be used instead.  Change the make files.
+make lapacklib >& make.log &
+tail -f make.log
+make clean
+cp lapack_LINUX.a libflapack.a
+cp libflapack.a /usr/local/lib
+export LAPACK=/usr/local/lib/libflapack.a
+cd ..
+cd ..
+#if you can't get lapack to compile, you can do LAPACK_SRC=/xxx/lapack-3.1.0, and then just try scipy installation from there.
+#You should also try make clean, and then try again.
+
+
+#for ACML: needed for AMD platforms that want to use acml instead of a
+#standard blas library.
+#in the scipy-0.5.2 directory:
+wget http://developer.amd.com/devDownloadProcess?id=115&section=5
+#and have a look yourself...
+
+#AMDScalapack too.
+
+
+cd ..
+#epydoc: not needed unless you want to be able to make the docs (which
+#you could do on the cray for example, or just look in ali's aosim/docs
+#directory).
+wget http://downloads.sourceforge.net/epydoc/epydoc-2.1.tar.gz?modtime=1079740800&big_mirror=0
+tar -zxvf epydoc*
+cd epydoc
+python setup.py install
+cd ..
+
+#gist: I think not needed, but could be useful for plotting (its what
+#I always use for quick interactive plots anyway).
+#gist: - on ubuntu may need to do apt-get install python-dev
+#And apt-get install xorg-dev
+wget http://hifweb.lbl.gov/public/software/gist/pygist-1.5.28.tar.gz
+tar -zxvf pygist-1.5.26.tar.gz
+cd pygist-1.5.26
+python setup.py config
+python setup.py build
+python setup.py install
+cd ..
+
+#pil I think not needed. apt-get install python-imaging I think
+wget http://effbot.org/downloads/Imaging-1.1.6.tar.gz
+tar -zxvf Imaging-1.1.6.tar.gz
+cd Imaging-1.1.6
+python setup.py install
+cd ..
+
+#install MPI. mpich2 works (but don't know whether it will work
+#alongside mpich1)!
+#Probably best to install from source, even on ubuntu.
+wget http://www-unix.mcs.anl.gov/mpi/mpich/downloads/mpich2-1.0.5p4.tar.gz
+tar -zxvf mpich2-1.0.5p4.tar.gz
+cd mpich2-1.0.5p4
+./configure
+make
+make install
+cd ..
+
+#scientific python (MPI).
+wget http://sourcesup.cru.fr/frs/download.php/1034/ScientificPython-2.6.tar.gz
+tar -zxvf ScientificPython-2.6.tar.gz
+#NOTE - THERE ARE some extra stuff that should be done to get this
+working with numpy, and on the cray... see later...
+
+cd ScientificPython-2.6 (or 2.7)
+python setup.py build --numpy #(may have to comment out a line of the setup.py if gives error about netcdf).
+python setup.py install
+#now install mpipython.
+cd Src/MPI
+python compile.py --numpy
+cp mpipython /usr/local/bin/
+cd ../..
+cd ..
+
+#matplotlib  needed if you want to use simctrl gui.
+wget http://downloads.sourceforge.net/matplotlib/matplotlib-0.90.0.tar.gz?modtime=1170801232&big_mirror=0
+#ubuntu needs apt-get install fttools libfreetype6-dev libpng-dev python-gtk2-dev first.
+tar -zxvf matplotlib-0.90.0.tar.gz
+cd matplotlib-0.90.0
+#look at the setup.py file to determine your backends - gtk will be needed... probably all okay by default if you can import pygtk in python.
+python setup.py install
+cd ..
+
+#fftw
+wget http://www.fftw.org/fftw-3.1.2.tar.gz
+wget http://www.fftw.org/fftw-2.1.5.tar.gz
+tar -zxvf fftw-3.1.2.tar.gz
+cd fftw-3.1.2
+make clean
+./configure --enable-shared
+make install
+make clean
+./configure --enable-shared --enable-threads
+make install
+make clean
+./configure --enable-shared --enable-threads --enable-float
+make install
+make clean
+./configure --enable-shared --enable-float
+make install
+make clean
+cd ..
+tar -zxvf fftw-2.1.5.tar.gz
+cd fftw-2.1.5
+make clean
+./configure --enable-shared
+make install
+make clean
+./configure --enable-shared --enable-float --enable-type-prefix
+make install
+cd ..
+
+
+
+#ctypes - not needed for python2.5 (comes with it).
+wget http://downloads.sourceforge.net/ctypes/ctypes-1.0.2.tar.gz?modtime=1179259137&big_mirror=0
+tar -zxvf ctypes-1.0.2.tar.gz
+cd ctypes-1.0.2
+python setup.py install
+cd ..
+
+#gsl - needed for the cmod/src/*.c files.
+#ubuntu packages: gsl-bin libgsl0-dev
+wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.9.tar.gz
+tar -zxvf gsl-1.9.tar.gz
+./configure
+make
+make install
+cd ..
+
+#pygsl - actually, probably not needed!
+wget http://downloads.sourceforge.net/pygsl/pygsl-0.9.1.tar.gz?modtime=1179305590&big_mirror=0
+tar -zxvf pygsl-0.9.1.tar.gz
+cd pygsl-0.9.1
+python setup.py install
+cd ..
+
+#Remember to add the following to bashrc... if it isn't there
+#already.  And the BLAS and LAPACK variables.
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+#now install scipy.
+python setup.py install >& inst.log
+#You can tell if SciPy found and could use your VARIATION libraries by taking a peek at the start of the inst.log file you created in that last step. Move through it via less inst.log and you'll see either FOUND or NOT AVAILABLE as it seeks each of the extra libraries.
+#To test, import numpy and scipy and run scipy.test(level) where level is 1 to 10.
+
+#Problems with scipy might be because of using gcc4.  In which case, I'm not sure what the solution is yet...
+#If this fails, you could try using your package manager to install scipy.  eg for Fedora you would do yum install scipy*
+
+#You may also need to install swig.
+#Then checkout the aosim, cd to it, and type make.
+
+#======================== Hamilton installation ===========================#
+
+#Notes for installing on hamilton (ITS cluster):
+#This is difficult but can be got right.
+#Dont load any additional modules.
+#First install blas, using g77 as the compiler.
+#Then install cblas.  Copy the blas/cblas files to your library
+#location as libblas.a, libf77blas.a (same file) and libcblas.a
+
+#Then you need to install full lapack library.  However, for this, you
+#need to adjust the defalt make.inc.  Note, the -O2 not O3.  I think
+#this helps.
+
+FORTRAN  = g77
+OPTS     = -funroll-all-loops -O2 -fPIC -m64
+DRVOPTS  = $(OPTS)
+NOOPT    = -fPIC -m64
+LOADER   = g77
+LOADOPTS = -fPIC -m64
+And also:
+BLASLIB      = /data/hamilton/dph1agb/lib/libblas.a
+
+then: cd src ; make ; cp ../lapack_LINUX.a /wherever/lib/liblapack.a
+and to /wherever/lib/libflapack.a
+
+
+WARNING: DONT USE ATLAS - ignore the next section.
+
+Then, compile atlas:
+cd ATLAS
+mkdir build
+cd build
+../configure --prefix=/data/hamilton/dph1agb -Fa alg -fPIC --with-netlib-lapack=/home/hudson/staff/dph1agb/downloads/lapack-3.1.1/lapack_LINUX.a
+make
+make install
+cd lib
+make shared
+make ptshared
+cp *.a *.so /data/hamilton/dph1agb/lib
+Note, that this configure creates a make.inc file - the values in here
+were the ones used to create the make.inc file for lapack...
+
+
+
+Then after this, install numpy:
+Edit your site.cfg file to:
+
+[DEFAULT]
+src_dirs = /home/hudson/staff/dph1agb/downloads/BLAS:/home/hudson/staff/dph1agb/downloads/lapack-3.1.1
+libraries = lapack,f77blas,cblas,gfortran
+library_dirs=/data/hamilton/dph1agb/lib
+include_dirs=/data/hamilton/dph1agb/include
+search_static_first = true
+
+This should then get numpy working and installed...
+
+Scipy should then also install aswell.  Note, 0.6 currently works, but
+the svn version doesn't.
+
+scipy/numpy should be using f77 not gfortran.
+
+
+Note, I did have a problem when using module fftw/gcc because this was
+compiled with gcc v3, not v4.  So don't add fftw to your own module
+environment - install it yourself instead.
+
+Note, the numpy/scipy install doesn't work if you have any modules
+loaded - so unload them before trying.
+
+Also, can use (though this may not work):
+python setup.py build --fcompiler=gnu95 build
+for both numpy and scipy.  This means that it will build without
+needing to edit the g77 -> gfortran in
+numpy/distutils/fcompiler/gnu.py.
+
+I think thats it - possible I've missed something though!
+
+
+
+
+Scientific python (2.7.8):
+Some changes are required to get it working with numpy
+These are:
+Src/MPI/compile.py:
+Add after line with cfgDict = distutils.sysconfig.get_config_vars():
+if "--numpy" in sys.argv:
+    defines="-I/usr/local/lib/python2.4/site-packages/numpy/core/include -DNUMPY=1"
+    
+else:
+    defines=""
+cfgDoct["LIBS"]+=" -lufp" #(only on the cray...)
+and then include defines at the end of cmd.
+
+Use Scientific.N.package (=="NumPy" or "Numeric" to determine array
+type).
+
+File Include/Scientific/mpimodule.h - remove Numeric/ from the #include/
+File Src/MPI/Scientific_mpi.c change PyArray_SBYTE to PyArray_BYTE
+
+Scientific python 2.8:
+python setup.py build
+python setup.py install
+cd Src/MPI
+python compile.py
+cp mpipython /usr/local/bin/
+
+I think this does it - may need to to the PyArray_SBYTE to
+PyArray_BYTE bit in Src./MPI/Scientific_mpi.c, not sure - testing...
+
+
+To upgrade numpy on cray:
+download numpy, scipy, blas and lapack.
+Install numpy
+Install blas (see above)
+Before doing this, add -fPIC to make.inc in BLAS/.
+
+For lapack, need to copy make.inc.example to make.inc add -O2 -fPIC to OPTS
+and change gfortran to g77 and get rid of one of the gfortran options
+(-fimplicit-none) and add -fPIC to LOADOPTS and to LOADER and to NOOPT.
+Then several parts won't compile - just remove these from the
+SRC/Makefile.  This is currently:
+spstrf and spstf2.o in makefile after spotrs.o
+dpstrf and dpstf2 after dpotrs.o
+export BLAS and LAPACK as above.
+cpstrf and cpstf2 after cpotrs.o
+zpstrf and zpstf2 after zpotrs.o
+In TESTING/LIN it fails.  But this doesn't matter.
+Move lapack_LINUX.a to /usr/local/lib/liblapack.a and libflapack.a
+Set up your BLAS and LAPACK environment variables.
+Then do a python setup.py build for scipy.

@@ -1,0 +1,110 @@
+\thispagestyle{empty}
+%This next command provides the CVS tag.  If you want a cvs tag on
+%your document, add the following line at the start of the document,
+%after replacing the & signs with dollar signs...
+%\newcommand{\cvsID}{& &Id& (CVS)&}
+\providecommand{\cvsID}{CVS ID not provided: document made on \today}
+
+\begin{center}
+\includegraphics{durlogo.eps}
+\end{center}
+\vspace{0.5cm}
+\Huge
+\begin{center}
+\esoproject\\
+\end{center}
+\Large
+\vspace{1cm}
+
+
+{\bf 
+\begin{tabular}{ll}
+Document title: & \esotitle \vspace{0.5cm}\\ 
+
+Documentation number: & \esodocno \vspace{0.5cm}\\ 
+
+Document type: & \esodoctype \vspace{0.5cm}\\ 
+
+Issue number:& \esoissue \vspace{0.5cm}\\ 
+
+Release date: & \esoreleasedate \\ 
+
+\end{tabular}
+}
+
+\normalsize
+\vfill
+
+\begin{tabular}{|l|l|l|p{5cm}|}
+\hline
+Document & \esoauthorname & Signature &\\
+prepared by & \esoauthortype & and date &\\ \hline
+Document & \esoapprovername & Signature &\\
+approved by & \esoapprovertype & and date &\\ \hline
+Document & \esoreleasername & Signature &\\
+released by & \esoreleasertype & and date &\\ \hline
+Document & \esoreviewername & Signature &\\
+reviewed by & \esoreviewertype & and date &\\ \hline
+\end{tabular}
+
+\small
+%\begin{alltt}
+\cvsID
+%\end{alltt}
+\normalsize
+%\lfoot[\esofooter]{\esofooter}
+%\lhead[\esoheaderl]{\esoheaderl}
+%\chead[\esoheaderc]{\esoheaderc}
+%\rhead[\esoheaderr]{\esoheaderr}
+%\renewcommand{\sectionmark}[1]{\markboth{#1}{#1}}
+
+\pagebreak
+
+
+
+\begin{center}
+\Large
+{\bf Change record\\ \vspace{1cm}}
+\normalsize
+\esochangerecord
+\end{center}
+\vspace{2cm}
+
+\begin{center}
+\Large
+{\bf Notification list\\ \vspace{1cm}}
+\normalsize
+\esonotificationlist
+\end{center}
+
+\pagebreak
+
+\begin{center}
+\Large
+{\bf Acronyms and abbreviations\\ \vspace{1cm}}
+\normalsize
+\esoabbreviations
+\end{center}
+
+\pagebreak
+
+\begin{center}
+\Large
+{\bf Applicable documents\\ \vspace{1cm}}
+\normalsize
+
+\esoapplicabledocs
+\end{center}
+\vspace{2cm}
+
+\begin{center}
+\Large
+{\bf Reference documents \\ \vspace{1cm}}
+\normalsize
+
+\esorefdocs
+\end{center}
+
+\pagebreak
+\tableofcontents
+\pagebreak

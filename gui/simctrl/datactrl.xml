@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<simdata>
+<author name="ali"/>
+<created date="051020"/>
+<comment>
+For a plot tag, the attributes allowed are:
+cmd: (needed)
+ret: (needed)
+title: (optional, title for button and windows created)
+type: (optional, e.g. gist, gist, pylab, text, feedback (displays in a separate 
+      text widget), save, None, etc)
+      As an alternative to type, if you wish to do multiple things
+      with a bit of data, you can use:
+      gisttype="1", pylabtype="1", texttype="1", savetype="1", feedbacktype="1"
+
+preprocess: (optional) e.g. import Numeric ; data=Numeric.reshape(data,(10,10))
+      (python: d={"data":data} ; exec preprocess in d ; data=d["data"])
+      If plot is a multiline tag (ie <plot>stuff</plot> then stuff is used
+      for preprocess.  This can be used e.g. for rescaling (taking log) etc.
+post: (optional) for post processing of data, python commands that are exec'd
+      and have access to global and local dictionary.  Can be used eg to save
+      gist plots.
+dim: (optional) Dimensions for plot.  Either "1" (line graph) or "2" (2d
+      plot).  If not specified, calculated from len(data.shape)
+      If dim==1, can also have attribute:
+xaxis: (optional) Can be used if dim="1" to specify the xaxis.  The
+      string gets eval'd, so e.g. "Numeric.arange(100,typecode='i')"
+      If xaxis isn't specified, then if data is a 1d array, an xaxis is
+      created the length of data.shape[0].  If data is 2D array, xaxis is
+      taken as data[0] and the values (possibly multiple lines) are data[1:]
+when: (optional) How often to repeat the command. Can be "now", "rpt",
+      "rptN" where N specifies the number of iterations between each repeat
+      or "cmd".
+options: Then, options depending on type.
+If gist:
+  palette:  e.g. gray.gp
+  window:  e.g. 1, 2 etc.
+If text:
+  wintype: ownwindow, mainwindow
+  textreplace: 1 or 0 (which appends)
+If save:
+  filetype: fits, csv, text
+  filename: filename
+  filereplace: 1 or 0 (which appends)
+if pylab:
+if None (or not specified):
+  no arguements
+if feedback: (note this is reserved for future use - do not use yet - texttype 
+  can do the same job)
+  feedbackmsg (as a separate tag) - a message printed with the feedback in the
+  console.  This is execed and so can include the feedback, eg:
+  <feedbackmsg>
+  msg='Loop is '
+  if feedback:
+    msg+='closed'
+  else:
+    msg+='open'
+  </feedbackmsg>  Use "msg=feedback" or nothing to simply print the feedback.
+Inside a plot tag, can also have a post tag.  This will allow post processing 
+of the data (or gui) - see above.
+</comment>
+<plot title="WFS SH img" cmd="data=Wfs.shimg" ret="data" type="gist" when="rpt" palette="gray.gp" window="0" gistdpi="100"/>
+<plot title="WFS SH img-test post" cmd="data=Wfs.shimg" ret="data" type="gist" when="rpt" palette="gray.gp" window="0" gistdpi="100">
+<post>
+print "Got SH img (can use this part for saving gist images etc)" 
+</post>
+</plot>
+<plot title="WFS SH img - text" cmd="data=Wfs.shimg" ret="data" type="text" when="rpt" />
+<plot title="WFS SH img - fits" cmd="data=Wfs.shimg" ret="data" type="save" when="rpt" filetype="fits" filename="tmp.fits" filereplace="1" />
+<plot title="WFS SH img - text" cmd="data=Wfs.shimg" ret="data" type="save" when="rpt" filetype="text" filename="tmp.txt" filereplace="1" />
+<plot title="Centroids" cmd="data=Cent.outputData" ret="data" type="gist" dim="1" xaxis="Numeric.arange(data.shape[1])" when="rpt10" palette="gray.gp" window="1">
+import Numeric
+data=Numeric.reshape(data,(2,data.shape[1]*data.shape[0]))
+</plot>
+<plot title="Centroids - csv" cmd="data=Cent.outputData" ret="data" type="save" dim="1" xaxis="Numeric.arange(data.shape[1])" when="rpt" filetype="csv" filename="tmp.csv" filereplace="1">
+import Numeric
+data=Numeric.reshape(data,(2,data.shape[1]*data.shape[2]))
+</plot>
+<plot title="inst_img" cmd="data=sci.inst_img" ret="data" type="gist" dim="2" when="rpt" palette="gray.gp" window="2"/>
+<plot title="science phase" cmd="data=sci.phs" ret="data" type="gist" dim="2" when="rpt" palette="gray.gp" window="3"/>
+<plot title="long PSF" cmd="data=sci.longExpPSF" ret="data" type="gist" dim="2" when="rpt" palette="gray.gp" window="4"/>
+<plot title="Closed loop?" cmd="feedback=Dm.control['close_dm']" ret="feedback" texttype="1" when="cmd" wintype="mainwindow">
+msg='Loop is '
+if data:
+  msg+='closed'
+  button=1
+else:
+  msg+='open'
+  button=0
+data=msg
+
+</plot>
+<plot title="Close loop" cmd="Dm.control['close_dm']=1;feedback=Dm.control['close_dm']"  when="cmd"/>
+<plot title="Open loop" cmd="Dm.control['close_dm']=0;feedback=Dm.control['close_dm']" when="cmd"/>
+<plot title="Loop" cmd="Dm.control['close_dm']=1-Dm.control['close_dm'] ; feedback=Dm.control['close_dm']" when="cmd" ret="feedback" texttype="1" wintype="mainwindow">
+msg='Loop is '
+if data:
+  msg+='closed'
+  button=1
+else:
+  msg+='open'
+  button=0
+data=msg
+</plot>
+<plot title="Zero DM" cmd="Dm.control['zero_dm']=1" when="cmd"/>
+<plot title="Iteration counter" cmd="data=(ctrl.thisiter,ctrl.frametime)" ret="data" when="rpt" texttype="1" wintype="ownwindow" textreplace="1">
+data="Frame %d (%g fps)"%(data[0],1.0/data[1])
+</plot>
+</simdata>

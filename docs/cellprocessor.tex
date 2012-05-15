@@ -1,0 +1,151 @@
+\documentclass{article}
+\usepackage{graphicx}
+\include{esohead}
+
+\begin{document}
+\include{title}
+\renewcommand{\esotitle}{The cell processor for AO simulation}
+\renewcommand{\esodocno}{AOSIM-CEL-UoD-001}
+\include{esobody}
+\section{Introduction}
+This document is intended to give details about simulation code using
+the cell processor, including work to be done, and completed work.  It
+will be useful for simulation users, and cell processor developers.
+Further information about the AO simulation package can be found in
+\citet{overview}.  In this document the use of SPU and SPE will be
+used interchangable (Synegetic Processing Element, Engine or Unit).
+
+\section{Code porting}
+Initially, two algorithms should be ported to the cell processor, the
+science image generation algorithm, and the wavefront sensor
+algorithm.  Both of these algorithms are implemented in FPGAs, so a
+comparison of execution time, and development time will be
+interesting.
+
+\subsection{Science image algorithm}
+The science image algorithm to be implemented in the cell processor
+can be found in the \texttt{util/sci.py} file, method
+\texttt{computeShortExposurePSF}.  The important code for this
+algorithm is as described, the algorithm
+\texttt{computeShortExposurePSF} below:
+
+\begin{verbatim}
+class psf:
+    def __init__(self,npup,fftsize):
+        """npup is the number of phase pixels across the telescope pupil
+        fftsize is the number of pixels to use for FFT.  Typically
+        this will be 2*npup, maybe rounded up to the nearest power of 2.
+        The maximum size of npup is likely to be 4096, though could be
+        reduced to 1024 if absolutely necessary.
+        """
+        self.fftsize=fftsize
+        self.npup=npup
+        self.pupilmap=util.tel.Pupil(npup,npup/2,npup/8).fn
+        self.pupilAmplitude=Numeric.zeros((fftsize,fftsize),Numeric.Float32)
+        self.focusAmplitude=self.pupilAmplitude# for an inplace transformation
+        self.tempImg=Numeric.zeros((fftsize,fftsize),Numeric.Float32)
+        self.instImg=Numeric.zeros((fftsize,fftsize),Numeric.Float32)
+
+    def computeShortExposurePSF(self,phasemap,fftsize,pupilmap):
+        npup=phasemap.shape[0]
+        self.pupilAmplitude[npup:]=0.#note, pupilAmplitude.shape=(fftsize,fftsize)
+        self.pupilAmplitude[:npup,npup:]=0.
+        self.pupilAmplitude.real[:npup,:npup]=pupilmap*Numeric.cos(phasemap)
+        self.pupilAmplitude.imag[:npup,:npup]=pupilmap*Numeric.sin(phasemap)
+
+        self.focusAmplitude[:]=FFT2D(self.pupilAmplitude)#this might be an
+        #inplace transformation to save memory
+    
+        self.tempImg[:]=Numeric.absolute(self.focusAmplitude)**2
+
+        util.flip.fliparray2(self.tempImg,self.instImg)#function from aosim/util/
+        self.instImg/=Numeric.sum(Numeric.sum(self.instImg))
+        return self.instImg
+\end{verbatim}
+
+I think that the SPE processors are best viewed as application
+accelerators for the PPC processor, rather than as separate
+multi-processors.  The \texttt{FFTW} library has been ported to the
+cell platform, and so this can make work a lot easier.  However, there
+are still a number of considerations.
+
+A two dimensional FFT is basically a large number of 1D FFTs in one
+direction, and then a large number of 1D FFTs on the resulting data in
+the orthogonal direction.  
+
+How can best performance be achieved?  The simplest way of
+implementing this is to divide the work into stages, and then
+implement each of these stages in the SPEs, i.e.\ the first stage
+would be to take the cos and sine of the data.  The next stage, would
+be implemented as one, doing the FFT, letting \texttt{FFTW} handle the
+parallelisation.  Another stage would be the squaring, another would
+be the reordering, and a final stage would be the normalisation of the
+data.
+
+However, this involves passing data between the PPC and SPEs a lot,
+and so may suffer a bottleneck here.  It may be better to first do the
+cos and sine of the data, followed by one dimensional FFTs within the
+SPEs, before returning data to the PPC.  This data can then be
+transposed and passed back to the SPEs for the second one dimensional
+FFT (completing the 2D FFT), and the squaring and reordering of the
+data can the be done still in the SPEs, as well as summing the data
+within the SPE, before the data is passed back to the PPC.  The
+normalisation factor is then the sum of factors from each SPE, and the
+data can then be passed back to the SPEs to perform this
+normalisation.  Using this scenario, data is passed to and from the
+SPEs only three times, compared with six stages for the more
+simplistic approach.  This way is therefore likely to give better
+performance.
+
+The size of the FFT can be assumed to be at most $4096\times4096$
+phase elements, oversampled for the FFT to $8192\times8192$ elements.
+If necessary, this could be restricted further to $1024\times1024$
+phase elements oversampled to $2048\times2048$ elements for the FFT
+(which is what the FPGA can manage).
+
+
+\section{General approach}
+If possible, the same code should be usable on cell and conventional
+platforms.  This could be achieved using either compiler flags, or
+probably better, by creating a dummy libspe on other platforms that
+can then be called by the code, but does nothing exotic (e.g.\ it
+might just run code).  This is probably the better approach, as it
+would make the code more readable.  Switches in the makefile would
+then be used to compile using spu-gcc and embedspu or gcc as
+appropriate.  This will be the long term aim.  Even on the PS3, the
+dummy libspe should be used if the code is just to be tested in the
+PPC, not using the SPEs.  A define can be used to determine which
+libspe header file should be used.  Or something!
+
+Probably the best way to start is to develop this algorithm for the
+PS3, and benchmark it.  Then, depending on the results, it may or may
+not be worth carrying on.  If it is worth carrying on, then a more
+sustainable systems engineering approach should be used, to integrate
+the code fully with the simulation.  In the first instance, the code
+can be C only, no need to include hooks to allow it to be called by
+Python.
+
+\section{Notes}
+The PS3 uses a gateway on aipc52 so that it can reach the cvs server.
+When setting up your cvs password etc, see the aliases that user ali
+has set in his .bashrc file.  This allows to you to do:
+\begin{verbatim}
+cvstunnel (enter tunnel password)
+cvslogin (enter your password)
+cvs checkout aosim
+\end{verbatim}
+to retrieve the simulation.  If you get stuck, try asking Ali or Gary
+McCallum.
+
+\subsection{Starting point}
+Initially, try to just get some code working (follow the IBM
+examples) in the SPEs.  Then try to get some more CPU intensive code
+working, for example a vector dot product or an array operation or
+something, and compare with the time taken in the PPC with the time
+when using the SPE.  After this, start work on the algorithm
+described above.
+
+
+\bibliography{references}
+\printindex
+\end{document}

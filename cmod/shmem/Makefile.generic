@@ -1,0 +1,21 @@
+# Makefile for making shmem.so
+#
+# $Id: Makefile.generic,v 1.3 2005/08/02 15:47:42 nab26 Exp $
+
+MODULES=shmem
+
+default: ${MODULES:=.so}
+
+${MODULES:=.so}: %.so : %.o
+	${LD} $< -o $@ ${LIBS} ${OBJS} ${LDFLAGS} 
+
+%.o: %.c
+	${CC} -c ${CFLAGS}  $< -o $@
+
+clean:
+	if [ -r shmem.o ] ; then rm *.o ; fi
+	if [ -r shmemmodule.so ] ; then rm *.so ; fi
+	if [ -r ../shmemmodule.so ] ; then rm ../*.so ; fi
+
+install: ${MODULES:=.so}
+	mv shmem.so ../shmemmodule.so

@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="ali"/>
+<created date="061019"/>
+<simsetup>
+<simobj name="Infinite Phasescreen" shortname="infScrn" comment="Infinite sized phase screens" pixmap="infScrn.xpm"
+textcol="red" import="science.infScrn" object="infScrn"/>
+<simobj name="Atmos (infinite)" shortname="atmos" comment="Atmospheric
+pupil phase from infinite phase screens" pixmap="infAtmos.xpm"
+textcol="red" import="science.infAtmos" object="infAtmos"/>
+<simobj name="Wfscent" shortname="wfscent" comment="Wavefront and centroiding
+module" pixmap="wfscent.xpm" textcol="red" import="science.wfscent"
+object="wfscent"/>
+<simobj name="Xinetics DM" shortname="xdm" comment="Model for xinetics
+DM" pixmap="xinterp_dm.xpm"
+textcol="red" import="science.xinterp_dm" object="dm"/>
+<simobj name="Tomo reconstructor" shortname="tomoRecon" comment="Tomographic reconstructor"
+pixmap="xinterp_recon.xpm" textcol="red" import="science.tomoRecon" object="recon" givesFeedback="1"/>
+<simobj name="Science" shortname="science" comment="A science module"
+pixmap="sci.xpm" textcol="red" import="science.science" object="science"/>
+<simobj name="Xinetics recon" shortname="x_recon"
+comment="General purpose reconstructor, including Xinetics mirror" pixmap="xinterp_recon.xpm"
+textcol="red" import="science.xinterp_recon" object="recon" givesFeedback="1"/>
+<simobj name="Naomi DM" shortname="el_dm" comment="Electra style
+deformable mirror" pixmap="el_dm.xpm"
+textcol="red" import="science.el_dm" object="dm"/>
+<simobj name="Naomi reconstructor" shortname="el_recon"
+comment="SOR reconstructor" pixmap="el_recon.xpm"
+textcol="red" import="science.el_recon" object="recon" givesFeedback="1"/>
+<simobj name="MAP reconstructor" shortname="mapRecon" comment="MAP reconstructor" pixmap="mapRecon.xpm"
+textcol="red" import="science.mapRecon" object="mapRecon" givesFeedback="1"/>
+<simobj name="Tilt sensor" shortname="tiltsens" comment="Tilt sensor
+from GLAO simulation" pixmap="glao_tiltsens.xpm"
+textcol="red" import="science.glao_tiltsens" object="tiltsens"/>
+<simobj name="Zernike DM" shortname="zdm" comment="Zernike DM" pixmap="glao_zdm.xpm"
+textcol="red" import="science.zdm" object="dm"/>
+<simobj name="Zernike reconstructor" shortname="z_recon"
+comment="Zernike reconstructor from GLAO simulation" pixmap="glao_zernike_recon.xpm"
+textcol="red" import="science.glao_zernike_recon" object="zrecon" givesFeedback="1"/>
+
+<simobj name="vdm user" shortname="vdmUser" comment="Compress virtual DMs to physical DM" pixmap="vdmUser.xpm" textcol="red" import="science.vdmUser" object="vdmUser" givesFeedback="0"/>
+<simobj name="bin centroids" shortname="binCentroid" comment="Bin centroid output" pixmap="binCentroid.xpm" textcol="red" import="science.binCentroid" object="BinCentroid" givesFeedback="0"/>
+<simobj name="magic dm" shortname="magicdm" comment="magic DM" pixmap="magicdm.xpm" textcol="red" import="science.magicdm" object="dm" givesFeedback="0"/>
+<simobj name="Lucky imaging" shortname="lucky" comment="Lucky imaging
+module" pixmap="lucky.xpm"
+textcol="red" import="science.lucky" object="lucky"/>
+<simobj name="centroid covariance" shortname="centCov" comment="centroid covariance module" pixmap="centCov.xpm" textcol="red" import="science.centCovariance" object="cov"/>
+<simobj name="darc" shortname="darc" comment="Durham AO Real-time Controller module" pixmap="xinterp_recon.xpm" textcol="red" import="science.darcsim" object="Darc"/>
+<simobj name="Split output" shortname="split" comment="Selects a user defined segment for the output to be passed to the next module"
+pixmap="splitOutput.xpm"
+textcol="red" import="base.splitOutput" object="splitOutput"/>
+<simobj name="Join outputs" shortname="join" comment="Takes the outputs from one or more objects and places into a single array in a user defined way"
+pixmap="joinOutputs.xpm"
+textcol="red" import="base.joinOutputs" object="joinOutputs"/>
+<simobj name="Fifo" shortname="fifo" comment="Adds an delay between objects, which can be specified as the idstr or in param file as fifoDelay"
+pixmap="fifo.xpm"
+textcol="red" import="base.fifo" object="fifo"/>
+
+<simobj name="Save output" shortname="save" comment="Saves output of parent to a FITS file"
+pixmap="saveOutput.xpm"
+textcol="red" import="base.saveOutput" object="saveOutput"/>
+<simobj name="Load output" shortname="load" comment="Loads output of parent to a FITS file"
+pixmap="loadOutput.xpm"
+textcol="red" import="base.loadOutput" object="loadOutput"/>
+
+<simobj name="Old science" shortname="glao_sci" comment="Old
+science module" pixmap="glao_science.xpm"
+textcol="red" import="science.glao_science" object="science"/>
+<simobj name="Mkscrns" shortname="mkscrns" comment="Finite sized phase screens" pixmap="mkscrn.xpm"
+textcol="red" import="science.mkscrns" object="mkscrns"/>
+<simobj name="Atmos" shortname="atmos" comment="Atmospheric pupil
+phase from finite sized phase screens" pixmap="atmos.xpm"
+textcol="red" import="science.atmos" object="atmos"/>
+
+
+<cpu pe="1" processor="1" colour="red"/>
+<cpu pe="1" processor="2" colour="#800"/>
+<cpu pe="2" processor="1" colour="green"/>
+<cpu pe="2" processor="2" colour="light green"/>
+<cpu pe="3" processor="1" colour="blue"/>
+<cpu pe="3" processor="2" colour="light blue"/>
+<cpu pe="4" processor="1" colour="yellow"/>
+<cpu pe="4" processor="2" colour="light yellow"/>
+<cpu pe="5" processor="1" colour="orange"/>
+<cpu pe="5" processor="2" colour="#7f5500"/>
+<cpu pe="6" processor="1" colour="purple"/>
+<cpu pe="6" processor="2" colour="#502078"/>
+</simsetup>
+</aosim>

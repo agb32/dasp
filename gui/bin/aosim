@@ -1,0 +1,12 @@
+#!/usr/local/bin/python
+import sys,string,os
+if len(sys.argv)<2:
+   print "Usage: %s simulationfile.py"%sys.argv[0]
+   sys.exit(0)
+lines=open(sys.argv[1]).readlines()
+cmd=lines[0][1:]+" "+string.join(sys.argv[2:]," ")
+cmd=cmd.replace("thisfile.py",sys.argv[1])
+cmd=cmd.replace("\n","")
+print cmd
+if cmd[:6]=="mpirun":
+   os.system(cmd)

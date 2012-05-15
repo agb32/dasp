@@ -1,0 +1,29 @@
+# Makefile for general C source files, Darwin version
+#
+# $Id: Makefile.Darwin,v 1.12 2005/10/04 11:58:05 nab26 Exp $
+#
+
+CC      = gcc 
+COPTS   = -fPIC -O3
+LD      = ld 
+LDDIRS  = -L/usr/local/lib/ -L../ -L/usr/lib/gcc/darwin/3.3/
+LIBS    = -lcrecipes -lgcc
+FFTWLIBS= -lfftw
+SFFTWLIBS= -lsfftw
+LDSHARED = -bundle -undefined dynamic_lookup -lbundle1.o
+PYTHON_EXEC= python2.3
+HEADER_INC = -I/sw/include/ -I/usr/local/include/
+# python2.3 is the standard on Tiger, Mac OS X 10.4 or Darwin 8.1
+# /sw/ is for Fink 
+
+# Don't change below here
+#
+SRCS    = imgnoisemodule.c
+OBJS    = josesubs
+PYTHON_BASE= $(shell ${PYTHON_EXEC} ../pypath.py base)
+PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version)
+INC_DIRS = ${PYTHON_INC} ${HEADER_INC}
+CFLAGS  = ${COPTS} ${INC_DIRS}
+LDFLAGS = ${LDSHARED} ${LDDIRS}
+
+include Makefile.generic

@@ -1,0 +1,22 @@
+# Makefile for general C source files, Linux version
+#
+# $Id: Makefile.Linux,v 1.3 2005/08/18 08:34:56 nab26 Exp $
+#
+
+CC      = gcc 
+COPTS   = -fPIC -O3
+LD      = ld 
+LDDIRS  = -L/usr/lib64 -L/usr/local/lib64 -L/usr/lib -L/usr/local/lib
+FFTLIBS = -lfftw3_threads -lfftw3 -lfftw3f_threads -lfftw3f
+LDSHARED = -shared -lrt
+PYTHON_EXEC= python
+HEADER_INC = 
+# Don't change below here
+#
+PYTHON_BASE= $(shell ${PYTHON_EXEC} ../pypath.py base)
+PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version)
+LDFLAGS = ${LDSHARED} ${LDDIRS}
+INC_DIRS = ${PYTHON_INC} ${HEADER_INC}
+CFLAGS  = ${COPTS} ${INC_DIRS}
+
+include Makefile.generic

@@ -1,0 +1,217 @@
+\documentclass{article}
+\usepackage{graphicx}
+\include{esohead}
+
+\begin{document}
+\include{title}
+\renewcommand{\esotitle}{Preparing tomographic simulations}
+\renewcommand{\esodocno}{AOSIM-TOM-UoD-001}
+\include{esobody}
+\section{Introduction}
+This document is intended to give details about specifying tomographic
+simulations.  It should be useful for simulation users and developers.
+Further information about the AO simulation package can be found in
+\citet{overview}.
+
+\section{Specifying tomographic simulations}
+When specifying a tomographic simulation, a clear and coherent method
+is needed to specify all the simulation parameters.
+
+There will be a number of atmospheric layers, a number of source
+directions, a number of DMs conjugated to different heights, viewing
+the different sources, a number of wavefront sensors (including LGS
+with different spot elongation patterns), one or more reconstructors,
+science targets, and various other bits and pieces.
+
+There needs to be an intuitive way to store all this information in
+the parameter file in a way that ensures that if one parameter is
+changed (e.g.\ one source direction), then all simulation objects are
+aware of this change.
+
+For example, if a source direction is changed, each atmospheric screen
+module needs to know so that the size of the screen can be adjusted
+accordingly.  The atmospheric pupil phase modules need to know so that
+the size of the screens are known.  The DM modules need to know so
+that they know how much overlap the source pupil will have with other
+pupils on this DM.  The wavefront sensors need to know so that any
+spot elongation patterns can be updated, and the reconstructor also
+needs to know so that e.g.\ the theoretical poke matrix can be created
+correctly.  
+
+The nature of the simulation means that each source direction for each
+DM is specified as a separate object (though resource sharing can
+occur if necessary).  Therefore, each DM object needs to know which
+physical DM it is (conjugate height, actuator count, etc.), and which
+source direction it corresponds to.  A sensible scheme therefore
+required to map a specific DM object to its respective DM information
+and source information.  
+
+The reconstructor may also need to know which source directions the
+wavefront signals are from, and the order of each wavefront sensor.
+It cannot simply assume that all source directions are used for
+wavefront sensing.  A method to detail this is also therefore
+required.  
+
+\section{Proposed solution}
+The proposed solution for this is as follows.  An atmospheric geometry
+object is first specified (in the simulation parameter file).  This
+object has a dictionary of atmospheric layer details, a list of
+source details, and a few telescope details (diameter, number of phase
+pixels to use).  The layer dictionary has the layer ID string as a key
+(e.g.\ 2000m), and then a tuple of (height, wind direction, speed,
+strength, initialisation seed).  The source list is a list of tuples of
+(idstr, $\theta$,$\phi$,altitude, nsubx).  Here, altitude is -1 for a source at
+infinity, or $>$0 for a LGS.  nsubx is the number of sub-apertures or
+None if the source is a science object only.  The idstr is the
+identification string used for this source direction, for example
+``offaxis'', ``source1'' etc.
+
+A DM object is also specified.  This is passed a list of tuples, one
+tuple for each DM object (note, there are probably many DM objects for
+each physical DM).  Each tuple contains (DM ID string, conjugate
+height, source ID string, number of actuators, field of view, actuator
+coupling).  Here, the source ID string is the ID string used to select
+the source direction from the atmospheric geometry object.  The DM ID
+string is the ID string for the DM object to which this tuple applies.
+Note, a dictionary is not used here because ordering of the DM objects
+is important in the reconstructor.  The field of view can be None, in
+which case the minimum field that will fit all sources is chosen.  The
+actuator coupling can be None, in which case a default of 0.1 is
+selected.
+
+By using these two objects, it should then be possible for all the
+simulation objects to be defined in a way that makes them aware of the
+geometries of the system.
+
+\subsection{Object identification}
+Each simulation object can be given an ID string, which helps to
+specify which unique parameters are extracted from the parameter file.
+These ID strings can be anything, however here, a fairly sensible
+scheme for naming is given.
+
+Atmospheric layer objects (e.g.\ infScrn) should be given an idstr
+that mentions the layer height.  Personally, I would use e.g.\
+``2000m'', ``0m'' etc.
+
+Source direction object (e.g.\ infAtmos) should be given an idstr that
+specifically mentions them.  This could be simple or more complex.
+For example, you might choose ``a'', ``b'', ``c'', etc.  Or you might
+choose ``t0p0'', ``t10p0'', ``t10p180'' for sources at $(\theta=0,
+\phi=0)$, $(\theta=10, \phi=0)$, $(\theta=10, \phi=180)$.  Really,
+just something that helps you.
+
+DM objects, (e.g.\ el\_dm, xinterp\_dm) can then be named as a
+combination of their conjugate height and the source direction, e.g.\
+``1500ma'' or ``0mt0p0'' or similar.
+
+By following this naming convention, the simulation should maintain
+some clarity.
+
+The tomoRecon object uses the keys in the parent dictionary to select
+the DM objects, so these must be named appropriately.  Note, that if
+using the same scheme with the xinterp\_recon object (i.e.\ if you are
+doing a classical AO problem, 1 guide star etc.) then the parent keys
+expected will start with ``cent''.  Therefore your DM objects should
+be named ``cent''+something.
+
+\section{Reconstruction}
+
+Several different reconstruction techniques have been attempted, all
+hoping to solve the problem $Ax=b$ for $x$ where $A$ is the poke
+matrix (or equivalent) and $b$ are the centroid measurements.  
+
+A FDPCG reconstructor has been implemented and runs, but does not
+successfully close the loop, as the problem blows up.
+
+By multiplying the equation by $A^T$, you are then trying to solve
+$A^TAx=A^Tb$, and the $A^TA$ matrix is square, and so can be solved
+for using LU decomposition/Gaussian elimination.  However this
+approach does not seem to work.
+
+The other approach that has been successfully tried is SVD to create a
+pseudo-inverse for $A$.  This works successfully.  Some investigations
+into sparsitying the pseudo-inverse have also been carried out, and
+the performance doesn't seem to degrade if only $2.5\%$ of information
+is used in the pseudo-inverse for some guide-star configurations.
+This therefore could make this a possibility for large simulations,
+e.g.\ EAGLE, where the pseudo-inverse would be 40~GB in size.  By
+sparsifying, it could be reduced to 1~GB, or possibly even less.  
+
+Even if only $1\%$ of the pseudo-inverse is used, correction is still
+obtained, though at a lower level than when more of this matrix are
+used.  To sparsify in these tests, every value (magnitude) below a
+certain level was simply set to zero.
+
+A MAP reconstructor is also in the process of being ported from
+classical AO to MCAO etc.  
+
+\subsection{Wavelengths}
+The wavelength at which the reconstructor reconstructs is not clearly
+defined or particularly easy to understand.  In the case where all WFS
+are at the same wavelength, it will be at this wavelength. 
+The dmInfo object specified in the parameter file can be given a
+reconLam parameter, which is the wavelength at which the reconstructor
+values are applied to.  The mirror surface will then be assumed to be
+valid for thsi wavelength.  Other source directions (other
+wavelengths) then scale as appropriate on output.
+
+In more detail, if this reconLam isnt specified, the DM will get its
+wavelength from the idstr, from which it will obtain the source
+direction ID, and use this in atmosGeom to get the wavelength of this
+direction.  The real question then is what wavelength are the
+reconstructor actuator values for.  The reconstructor wavelength is
+specified by atmosGeom, using a source ID which is obtained from the
+config file, with a default value equal to the first one in the DM
+list.  This is then used to compute the pixel scale, and to compute
+the Noll matrix scaling.  The pixel scale itself is used only when
+computing the theoretical noise covariances for MAP.
+
+So, what actually happens in tomographic situations?  When you are
+creating a poke matrix, the DM commands are sent to the mirror.  The
+WFS that is used by the first DM in the resource sharing object will
+then see pokes equal to those sent by the reconstructor, while other
+WFS at different wavelengths will see pokes scaled by the wavelength.
+The reconstructor will then have centroids measured at different
+wavelengths.  It will compute the reconstruction matrix, suited to the
+wavelength of the first DM.  It should be noted that if the
+reconstruction matrix is computed using information about the
+wavelength (eg for MAP), the components (phase covariance, noise
+covariance) should be scaled correctly for wavelength (ie a
+theoretical noise covariance should be differently for each wavefront
+sensor).  The phase covariance should be scaled for the primary
+wavelength of each DM.  
+
+One thing to note, is that in open-loop simulations, you will probably
+need to have a DM object for which the output is not used.  This DM
+will be the first of the resource sharing objects, and will then be
+shaped by the reconstructor to the primary wavelength (which is that
+for which it was poked).  Other DM resource sharers will then be
+scaled accordingly.
+
+So, in summary, a DM with same wavelength should be the first of a
+resource sharing set in both the poking and (for open-loop
+simulations) science simulations (which may mean a redundant DM object
+is needed, ie the output is not used).  This DM must also be the one
+listed first in dmObj list, unless the reconstuctor is given a
+sourceID parameter.
+
+\section{Tip-tilt}
+The current way to do tip-tilt is to use a zdm mirror or a magicDM,
+set to remove the first 3 modes (PTT).  Note, the actuator values may
+need to be scaled by splitOutput so that the tip-tilt is of a
+reasonable magnitude.  Also note that any LGS wavefront sensors should
+not see the mirror even when poking (otherwise, they would think the
+mirror gives them a tip-tilt too).
+
+
+
+\section{Conclusion}
+Hope that helped!
+
+
+\bibliography{references}
+\printindex
+\end{document}
+
+
+

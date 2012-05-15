@@ -1,0 +1,136 @@
+\documentclass{article}
+\include{esohead}
+\newcommand{\mod}[1]{\texttt{#1}}
+\begin{document}
+\include{setupguirequirementstitle}
+\include{esobody}
+
+\section{Introduction}
+This guide has been created to provide information about requirements
+for a simulation setup GUI.  For information about the simulation
+please see \citet{dummies}.
+
+\section{The rough idea}
+The rough idea is to have a point and click interface which will allow
+the user to put together a simulation by choosing modules, placing
+them, linking them together in the correct order, deciding on a
+parallelisation strategy, and then running the simulation, in a
+similar (but better and more flexible) way that CAOS \citep{caos}
+works.
+
+\section{Requirements}
+As I see it, we will require something that will allow the user to
+select a module from a list of predefined (previously used) modules.
+This module will then be placed on a canvas, and the user can move it
+around as suits.  Additionally, new modules can be added to the list
+of available ones (e.g.\ with a file open dialogue, allowing the user
+to select a python file containing the module).
+
+The outputs of modules on the canvas can be linked to inputs of other
+modules, by selecting a ``link'' button (or similar).  There can be
+more than one connection to each output and input.  Additionally, the
+links should be able to be labelled (and should be automatically
+labelled depending on the name of the module they come from).  
+
+\subsection{Parallelisation}
+An AO simulation can be parallelised to run on different processors.
+At the moment, we should consider only running on the Cray nodes, but
+allow for future use on different platforms.  Considering only the
+Cray should have no effect on the design of the setup GUI.
+
+The simulation framework has been written to make advantage of the
+most efficient parallel data sharing methods.  Modules running on the
+same processor are actually part of the same program.  Modules running
+on a different processor, but with access to shared memory regions
+(e.g.\ SMP machines), share data using these shared memory regions, to
+avoid making unnecessary copies of the data.  Modules running on other
+processors communicate via MPI.  So, the GUI requires something to
+allow users to select which processors should run on the same
+processor (i.e.\ be part of the same process), which should run on
+different processors on the same node of the XD1 (i.e.\ can share
+memory), and which should run on different nodes.  For this, I would
+suggest (open to discussion/change) that there are a number of buttons
+which represent the different processors.  The user can then select
+one of these, and click on all the modules to be assigned to this
+processor.  The user would then choose a different processor, and
+assign different modules to this.  
+
+It would be good to have some sort of visual display of where the
+modules are assigned.  My suggested way of doing this would be to
+assign a colour to each node, and use a different shade of this colour
+for each processor within the node.  
+
+\subsubsection{Default schemes}
+For ease of use, the GUI should also be able to suggest a
+parallelisation scheme depending on which modules are tied in what
+way.  The user should then be able to click a ``parallelise'' button,
+which would then automatically assign the modules to processors as
+appropriate.
+
+\subsubsection{Internals}
+When the user selects the nodes for modules to run on, they aren't
+really, but rather just specifying how the simulation file is set up.
+It is only when the simulation is run (using mpirun) that the
+processes are assigned to nodes.  So, a simulation created to run as
+12 processes on the 6 Cray nodes (12 processors) can actually be run
+on a single node.  Ask if confused!
+
+
+\subsection{Writing the simulation files}
+Once the user has set up the simulation in the GUI, they should be
+able to click a ``build'' button (or similar) which causes the
+simulation to be written to a simulation file.
+Parameter definitions of the modules in this file can then be created
+using the existing \texttt{paramgui} software.  When writing this
+simulation file, the GUI will take care of issues regarding
+parallelisation, i.e.\ it will place MPI and SHM modules at the
+correct points, the user doesn't need to know about these.  This build
+process will also create a short bash script which can be used to run
+the simulation.  For example, this file might contain:
+
+\texttt{mpirun -np 4 -hostlist n6-c437 n5-c437 n4-c437 n3-c437
+  /usr/local/bin/mpipython /path/to/sim/file/simfile.py arguments}
+
+An example of a fairly complicated simulation file is given in
+projects/ali/gloa/glaorun\_nompi\_common.py.  However, this file
+doesn't include any MPI or SHM connections, so for examples of these,
+see examples/test2/newtest-scimpi.py for example.
+
+\subsection{Additional information}
+There are pieces of additional information that the user must be able
+to specify.  These include:
+\begin{enumerate}
+\item Batch number (the simulation will be run with
+  --batchno=BATCHNUMBER).
+\item Arguments to be passed at runtime, e.g.\ --start-paused etc.
+\item Initial commands (see projects/ali/glao/glaorun\_nompi\_common.py
+  for an example).
+\item Finalisation commands to be run after simulation has finished
+  (e.g.\ to print results, see previous example).
+\item Other things yet to be decided.
+\end{enumerate}
+
+
+\subsection{Modules}
+When adding a module to the simulation, it should be possible to
+define some properties about this module (e.g.\ a dialog box may
+appear if a module is double clicked on).  These include a name
+for the module (for example, there might be several wavefront sensing
+modules in a given simulation, and they could then be named wfs\_1,
+wfs\_2, etc).  There are other properties needed, but I can't
+think of them at the moment.  
+
+\subsection{Graphical control}
+When a simulation is running, the user is able to connect to it, and
+query or change it.  This is done using simgui.py.  As part of this,
+it is necessary to create a XML parameter file which determines
+default buttons available for simgui.  The simulation setup GUI should
+therefore create default buttons (taken from the simulation modules),
+and allow the user to alter and edit these, as well as adding other buttons.
+
+
+\pagebreak
+\bibliography{references}
+
+\printindex
+\end{document}

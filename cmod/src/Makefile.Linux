@@ -1,0 +1,27 @@
+# Makefile for general C source files, Linux version
+#
+# $Id: Makefile.Linux,v 1.11 2008/03/05 15:43:09 ali Exp $
+#
+
+CC      = gcc 
+COPTS   = -fPIC -O3 -Wall
+LD      = ld 
+LDDIRS  = -L/usr/local/lib/ -L../ -L/data/hamilton/dph1agb/lib
+LIBS    = -lcrecipes -lgsl -lgslcblas
+FFTWLIBS= -lfftw
+SFFTWLIBS= -lsfftw
+LDSHARED = -shared
+PYTHON_EXEC= python
+HEADER_INC = -I/usr/local/include/ -I/usr/local/lib/python2.4/site-packages/numpy/core/include
+
+# Don't change below here
+#
+SRCS    = imgnoisemodule.c
+OBJS    = josesubs
+PYTHON_BASE= $(shell ${PYTHON_EXEC} ../pypath.py base)
+PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version) -I${PYTHON_BASE}/lib/python$(shell ${PYTHON_EXEC} ../pypath.py version)/site-packages/numpy/core/include
+INC_DIRS = ${PYTHON_INC} ${HEADER_INC}
+CFLAGS  = ${COPTS} ${INC_DIRS}
+LDFLAGS = ${LDSHARED} ${LDDIRS}
+
+include Makefile.generic

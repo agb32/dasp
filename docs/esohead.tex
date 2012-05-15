@@ -1,0 +1,72 @@
+\usepackage{natbib}
+\usepackage{graphicx}
+\bibliographystyle{plainnat}
+\usepackage{fancyheadings}
+\usepackage{tabularx}
+\usepackage{alltt, parskip, boxedminipage}
+\usepackage{makeidx, multirow, longtable, tocbibind, amssymb}
+%\usepackage{fullpage}
+\makeindex
+\usepackage[usenames]{color}
+\definecolor{darkblue}{rgb}{0,0.05,0.35}
+
+\usepackage[dvips, pagebackref, pdftitle={}, pdfcreator={epydoc 2.1}, bookmarks=true, bookmarksopen=false, pdfpagemode=UseOutlines, colorlinks=true, linkcolor=black, anchorcolor=black, citecolor=black, filecolor=black, menucolor=black, pagecolor=black, urlcolor=darkblue]{hyperref}
+\setlength{\textheight}{21.5cm}
+\setlength{\textwidth}{18cm}
+\setlength{\hoffset}{-3.0cm}
+\setlength{\footskip}{1.5cm}
+\setlength{\headsep}{2.5cm}
+\setlength{\voffset}{-2.5cm}
+\newlength{\BCL} % base class length, for base trees.
+
+\usepackage{everyshi}
+ \makeatletter
+ \let\totalpages\relax
+ \newcounter{mypage}
+ \EveryShipout{\stepcounter{mypage}}
+ \AtEndDocument{\clearpage
+    \immediate\write\@auxout{%
+     \string\gdef\string\totalpages{\themypage}}}
+ \makeatother
+
+\newcommand{\esofooter}{
+\includegraphics[height=1cm]{durlogo.eps}
+{\bf \large Centre for \AA dvanced Instrumentation}
+}
+\newcommand{\esoheaderl}{
+\includegraphics[height=1cm]{durlogo.eps}
+\begin{tabularx}{9cm}{c}
+\Large {\bf \esotitle} \\ \large {\bf(\esodoctype)}\\
+\rightmark\hspace{0.1cm}
+\end{tabularx}
+\vfill
+}
+\newcommand{\esoheaderc}{
+}
+\newcommand{\esoheaderr}{
+\begin{tabular}{|l|l|}\hline
+Doc. number: & \esodocno \\ \hline
+Release date: & \esoreleasedate \\ \hline
+Issue number: & \esoissue \\ \hline
+Page number: & Page \thepage \ of \totalpages \\ \hline
+Author(s) & \esoauthorname \\ \hline
+\end{tabular}
+
+
+}
+
+\pagestyle{fancy}
+\cfoot[]{}
+\lfoot[\esofooter]{\esofooter}
+\lhead[\esoheaderl]{\esoheaderl}
+\chead[\esoheaderc]{\esoheaderc}
+\rhead[\esoheaderr]{\esoheaderr}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{#1}}
+
+\newenvironment{Ventry}[1]%
+  {\begin{list}{}{%
+    \renewcommand{\makelabel}[1]{\texttt{##1:}\hfil}%
+    \settowidth{\labelwidth}{\texttt{#1:}}%
+    \setlength{\leftmargin}{\labelsep}%
+    \addtolength{\leftmargin}{\labelwidth}}}%
+  {\end{list}}

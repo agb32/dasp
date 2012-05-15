@@ -1,0 +1,15 @@
+Linux instructions
+==================
+
+Informations to build numfftw3, a Python wrapper between Numeric and
+FFTW version 3
+
+To build numfftw3, type the following commands :
+
+swig -python  -I/usr/local/include/python2.4 numfftw3.i
+
+rm *.o *.so
+
+gcc -fPIC -c numfftw3_wrap.c -I/usr/local/include/python2.4
+
+ld -shared -lfftw3_threads -lfftw3 -lfftw3f_threads -lfftw3f -lm -lpthread numfftw3_wrap.o -o _numfftw3module.so

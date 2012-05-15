@@ -1,0 +1,314 @@
+Installing linux and simulation on a mac pro:
+See notes at bottom for mac pro 2009
+(we do this because linux runs faster than OS X, and to keep things
+homogeneous).
+
+Resize the hard drive partition: Use bootcamp assistant for this
+(pre-installed on the mac).
+
+Then use "diskutil disableJournal disk0s1" or something like that to
+disable journaling so that linux can write to it. ("diskutil list"  will
+show what is available)
+
+install refit (google it).
+This will then allow dual booting.
+Put legacyfirst in the config file after installation (NOT the disk
+image file - which is read only).
+Then, may need to poweroff rather than reboot. 
+
+Download the ubuntu TEXT installer, 64 bit, desktop edition.
+
+Boot into this.  Don't worry if it takes a while.
+
+When partitioning disks, select just 1 large ext3 partition.
+
+Don't bother with swap - will create that later as a swapfile.
+
+After install, reboot, and select the new install at refit.
+
+If you get a "no bootable device" message, see the ubuntu
+forums... but basically, you want to select the disk partition tool
+from the refit menu.  Then after this, select linux again to boot.
+This may freeze at the refit penguin screen - in which case, power off
+the machine, power back on, and try again.  This worked for me...
+
+Add http_proxy="http://wwwcache.dur.ac.uk:8080" to /etc/bash.bashrc
+cpufreq-selector -c N -g performance where N is 0 to 7.
+/etc/event.d/control-alt-delete
+/etc/cron.hourly/autopoweroff
+Create /etc/apt/apt.conf and insert:
+Acquire::http::Proxy "http://wwwcache.dur.ac.uk:8080";
+
+Run setup.sh, setup[2-6].sh (latest versions on gig44) - remember to
+read them first, and see what files need copying.  setup3.sh needs
+doing by hand.
+
+Customisations:
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install emacs
+#swapsudo apt-get install python-mode
+sudo apt-get install build-essential
+sudo apt-get install gfortran
+sudo apt-get install g77
+sudo apt-get install python-dev
+sudo apt-get install swig
+sudo apt-get install manpages-dev
+sudo apt-get install nfs-kernel-server
+
+sudo apt-get install python-processing
+
+Enable swap:
+dd if=/dev/zero of=/swapfile bs=1024 count=33554432
+mkswap /swapfile
+swapon /swapfile
+Add to /etc/fstab:
+/swapfile swap swap defaults 0 0
+
+
+ubuntu boot without GUI (save some memory):
+create /etc/inittab with:
+id:2:initdefault:
+and then changes services for run level 2...
+ie delete entries in /etc/rc2.d/
+
+Install mkl:
+download it, and then when you get the email, use the licence file
+(not just the serial number) given here.
+
+Optional - install openmpi.  I don't think this is actually
+needed... it was when I was using mkl scalapack, but am not anymore...
+
+Then do all the standard aosim installations.  When doing numpy/scipy,
+you may wish to use the mkl blas for these...
+
+to do this, in numpy/, copy site.cfg.example to site.cfg, and edit it,
+the fftw lines and the mkl lines.  Then do a setup.py build and
+install.
+
+Note, mkl 10.3.0.020 doesn't work, but 10.0.1.014 does work - so use
+this one.
+
+Also, put the library path (/opt/intel/mkl/10.0.1.014/lib/em64t in
+/etc/ld.so.conf and run ldconfig.  This ensures that mpirun works -
+otherwise some of the jobs can't find the correct directory for mkl...
+
+When building scipy with mkl, it failed because it wasn't given the
+directory for mkl includes.  So, I just softlinked
+ln -s /opt/intel/mkl/10.0.1.014/include/* build/src.linux-x86_64-2.5/
+and it then seemed to work.
+Actually, don't seem to need to do this anymore...
+
+For NIS/automount, follow:
+https://help.ubuntu.com/community/SettingUpNISHowTo
+https://help.ubuntu.com/community/SettingUpNFSHowTo#Mounts
+The nis domain is giggroup
+The nis server is 192.168.3.18.
+
+If you have trouble with /etc/init.d/nis restart, try editing
+etc/yp.conf
+
+Also, edit /etc/cron.daily/apt search for http_proxy and insert your
+proxy manually - the default stuff doesn't seem to work.  If testing,
+can use 
+sudo run-parts -v /etc/cron.daily
+When doing this, comment out the random_sleep part of apt (2 places)
+otherwise the test will block for some minutes...
+
+MacPro 2009 with Ubuntu 9.04:
+Have to use the standard desktop installer (not alternative
+installer).  The network doesn't work, so get hold of a usb-ethernet
+adaptor (Deli has one), and use this to do the following:
+sudo apt-get build-dep linux
+sudo apt-get install fakeroot build-essential makedumpfile
+mkdir kernel
+cd kernel
+sudo apt-get build-dep linux-image-$(uname -r)
+apt-get source linux-image-$(uname -r)
+
+Then modify linux-2.6.*/drivers/net/e1000e/ files with the following
+patch:
+From: Bruce Allan <bruce.w.allan@intel.com>
+
+Add device ID for a new variant of the 82574 adapter.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Acked-by: John Ronciak <john.ronciak@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/hw.h     |    1 +
+ drivers/net/e1000e/netdev.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 11a2f20..d8b8229 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -339,6 +339,7 @@ enum e1e_registers {
+ #define E1000_DEV_ID_82573E_IAMT		0x108C
+ #define E1000_DEV_ID_82573L			0x109A
+ #define E1000_DEV_ID_82574L			0x10D3
++#define E1000_DEV_ID_82574LA			0x10F6
+ #define E1000_DEV_ID_82583V                     0x150C
+ 
+ #define E1000_DEV_ID_80003ES2LAN_COPPER_DPT	0x1096
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index f388a01..15424ba 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5130,6 +5130,7 @@ static struct pci_device_id e1000_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82573L), board_82573 },
+ 
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82574L), board_82574 },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82574LA), board_82574 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82583V), board_82583 },
+ 
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_80003ES2LAN_COPPER_DPT),
+
+Probably you can just insert these 2 lines by hand... (the 2 lines
+starting with +) - this is what I did.
+
+Then:
+chmod a+x debian/scripts/misc/*
+debian/scripts/misc/oldconfig amd64
+CONCURRENCY_LEVEL=8 AUTOBUILD=1 NOEXTRAS=1 skipabi=true fakeroot debian/rules binary-generic
+sudo dpkg -i linux-image-2.6.28-13*.deb
+sudo apt-get install  linux-headers-2.6.28-13
+sudo dpkg -i linux-headers-2.6.28-13*.deb
+Then reboot, and network should work (after standard configuration if
+not using DHCP)
+
+
+
+A script can be used to install simulation libraries, (not this may
+not work on the 2009 mac pro particularly the stuff turning off X).:
+
+#files needed:
+#setupswap: contains
+#/swapfile swap swap defaults 0 0
+
+#setupbash: contains
+export PYTHONPATH=/home/ali/cvsstuff/aosim:/home/ali/py
+export PYTHONSTARTUP=/home/ali/.init.py
+export PATH=$PATH:/home/ali/cvsstuff/aosim/gui/bin
+
+#setup etcbashrc
+export EDITOR="emacs -nw"
+export CVSROOT=":pserver:$USER@localhost:/cfai_sw"
+alias cvstunnel="ssh -f -L 2401:localhost:2401 -l cvsd -N aipc42"
+alias cvslogin="cvs login"
+
+dd if=/dev/zero of=/swapfile bs=1024 count=33554432
+mkswap /swapfile
+swapon /swapfile
+cat setupswap >> /etc/fstab
+apt-get --yes update
+apt-get --yes upgrade
+apt-get --yes install build-essential
+apt-get --yes install gfortran
+apt-get --yes install g77#doesnt install???
+apt-get --yes install python-dev
+apt-get --yes install swig
+apt-get --yes install manpages-dev
+apt-get --yes install emacs
+apt-get --yes install python-scipy
+#apt-get --yes install python-imaging
+apt-get --yes install python-matplotlib
+apt-get --yes install gsl-bin
+apt-get --yes install libgsl0-dev
+apt-get --yes install openssh-server
+
+Then, by hand:
+mkdir /downloads
+cd /downloads
+scp ali@aicp52:l_mkl*.tgz .
+scp ali@aipc52:NCOM* .
+tar -zxvf l_mkl_p_10.0.1.014.tgz
+cd l_mkl*
+./install.sh
+Use option 2, then specify the path to /downloads/NCOM*...
+
+Then:
+
+#needs setupetcbashrc, setupbash, and the various install files (eg
+pygist, mpich2, scientificPython, fftw3 fftw2)
+apt-get --yes install cvs
+cat setupetcbashrc >> /etc/bash.bashrc
+cat setupbash >> /home/ali/.bashrc
+echo /opt/intel/mkl/10.0.1.014/lib/em64t >> /etc/ld.so.conf
+ldconfig
+
+
+cd /downloads
+tar -zxvf pygist-1.5.28.tar.gz
+cd pygist-1.5.28
+apt-get --yes install xorg-dev
+python setup.py config
+python setup.py build
+python setup.py install
+cd ..
+tar -zxvf  mpich2-1.0.8.tar.gz
+cd mpich*
+./configure
+make
+make install
+cd ..
+tar -zxvf ScientificPython*
+cd ScientificPython*
+python setup.py build
+python setup.py install
+cd Src/MPI
+python compile.py
+cp mpipython /usr/local/bin/
+cd ../..
+cd ..
+apt-get --yes install python-tk
+apt-get --yes install libpng-dev
+apt-get --yes install python-gtk2-dev
+tar -zxvf fftw-3*
+cd fftw-3*
+make clean
+./configure --enable-shared
+make install
+make clean
+./configure --enable-shared --enable-threads
+make install
+make clean
+./configure --enable-shared --enable-threads --enable-float
+make install
+make clean
+./configure --enable-shared --enable-float
+make install
+make clean
+cd ..
+tar -zxvf fftw-2.1.5.tar.gz
+cd fftw-2.1.5
+make clean
+./configure --enable-shared
+make install
+make clean
+./configure --enable-shared --enable-float --enable-type-prefix
+make install
+cd ..
+tar -zxvf numpy*
+cd numpy*
+cp site.cfg.example site.cfg
+echo "[fftw]" >> site.cfg
+echo "libraries = fftw3" >> site.cfg
+echo "[mkl]" >> site.cfg
+echo "library_dirs = /opt/intel/mkl/10.0.1.014/lib/em64t" >> site.cfg
+echo "lapack_libs = mkl_lapack" >> site.cfg
+echo "mkl_libs = mkl, guide" >> site.cfg
+python setup.py build
+python setup.py install
+cd ..
+tar -zxvf scipy*
+cd scipy*
+python setup.py build
+python setup.py install
+cd ..
+sudo apt-get install nfs-kernel-server nfs-common
+echo "id:2:initdefault" > /etc/inittab
+rm /etc/rc2.d/S30gdm
+echo "umask 0011" >> /etc/bash.bashrc

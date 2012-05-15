@@ -1,0 +1,61 @@
+\documentclass{article}
+\include{esohead}
+\newcommand{\mod}[1]{\texttt{#1}}
+\begin{document}
+\include{schematitle}
+\include{esobody}
+
+\section{Introduction}
+This document is intended to provide details about the format of the
+XML file used for specifying a simulation schema, and the method used
+to convert it into a Python executable program, and run it.
+
+\section{XML definition}
+A module tag has the following attributes:
+\begin{description}
+\item[name]  Must be unique.
+\item[parents] A dictionary of parent modules (names).
+\item[providesFeedback] Set for reconstructor modules, default to zero.
+\item[node] Two numbers separated by a period, e.g. 6.1  The first of
+  these numbers represents the cray node (1-6 valid), the second
+  represents the CPU number (starting at 1 and taken modulus the
+  number of CPUs).  Processes on the same node
+  can communicate via SHM.  A process on 6.1 will be run as a separate
+  process from one on 6.3, but will be running on the same CPU.
+  However, this is not recommended, unless you can be sure there will
+  be speed benefits.
+\item[object] The python constructor for this object,
+  e.g. science.wfs.wfs.
+\item[idstr] An identification string for this object (used for the
+  parameter file).
+\end{description}
+
+Once the schema file has been prepared (probably using the simSetup
+GUI), the simulation can be executed using \texttt{execsim schema.xml}
+where schema.xml is the name of the schema file.  The execsim command
+will parse this file, and create a Python program which forms the
+basis of the simulation.  It will also determine the nodes on which
+this simulation is to be run, and call the \texttt{mpirun} command.
+Command line arguments that can be passed to \texttt{execsim} include
+\texttt{generateOnly} (which will generate the Python code but not run
+the simulation).  Any other command line arguments to given to
+\texttt{execsim} will be passed straight to the simulation (for
+example, --iterations=20).  The simulation will then be running.
+
+When parsing the schema file, the \texttt{execsim} command will aim to
+generate Python code which will have the following effects:
+\begin{itemize}
+\item Any remote communication send commands will happen as early as
+  possible (to avoid holding up other processes).
+\item Any remote communication get commands will happen as late as
+  possible (to avoid waiting for the remote processes).
+\item All objects with the same node (CPU) identifier will be placed
+  in a single process and executed in turn.
+\end{itemize}
+
+\pagebreak
+%if uncomment this, also change the makefile...
+%\bibliography{references}
+
+\printindex
+\end{document}

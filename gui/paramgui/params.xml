@@ -1,0 +1,189 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="Francois Assemat"/>
+<created date="01072005"/>
+<schema filename="xxx.py">
+<comment value="Eventually, the GUI will place the simulation model here (notation yet to be defined), and so this param file will require all that is needed for a simulation.  To write the python code corresponding to this schema, you need to call readConfig.AOXml(filename,1) where the 1 will tell it to write the schema file (xxx.py)."/>
+<module mod="Numeric"/>
+<module name="config" mod="readConfig" obj="AOXml" params="'params.xml'"/>
+<module name="Mkscrns" mod="mkscrns" obj="mkscrns" params="config"/>
+<module name="Atmos" mod="atmos" obj="atmos" params="Mkscrns,config"/>
+<comment value="The above modules would create code such as">
+import Numeric
+import readConfig
+config=readConfig.AOXml('params.xml')
+import mkscrns
+Mkscrns=mkscrns.mkscrns(config)
+import atmos
+Atmos=atmos.atmos(Mkscrns,config)
+</comment>
+</schema>
+<schema filename="yyy.py">
+</schema>
+
+<module name="globals">
+<variables>
+<var name="tstep" value="0.005" type="f" comment="time step"/>
+<var name="testrunport" type="i" value="9000" comment="port number for
+connections"/>
+<var name="l0" type="f" value="30.0"/>
+<var name="r0" type="f" value="0.14"/>
+<var name="nLayers" type="i" value="3"/>
+<var name="nscrn" type="i" value="1024"/>
+<var name="telDiam" type="f" value="4.2"/>
+<var name="npup" type="i" value="64"/>
+<var name="ntel" type="copy" value="this.globals.npup"/>
+<var name="strLayer" type="list" value="[0.5,0.4,0.1]" comment="layer relative strengths"/>
+<var name="telFov" type="f" value="5.0"/>
+<var name="degRad" type="f" value="0.017453292519943295" comment="2*pi/360"/>
+<var name="arcsecRad" type="f" value="4.8481368110953598e-06" comment="arcsec to radians, 2*pi/360/3600"/>
+<var name="thetaWind" type="list" value="[45.,-90.,30.]" comment="layer wind direction (degrees)"/>
+<var name="vWind" type="list" value="[5.,8.,12.]" comment="wind velocity (m/s)"/>
+<var name="altitude" type="list" value="[0.,2500.,15000.]" comment="layer altitude"/>
+<var name="telSec" type="f" value="1.0" comment="telescope secondary diameter"/>
+<var name="scinSamp" type="i" value="5" comment="We compute science parameters everry scinSamp iterations"/>
+<var name="AOExpTime" type="f" value="1.5" comment="Simulation exposure time in seconds"/>
+<var name="simulationTime" type="f" value="0.0" comment="Current simulation time"/>
+<var name="write_to_file" type="i" value="1" comment="Flag to write science image parameters to a file"/>
+<var name="pupil" type="code" comment="Telescope pupil function">
+import util.tel
+pupil=util.tel.Pupil(this.globals.npup,this.globals.ntel/2,this.globals.ntel/2*this.globals.telSec/this.globals.telDiam)
+</var>
+<var name="scrnScale" type="code">
+scrnScale=this.globals.telDiam/float(this.globals.ntel)
+</var>
+<var name="fov" type="code">
+fov=this.globals.telFov*this.globals.arcsecRad
+</var>
+<var name="timing" type="i" value="0"/>
+<var name="sourceTheta" type="list" value="[0.,0.,0.,0.]"/>
+<var name="sourceLam" type="list" value="[700.,1650.,1650.,1650.]"/>
+<var name="sourceAlt" type="list" value="[-1.,-1.,-1.,-1.]"/>
+<var name="sourcePhi" type="list" value="[0.,45.,45.,0.]"/>
+<var name="wfs_nsubx" type="i" value="8"/>
+<var name="wfs_n" type="code" value="wfs_n=this.globals.npup/this.globals.wfs_nsubx"/>
+<var name="wfs_nfft" type="copy" value="this.globals.wfs_n"/>
+<var name="wfs_nimg" type="copy" value="this.globals.wfs_nfft"/>
+<var name="wfs_ncen" value="4" type="i"/>
+<var name="wfs_int" value="0.01" type="f" comment="integration time"/>
+<var name="wfs_lat" value="0.005" type="f" comment="latency for integ time"/>
+<var name="wfs_read" value="3.0" type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_floor" value="this.globals.wfs_read**2+float(this.globals.wfs_read)" type="eval" comment="WFS Read noise (e-)"/>
+<var name="gamma" type="f" value="0.5" comment="loop gain"/>
+<var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
+<var name="plots" type="list" value="['strehl','d50','fwhm','inbox','inhex','wfsimg','scishortexpimg','scilongexpimg','sciphs']"/>
+<var name="objs" type="list" value="['1','2','3','4']"/>
+<var name="subflag" type="code" comment="some flag or other (ask rww!)">
+import Numeric
+subflag=Numeric.zeros((this.globals.wfs_nsubx,this.globals.wfs_nsubx),Numeric.Int32)
+subarea=Numeric.zeros((this.globals.wfs_nsubx,this.globals.wfs_nsubx),Numeric.Float64)
+pupsub=Numeric.zeros((this.globals.wfs_nsubx,this.globals.wfs_nsubx,this.globals.wfs_n,this.globals.wfs_n),Numeric.Float64)
+ndata=0
+for i in range(this.globals.wfs_nsubx):		
+	for j in range(this.globals.wfs_nsubx):
+		pupsub[i][j]=this.globals.pupil.fn[i*this.globals.wfs_n:(i+1)*this.globals.wfs_n,j*this.globals.wfs_n:(j+1)*this.globals.wfs_n]	# Get pupil fn over subaps
+		subarea[i][j]=Numeric.sum(Numeric.sum(pupsub[i][j]))						  
+		if(subarea[i][j]>(this.globals.wfs_minarea*this.globals.wfs_n*this.globals.wfs_n)):# Flag vignetted subaps 
+			subflag[i][j]=1
+			ndata=ndata+2
+
+
+</var>
+<var name="dmpupil" type="code" comment="DM pupil (set to zero for flagged subapbs: assume they are tilted out of science fov">
+import Numeric
+dmpupil=Numeric.zeros((this.globals.npup,this.globals.npup),Numeric.Float64)
+for i in range(this.globals.wfs_nsubx):
+	for j in range(this.globals.wfs_nsubx):
+		if(this.globals.subflag[i][j]==1):
+			dmpupil[i*this.globals.wfs_n:(i+1)*this.globals.wfs_n,j*this.globals.wfs_n:(j+1)*this.globals.wfs_n]=1.
+</var>
+
+<var name="wfs_bandwidth" type="i" value="2000"/>
+<var name="wfs_thruput" type="f" value="0.3"/>
+<var name="wfs_phot_rate_factor" type="f" value="700."/>
+<var name="wfs_mag" type="f" value="11.5"/>
+<var name="srcdir" type="string" value="/home/ali/py/mpi/"/>
+<var name="dmlist" type="list" value="['dm0','dm1','dm2']"/>
+</variables>
+</module>
+<module name="mkscrns">
+<variables>
+
+</variables>
+</module>
+
+<module name="atmos">
+<variables>
+<var name="atmosLinearInterp" type="i" value="1"/>
+<var name="tstep" type="f" value="0.005"/>
+<var name="" type="" value=""/>
+</variables>
+</module>
+
+<module name="atmos" batchno="1">
+<variables>
+<var name="atmosLinearInterp" type="i" value="0"/>
+<var name="tstep" type="f" value="0.005"/>
+<var name="" type="" value=""/>
+</variables>
+</module>
+
+<module name="atmos" batchno="range(2,10)">
+<variables>
+<var name="atmosLinearInterp" type="i" value="1"/>
+<var name="tstep" type="eval" value="0.005*this.batchNumber"/>
+<var name="" type="" value=""/>
+</variables>
+</module>
+
+<module name="wfs">
+<variables>
+<var name="tstep" value="0.005" type="f" comment="time step"/>
+</variables>
+</module>
+<module name="el_recon">
+<variables>
+<var name="nzmax" type="i" value="10"/>
+<var name="zernike" type="i" value="0" comment="Modal (1) or SOR (0) reconstruction ?"/>
+<var name="makez" type="i" value="0" comment="Recalculate (1) Zernike derivs over subaps ?"/>
+<var name="nz" type="code">
+if(this.globals.wfs_nsubx==4):
+  nz=10# Modal correction order
+else:
+  nz=21
+</var>
+<var name="recon_jmin" value="1" type="i" comment="min Noll j to reconstruct"/>
+<var name="tiltSens" value="0" type="i"/>
+
+</variables>
+</module>
+<module name="pyramid_1">
+<variables>
+<var name="xy" type="i" value="10"/>
+</variables>
+</module>
+<module name="pyramid_2">
+<variables>
+<var name="xy" type="i" value="11"/>
+</variables>
+</module>
+<module name="pyramid">
+<variables>
+<var name="size" type="i" value="10"/>
+<var name="xy" type="eval" value="max(this.pyramid_1.xy,this.pyramid_2.xy)"/>
+</variables>
+</module>
+<module name="globals">
+<variables>
+<var name="scinfft" type="eval" value="this.globals.npup*2"/>
+<var name="scinSamp" type="copy" value="this.globals.scinSamp"/>
+<var name="simFilename" type="string" value="/tmp/aosimoutput.pcl"/>
+<var name="write_to_file" type="copy" value="this.globals.write_to_file" comment="flag to write on disk long exposure AO-corrected PSF"/>
+<var name="science_integrate" type="i" value="1"/>
+<var name="zero_science" type="i" value="0"/>
+<var name="hist_list_size" type="i" value="10"/>
+<var name="fitsFilename" type="string" value="sciPsf.fits"/>
+</variables>
+</module>
+
+</aosim>

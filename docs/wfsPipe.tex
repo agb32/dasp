@@ -1,0 +1,301 @@
+\newcommand{\cvsID}{$ $Id: wfsPipe.tex,v 1.5 2006/07/05 13:02:28 ali Exp $ (CVS)$}
+\documentclass{article}
+\usepackage{tabularx}
+\newcommand{\mod}[1]{\texttt{#1}}
+\include{esohead}
+
+\begin{document}
+\include{wfsPipetitle}
+\include{esobody}
+\section{Scope}
+This document describes the details of the FPGA acceleration available
+with the AO simulation software package which is funded by the rolling
+grant.
+
+This document is relevant to anyone who is involved with the
+development of the AO simulation software.  For a brief description on
+how to set up your own AO simulation, please read \citet{dummies}.
+This document can also be used by FPGA programmers who which to alter
+the pipeline.
+
+\subsection{Overview}
+
+The AO simulation package is to be used to simulate the effect of
+atmospheric turbulence on large astronomical telescopes.  It has been
+designed in such a fashion that it is modular, and so extensible
+should future requirements change.  Each module is designed to perform
+a specific simulation task, and are connected together by the user in
+such a way that coherent results will be obtained from the simulation.
+
+These modules communicate with each other by passing data, either
+within their process, using shared memory, or using MPI message
+passing.  The simulation framework has been designed so that this
+method of message passing is more or less transparent to the user,
+with the exception that the user should place the required
+communication protocol modules in the correct place.
+
+Additionally, when running on a Cray XD1 with FPGA application
+acceleration processors installed, these processors can be used to
+implement a wavefront sensing (WFS) pipeline, which can operate at
+over 600 times faster than the equivalent software version.  Details
+of this WFS pipeline are provided here.
+\section{Making use of the hardware wavefront sensing pipeline}
+To make use of the hardware wavefront sensing pipeline, import the
+wfscent.py module into your simulation, and create one or more
+wfscent.wfscent objects.  These will read the provided simulation
+configuration file to determine whether the FPGAs can and should be
+used, and will then initialise as required.  If parameters in this
+file are incompatible with FPGA use, warning messages will be printed
+and the FPGAs will not be used, for example if the high light level
+Shack-Hartmann images are required to be a size incompatible with that
+available in the FPGA.  
+
+Examples using the wfscent module can be found in the aosim CVS
+repository in the examples/fpga/ directory.  The simulation
+configuration file should contain entries for initFPGA (whether the
+FPGA should be initialised), useFPGA (whether the FPGA should be used
+by default, as you may wish to initialise it only), FPGAWFSBitFile
+(the filename of the FPGA binary, typically
+aosim/fpga/wfspipe.bin.ufp) and waitFPGA (whether to wait for the FPGA
+computation to complete before continuing to another module).  If the
+waitFPGA flag is set, the wfscent module will simply sit waiting for
+the centroid data to be computed, and this will waste CPU time.  If
+you know you have another process that can be active whilst this is
+going on (for example, computation of science object statistics) then
+set this flag to zero.  However, if the reconstructor object is called
+directly after the wfscent object, it is probably best to set this
+flag to one, since you have no guarantee that the new centroid values
+will be ready before being used by the reconstructor otherwise.
+\subsection{Turbo button}
+While a simulation is running, the FPGA can be switched on or off,
+rather like a turbo button.  This can be controlled from the simCtrl
+GUI, and an example of how to do this is seen in the
+aosim/example/fpga/ directory.  When the FPGA is switched off, the
+conventional software algorithm will be used.
+
+\section{The hardware wavefront sensing pipeline}
+The FPGA based WFS pipeline accepts the telescope pupil phase as an
+input (32 bit floating point), and provides centroid values from
+simulated Shack-Hartmann arrays as an output, again as 32 bit floating
+point.  The pipeline operates as a (configurable) black box, and it is
+not possible to view any intermediate state, such as Shack-Hartmann images.
+
+The pipeline performs the following operations, with each of these
+coded as a separate VHDL module:
+\begin{enumerate}
+\item Converts the floating point phase input into a fixed point value,
+  modulo 2$\pi$ (17 bit fixed point in 1.16 format).  
+\item Adds a tilt vector to each sub-aperture, again modulo 2$\pi$,
+  giving 17 bit fixed point values.
+\item Calculates the sine and cosine values of each fixed point phase
+  value, giving a 16 bit fixed point output (0.16 format).
+\item Applies a pupil map to the sub-apertures, returning zero if the
+  pixel is masked out, or the sine and cosine values if the pixel will
+  have light falling on it.
+\item A 2D FFT is computed for each sub-aperture, inputs being the
+  sine and cosine values, and outputs being 28 bits wide (in butterfly
+  order).
+\item The 2D FFT output is rearranged into an order such that the DC
+  term will fall at the centre of the sub-aperture, i.e.\ the maximum
+  intensity for a flat input phase will fall here.
+\item The square modulus of the signal is then computed (real and
+  imaginary parts are squared and added), to create the high light level
+  image.  The signal is now 55 bits wide.
+\item The data is rescaled into a floating point format with a 22 bit
+  wide mantissa, and a 6 bit wide exponent.  This is not IEEE
+  compatible, but is ideal for later operations.
+\item High light level images are integrated as required (up to 63
+  frames can be integrated together).  The output is floating point
+  format with 22 bit mantissa and 6 bit exponent (no sign bit).
+\item The integrated high light level images are binned together, if
+  required.  This allows the sub-aperture size to be reduced to
+  anything from ($2\times2$) up to the FFT size ($8\times8$,
+  $16\times16$ or $32\times32$).  Interpolation is performed as
+  required.  The output is again floating point format with a 22 bit
+  wide mantissa.
+\item The sub-apertures are normalised, i.e.\ the value in each pixel
+  is divided by the total light in the sub-aperture, and multiplied by
+  a user defined value, equal to the star intensity.  A 23 bit output
+  in 16.7 fixed point format is provided, representing the mean number
+  of photons falling on each pixel of the detector.
+\item A sky background is added to each pixel.  This is a constant
+  value.
+\item Random photon shot noise is introduced to each pixel, dependent
+  on the mean light level in this pixel.  The output from this stage
+  is 16 bit integer, representing the number of photo-electrons
+  created in the semi-conductor detector.  Overflow is represented by
+  all 16 bits being set.
+\item Random CCD readout noise is introduced to each pixel, with a
+  given mean and standard deviation.  The output is 16 bits, with
+  overflow represented by all bits set.
+\item A threshold value is applied to the signal, with everything
+  below this value being set to zero, and this value being subtracted
+  from everything else (except overflow pixels).  The output is 16
+  bits.
+\item A centroiding algorithm is performed for each sub-aperture,
+  returning the x and y centroid values in 32 bit format.
+\item The centroid values are converted to IEEE standard 32 bit
+  floating point format, and returned to the host memory.
+
+
+\end{enumerate}
+
+\subsection{Pupil map}
+The pupil map is stored in a bit fashion in one external 4~MB SRAM.
+By use of two or four fold symmetry (user selectable), WFS detectors
+with up to 32 million pixels can be simulated, enough for all but the
+largest cases.  The maximum size of a pupil is 1023 sub-apertures in
+each dimension, and minimum is one sub-aperture.  If larger numbers of
+sub-apertures are required, they can be used, but the pupil function
+will not perform correctly.  In this case, it is best to set all the
+pupil function to one (every pixel valid), and ignore bad centroid
+values at the reconstruction stage.
+
+\subsection{FFT}
+The 2D FFT can be 8, 16 or 32 pixels wide in each dimension, user
+selectable.  Overflow cannot occur since the output is wide enough to
+ensure it does not.  The input phase values for each sub-aperture can
+be between ($2\times2$) to ($32\times32$) values in size.  The FFT
+dimensions must be equal to or larger than this, with zero padding of
+the data occurring automatically if larger.
+
+\subsection{Integrate}
+The number of iterations to integrate for is user selectable.  When
+integrating, sub-apertures that are adjacent in host CPU memory are
+added (high light level images are added).  This means that the phase
+data must be interleaved for the different iterations, but means that
+large amounts of storage are not needed on the FPGA.  Up to 63
+iterations can be integrated.
+
+\subsection{Bin}
+The binning of high light level images is user selectable, and
+different x and y bin sizes can be chosen, for example you could start
+with a ($24\times24$) phase array for each sub-aperture, zero pad it
+(inside the FPGA) to do a ($32\times32$) FFT and then bin the image
+down to ($10\times13$) pixels on the (simulated) CCD detector.
+It is only possible to bin down, so you cannot go from a
+($16\times16$) FFT to a ($24\times24$) binned image.  The minimum
+allowed size is ($2\times2$) pixels and maximum is ($32\times32$)
+pixels (the maximum FFT size).
+
+\subsection{Normalise}
+Normalisation of the high light level images is carried out using a
+user definable value representing the total intensity in a
+sub-aperture.  This scaling factor is provided in 20.7 fixed point
+format, equal to the total number of photons in the sub-aperture.
+
+\subsection{Sky brightness}
+A sky brightness value can be added, in 16.7 fixed point format, the
+number of photons to be added to each pixel being user selectable.
+
+\subsection{Photon shot noise}
+Photon shot noise is added to the signal using pre-generated random
+numbers stored in FPGA external memory (4~MBits).  The value of the
+input signal is used to select a bin.  A memory location corresponding
+to the bin is then read, giving an address of the next random variable
+for this light level to access.  The bins are closely spaced for the
+lowest light levels, with sparser spacing as light level increases.
+For light levels greater than 32 photons per pixel, the central limit
+theorem is applied to give a Gaussian random variable with mean and
+variance equal to the mean light level.  This provides a realistic
+Poisson distribution, which would otherwise be difficult to generate
+within the FPGA on a cycle by cycle basis.
+
+\subsection{Readout noise}
+A Mersenne Twister algorithm is used to generate uniform random
+numbers.  Eight 8-byte random variables are then added together giving
+a Gaussian distribution with a mean of 127 and standard deviation of
+26.11.  This distribution is then scaled to provide a random Gaussian
+variable with a mean and variance chosen by the user.  This signal is
+then added to the CCD signal.  If you want to add readout noise with a
+mean of $m$ and standard deviation of $s$, the values given to the
+FPGA will be $m-s*127/26.11$ in 16.8 fixed point format and $s/26.11$
+in 8.8 fixed point format.
+
+\subsection{Threshold}
+A 16 bit threshold value can be selected by the user.  This value is
+subtracted from each signal, and every negative number is then set to
+zero.  
+
+\subsection{Centroid}
+The size of the sub-apertures at centroid stage are determined by the
+size of sub-apertures after the binning operation.  A standard
+centroid algorithm is used.  The maximum size of sub-apertures is 32
+pixels in one direction, and the minimum is 2 pixels in one direction.
+
+\subsection{Calibration sources}
+A calibration source can be used by setting CCD read noise and
+deviation to be zero, and by initialising the photon shot noise random
+variable arrays to equal the number of photons rounded to the nearest
+integer, instead of being a random Poisson distribution for each mean
+light level.  The wfscent.py module shows how to do this.
+
+\section{Further information}
+\subsection{Input array order}
+The input data is a 32 bit floating point phase array with dimensions
+equal to (N$_{sx}$, N$_{sy}$, N$_{i}$, N$_p$, N$_p$) where N$_{sx}$ is
+the number of sub-apertures in the x direction, N$_{sy}$ is the number
+of sub-apertures in the y direction, N$_i$ is the number of iterations
+to integrate over and N$_p$ is the x and y dimensions of each phase
+input (between 2-32).
+
+\subsection{Output array order}
+The centroid values are returned as 32 bit floating point numbers in
+an array with dimensions (N$_{sx}$, N$_{sy}$, 2) where [:,:,0] are the x
+centroid locations and [:,:,1] are the y centroid locations.
+
+\subsection{Register addresses}
+The addresses of registers in the FPGA, and their use is given in 
+table~\ref{table:reg}.  These registers are set using the
+\texttt{fpga.writeReg(fpid,VALUE,ADDRESS)} function.
+
+\begin{table}
+\caption{A table showing register addresses for configuration values}
+\label{table:reg}
+\begin{tabularx}{\linewidth}{lXXX}
+Address & Function &Description& Users\\ \hline
+512 & Pipe select &Determines where data should go&wfsPipe.vhd\\
+519 & Number of integrations &&integrate.vhd, pupilfn.vhd\\
+520 & x subap size & Number of x pixels & centroid16singleInput.vhd\\
+521 & y subap size & Numer of y pixels & centroid16singleInput.vhd\\
+522 & FFT size & 8, 16 or 32 & fft2d.vhd, fliparray.vhd, scale.vhd,
+bin.vhd\\
+523 & phase size & 2-32 & fft2d.vhd, tilt.vhd, pupilfn.vhd\\
+524 & source intensity & of guide star & normalise.vhd\\
+525 & QDR address & Current QDR location & fillQdrMem.vhd\\
+526 & 1/fft size*$2^{15}$ &&tilt.vhd\\
+528 & sky brightness && addconst.vhd\\
+529 & threshold value && threshold.vhd\\
+530 & readnoise mean & Appropriately scaled & readoutNoise.vhd\\
+531 & readnoise RMS & Appropriately scaled & readoutNoise.vhd\\
+532 & x subap size & Same as 520 & bin.vhd, normalise.vhd\\
+533 & y subap size & Same as 521 & bin.vhd, normalise.vhd\\
+534 & Number of x and y subaps & nx\&(ny<<10)&pupilfn.vhd\\
+535 & pupil symmetry type & 0, 1 or 2 & pupilfn.vhd\\
+536 & Bin configuration & See wfscent.py & bin.vhd\\
+... &&&\\
+543 & Last bin configuration &&bin.vhd\\ 
+\hline
+\end{tabularx}
+\end{table}
+\subsection{Operation}
+To operate the WFS pipeline in the FPGA, it is necessary to set the
+WFS configuration registers, initialise memory for the photon shot
+noise algorithm, memory for the pupil function, and memory for the
+random number seed.  Once this is ready, it is then necessary to
+initialise the pipeline registers which determine the DMA in and out
+size and addresses, and start or stop the pipeline.  Further details
+can be found in the wfscent.py module.
+
+\subsection{Pupil masks}
+When a pupil mask is used, you may still get non-zero centroid values
+for parts of the pupil receiving no light.  This is because of the CCD
+readout noise, and is realistic for a given WFS.  However, these
+centroid values should then be ignored for the reconstructor.
+
+\pagebreak
+\bibliography{references}
+
+
+\printindex
+\end{document}

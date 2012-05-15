@@ -1,0 +1,90 @@
+\documentclass{article}
+\usepackage{graphicx}
+\include{esohead}
+
+\begin{document}
+\include{title}
+\renewcommand{\esotitle}{FDPCG reconstruction}
+\renewcommand{\esodocno}{AOSIM-PCG-UoD-001}
+\renewcommand{\releasedate}{070329}
+\include{esobody}
+\section{Introduction}
+This document gives an overview of the Fourier domain preconditioned
+gradient (FDPCG) reconstructor, which is part of the AO simulation.
+FDPCG is a wavefront reconstruction technique which at worst is $O(n
+\log n)$ where $n$ is the number of actuators in the DM.  This should
+be contrasted with conventional matrix-vector multiplication methods
+which are $O(n^2)$, with an $O(n^3)$ operation to create the invert
+the interaction matrix initially (which can be prohivitive for large
+systems - days).  FDPCG is a minimum variance reconstructor (compared
+with least squares using SOR or standard MVM).  It is also a zonal
+reconstructor, working with mirror modes that correspond to individual
+actuators being poked, rather than Zernikes being placed on the
+mirror.  It may be possible to get it working for a modal system,
+though this is unlikely.  It should be noted that SOR reconstruction
+is $O(n)$, though performs badly at low SNR (actually, SOR appears to
+perform better than FDPCG at low light levels, though is not always
+desirable because it does not involve a poke matrix).
+
+The FDPCG algorithm is complicated, and sensitive to parameters.
+However, it currently works well in classical AO mode using the
+\texttt{xinterp\_recon} reconstructor and suitable parameters in the
+parameter file.  This document attempts to explain how it works, and
+what sensible parameters should be set.
+
+\section{What is it and how it works}
+Preconditioned gradient methods are an iterative way of solving matrix
+problems that can be written as $Ax=b$ where $x$ is unknown (and $A$
+and $b$ are known.  It solves this problem without inverting the
+matrix (which is an $O(n^3)$ operation at best.  It basically applies
+an initial guess, computes a gradient for improvement, and then
+improves on this.  The preconditioner in this case is in the Fourier
+domain, and is chosen because of suitable structure of the matricees
+(phase covariance, poke matrix etc).  Further information about this
+algorithm can be found in \citet{2006ApOpt..45.5281Y} and associated
+papers. 
+
+This algorithm relies extensively on sparse matrix approximations, and
+it is getting these correct that is part of the problem.  The phase
+covariance matrix for mirror actuator locations must be computed.
+This should then be approximated to a block circulant matrix with
+circulant blocks.  The inverse of this matrix is then used, and a good
+approximation is that this is then diagonal (otherwise a full matrix
+multiplication needs to be made).  It is important to avoid any matrix-vector
+multiplications as these are $O(n^2)$.  All the elements on the
+diagonal are identical, and so the inverse of the phase covariance
+matrix is reduced to a single value!  The noise covariance matrix
+(which is usually diagonal anyway) can also be inverted in this way.
+
+The interaction (poke) matrix can also be simplified.  For zonal
+systems this is usually highly sparse anyway (our FDPCG implementation
+assumes that it is).  We simplify it to eight diagonals, i.e. a
+$8\times n$ dimension matrix.
+
+The iterative nature of FDPCG is not ideal.  However, convergence is
+fast, and typically only 2 or 3 iterations are sufficient for a
+reasonable solution.  In our implementation, a minimum and maximum
+iteration count are specified, along with a tolerance.  Reconstruction
+is complete when the tolerance is met, or the maximum iteration count
+reached (which ever is sooner).  The tolerance is the maximum
+difference between results from the previous and current iteration.  
+
+There are a number of options that can be used to tweak PCG.  However,
+the default options (in the options dictionary) should give best
+results, and so are not discussed further.  
+
+\section{Extension to MCAO and other advanced simulations}
+If the FDPCG algorithm needs to be expanded to other simulations, more
+work will be required.  The phase covariance matrix structure will
+need examining.  This will then lead to a block diagonal matrix with
+blocks that are BCCB.  Whether there is a simple way to invert this
+should then be investigated.  A simple structure for the poke matrix
+will also be required.  The algorithm will then need to be tested to
+check that it behaves correctly with more than one atmospheric layer
+(I think it generally has been written to do this, but not tested).
+All should then work (hopefully!).
+
+
+\bibliography{references}
+\printindex
+\end{document}

@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+import popen2,string,os
+o,i=popen2.popen2("ipcs -s")
+lines= o.readlines()
+for l in lines:
+    try:
+        a=int(string.split(l)[1])
+	print "Deleting semaphore set",a
+	os.system("ipcrm -s %d"%a)	
+    except:
+	pass
+sf=os.listdir("/dev/shm")
+sml=[]
+for f in sf:
+    if "aosimSHMMem" in f:
+        sml.append(f)
+if len(sml)>0:
+    print "Undeleted SHM - please remove by hand if you need to:",sml
+#A=`ipcs -s`
+#A=${A:11:18}
+#ipcrm $A

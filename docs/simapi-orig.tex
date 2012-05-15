@@ -1,0 +1,39 @@
+\documentclass{article}
+\usepackage{graphicx}
+\include{esohead}
+
+\begin{document}
+\include{simapititle}
+\include{esobody}
+\section{Scope}
+This document describes the AO simulation python modules in detail,
+including their functions and behaviours and parameters required.  The
+AO simulation software package, was designed for the AO simulation
+project funded by the rolling grant.  
+
+This document is relevant to anyone who is involved with the
+development of the AO simulation software.  For an overview of the
+simulation, please see \citet{overview}.
+
+
+\subsection{Overview}
+he AO simulation package contains modules which are used to simulate
+the various parts of the operation of a telescope with an AO system
+installed.  The scope of these modules ranges from creating
+atmospheric turbulence to simulation of the closed loop telescope
+system.  Each module is designed to perform a specific simulation
+task, and are connected together by the user in such a way that
+coherent results will be obtained from the simulation.
+
+These modules communicate with each other by passing data, either with
+in their process, using shared memory, or using MPI message passing.
+The simulation framework has been designed so that this method of
+message passing is transparent to the user.  Various base and utility
+modules will allow the simulation to operate correctly.
+
+
+
+%Add includes here
+\bibliography{references}
+\printindex
+\end{document}

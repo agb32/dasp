@@ -1,0 +1,193 @@
+\documentclass{article}
+\usepackage{graphicx}
+\include{esohead}
+
+\begin{document}
+\include{simnewstitle}
+\include{esobody}
+\section{Introduction}
+This document is intended to be a place where updates to the AO
+simulation can be placed, so that people know where to look if they
+wish to check whether anything has changed or been updated.  Further
+information about the AO simulation package can be found in
+\citet{overview}.
+\section{Added 1st May 2008}
+Have clarified the wavelength at which DMs are applied.  The dmInfo
+object now has a reconLam parameter, at which the DM surface is
+assumed to be, and different wavelengths are then scaled from this as
+appropriate.  
+
+\section{Added 25th April 2008}
+Added a base/fifo.py to create arbitrary delays in feedback loops.
+Also added an FFTW module for science, which performs significantly
+faster than the previous ctypes/acml version.  This can use multiple
+threads.  Also added hypergeometric functions in util, used for phase
+variances for non-Kolmogorov turbulence.
+
+\section{Added 15th April 2008}
+Added util/blockMatrix.py for creating a block matrix object, useful
+for tomographic simulations, where phase covariances etc are in block
+matrix form.
+
+\section{Added 2nd April 2008}
+Have added a way to transfer data between modules (same and different
+MPI rank).  To do this, a module will call self.config.post(name,data)
+where name is the name of the variable, e.g. ``test'' or
+``covariances'' etc and data is the array to be transferred.  After
+this has been called, all other modules can call
+self.config.postGet(name) which returns the data.  This data should be
+treated as read-only, though can be updated using self.config.post
+again.  Only one object with same name can be stored.  This is
+typically useful for transferring once-per-simulation data, for
+example something computed by one module which is then needed by
+another module, and typically will be initiated from the GUI.  It uses
+the socket interface to pass the data, not MPI.
+
+\section{Added 31st March 2008}
+Magic DM module added which can remove a specified number of Zernike
+modes from a wavefront (without needing a reconstructor).
+Also added a proper Zernike DM module (zdm.py) which can be used with
+xinterp\_recon.
+
+
+\section{Added 20th March 2008}
+Sorted out the wavelength variables.  These are now described in the
+util.atmos.geom object, rather than separately in the param file.
+Each optical path therefore has a given wavelength.  If you wish to
+use an output at a different wavelength, then I suggest using a
+splitOutput object which simply rescales the output.  The alternative
+was to have all outputs defined at a given wavelength, e.g.\ 500nm.
+However, this was deemed to be not as good as some time would be lost
+rescaling for every input.
+
+\section{Added 5th March 2008}
+Simulation has been converted to use numpy as default.  Bugs may have
+been caused, but I haven't found any yet.  Please use numpy as default
+for anything you do.
+
+\section{Added 28th Feb 2008}
+A bug in Numeric when used with python2.5 has been found, i.e. in
+Numeric arrays, [:] doesn't return the expected result, so [:,] should
+be used instead.  This has been fixed in most (all?) places.
+
+\section{Added 22nd Feb 2008}
+Grouping now available in simsetup - makes setting up complex
+tomographic simulations much simpler.
+binCentroid module now available - simply bins output from a
+centroider.
+
+
+\section{Added 7th Feb 2008}
+Tomographic reconstruction etc now possible.
+
+\section{Added 12th Oct 2007}
+Have implemented a sparse SVD reconstructor, which seems to do the
+trick.  For a 2 DM system with 9 high order ($64\times64$) wavefront
+sensors, the reconstruction matrix takes about 4 hours to generate, as
+does the poke matrix.  After this, the simulation can then run.  For
+EAGLE, it can be run in two stages, one to do wavefront sensing,
+saving the DM commands (and atmospheres), and then another stage to
+compute the PSF and performance.  
+
+Two new base modules have been added, saveOutput.py and loadOutput.py,
+which save an output each iteration or load a previously saved
+output.
+
+I believe the simulation is now virtually EAGLE ready, subject to some
+LGS tests (and addition of a true minimum variance reconstructor!).
+
+\section{Added 13th Sept 2007}
+Have implemented a tomographic FDPCG reconstructor - it runs, but
+doesn't close the loop.  Needs further work.  Still, its some
+progress.
+
+Have also implemented sparse matrix methods for tomographic poke
+matricees.  Specifically, it is now possible to create a full EAGLE
+poke matrix (non-sparse would be 40GB), and then to solve for phase.
+To do this, multiply the poke matrix by itself transposed, and the
+centroids by the poke matrix transposed.  Then have a problem in form
+Ax=b where A is square and sparse, and so a sparse LU decomposition
+can be done on A, meaning that x can then be solved for.  For an EAGLE
+simulation, each reconstruction iteration should take between 0.5-1
+seconds to complete.
+
+\section{Added 31st July 2007}
+wfscent module can now be run as a multi-threaded c module, which will
+give performance increases for multi-core processors.  As a single
+thread, it is about 3-5 times faster than the corresponding Python
+code.  Improvements have been made to the SOR module, doubling the
+performance.
+
+\section{Added 19th July 2007}
+The cell processor can now be used by the wfscent module, and is
+approximately 6 times faster than a single Cray processor.  Currently,
+scipy is not fully installed on the cell platform, and so the whole
+simulation cannot be run here.  It is hoped that this will eventually
+be fixed.
+
+\section{Added Apr 11th 2007}
+The el\_dm now uses resource sharing, to some extent.  Sharing is
+allowed between objects that represent the same physical DM (ie
+different wavelengths and source directions).  The conjugate height
+must be the same.  Also, xinterp\_dm uses resource sharing, again for
+a physical DM.
+
+\section{Added Mar 30th 2007}
+FDPCG reconstructor now works reliably (use xinterp\_recon object).
+This is an $O(n\log n)$ reconstructor.  Unfortunately doesn't do as
+well as SOR at low light levels, I think.
+
+The xinterp\_dm module can now accept the el\_recon SOR/Zernike
+reconstructor, as well as the xinterp\_recon reconstructor (zernike,
+MAP or FDPCG).
+
+\section{Added Mar 21st 2007}
+The science module now has FPGA support (somewhere between 10-100
+times faster than software, depending on pupil size), and can also bin
+the pupil if requested.
+
+Resource sharing works for science, infAtmos wfscent modules now.  It
+should now be possible to put together a huge simulation!
+
+\section{Added Feb 22nd 2007}
+There are a number of new features that have been slowly added to the
+simulation over the past few months.
+\begin{enumerate}
+\item simsetup GUI - allows graphical setup of a simulation.  This is
+  now the recommended way to setup a simulation
+\item Improvements to simctrl GUI - command history (try right
+  clicking on the command text entry), ability to load
+  plot information from the simulation.
+\item Resource sharing - a new way of sharing resources between
+  similar science modules.  Currently implemented in the science
+  module.  Now means that one science module can do the work of many,
+  re-using memory.  So it is possible to have a large number of ELT
+  scale science modules running on a single mode.  Once the FPGA code
+  for science has been completed (currently in debugging stage), this
+  will allow rapid science image calculation for many science objects.
+  The eventual aim is to implement resource sharing for wfscent, atmos
+  and DM modules as well.  This will greatly reduce the memory
+  requirements for large simulations.
+\item aosim command - if you create a simulation using the simsetup
+  GUI, you can now run it using \texttt{aosim mysim.py} where mysim is
+  the name of your simulation file.
+\item Connection between simsetup and paramgui - allows you to edit
+  parameters as you set up the simulation.
+\item I think thats all for now...
+\end{enumerate}
+
+\section{TODO}
+There are a number of things that need to be done.
+\begin{enumerate}
+\item Stop using Numeric, and move everything to numpy.  This will be
+  a huge task!
+\item Have a tool which will create a default parameter file for you,
+  given a few input parameters, e.g. telescope size, number of
+  atmospheric layers etc, choosing sensible defaults for unset
+  parameters. 
+\end{enumerate}
+
+
+\bibliography{references}
+\printindex
+\end{document}
