@@ -13,8 +13,8 @@ install:
 	(cd shmem/ ; make install )
 #	echo "Making fftw3 module"
 #	(cd Numfftw3 ; make install )
-	echo "Making cell module"
-	(cd cell ; make install )
+#	echo "Making cell module"
+#	(cd cell ; make install )
 	echo "Making svd module"
 	(cd svd ; make install)
 	echo "Making MKL module"
