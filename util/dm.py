@@ -1613,7 +1613,7 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         import util.FITS
         rmx=util.FITS.Read(rmx)[1]
     if rmx!=None:#apply projection matrix to create specific reconstructor.
-        res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
+        #res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
         try:
             import cmod.mkl
         except:
