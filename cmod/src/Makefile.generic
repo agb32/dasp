@@ -5,10 +5,9 @@
 
 #This was the original list.  These are now gradually being moved to
 #the setup.py file
-#MODULES=xpoke imgnoise zfit binimg sor32 sor128 sor10 sor8 sor4 sor psfparams interp mkimg zernike phaseCov utils mkimgfloat cent
-#MODULES=sor32 sor128 sor10 sor8 sor4 mkimg mkimgfloat
-MODULES=mkimg mkimgfloat
-
+#MODULES=mkimg mkimgfloat
+#no longer required,I think.
+MODULES=
 #ifeq (`ls /usr/local/lib/libacml.so`,0)
 ifdef ACML
 #if we're on the cray, then add acml... (ACML is defined in the /etc/bash.bashrc.local file)
@@ -31,7 +30,6 @@ ${MODULES:=module.so}: %module.so : %module.o
 %.o: %.c
 	${CC} -c ${CFLAGS} $< -o $@
 
-#mkimgfloatmodule.so utilsmodule.so acmlfft.so
 
 
 
@@ -58,9 +56,6 @@ centmodule.o: centmodule.c
 
 
 #acml FFT functions...
-#	    cp acmlfftmodule.so ../
-#acmlfftmodule.so: acmlfftmodule.o
-#	${LD} $< -o $@ ${LDFLAGS} -lacml -lg2c ${LIBS} ${OBJS:=.o} 
 acmlfftmodule.o: acmlfft.c
 	${CC} -c -m64 ${CFLAGS} $< -o $@
 acmlfftmodule.so: acmlfft.c
@@ -68,17 +63,11 @@ acmlfftmodule.so: acmlfft.c
 
 
 
-#besselkvmodule.so: besselkvmodule.o
-#		   ${LD} ${LDFLAGS} ${LIBS} ${OBJS:=.o} $< -o $@
-#		   mv besselkvmodule.so ..
-#besselkvmodule.o: besselkv.c
-#		  ${CC} -c ${CFLAGS} $< -o $@
 
 
 clean:
 	for x in utilsmodule mkimgfloatmodule ${MODULES:=module} ${OBJS} ; do if [ -r ../$$x.so ] ; then rm ../$$x.so ; fi ; if [ -r $$x.so ] ; then rm $$x.so ; fi ; if [ -r $$x.o ] ; then rm $$x.o ; fi ; done
 
 install: default
-	mv ${MODULES:=module.so} ../
-#	mv mkimgfloatmodule.so ${MODULES:=module.so} ../
-#	mv utilsmodule.so ../
+#	mv ${MODULES:=module.so} ../
+	echo "Copy acmlmodule.so to .. by hand if on cray (or fix makefile)"

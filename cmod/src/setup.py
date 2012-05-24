@@ -8,7 +8,7 @@ fft=Extension('fftmodule',
               library_dirs=ld,
               libraries=["pthread","fftw3f_threads","fftw3f"],
               extra_compile_args=[],
-              extra_link_args=["-lpthread","-lfftw3f_threads","-lfftw3f","-lm"],
+              extra_link_args=["-lpthread","-lfftw3f_threads","-lm"],#,"-lfftw3f"
               sources=["fftmodule.c"]
               )
               
