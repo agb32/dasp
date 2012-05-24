@@ -1,4 +1,4 @@
-import util.acmlfft
+#import util.acmlfft
 import cmod.fft
 #import cmod.utils
 import util.arrayFromArray
@@ -541,68 +541,38 @@ class science:
         if self.phaseTilt!=None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
             phs=phs+self.phaseTilt
         
-        if useFPGA and self.useFPGA:#mask the unused parts of the pupil.
-            if phs is not self.phs:# check that the phase is in fpga array
-                print "copying phase array"
-                self.phs[:,]=phs
-            # now mask out the pupil 
-            self.phsInt|=self.fpgaPupilMask#phsInt points to same memory as phs
-            fpga.writeReg(self.fpid,2,6)#stop pipe
-            fpga.writeReg(self.fpid,64,6)#reset fifos
-            if self.npup!=self.fpgaInfo.npup or self.nfft!=self.fpgaInfo.nfft or self.fpgaUserPrecision!=self.fpgaInfo.userPrecision:
-                self.fpgaLoadRegs()
-            fpga.writeReg(self.fpid,1,6)#set it going.
-            if self.waitFPGA:
-                self.fpgaWaitCycles=0
-                time.sleep(self.waitFPGATime)
-                v=fpga.readReg(self.fpid,5)
-                while v!=7:
-                    v=fpga.readReg(self.fpid,5)
-                    #print hex(v)
-                    self.fpgaWaitCycles+=1
-                if fpga.readReg(self.fpid,515)==1:#overflow error... try again.
-                    print "FPGA overflow error, reducing precision (science)"
-                    self.fpgaUserPrecision-=1
-                    if self.fpgaUserPrecision<0:
-                        self.fpgaUserPrecision=0
-                        raise Exception("FPGA science FFT precision overflow")
-                    fpga.reset(self.fpid)#clear the overflow bit.
-                    fpga.start(self.fpid)
-                    self.fpgaLoadRegs()
-                    self.computeShortExposurePSF(self.phs,useFPGA)#re run the calc.
-        else:
-            # print self.pupilAmplitude.shape,self.phs.shape,self.pup.shape
-            # We fill the complex amplitude
-            if self.atmosPhaseType=="phaseonly":
-                self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-                self.pupilAmplitude[:npup,npup:,]=0.
-                self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs)
-                self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs)
-            elif self.atmosPhaseType=="phaseamp":#phs[1] is amplitude, phs[0] is phase
-                self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-                self.pupilAmplitude[:npup,npup:,]=0.
-                self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs[0])*phs[1]
-                self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs[0])*phs[1]
-            elif self.atmosPhaseType=="realimag":#phs in real/imag already.
-                self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-                self.pupilAmplitude[:npup,npup:,]=0.
-                self.pupilAmplitude[:npup,:npup]=self.pup*phs
+        # print self.pupilAmplitude.shape,self.phs.shape,self.pup.shape
+        # We fill the complex amplitude
+        if self.atmosPhaseType=="phaseonly":
+            self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
+            self.pupilAmplitude[:npup,npup:,]=0.
+            self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs)
+            self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs)
+        elif self.atmosPhaseType=="phaseamp":#phs[1] is amplitude, phs[0] is phase
+            self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
+            self.pupilAmplitude[:npup,npup:,]=0.
+            self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs[0])*phs[1]
+            self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs[0])*phs[1]
+        elif self.atmosPhaseType=="realimag":#phs in real/imag already.
+            self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
+            self.pupilAmplitude[:npup,npup:,]=0.
+            self.pupilAmplitude[:npup,:npup]=self.pup*phs
 
 
-            ##We call the FFTW function
-            cmod.fft.ExecutePlan(self.fftPlan)#fft from pupilAmplitude to focusAmplitude
-            #util.acmlfft.inplace_fft2d(self.pupilAmplitude,self.fftTmp)
-            #nrfft.fftw_execute(self.fftPlan)
-            ##We compute the intensity in the focal plane
-            self.tempImg[:,]=(numpy.absolute(self.focusAmplitude))#**2
-            self.tempImg[:,]*=self.tempImg[:,]#now square it (slightly faster)
-            ##print phs2.shape,phs2.typecode(),self.tempImg.shape,self.tempImg.typecode(),pup2.shape,pup2.typecode()
-            ##We compute the PSF by using fliparray2
-            #self.instImg=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
-            if self.nimg!=self.nfft:#bin the image...
-                cmod.binimg.binimg(self.tempImg,self.binImg)
-            fliparray2(self.binImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
-            self.instImg/=numpy.sum(self.instImg) ##We normalise the instantaneous PSF to 1
+        ##We call the FFTW function
+        cmod.fft.ExecutePlan(self.fftPlan)#fft from pupilAmplitude to focusAmplitude
+        #util.acmlfft.inplace_fft2d(self.pupilAmplitude,self.fftTmp)
+        #nrfft.fftw_execute(self.fftPlan)
+        ##We compute the intensity in the focal plane
+        self.tempImg[:,]=(numpy.absolute(self.focusAmplitude))#**2
+        self.tempImg[:,]*=self.tempImg[:,]#now square it (slightly faster)
+        ##print phs2.shape,phs2.typecode(),self.tempImg.shape,self.tempImg.typecode(),pup2.shape,pup2.typecode()
+        ##We compute the PSF by using fliparray2
+        #self.instImg=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
+        if self.nimg!=self.nfft:#bin the image...
+            cmod.binimg.binimg(self.tempImg,self.binImg)
+        fliparray2(self.binImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
+        self.instImg/=numpy.sum(self.instImg) ##We normalise the instantaneous PSF to 1
         t2=time.time()
         self.PSFTime=t2-t1
         #print numpy.sum(numpy.sum(self.instImg))
@@ -1152,7 +1122,7 @@ def difYorick (x, i = 0) :
    where dif_ is the ith subscript. (works for up to 5 dimensions).
    Namely, the elements along the ith dimension of x are replaced
    by the differences of adjacent pairs, and the dimension decreases
-   by one. Remember that Python sunscripts are counted from 0.
+   by one. Remember that Python subscripts are counted from 0.
    """
 
    if numpy.isscalar (x) :

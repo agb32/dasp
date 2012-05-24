@@ -172,8 +172,11 @@ def liltocsc(mx):
 
 
 ###This is copied from scipy.linsolve.  The idea is to make it better for this situation, including the ability to factorise the matrix before doing the computation...
+try:
+    import scipy.linsolve
+except:
+    print "TODO: sort out scipy.linsolve usage in spmatrix.py"
 
-import scipy.linsolve
 
 def spsolve(A, b, permc_spec=2):
     """Taken from scipy.linsolve, and updated to raise an exception if error occurs."""

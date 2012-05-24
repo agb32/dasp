@@ -540,7 +540,7 @@ class AOXml:
         if found==0:
             if val==None and raiseerror==1:
                 print "ERROR: value not found %s"%str(varname)
-                raise "ERROR: value not found: %s %s"%(str(varname),str(searchOrder))
+                raise Exception("ERROR: value not found: %s %s"%(str(varname),str(searchOrder)))
             else:
                 print "WARNING: using default value of %s for %s %s"%(str(val),str(varname),str(searchOrder))
         return val

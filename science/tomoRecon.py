@@ -14,7 +14,11 @@ import util.zernikeMod
 import util.regularisation
 import cmod.svd
 import cmod.utils
-import scipy.linsolve,scipy.sparse,scipy.linalg
+try:
+    import scipy.linsolve
+except:
+    print "TO DO: Sort out import of scipy.linsolve in tomoRecon"
+import scipy.sparse,scipy.linalg
 import util.spmatrix
 import time,types
 import Scientific.MPI
