@@ -54,6 +54,8 @@ class Ctrl:
         @param debug: Debug message or None
         @type debug: None or user defined.
         """
+
+        ## INITIALISATION of variables:
         self.simInitTime=time.time()
         self.debug=debug
         self.go=1
@@ -82,6 +84,8 @@ class Ctrl:
         nice=19
         self.paramString=None
         sys.stdout=myStdout(self.rank)
+
+        ## OPTION parsing (options from the command line):
         optlist,arglist=getopt.gnu_getopt(sys.argv[1:],"hp",["batchno=","start-paused","param-file=","help","iterations=","id=","nonice","param=","nostdin","debug-connections","user="])
         for o, a in optlist:
             if o=="--displaythread":
@@ -126,6 +130,7 @@ class Ctrl:
                 print 'HELP:\nRun simulation with\n--batchno=xxx\n--start-paused\n--param-file=paramfile\n--iterations=niters\n--id=simulationID (string)\n--param="Text string, e.g. this.globals.nLayers=2, used to alter parameter file on the fly"\n--displaythread (to print thread identity with messages)\n--nostdin to stop listening to stdin\n-p Same as --start-paused\nfile.xml same as --param-file=paramfile\n--debug-connections to print mpiget/send messages\n--user=xxx for user specific options\n'
                 sys.exit(0)
 
+        ## ARGUMENT parsing (from the command line):
         for a in arglist:#could be a param file, or ?
             if a[-4:]==".xml":
                 self.paramfile+=a.split(",")
@@ -137,8 +142,11 @@ class Ctrl:
                     print "Batch number: %d"%self.batchno
                 except:
                     print "Unrecognised option %s"%a
+
+        ## DEFAULT parameter file name?
         if len(self.paramfile)==0:
             self.paramfile=["params.xml"]
+
         self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno)
         if self.paramString!=None:
             tmpDict={"this":self.config.this}
@@ -164,7 +172,9 @@ class Ctrl:
                 self.niter=exptime/tstep
             except:
                 self.niter=-1
-            
+
+####### END of __init__ #############################################################
+
     def __del__(self):
         
         print "Destroying Ctrl object at iteration %d: self.sockConn.endLoop, cmod.shmem.cleanUp"%self.thisiter
