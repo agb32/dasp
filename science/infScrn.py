@@ -86,11 +86,6 @@ import scipy.linalg as LA
 #import util.matrix as matrix
 import util.FITS
 
-##Import Numeric for compatibility with framework
-##based on Numeric
-
-# import Numeric as Nmeric ## commented out by UB, 2012May31
-
 matrixdot=numpy.dot#matrix.dot
 
 def computeScrnSizeOld(thetas,phis,ntel,npup,telDiam,altitude):
@@ -876,8 +871,7 @@ class infScrn(base.aobase.aobase):
         paramList=[]
         paramList.append(base.dataType.dataType(description="telDiam",typ="f",val="42.",comment="TODO: Telescope diameter (m)"))
         paramList.append(base.dataType.dataType(description="npup",typ="i",val="1024",comment="TODO: Number of pixels used to sample the pupil"))
-##        paramList.append(base.dataType.dataType(description="dataType",typ="eval",val="this.globals.fpDataType",comment="Array Numeric data type")) # OLD, UB 2012May31
-        paramList.append(base.dataType.dataType(description="dataType",typ="eval",val="this.globals.fpDataType",comment="Array numpy data type")) # NEW, UB 2012May31
+        paramList.append(base.dataType.dataType(description="dataType",typ="eval",val="this.globals.fpDataType",comment="Array numpy data type"))
         paramList.append(base.dataType.dataType(description="l0",typ="f",val="30.0",comment="TODO: turbulence outer scale"))
         paramList.append(base.dataType.dataType(description="r0",typ="f",val="0.15",comment="TODO: Fried parameter (m)"))
         #paramList.append(base.dataType.dataType(description="strength",typ="eval",val="this.infScrn.strenghts['0m']",comment="TODO: layer strength (a float, initially a dictionary holding all strengths)"))

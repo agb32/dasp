@@ -1,15 +1,7 @@
 #$Id: mpiGet.py,v 1.11 2009/02/18 10:28:41 ali Exp $
 import Scientific.MPI
-#import base.fwdMsg
 import numpy,time
-#import Numeric
 import base.aobase
-
-## commented out by UB, 2012May30
-#try:
-#    from Scientific.N import package as arrType
-#except:
-#    arrType="Numeric"
 
 debugConnections=0
 class mpiGet(base.aobase.aobase):
@@ -68,31 +60,9 @@ class mpiGet(base.aobase.aobase):
         self.mpiParent=mpiParentObj
         self.outputData=self.mpiParent.data
 
-        ##self.arrType=arrType  ## commented out by UB, 2012May30
-
-
-        #try:
-        #    self.arrType=Scientific.MPI.getArrayType()
-        #except:
-        #    self.arrType="Numeric"
-
-## ORIGINAL (commented out by UB, 2012May30)
-#        if self.arrType=="Numeric":
-#            print "mpiGet using numeric"
-#            self.syncarr=Numeric.ones((1,),Numeric.UInt8)
-#            self.mpiParent.data=Numeric.array(self.mpiParent.data,copy=0)
-#        else:
-#            print "mpiGet using numpy (%s)"%self.arrType
-#            self.syncarr=numpy.ones((1,),numpy.uint8)
-
-## UB, 2012May30 (leave only the last line):
-        self.syncarr=numpy.ones((1,),numpy.uint8) # "ones(1, numpy.uint8)" also works??
-
-
-
+        self.syncarr=numpy.ones((1,),numpy.uint8)
         self.mpiComm=mpiComm#Scientific.MPI.world.duplicate()
 
-        
     def generateNext(self,msg=None):
         """called by the child when it wants more data.
         Get the data from the MPI connection and return it.

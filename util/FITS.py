@@ -4,10 +4,6 @@
 # Functions to read and write FITS image files
 import string
 import numpy
-##import Numeric ## commented out by UB 2012May31
-
-
-#from Numeric import *
 import os.path,os
 error = 'FITS error'
 #
@@ -136,31 +132,16 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     """Writes data to filename, with extraHeader (string or list of strings).  If writeMode="a" will overwrite existing file, or if "a", will append to it.  If doByteSwap==1, then will do the byteswap on systems that require it, to preserve the FITS standard.  If preserveData==1, will then byteswap back after saving to preserve the data.
     """
 
-## OLD (before 2012May31; UB):
-#    if type(data)==Numeric.ArrayType:
-#        typ = data.typecode()
-#    else:#assume numpy...
-#        typ=data.dtype.char
-#    if typ == Numeric.UnsignedInt8 : bitpix = 8
-#    elif typ==Numeric.Int16 : bitpix = 16
-#    elif typ==Numeric.Int32 : bitpix = 32
-#    elif typ==Numeric.Float32: bitpix=-32
-#    elif typ==Numeric.Float64: bitpix=-64
-
-## NEW (UB, 2012May31, 6 lines):
     typ=data.dtype.char
     if   typ=='b': bitpix =  8 # UnsignedInt8
     elif typ=='s': bitpix = 16 # Int16
     elif typ=='i': bitpix = 32 # Int32
     elif typ=='f': bitpix =-32 # Float32
     elif typ=='d': bitpix =-64 # Float64
-
-    #elif typ=="H": bitpix=16
-    elif typ=="h": bitpix=16
+    elif typ=="h": bitpix = 16
     else :
         print "FITS: Converting type %s to float32"%typ
-##	data = data.astype(Numeric.Float32) # OLD, UB 2012May31
-	data = data.astype('f') # Float32   # NEW, UB 2012May31
+	data = data.astype('f') # Float32
 	bitpix = -32
     shape = list(data.shape)
     shape.reverse()
@@ -200,11 +181,7 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     file = open(filename, writeMode)
     file.write(header)
     if numpy.little_endian and doByteSwap:
-##        if type(data)==Numeric.ArrayType: # ?? OLD, UB 2012May31
-        if False:                           # ?? NEW, UB 2012May31
-            data = data.byteswapped()
-        else:
-            data.byteswap(True)
+        data.byteswap(True)
     data.tofile(file)
     #data = data.tostring()
     #file.write(data)
@@ -212,12 +189,7 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     padding = ' ' * (numBlock*2880 - data.itemsize*data.size)
     file.write(padding)
     if numpy.little_endian and doByteSwap and preserveData==1:
-##        if type(data)==Numeric.ArrayType: # ?? OLD, UB 2012May31
-        if False:                           # ?? NEW, UB 2012May31
-            pass
-        else:#preserve the data...
-            data.byteswap(True)
-
+        data.byteswap(True)
 
 def ReadHeader(filename, asFloat = 1) :
     file = open(filename, "r")

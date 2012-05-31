@@ -1,12 +1,6 @@
 #$Id: Ctrl.py,v 1.77 2011/12/06 05:14:39 ali Exp $
 import types,time,string,select
 
-## commented out by UB, 2012May31 (4 lines):
-#try:
-#    import Numeric
-#except:
-#    print "Numeric not found"
-
 import numpy
 import sys,thread,threading,os,socket
 import getopt,re
@@ -304,11 +298,6 @@ class Ctrl:
                     elif t==numpy.ndarray:
                         tmptxt=istr+"%s\t%s (%s, %s)\n"%(key,str(type(base[key])),str(base[key].shape),str(base[key].dtype))
                         txt+=tmptxt
-##  commented out by UB, 2012May31 (4 lines):
-#                    elif t==Numeric.ArrayType:
-#                        tmptxt=istr+"%s\t%s (%s, %s)\n"%(key,str(type(base[key])),str(base[key].shape),str(base[key].typecode()))
-#                        txt+=tmptxt
-#                        #print tmptxt
                     else:
                         tmptxt=istr+"%s\t%s\n"%(key,str(type(base[key])))
                         txt+=tmptxt
@@ -347,13 +336,6 @@ class Ctrl:
                     exec "l=str(len(%s))"%base in self.globals,mydict
                     tmptxt=istr+"%s\t%s length: %s\n"%(base,str(mydict["t"]),mydict["l"])
                     txt+=tmptxt
-                    #print tmptxt
-## commented out by UB, 2012May31 (5 lines):
-#                elif t==Numeric.ArrayType:
-#                    exec "s=%s.shape ; tc=%s.typecode()"%(base,base) in self.globals,mydict
-#                    tmptxt=istr+"%s\t%s (%s, %s)\n"%(base,str(t),str(mydict["s"]),str(mydict["tc"]))
-#                    txt+=tmptxt
-#                    #print tmptxt
                 else:
                     tmptxt=istr+"%s\t%s\n"%(base,str(mydict["t"]))
                     txt+=tmptxt
@@ -541,8 +523,7 @@ class Ctrl:
                         obj=getattr(sciobj,a)
                         if type(obj) not in [types.MethodType,types.InstanceType]:
                             s+='<plot title="%s.%s" cmd="data=%s.%s" ret="data" texttype="1" wintype="mainwindow" when="cmd"/>\n'%(objname,a,objname,a)
-##                        if (type(obj)==numpy.ndarray and obj.dtype not in [numpy.complex64,numpy.complex128]) or ((type(obj)==Numeric.ArrayType) and (obj.typecode() not in ["D","F"])):#suitable for plotting... # OLD; UB, 2012May31
-                        if (type(obj)==numpy.ndarray and obj.dtype not in [numpy.complex64,numpy.complex128]): ## or ((type(obj)==Numeric.ArrayType) and (obj.typecode() not in ["D","F"])):#suitable for plotting... # NEW; UB, 2012May31
+                        if (type(obj)==numpy.ndarray and obj.dtype not in [numpy.complex64,numpy.complex128]):
                             s+='<plot title="Plot: %s.%s" cmd="data=%s.%s" ret="data" type="gist" window="1" palette="gray.gp" when="rpt"/>\n'%(objname,a,objname,a)
             s+='</simobj>\n'
         s+='<plot title="Poke all" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "Starting poking"\ndata="Starting poking"</cmd>\n</plot>\n'

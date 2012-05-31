@@ -2,7 +2,6 @@
 import numpy as na
 #na.float32="f"#hack for Numeric - not needed for numpy.
 import scipy.sparse
-## import Numeric as Nmeric # commented out by UB 2012May31
 def straightPokes(nact,vlist=[1.],pupfn=None,actmap=None,returnfull=0):
     """Create poke matrix based on individual pokes.
     This assumes fried geometry, and nsubx==nact-1.  If you want other
@@ -762,8 +761,7 @@ class sparseTomo:
 
         If this doesn't work, try self.mx.matvec(vec) for dotting with a vector.
         """
-##        if type(mx)==Nmeric.ArrayType: # commented out by UB, 2012May31
-        mx=na.array(mx) # indented by -4, UB, 2012May31
+        mx=na.array(mx)
 
         if type(mx)==na.ndarray and len(mx.shape)==1:#a vector...
             res=self.mx.matvec(mx)

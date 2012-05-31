@@ -1,15 +1,8 @@
 #$Id: mpiSend.py,v 1.13 2009/02/18 10:28:41 ali Exp $
 import Scientific.MPI#,threading
-import numpy ##,Numeric  # "Numeric" commented out by UB, 2012May30
+import numpy
 import types,time
 import base.aobase
-
-# commented out by UB, 2012May30:
-#try:
-#    from Scientific.N import package as arrType
-#except:
-#    arrType="Numeric"
-
 
 debugConnections=0
 class mpiSend(base.aobase.aobase):
@@ -93,28 +86,8 @@ class mpiSend(base.aobase.aobase):
         #    self.mpiSyncOrder=2*self.realmpiOrder+1
         #print "remoteMPISend: creating mpi.world.duplicate()"
         self.mpiComm=mpiComm#Scientific.MPI.world.duplicate()
-        #print "remoteMPISend: done MPI.world.duplicate() (rank %d)"%self.mpiComm.rank
-        #if useFwdMsg:
-        #    self.msg=base.fwdMsg.fwdMsg()
-        #else:
-        #    self.msg=None
-##        self.arrType=arrType # Commented out by UB, 2012May30
-        #try:
-        #    self.arrType=Scientific.MPI.getArrayType()
-        #except:
-        #    self.arrType="Numeric"
-
-## Commented out by UB, 2012May30:
-#        if self.arrType=="Numeric":
-#            print "mpiSend using numeric"
-#            self.syncmsg=Numeric.zeros((1,),Numeric.UInt8)
-#        else:
-#            print "mpiSend using numpy (%s)"%self.arrType
-
-# UB, 2012May30: This line belonged to the preceding "else" and was indented by 4 more spaces:
         self.syncmsg=numpy.zeros((1,),numpy.uint8)
             
-        #self.outputDataList=[]
         print "remoteMPISend: Initialised"
     def generateNext(self,msg=None):
         """Obtain the next data from the parent object, and pass over MPI
@@ -136,11 +109,7 @@ class mpiSend(base.aobase.aobase):
         if self.parent.dataValid==1:#store the data
             #self.outputDataList.append(self.parent.outputData.copy())
 
-#  Commented out by UB, 2012May30:
-#            if self.arrType=="Numeric":
-#                self.outputData=Numeric.array(self.parent.outputData,copy=0)
-#            else:
-            self.outputData=self.parent.outputData # indented by -4 spaces by UB, 2012May30
+            self.outputData=self.parent.outputData
             self.dataValid=1
         else:
             if self.debug!=None: print "MPISend: parent data not valid (debug=%s)"%str(self.debug)
