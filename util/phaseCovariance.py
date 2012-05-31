@@ -18,7 +18,7 @@
 #0.17253*(L0/r0)**(5./3), ie just the first part of the phase structure func.
 #This is because of the definition of phase structure func at infinity...
 import numpy as na
-import Numeric
+## import Numeric # commented out by UB, 2012May31
 import numpy.fft
 import scipy
 import scipy.special#agbhome
