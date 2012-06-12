@@ -7,7 +7,7 @@ a toolbar to a gtk.Window
 import numpy,numpy.random
 from matplotlib.axes import Subplot
 from matplotlib.figure import Figure
-from matplotlib.numerix import arange, sin, pi
+## from matplotlib.numerix import arange, sin, pi # commented out by UB 2012Jun07 to replace numerix by numpy
 import thread
 # uncomment to select /GTK/GTKAgg/GTKCairo
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
@@ -437,7 +437,8 @@ def buttonPress(w,e,data=None):
     if e.button==2:
         print "middle clicked"
         ax.clear()
-        ax.plot(arange(X.shape[1]),X[0])
+##        ax.plot(arange(X.shape[1]),X[0])  # commented out by UB to remove numerix, 2012Jun07
+        ax.plot(numpy.arange(X.shape[1]),X[0]) # NEW by UB to replace numerix, 2012Jun07
         ax.draw()
         canvas.queue_draw()
     return True
@@ -476,8 +477,10 @@ if __name__=="__main__":
         #fig2=fig.figimage(X)
         #ax = fig.figure.add_subplot(111)
         ax = fig.add_subplot(111)
-        t = arange(0.0,3.0,0.01)
-        s = sin(2*pi*t)
+##        t = arange(0.0,3.0,0.01) # commented out by UB to remove numerix, 2012Jun07
+        t = numpy.arange(0.0,3.0,0.01) # NEW by UB to replace numerix, 2012Jun07
+##        s = sin(2*pi*t) # commented out by UB to remove numerix, 2012Jun07
+        s = numpy.sin(2*numpy.pi*t) # NEW by UB to replace numerix, 2012Jun07
         #print dir(ax)
         #ax.plot(t,s)
         ax.imshow(X,interpolation="nearest")

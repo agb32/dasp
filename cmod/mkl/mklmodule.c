@@ -16,7 +16,6 @@ Perform the SVD, then write the results.
 
 
 #include <Python.h>
-//#include </usr/local/include/python2.4/Numeric/arrayobject.h>
 #include <numpy/arrayobject.h>
 #include <stdio.h>
 #include <string.h>
@@ -511,7 +510,6 @@ static PyObject* gemm(PyObject *self,PyObject *args){
     dgemm(&transA,&transB,&m,&n,&k,&dalpha,(double*)Aarray->data,&lda,(double*)Barray->data,&ldb,&dbeta,(double*)Carray->data,&ldc);
   }
   return Py_BuildValue("l",0);
-
 }
 
 

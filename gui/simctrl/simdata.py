@@ -1,5 +1,6 @@
 import xml.parsers.expat,types,string
-import Numeric,time,os,numpy
+## import Numeric,time,os,numpy # commented out by UB on 2012Jun07 to remove Numeric
+import time,os,numpy # NEW by UB on 2012Jun07 to remove Numeric
 try:
     import gist
 except:
@@ -315,7 +316,8 @@ class Plot:
                 dim=self.dim
                 xaxis=self.xaxis
                 if dim==None:
-                    if type(data) in [numpy.ndarray,Numeric.ArrayType]:
+##                    if type(data) in [numpy.ndarray,Numeric.ArrayType]: # commented out by UB on 2012Jun07 to remove Numeric
+                    if type(data) == numpy.ndarray: # NEW by UB on 2012Jun07 to remove Numeric
                         if len(data.shape)>1:
                             dim=2
                         elif len(data.shape)==1:
@@ -341,7 +343,8 @@ class Plot:
 ##                         print data.typecode(),data.shape,"Dims:",dim
 ##                     except:
 ##                         pass
-                    if type(data) in [numpy.ndarray,Numeric.ArrayType]:
+##                    if type(data) in [numpy.ndarray,Numeric.ArrayType]: # commented out by UB on 2012Jun07 to remove Numeric
+                    if type(data) == numpy.ndarray:  # NEW by UB on 2012Jun07 to remove Numeric
                         if not self.info.has_key("window"):
                             self.info["window"]=0
                         if not self.info.has_key("palette"):
@@ -365,7 +368,8 @@ class Plot:
                     else:
                         print "Cannot display type %s with gist"%str(type(data))
                 if self.pylabtype:
-                    if type(data)==Numeric.ArrayType or type(data)==numpy.ndarray:
+##                    if type(data)==Numeric.ArrayType or type(data)==numpy.ndarray: # commented out by UB on 2012Jun07 to remove Numeric
+                    if type(data)==numpy.ndarray: # NEW by UB on 2012Jun07 to remove Numeric
                         if not self.info.has_key("palette"):
                             self.info["palette"]="gray"
                         if not self.info.has_key("interp"):
@@ -426,7 +430,8 @@ class Plot:
                     if not self.info.has_key("filereplace"):
                         self.info["filereplace"]=0
                     if self.info["filetype"]=="fits":
-                        if type(data) in [numpy.ndarray,Numeric.ArrayType]:
+##                        if type(data) in [numpy.ndarray,Numeric.ArrayType]: # commented out by UB on 2012Jun07 to remove Numeric
+                        if type(data) == numpy.ndarray: # NEW by UB on 2012Jun07 to remove Numeric
                             print "WARNING - depreciated - use util.FITS instead (code needs updating)"
                             if self.info["filereplace"]:
                                 imghdu=util.pyfits.PrimaryHDU(numarray.array(data))
