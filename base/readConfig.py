@@ -9,14 +9,6 @@ except:
         rank=0
         size=1
     MPIWorld=dummy()
-    
-## 5 lines commented out by UB, 2012Jun07 to remove Numeric:
-#try:
-#    import Numeric
-#except:
-#    Numeric=numpy
-#    print "readConfig - couldn't import Numeric - continuing"
-
 
 class AOXml:
     """A class for reading an AO XML config file.  If given, file (filename)
@@ -344,8 +336,7 @@ class AOXml:
                 if hasattr(self.this,self.curmodule):
                     if hasattr(getattr(self.this,self.curmodule),attrs["name"]):
                         if bInfo==1:#overwrite prev value
-##                            if type(v)==Numeric.ArrayType or type(v)==numpy.ndarray: # commented out by UB, 2012Jun07 to remove Numeric
-                            if type(v)==numpy.ndarray: ## NEW by UB, 2012Jun07
+                            if type(v)==numpy.ndarray:
                                 strv="Array..."
                             else:
                                 strv=str(v)
@@ -407,7 +398,6 @@ class AOXml:
                         glob[var]=getattr(obj,var)
                 glob[mod]=obj
         glob["this"]=self.this
-##        glob["Numeric"]=Numeric # commented out by UB, 2012Jun07 to remove Numeric
         glob["numpy"]=numpy
         glob["module"]=self.curmodule
         #if len(attrs["value"])==0:
@@ -419,9 +409,6 @@ class AOXml:
                 v=int(v)
             elif t=="f":#eg value will be "5.9"
                 v=float(v)
-            ## 2 lines commented out by UB, 2012Jun07 to remove Numeric
-#            elif t=="Numeric":#eg value will be "Numeric.array([1,2,3])"
-#                v=eval(v,glob)
             elif t=="numpy":#eg value will be "numpy.array([1,2,3])"
                 v=eval(v,glob)
             elif t=="copy":#eg value will be "this.globals.npup"
@@ -451,7 +438,6 @@ class AOXml:
         @rtype: User defined.
         """
         dct=glob#{"this":self.this}
-        #strng=strng.strip()
         if len(strng.strip())==0:
             print "ERROR - Zero length strng in doexec...",name
             raise Exception("ZERO LENGTH STRNG FOR EXEC")

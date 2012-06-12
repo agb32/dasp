@@ -1,13 +1,12 @@
 import xml.parsers.expat,types,string
-## import Numeric,time,os,numpy # commented out by UB on 2012Jun07 to remove Numeric
-import time,os,numpy # NEW by UB on 2012Jun07 to remove Numeric
+import time,os,numpy
 try:
     import gist
 except:
     print "simdata - cannot import gist - ignoring"
 from gui.textbox.textbox import textbox
 from gui.pylab import mypylab
-#import util.pyfits,numarray
+
 class simdata:
     """A class for reading a simulation data xml file.  This file is used
     to determine what plots etc are available for the gui."""
@@ -316,8 +315,7 @@ class Plot:
                 dim=self.dim
                 xaxis=self.xaxis
                 if dim==None:
-##                    if type(data) in [numpy.ndarray,Numeric.ArrayType]: # commented out by UB on 2012Jun07 to remove Numeric
-                    if type(data) == numpy.ndarray: # NEW by UB on 2012Jun07 to remove Numeric
+                    if type(data) == numpy.ndarray:
                         if len(data.shape)>1:
                             dim=2
                         elif len(data.shape)==1:
@@ -338,13 +336,7 @@ class Plot:
                         if type(self.xaxis)==types.StringType:
                             xaxis=eval(self.xaxis)
                 if self.gisttype:
-                    #print "Plotting gist data (if you know more about gist than me, please improve this in gui/simdata.py)"
-##                     try:
-##                         print data.typecode(),data.shape,"Dims:",dim
-##                     except:
-##                         pass
-##                    if type(data) in [numpy.ndarray,Numeric.ArrayType]: # commented out by UB on 2012Jun07 to remove Numeric
-                    if type(data) == numpy.ndarray:  # NEW by UB on 2012Jun07 to remove Numeric
+                    if type(data) == numpy.ndarray:
                         if not self.info.has_key("window"):
                             self.info["window"]=0
                         if not self.info.has_key("palette"):
@@ -368,8 +360,7 @@ class Plot:
                     else:
                         print "Cannot display type %s with gist"%str(type(data))
                 if self.pylabtype:
-##                    if type(data)==Numeric.ArrayType or type(data)==numpy.ndarray: # commented out by UB on 2012Jun07 to remove Numeric
-                    if type(data)==numpy.ndarray: # NEW by UB on 2012Jun07 to remove Numeric
+                    if type(data)==numpy.ndarray:
                         if not self.info.has_key("palette"):
                             self.info["palette"]="gray"
                         if not self.info.has_key("interp"):
@@ -420,9 +411,6 @@ class Plot:
                     else:
                         print str(data)
                 if self.savetype:
-                    #self.info["filetype"]=="fits, csv, text" default fits
-                    #self.info["filename"]
-                    #self.info["replace"]==1 or 0, default 0
                     if not self.info.has_key("filetype"):
                         self.info["filetype"]="fits"
                     if not self.info.has_key("filename"):
@@ -430,8 +418,7 @@ class Plot:
                     if not self.info.has_key("filereplace"):
                         self.info["filereplace"]=0
                     if self.info["filetype"]=="fits":
-##                        if type(data) in [numpy.ndarray,Numeric.ArrayType]: # commented out by UB on 2012Jun07 to remove Numeric
-                        if type(data) == numpy.ndarray: # NEW by UB on 2012Jun07 to remove Numeric
+                        if type(data) == numpy.ndarray:
                             print "WARNING - depreciated - use util.FITS instead (code needs updating)"
                             if self.info["filereplace"]:
                                 imghdu=util.pyfits.PrimaryHDU(numarray.array(data))
