@@ -28,7 +28,8 @@ clean:
 	(cd shmem/ ; make clean )
 	echo "Cleaning fftw3 module"
 	(cd Numfftw3; make clean )
-	echo "Cleaning cell module"
-	(cd cell; make clean)
 	echo "Cleaning svd module"
 	(cd svd; make clean)
+
+	#echo "Cleaning cell module"
+	#(cd cell; make clean)
