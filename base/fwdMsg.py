@@ -1,5 +1,5 @@
 #$Id: fwdMsg.py,v 1.5 2005/11/17 13:40:55 ali Exp $
-import types,Numeric
+import types,numpy#Numeric
 class fwdMsg:
     """This class is little used, and should only be considered in extremely rare cases.  When used, it should be used to pass messages in the opposite direction to simulation data flow.
 
@@ -45,7 +45,7 @@ class fwdMsg:
         self.s=s
         self.i=i
         self.f=f
-        self.arr=Numeric.zeros((28,),"1")#byte array
+        self.arr=numpy.zeros((28,),numpy.uint8)#"1")#byte array
         
     def toArray(self,arr=None):
         """Copy the stored string, int and float into a Numeric array.
@@ -56,14 +56,14 @@ class fwdMsg:
         """
         if type(arr)==types.NoneType:
             arr=self.arr
-        arr*=Numeric.array(0,"1")#memset(arr,0,sizeof(arr)...
+        arr*=numpy.array(0,numpy.uint8)#"1")#memset(arr,0,sizeof(arr)...
         l=len(self.s)
         if l>16:
             l=16
             self.s=self.s[:16]
         arr[0:l]=self.s
-        arr[16:20]=Numeric.array(self.i,"i").tostring()
-        arr[20:28]=Numeric.array(self.f,"d").tostring()
+        arr[16:20]=numpy.array(self.i,"i").tostring()
+        arr[20:28]=numpy.array(self.f,"d").tostring()
         return arr
 
     def fromArray(self,arr=None):
@@ -73,8 +73,8 @@ class fwdMsg:
         @return: None"""
         if type(arr)==types.NoneType:
             arr=self.arr
-        self.f=Numeric.fromstring(arr[20:28],"d")[0]
-        self.i=Numeric.fromstring(arr[16:20],"i")[0]
+        self.f=numpy.fromstring(arr[20:28],dtype="d")[0]
+        self.i=numpy.fromstring(arr[16:20],dtpye="i")[0]
         self.s=arr[0:16].tostring().replace('\0','')#note, this means that the
         #users string cannot contain a '\0' (unless they don't use fromArray).
         
