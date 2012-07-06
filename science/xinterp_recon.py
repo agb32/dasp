@@ -15,13 +15,13 @@ import util.fdpcg
 import util.createPokeMx
 import util.tel
 import util.zernikeMod
+#import util.dot as quick
 try:
     import util.regularisation
 except:
     print "WARNING - regularisation not supported - please update your scipy library"
 from util.centroid import pxlToRadPistonTheoretical
 from util.dm import MirrorSurface
-#import numpy
 import string
 
 #print "Search for TODO in xinterp_recon.py"
@@ -521,7 +521,7 @@ class recon(base.aobase.aobase):
             #print "TODO: select only needed phase values - only the used acts"
             self.outputData[:,]+=-self.pcg.gainfactor*numpy.take(numpy.array(self.pcg.x),self.dmindices)
         elif self.reconType in ["regcg","regcg-waffle"]:
-            self.regb=numpy.dot(self.pokemx,data)#dot poke matrix with slopes to get RHS.
+            self.regb=quick.dot(self.pokemx,data)#dot poke matrix with slopes to get RHS.
             self.outputData*=self.decayFactor
             if self.regA==None:
                 print "Computing regularised A matrix"
@@ -530,16 +530,16 @@ class recon(base.aobase.aobase):
         else:
             if self.dmModeType=="poke":
                 self.outputData*=self.decayFactor
-                self.outputData[:,]+=-self.gamma*numpy.dot(data,self.reconmx)
+                self.outputData[:,]+=-self.gamma*quick.dot(data,self.reconmx)
             elif self.dmModeType=="zernike":
-                modes=numpy.dot(data,self.reconmx)
+                modes=quick.dot(data,self.reconmx)
                 output=numpy.zeros((self.nact,self.nact),numpy.float64)
                 for i in range(self.nmodes):
                     output+=self.actModes[i]*modes[i]
                 self.outputData[:,]+=-self.gamma*numpy.take(output.ravel(),self.dmindices)
             elif self.dmModeType=="zernDM":
                 self.outputData*=self.decayFactor
-                self.outputData+=-self.gamma*numpy.dot(data,self.reconmx)
+                self.outputData+=-self.gamma*quick.dot(data,self.reconmx)
 
     def control_matrix(self,pokemx,corr_thresh):
         """Make control matrix from poke matrix"""
@@ -564,8 +564,8 @@ class recon(base.aobase.aobase):
         ai=numpy.multiply(a,id)
         ai=numpy.where(ai != 0, 1/ai, 0)
         #print ai.shape,ut.shape,pokemx.shape
-        tmp=numpy.dot(ai[:,:ut.shape[0]], ut[:ai.shape[1]])
-        reconmx = numpy.dot(v[:,:tmp.shape[0]], tmp)
+        tmp=quick.dot(ai[:,:ut.shape[0]], ut[:ai.shape[1]])
+        reconmx = quick.dot(v[:,:tmp.shape[0]], tmp)
         return reconmx
 
     def map_matrix(self,pokemx,phaseCov,noiseCov,rcond):
@@ -577,14 +577,14 @@ class recon(base.aobase.aobase):
         pmxT=pokemx
         if mapVersion==0:
             # This was the original version - not sure if correct...
-            reconmx=numpy.transpose(numpy.dot(numpy.dot(phaseCov,pmxT),numpy.linalg.pinv(numpy.dot(numpy.dot(pmx,phaseCov),pmxT)+noiseCov,rcond)))
+            reconmx=numpy.transpose(quick.dot(quick.dot(phaseCov,pmxT),numpy.linalg.pinv(quick.dot(quick.dot(pmx,phaseCov),pmxT)+noiseCov,rcond)))
         elif mapVersion==1:
             # Actually, maybe this should be (Roggerman, imaging through turbulence book, pg 193):
             invNoiseCov=noiseCov.copy()
             diag=noiseCov[::noiseCov.shape[0]+1]
             invNoiseCov[::noiseCov.shape[0]+1]=numpy.where(diag==0,0,1./diag)#diagonal anyway
             invPhaseCov=numpy.linalg.inv(phaseCov)
-            reconmx=numpy.dot(numpy.linalg.inv(numpy.dot(pmxT,numpy.dot(invNoiseCov,pmx))+invPhaseCov),numpy.dot(pmxT,invNoiseCov))
+            reconmx=quick.dot(numpy.linalg.inv(quick.dot(pmxT,quick.dot(invNoiseCov,pmx))+invPhaseCov),quick.dot(pmxT,invNoiseCov))
             reconmx=numpy.transpose(reconmx)#transpose since we do the dot in a funny order
         if self.dmModeType=="poke":
             #need to scale the xinetics_dm output to unity...
@@ -771,7 +771,7 @@ class recon(base.aobase.aobase):
         elif self.dmModeType=="zernDM":
             #print "TODO: dmModeType==zernDM, computePhaseCovariance"
             self.phaseCov/=1#self.pxlscale**2#convert from radians^2 to pixels^2.
-        #self.phaseCov=numpy.dot(self.invModeInteraction,self.phaseCov)
+        #self.phaseCov=quick.dot(self.invModeInteraction,self.phaseCov)
     def noiseCovariance(self):
         """This can be used to compute the wfs noise covariance matrix
         - if the DM output is zero... ie noiseless..."""
@@ -838,7 +838,7 @@ class recon(base.aobase.aobase):
         pmx=numpy.transpose(self.pokemx)
         pmxT=self.pokemx
         if mapVersion==0:
-            self.reconmx=numpy.transpose(numpy.dot(numpy.dot(phaseCov,pmxT),numpy.linalg.pinv(numpy.dot(numpy.dot(pmx,phaseCov),pmxT)+self.noiseMatrix,self.rcond)))
+            self.reconmx=numpy.transpose(quick.dot(quick.dot(phaseCov,pmxT),numpy.linalg.pinv(quick.dot(quick.dot(pmx,phaseCov),pmxT)+self.noiseMatrix,self.rcond)))
             #Note, this is okay for matrix inversion lemma, provided noiseMatrix can be inverted easily (ie if diagonal or sparse).  Then, the inverse is of size nacts,nacts, rather than ncents,ncents.
 
 
@@ -849,7 +849,7 @@ class recon(base.aobase.aobase):
             diag=noiseCov[::noiseCov.shape[0]+1]
             invNoiseCov[::noiseCov.shape[0]+1]=numpy.where(diag==0,0,1./diag)#diagonal anyway
             invPhaseCov=numpy.linalg.inv(phaseCov)
-            reconmx=numpy.dot(numpy.linalg.inv(numpy.dot(pmxT,numpy.dot(invNoiseCov,pmx))+invPhaseCov),numpy.dot(pmxT,invNoiseCov))
+            reconmx=quick.dot(numpy.linalg.inv(quick.dot(pmxT,quick.dot(invNoiseCov,pmx))+invPhaseCov),quick.dot(pmxT,invNoiseCov))
             self.reconmx=numpy.transpose(reconmx)#transpose since we do the dot in a funny order
 
         if self.dmModeType=="poke":

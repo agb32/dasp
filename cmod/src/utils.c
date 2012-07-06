@@ -1,5 +1,4 @@
 #include <Python.h>
-//#include </usr/local/include/python2.4/Numeric/arrayobject.h>
 #include <numpy/arrayobject.h>
 #include <stringobject.h>
 #include <stdio.h>
@@ -15,35 +14,10 @@
 #include <assert.h>
 #include <math.h>
 #include <sys/mman.h>
-//taken from Numeric/Src/arrayobject.c - has comment that "obviously this needs some work".
-//#define ISCONTIGUOUS(m) ((m)->flags & CONTIGUOUS)
+
+#include "mvm.h"
 
 static PyObject *UtilsError;
-
-/*
-static PyObject* StringFromArray(PyObject *self,PyObject *args){
-  //This is dangerous to use unless you know what you're doing.  Python stirng objects should be immutable, but the one returned here can be mutated using the array.  This is typically only used when a tostring() would otherwise be used and the sting is instantly forgotton about.  Not sure what happens when the string is deleted... probably will destroy the array too...
-  PyArrayObject *arr;
-  PyStringObject *s;
-  int i;
-  if(!PyArg_ParseTuple(args,"O",&PyArray_Type,&arr)){
-    printf("Usage: array\n");
-    return NULL;
-  }
-  if(!PyArray_ISCONTIGUOUS(arr)){
-    printf("must be contiguous\n");
-    return NULL;
-  }
-  s=(PyStringObject*)PyString_FromString("");
-  &(s->ob_sval[0])=arr->data;
-  s->ob_shash=-1;
-  s->ob_size=arr->descr->elsize;
-  for(i=0; i<arr->nd; i++){
-    s->ob_size*=arr->dimensions[i];
-  }
-  Py_INCREF(s);
-  return (PyObject*)s;
-  }*/
 
 typedef struct{
   int dimensions[2];
@@ -1395,11 +1369,298 @@ arrayfrombuffer(PyObject *self, PyObject *args)
   return (PyObject*)arrayobj;*/
 }
 
+//
+// Multi-threaded matrix-vector multiplication.
+// Urban Bitenc, July 2nd 2012
+//
+// Possible usages:
+// c = dot(a, b)
+// c = dot(a, b, r)
+// c = dot(a, b, N)
+// c = dot(a, b, r, N)
+// 
+// a ... 2-D array - input matrix
+// b ... 1-D array - input vector
+// r ... 1-D array - result vector (if you provide it on input, the function does 
+//                   not need to allocate memory; increase in speed of about 0.3%)
+// N ... the number of threads:
+//           N <= 0 : sysconf(_SC_NPROCESSORS_ONLN)/2 threads for big matrices,
+//                    1 thread for small matrices (m*n < 500.000)
+//           N >= 1 : N number of threads are used
+//
+//
+static PyObject* dot(PyObject* self, PyObject* args)
+{
+  PyArrayObject *ArrayM; // First argument:  input 2-D array
+  PyArrayObject *ArrayV; // Second argument: input 1-D array
+  PyObject      *arg3;   // Third argument (optional). Can be the output array (PyArrayObject)
+                              // or the number of threads (integer) or None. If it is the
+                              // number of threads (int), the value in the fourth argument is ignored.
+  int nThreads = 0;      // Fourth argument (optional): the number of threads (int).
+                         // The default is 0, which means default multi-threaded.
+
+  PyArrayObject *ArrayR; // The Results array.
+  
+  float* M;              // input Matrix data (from ArrayM)
+  float* V;              // input Vector data (from ArrayV)
+  float* R;              // output Vector data (to ArrayR)
+  int    n;              // size of V
+  int    m;              // size of R
+  npy_intp* iSizes;      // sizes of the input array
+  int i;                 // for-loop index
+
+  int forEach;           // m/nThreads = number of ouput elements to be processed by each thread
+  int oneMore;           // m%nThreads = number of threads that have to process one line more
+
+  int check_arg3 = 0;    // a flag to check the output array to make the code more readable
+
+  pthread_t*  thread;    // for the vector of threads
+  mvm_data_t* params;    // for the vector of parameters (mvm_data_t defined in mvm.h)
+
+
+  // (1) PARSE THE INPUT arguments from python:
+  if( !PyArg_ParseTuple(args, "O!O!|Oi",
+  			&PyArray_Type, &ArrayM, // input 2-D matrix
+  			&PyArray_Type, &ArrayV, // input 1-D vector
+			&arg3,                  // optional: output 1-D vector OR number of threads
+  			&nThreads) )            // optional: number of threads
+    return NULL;
+
+  // (2) CHECK THE INPUT:
+  // check the first two arrays:
+  if(ArrayM->nd != 2) // input  matrix must be 2-D
+    {
+      PyErr_SetString(PyExc_TypeError, "1st argument must be 2-D array.");
+      return NULL;
+    }
+  if(ArrayV->nd != 1) // input  vector must be 1-D
+    {
+      PyErr_SetString(PyExc_TypeError, "2nd argument must be 1-D array.");
+      return NULL;
+    }
+  if(!PyArray_ISCONTIGUOUS((PyArrayObject*)ArrayM) )
+    {
+      PyErr_SetString(PyExc_TypeError, "1st argument must be contiguous.");
+      return NULL;
+    }
+  if(!PyArray_ISCONTIGUOUS((PyArrayObject*)ArrayV) )
+    {
+      PyErr_SetString(PyExc_TypeError, "2nd argument must be contiguous.");
+      return NULL;
+    }
+  if(PyArray_TYPE((PyArrayObject*)ArrayM)!=NPY_FLOAT)
+    {
+      PyErr_SetString(PyExc_TypeError, "1st argument must be an array of FLOATs.");
+      return NULL;
+    }
+  if(PyArray_TYPE((PyArrayObject*)ArrayV)!=NPY_FLOAT)
+    {
+      PyErr_SetString(PyExc_TypeError, "2nd argument must be an array of FLOATs.");
+      return NULL;
+    }
+  if(ArrayM->dimensions[1] != ArrayV->dimensions[0]) // matrix and input vector sizes must agree
+    {
+      PyErr_SetString(PyExc_ValueError, "Number of columns of 1st argument must agree with length of 2nd argument.");
+      return NULL;
+    }
+
+  // Check the 3rd argument and set the outputArray accordingly:
+  if( arg3->ob_type == &PyArray_Type ) // If it is an array
+    {                  // Set the flag to check the output array later. (You could
+      check_arg3 = 1;  // check it straight away, but the code would be less readable.)
+    }
+  else if( PyInt_Check( arg3 ) ) // If it is an integer
+    {
+      // Generate the results array:
+      ArrayR = (PyArrayObject *)PyArray_SimpleNew(1, &(ArrayM->dimensions[0]), NPY_FLOAT);
+      // Take its value as the number of threads (and herewith ignore the value in argument 4):
+      nThreads = PyInt_AsLong( arg3 );
+    }
+  else if( arg3 == Py_None ) // If it is None
+    {
+      // Generate the results array:
+      ArrayR = (PyArrayObject *)PyArray_SimpleNew(1, &(ArrayM->dimensions[0]), NPY_FLOAT);
+    }
+  else // If it is not array, integer or none, raise exception:
+    {
+      PyErr_SetString(PyExc_TypeError, "3rd argument must be PyArrayObject or integer or None.");
+      return NULL;
+    }
+
+  // Check the array for results, provided on input:
+  if( check_arg3 )
+    {
+      if( ((PyArrayObject *)arg3)->nd != 1) // result vector must be 1-D
+	{
+	  PyErr_SetString(PyExc_TypeError, "3rd argument array must be 1-D.");
+	  return NULL;
+	}
+      if(!PyArray_ISCONTIGUOUS( arg3 ) )
+	{
+	  PyErr_SetString(PyExc_TypeError, "3rd argument array must be contiguous.");
+	  return NULL;
+	}
+      if(PyArray_TYPE(arg3) != NPY_FLOAT)
+	{
+	  PyErr_SetString(PyExc_TypeError, "3rd argument array must be an array of FLOATs.");
+	  return NULL;
+	}
+      if(ArrayM->dimensions[0] != ((PyArrayObject *)arg3)->dimensions[0]) // matrix and output vector sizes must agree
+	{
+	  PyErr_SetString(PyExc_ValueError, "Number of lines of 1st argument must agree with length of 3rd argument array.");
+	  return NULL;
+	}
+      // If all is fine, arg3 becomes the output array:
+      ArrayR = (PyArrayObject *)arg3;
+    }
+  // END OF "CHECKS OF THE INPUT"
+  //
+  // ArrayR is now the output array, which was either provided on input or
+  // created above.
+  //
+
+  // (3) FOR EASE OF USE:
+  // Extract the size of the input array:
+  iSizes = ArrayM->dimensions; // sizes of array
+  n = (int) iSizes[1]; // input vector size
+  m = (int) iSizes[0]; // output vector size
+
+  // Get the data from the python Array objects into c arrays
+  M = (float*)ArrayM->data;
+  V = (float*)ArrayV->data;
+  R = (float*)ArrayR->data;
+
+  // (4) DETERMINE THE NUMBER OF THREADS:
+  // If the input nThreads is < 1, use the default multi-threading.
+  // Find out the number of cores (hyperthreads) and use half that number for the number of threads.
+  // (On average this seems to make most sense - see U.B.`s log book 1, p. 124.)
+  if(nThreads < 1)
+    {
+      // Check the matrix size. If the matrix is too small, run in a single thread,
+      // because this will be faster. The maximum matrix size to run single threaded
+      // was determined empirically and is different on different computers - see UB's 
+      // log book 1, p.127 (for MacBook und gpu2: 500.000; for cpuserver: 1.100.000, for
+      // gpuserver: 340.000). Here we use one value - 500.000:
+      if( m*n < 500000)
+	{
+	  nThreads = 1;
+	}
+      else
+	{
+	  // Find the number of cores and divide it by two:
+	  nThreads = sysconf(_SC_NPROCESSORS_ONLN)/2;
+
+	  // For the case that _SC_NPROCESSORS_ONLN returns 1, nThreads will at this point be 0.
+	  // Or, if anything else funny happens and the value is even negative, correct it to 1
+	  // and the process will run in a single thread. Print a warning so the user is aware of that.
+	  if(nThreads < 1)
+	    {
+	      printf("WARNING: Multiple threading was requested for .dot, but the process will run in a single thread, because \"sysconf(_SC_NPROCESSORS_ONLN)\" returned %ld.", sysconf(_SC_NPROCESSORS_ONLN));
+	      nThreads = 1;
+	    }
+	}
+    }
+  // printf("Number of CPUs: %d\n nThreads: %d\n", (int)sysconf(_SC_NPROCESSORS_ONLN), nThreads);
+  //
+  // nThreads is now determined (either from input or set to the default value).
+  //
+
+  // Important for Python:
+  Py_BEGIN_ALLOW_THREADS;
+
+  // (5) THREADING:
+  if(nThreads == 1) // for nThreads == 1 you do not even create one thread, but just run it:
+    {
+      // The non-threaded case:
+
+      // set the parameters
+      params = malloc(sizeof(mvm_data_t));
+      params->n = n; // input vector size
+      params->m = m; // output vector size
+      params->M = M;
+      params->V = V;
+      params->R = R;
+
+      // multiply:
+      mvm( params );
+
+      // free the memory:
+      free(params);
+    }
+  else
+    {
+      // Threaded:
+
+      // Allocate the memory for the 'params' vector
+      // (parameters of the mvm function):
+      if((params=malloc(sizeof(mvm_data_t)*nThreads))==NULL)
+	{
+	  PyErr_SetString(PyExc_MemoryError, "cmod.utils.dot: Failed to malloc 'params'.\n");
+	  return NULL;
+	}
+
+      // Allocate the memory for 'thread' (the vector of threads):
+      if((thread=malloc(sizeof(pthread_t)*nThreads))==NULL)
+	{
+	  PyErr_SetString(PyExc_MemoryError, "cmod.utils.dot: Failed to malloc 'thread'.\n");
+	  free(params); // free the already allocated memory for 'params'
+	  return NULL;
+	}
+
+      // To determine the number of lines processed by each thread:
+      forEach = m/nThreads;
+      oneMore = m%nThreads;
+
+      // Run the jobs in threads:
+      // The first 'oneMore' threads will process 'forEach+1' matrix lines,
+      //     the rest of the threads will process 'forEach' lines.
+      for(i=0; i < nThreads; i++)
+	{
+	  // Set the input parameters:
+	  params[i].n = n;         // input vector size
+	  params[i].V = V;         // input vector
+	  if(i < oneMore) // the first oneMore threads
+	      params[i].m = forEach+1; // output vector size
+	  else  // the rest of the threads:
+	      params[i].m = forEach;
+	  if(i == 0)
+	    {
+	      params[i].M = M;
+	      params[i].R = R;
+	    }
+	  else
+	    {
+	      params[i].M = params[i-1].M + (params[i-1].m)*n; // first element of the input matrix
+	      params[i].R = params[i-1].R + params[i-1].m;     // output vector
+	    }
+	  // Run the job in a thread:
+	  pthread_create( &thread[i], NULL, (void*)mvm, &params[i] );
+	}
+
+      // Wait untill all the threads are finished:
+      for(i=0; i < nThreads; i++)
+	{
+	  pthread_join(thread[i], NULL);
+	}
+
+      // Free the memory allocated for 'thread' and 'params':
+      free(params);
+      free(thread);
+    }
+  // END OF THREADING
+
+  // Important for Python:
+  Py_END_ALLOW_THREADS;
+
+  // Return the results vector:
+  return Py_BuildValue("O", (PyObject*)ArrayR);
+}
+
+
 
 static PyMethodDef UtilsMethods[] = {
   {"rotateArray",rotateArray,METH_VARARGS,"Rotate a 2D array"},
   {"compressFloatArray",CompressFloatArray,METH_VARARGS,"Compress floating point"},
-  //{"stringFromArray",StringFromArray,METH_VARARGS,"Dangerous..."},
   {"uncompressFloatArray",UncompressFloatArray,METH_VARARGS,"uncompress floating point"},
   {"compressFloatArrayAll",CompressFloatArrayAll,METH_VARARGS,"Compress floating point"},
   {"uncompressFloatArrayAll",UncompressFloatArrayAll,METH_VARARGS,"uncompress floating point"},
@@ -1417,6 +1678,8 @@ static PyMethodDef UtilsMethods[] = {
   {"queryNumericArray",  queryNumericArray, METH_VARARGS,
    "Find out about a numeric array."},
   {"arrayfrombuffer", arrayfrombuffer, METH_VARARGS, "Create a Numeric array from an existing mmap.mmap object"},
+  {"dot", dot, METH_VARARGS, 
+   "Matrix-Vector multiplication. Usage:\n\c = dot(a, b, r, N)\n\       a ... 2-D array - input matrix\n\       b ... 1-D array - input vector\n\       r ... 1-D array - result vector (optional)\n\       N ... the number of threads (optional)"},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 //PyMODINIT_FUNC 

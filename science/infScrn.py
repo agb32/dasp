@@ -86,6 +86,9 @@ import scipy.linalg as LA
 #import util.matrix as matrix
 import util.FITS
 
+## for fast MVM:
+import util.dot as quick # will replace numpy.dot when I implement it for double
+
 matrixdot=numpy.dot#matrix.dot
 
 def computeScrnSizeOld(thetas,phis,ntel,npup,telDiam,altitude):

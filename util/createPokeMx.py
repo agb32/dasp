@@ -1,5 +1,6 @@
 """Module to create theoretical poke matrix for Fried geometry.  Can forsee several different methods here, for different types of pokes.  eg poking individual actuators, poking as zernikes etc."""
 import numpy as na
+#import util.dot as quick
 #na.float32="f"#hack for Numeric - not needed for numpy.
 import scipy.sparse
 def straightPokes(nact,vlist=[1.],pupfn=None,actmap=None,returnfull=0):
@@ -549,11 +550,11 @@ def test(nact=9):
     c2=na.random.rand(((nact-1)**2*2)**2)#matrix
     c2.shape=((nact-1)**2*2,(nact-1)**2*2)
     t1=time.time()
-    r=na.dot(pmx,c1)
+    r=quick.dot(pmx,c1)
     t2=time.time()
     print "numpy vector",t2-t1
     t1=time.time()
-    r=na.dot(pmx,c2)
+    r=quick.dot(pmx,c2)
     t2=time.time()
     print "numpy matrix",t2-t1
     t1=time.time()

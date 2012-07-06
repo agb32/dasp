@@ -11,6 +11,7 @@ import util.createPokeMx
 import science.infScrn
 import util.spmatrix
 import scipy.sparse
+#import util.dot as quick
 """Aims to solve Ax=b.
 For a tomographic AO system.
 
@@ -175,7 +176,7 @@ class pcg:
         else:
             centroids=numpy.array(centroids)
         self.centroids=centroids
-        #self.b=numpy.dot(self.pokeNoise,centroids)
+        #self.b=quick.dot(self.pokeNoise,centroids)
         self.b=numpy.zeros((self.nacts,),self.centroids.dtype)
         print "computing pcg centroids"
         self.newCentroids(self.centroids)#compute self.b
@@ -312,7 +313,7 @@ class pcg:
                 zhatreordered=invChat*fftr#rhatreordered*invChatdiag
             else:
                 print "slow mmx multiply"
-                zhatreordered=numpy.dot(invChat,fftr)#Slow MMX multiply
+                zhatreordered=quick.dot(invChat,fftr)#Slow MMX multiply
             # now reorder zhat back to coord sys and FFT back...
             layerStart=0
             for i in xrange(self.nLayers):
@@ -352,7 +353,7 @@ class pcg:
             self.b[:]=self.pokeNoiseSparse.dot(centroids)
 ##         else:
 ##             print "warning: pcg.newCentroids() - not sparse matrix"
-##             self.b[:]=numpy.dot(self.pokeNoise,centroids)
+##             self.b[:]=quick.dot(self.pokeNoise,centroids)
 
     def resetX(self):
         """reset the initial guess... can do this when the loop is
@@ -380,8 +381,8 @@ class pcg:
             #        self.r[:-key]-=self.sparseA[key]*self.x[key:]
         else:#full implementation
             print "big mmx multiply"
-            self.r=self.b-numpy.dot(self.A,self.x)
-        #self.z=numpy.dot(self.Cm1,self.r)
+            self.r=self.b-quick.dot(self.A,self.x)
+        #self.z=quick.dot(self.Cm1,self.r)
         #Actually, do the previous line in FFT space (next 3 lines).
         #print "todo: pgc - FFT the L blocks of r separately"
         #self.rhat=numpy.fft.fft(self.r)#FFT the L blocks of r.
@@ -434,13 +435,13 @@ class pcg:
             
         else:#full implementation
             print "big mmx multiply for q=Ap"
-            self.q=numpy.dot(self.A,self.p)#dominant cost
-        qp=numpy.dot(self.q,self.p)#complex
-        self.rz=numpy.dot(self.r,self.z)
+            self.q=quick.dot(self.A,self.p)#dominant cost
+        qp=quick.dot(self.q,self.p)#complex
+        self.rz=quick.dot(self.r,self.z)
         if qp!=0:
             #print type(self.r),type(self.z),type(qp)#agbhome
             #print self.r.shape,self.z.shape,self.r.dtype.char,self.z.dtype.char
-            #tmp=numpy.dot(self.r,self.z)
+            #tmp=quick.dot(self.r,self.z)
             #print type(tmp)
             self.alpha=(self.rz/qp).real#complex
         else:
@@ -457,11 +458,11 @@ class pcg:
             
         
         self.r-=self.alpha*self.q
-        #self.z=numpy.dot(self.Cm1,self.r)#dominant cost
+        #self.z=quick.dot(self.Cm1,self.r)#dominant cost
         #Prev line actually computed in FFT space (next line...).
         self.z=self.computeinvChatr(self.invChatReordered,self.r,mode="diag").real
         if self.rz!=0:
-            self.beta=(numpy.dot(self.r,self.z)/self.rz).real
+            self.beta=(quick.dot(self.r,self.z)/self.rz).real
         else:
             self.beta=0.#if rz is zero, so is new r or z...
         #print "alpha,beta",self.alpha,self.beta
@@ -647,7 +648,7 @@ def doit(zernlist=None,nact=9,cents=None,avphase=None,readnoise=10.,usePoisson=1
     raw_input("Displaying inverse of A... press return")
     gist.fma();gist.pli(phase)
     raw_input("The phase... press a key")
-    recphase=numpy.dot(invA,Pcg.b)
+    recphase=quick.dot(invA,Pcg.b)
     print "Reconstructed phase min/max:",min(recphase.flat),max(recphase.flat)
     recphase.shape=(9,9)
     gist.window(4);gist.palette("gray.gp");gist.fma();gist.pli(recphase)
@@ -656,7 +657,7 @@ def doit(zernlist=None,nact=9,cents=None,avphase=None,readnoise=10.,usePoisson=1
     chires=numpy.zeros((100,),"d")
     #also compute what a traditional MVM with pokemx would give...
     #invpokemx=numpy.linalg.pinv(Pcg.pokemx)#same as generalised_inverse
-    #pmphase=numpy.dot(invpokemx,cents)
+    #pmphase=quick.dot(invpokemx,cents)
     print "Press return for next iteration or key+return to quit"
     #gist.fma()
     #gist.pli(numpy.reshape(pmphase,(nact,nact)))

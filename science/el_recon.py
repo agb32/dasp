@@ -1,8 +1,7 @@
 #$Id: el_recon.py,v 1.37 2008/03/05 15:43:09 ali Exp $
 #import string,math
-import Numeric
 import numpy
-
+#import util.dot as quick
 import time,os
 from util.tel import Pupil
 #import cmod.zfit
@@ -181,7 +180,7 @@ class recon(base.aobase.aobase):
         ai=numpy.multiply(a,id)
         ai=numpy.where(ai != 0, 1/ai, 0)
 
-        reconmx = numpy.dot(v, numpy.dot(ai, ut))
+        reconmx = quick.dot(v, quick.dot(ai, ut))
         return reconmx,a
 
 
@@ -245,7 +244,7 @@ class recon(base.aobase.aobase):
                 #and then fit them.
                 #t1=time.time()
                 #cmod.zfit.fit(self.data,self.coeff)# C-call for SVD Zernike fit
-                self.coeff[:,]=numpy.dot(self.zernikeReconMx,self.data)
+                self.coeff[:,]=quick.dot(self.zernikeReconMx,self.data)
                 #t2=time.time()
                 #print "zfit time %g"%(t2-t1)
                 #self.pist*=0.#now done by zero_dm...

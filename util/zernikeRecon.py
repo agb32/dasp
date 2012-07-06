@@ -1,12 +1,12 @@
 """Implement a theoretical zernike reconstructor (no poke matrix needed).
 """
 import os,numpy,numpy.linalg
-#import LinearAlgebra
 import util.tel
 from cmod.zernike import zern
 import cmod.binimg
-#import cmod.zfit
 import util.FITS
+#import util.dot as quick
+
 class zernikeRecon:
     def __init__(self,npup,nsubx,nzrad=None,nz=None,recon_jmin=1,pupil=None,zern_tilts=1,computeReconmx=1):
         """recon_jmin - minimum zernike to use for reconstruction.  1 if want
@@ -114,7 +114,7 @@ class zernikeRecon:
             ai=numpy.multiply(a,id)
             ai=numpy.where(ai != 0, 1/ai, 0)
             #print v.shape,ai.shape,ut.shape
-            reconmx = numpy.dot(v, numpy.dot(ai, ut[:ai.shape[0]]))
+            reconmx = quick.dot(v, quick.dot(ai, ut[:ai.shape[0]]))
         else:#but this uses svd anyway, so wahts the point?
             reconmx=numpy.linalg.pinv(pokemx)
             a=None
@@ -215,7 +215,7 @@ class zernikeRecon:
                     self.data[idata]=self.centy[i,j]
         #and then fit them.
         #cmod.zfit.fit(self.data,self.coeff)# C-call for SVD Zernike fit
-        self.coeff[:,]=numpy.dot(self.zernikeReconMx,self.data)
+        self.coeff[:,]=quick.dot(self.zernikeReconMx,self.data)
         self.pist*=0.
         self.xtilt*=0.
         self.ytilt*=0.

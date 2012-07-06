@@ -12,7 +12,7 @@ FFTWLIBS= -lfftw
 SFFTWLIBS= -lsfftw
 LDSHARED = -shared
 PYTHON_EXEC= python
-HEADER_INC = -I/usr/local/include/ -I/usr/local/lib/python2.4/site-packages/numpy/core/include
+HEADER_INC = -I/usr/local/include/ -I${PYTHON_BASE}/lib/python$(shell ${PYTHON_EXEC} ../pypath.py version)/site-packages/numpy/core/include
 
 # Don't change below here
 #

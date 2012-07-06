@@ -40,6 +40,7 @@ utils=Extension('utilsmodule',
 		sources=['utils.c'],
 		library_dirs=ld,
 		extra_link_args=['-lm'],
+                extra_objects = ['mvm.o']
 		)
 sor=Extension('sormodule',
               include_dirs=idnumpy,

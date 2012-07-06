@@ -1,4 +1,5 @@
 import numpy
+#import util.dot as quick
 class BlockMatrix:
     """A class for implementing block diagonal matricees"""
     def __init__(self,sizeList=None,dtype=numpy.float32):
@@ -164,7 +165,7 @@ class BlockMatrix:
         cnt=0
         for i in range(len(self.sizeList)):
             size=self.sizeList[i,1]
-            out[cnt:cnt+self.sizeList[i,0]]=numpy.dot(self.blockList[i],m[cnt:cnt+size])
+            out[cnt:cnt+self.sizeList[i,0]]=quick.dot(self.blockList[i],m[cnt:cnt+size])
             cnt+=size
         return out
 
@@ -181,7 +182,7 @@ class BlockMatrix:
         for i in range(len(self.sizeList)):
             size=self.sizeList[i,0]
             #print cnt,cnt+size,m[:,cnt:cnt+size].shape,self.blockList[0].shape,out[cnt:cnt+size].shape
-            out[:,cnt:cnt+self.sizeList[i,1]]=numpy.dot(m[:,cnt:cnt+size],self.blockList[i])
+            out[:,cnt:cnt+self.sizeList[i,1]]=quick.dot(m[:,cnt:cnt+size],self.blockList[i])
             cnt+=size
         return out
 
@@ -194,7 +195,7 @@ class BlockMatrix:
             #all blocks same size - just dot the blocks...
             out=BlockMatrix(self.sizeList)
             for i in range(len(self.sizeList)):
-                out.blockList[i]=numpy.dot(self.blockList[i],m.blockList[i])
+                out.blockList[i]=quick.dot(self.blockList[i],m.blockList[i])
             return out
         else:
             #output could be any size... will probably be block, but maybe not square blocks.
@@ -207,7 +208,7 @@ class BlockMatrix:
                     for y in xrange(self.shape[0]):
                         #print self.getSlice([slice(y,y+1),slice(int(m.sizeCumList[i]),int(m.sizeCumList[i+1]))]).shape
                         #print mblock[:,j].shape
-                        out[y,x]=numpy.dot(self.getSlice([slice(y,y+1),slice(int(m.sizeCumList[i,1]),int(m.sizeCumList[i+1,1]))]),mblock[:,j])
+                        out[y,x]=quick.dot(self.getSlice([slice(y,y+1),slice(int(m.sizeCumList[i,1]),int(m.sizeCumList[i+1,1]))]),mblock[:,j])
                     x+=1
             return out
 
@@ -237,7 +238,7 @@ class BlockMatrix:
 ##                         else:#sto<mto
 ##                             part1=b1[mfrom-sfrom:,mfrom-sfrom:]
 ##                             part2=m.blockList[mi][:sto-mfrom,:sto-mfrom]
-##                     prodList.append(numpy.dot(part1,part2))
+##                     prodList.append(quick.dot(part1,part2))
 ##                     mi+=1
 ##             out=BlockMatrix()
 ##             out.assign(prodList)
@@ -394,4 +395,4 @@ def dot(mx1,mx2):
         if isinstance(mx2,BlockMatrix):
             return mx2.dottedWith(mx1)
         else:
-            return numpy.dot(mx1,mx2)
+            return quick.dot(mx1,mx2)

@@ -7,6 +7,7 @@ Saving files - we by default save them not byteswapped - to they would look like
 """
 import util.FITS,numpy
 import sys,time,os
+#import util.dot as quick
 #sys.path.insert(0,"/home/ali/c/lapack")
 #import svd
 try:
@@ -634,9 +635,9 @@ class makeRecon:
         """Only use this on small matricees"""
         csc=util.FITS.loadcsc(self.pmxfname,doByteSwap=1)
         data=csc.todense()
-        dd=numpy.dot(data,data.transpose())
+        dd=quick.dot(data,data.transpose())
         idd=numpy.linalg.pinv(dd,rcond)
-        rmx=numpy.dot(idd,data)
+        rmx=quick.dot(idd,data)
         rmx=numpy.where(numpy.fabs(rmx)<valmin,0,rmx).astype("f")
         return data,dd,idd,rmx
 

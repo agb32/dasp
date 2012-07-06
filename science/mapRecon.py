@@ -2,11 +2,11 @@ import base.aobase as aobase
 from util.flip import fliparray
 import cmod.mkimg,cmod.imgnoise,cmod.utils,cmod.binimg
 import numpy as na
-#import Numeric as Nmeric
 import numpy.fft as fft
 import numpy.random as nara
 import scipy.linalg as LA
 import numpy.linalg as NALA
+#import util.dot as quick
 
 class mapRecon(aobase.aobase):
     """
@@ -120,10 +120,10 @@ class mapRecon(aobase.aobase):
             print "multiplying to create reconstructor"
             #print self.slopeDMCovMatrix.shape,self.invNoiseSlopeMatrix.shape
             #print na.sum(na.sum(self.slopeDMCovMatrix)),na.sum(na.sum(self.invNoiseSlopeMatrix))
-            tmpProd=na.dot(self.slopeDMCovMatrix,self.invNoiseSlopeMatrix)#shape=(nmode-1,ncent)
+            tmpProd=quick.dot(self.slopeDMCovMatrix,self.invNoiseSlopeMatrix)#shape=(nmode-1,ncent)
             #print self.invGeomCovarianceMatrix.shape,tmpProd.shape
             #print na.sum(na.sum(self.invGeomCovarianceMatrix)),na.sum(na.sum(tmpProd))
-            self.reconstructor=na.dot(self.invGeomCovarianceMatrix,tmpProd)#shape=(nmode-1,ncent)
+            self.reconstructor=quick.dot(self.invGeomCovarianceMatrix,tmpProd)#shape=(nmode-1,ncent)
             self.inputData=na.zeros((self.nsubaps*2,),na.float64)
             self.centx=self.inputData[:self.nsubaps]
             self.centy=self.inputData[self.nsubaps:]
@@ -464,9 +464,9 @@ class mapRecon(aobase.aobase):
         """Actually do the matrix multiplication..."""
         #xxx don't know what sign to use here.
         if self.useMonteRecon:
-            self.outputData[1:]=-na.array(na.dot(self.parent["reconMatrix"].outputData,self.inputData))
+            self.outputData[1:]=-na.array(quick.dot(self.parent["reconMatrix"].outputData,self.inputData))
         else:
-            self.outputData[1:]=-na.array(na.dot(self.reconstructor,self.inputData))
+            self.outputData[1:]=-na.array(quick.dot(self.reconstructor,self.inputData))
         
 class simpleWFS:
     def __init__(self,config):
