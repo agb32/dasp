@@ -1401,11 +1401,15 @@ static PyObject* dot(PyObject* self, PyObject* args)
 
   PyArrayObject *ArrayR; // The Results array.
   
-  float* M;              // input Matrix data (from ArrayM)
-  float* V;              // input Vector data (from ArrayV)
-  float* R;              // output Vector data (to ArrayR)
+  void* M;               // input Matrix data (from ArrayM)  - they are void so that
+  void* V;               // input Vector data (from ArrayV)  - they can be used for
+  void* R;               // output Vector data (to ArrayR)   - float and double
   int    n;              // size of V
   int    m;              // size of R
+  int bytesPerElt;       // to store the number of bytes (4 or 8) per each element. This is necessary to
+                         // make the same code work for both float and double.
+  int inputFloat;        // 1 if input is float, 0 if input is double, undefined if it is neither.
+
   npy_intp* iSizes;      // sizes of the input array
   int i;                 // for-loop index
 
@@ -1438,24 +1442,24 @@ static PyObject* dot(PyObject* self, PyObject* args)
       PyErr_SetString(PyExc_TypeError, "2nd argument must be 1-D array.");
       return NULL;
     }
-  if(!PyArray_ISCONTIGUOUS((PyArrayObject*)ArrayM) )
+  if(!PyArray_ISCONTIGUOUS( ArrayM ) )
     {
       PyErr_SetString(PyExc_TypeError, "1st argument must be contiguous.");
       return NULL;
     }
-  if(!PyArray_ISCONTIGUOUS((PyArrayObject*)ArrayV) )
+  if(!PyArray_ISCONTIGUOUS( ArrayV ) )
     {
       PyErr_SetString(PyExc_TypeError, "2nd argument must be contiguous.");
       return NULL;
     }
-  if(PyArray_TYPE((PyArrayObject*)ArrayM)!=NPY_FLOAT)
+  if( !(PyArray_TYPE( ArrayM )==NPY_FLOAT || PyArray_TYPE( ArrayM )==NPY_DOUBLE) )
     {
-      PyErr_SetString(PyExc_TypeError, "1st argument must be an array of FLOATs.");
+      PyErr_SetString(PyExc_TypeError, "1st argument must be an array of FLOATs or DOUBLEs.");
       return NULL;
     }
-  if(PyArray_TYPE((PyArrayObject*)ArrayV)!=NPY_FLOAT)
+  if( PyArray_TYPE( ArrayM ) != PyArray_TYPE( ArrayV ) )
     {
-      PyErr_SetString(PyExc_TypeError, "2nd argument must be an array of FLOATs.");
+      PyErr_SetString(PyExc_TypeError, "1st and 2nd argument must be of the same type (both float or both double).");
       return NULL;
     }
   if(ArrayM->dimensions[1] != ArrayV->dimensions[0]) // matrix and input vector sizes must agree
@@ -1464,23 +1468,35 @@ static PyObject* dot(PyObject* self, PyObject* args)
       return NULL;
     }
 
+  // Check, whether input is float or double and save this information.
+  // If it is neither float or double, exit. If this happens, something is wrong with this code,
+  // because if it is neither float nor double, it should have exited earlier already.
+  if( PyArray_TYPE( ArrayM )==NPY_FLOAT  )
+    {
+      bytesPerElt = sizeof(float);
+      inputFloat = 1;
+    }
+  else if( PyArray_TYPE( ArrayM )==NPY_DOUBLE )
+    {
+      bytesPerElt = sizeof(double);
+      inputFloat = 0;
+    }
+  else{
+    PyErr_SetString(PyExc_TypeError, "Input array must be float od double. At this point in the program it really should be either one or the other; this is a strange bug.");
+    return NULL;
+  }
+
   // Check the 3rd argument and set the outputArray accordingly:
   if( arg3->ob_type == &PyArray_Type ) // If it is an array
-    {                  // Set the flag to check the output array later. (You could
-      check_arg3 = 1;  // check it straight away, but the code would be less readable.)
+    {                  // Set the flag to check the output array (or generate it if not given)
+      check_arg3 = 1;  // later. (You could check it straight away, but the code would be less readable.)
     }
   else if( PyInt_Check( arg3 ) ) // If it is an integer
     {
-      // Generate the results array:
-      ArrayR = (PyArrayObject *)PyArray_SimpleNew(1, &(ArrayM->dimensions[0]), NPY_FLOAT);
       // Take its value as the number of threads (and herewith ignore the value in argument 4):
       nThreads = PyInt_AsLong( arg3 );
     }
-  else if( arg3 == Py_None ) // If it is None
-    {
-      // Generate the results array:
-      ArrayR = (PyArrayObject *)PyArray_SimpleNew(1, &(ArrayM->dimensions[0]), NPY_FLOAT);
-    }
+  else if( arg3 == Py_None ){} // If it is None, do nothing
   else // If it is not array, integer or none, raise exception:
     {
       PyErr_SetString(PyExc_TypeError, "3rd argument must be PyArrayObject or integer or None.");
@@ -1500,9 +1516,9 @@ static PyObject* dot(PyObject* self, PyObject* args)
 	  PyErr_SetString(PyExc_TypeError, "3rd argument array must be contiguous.");
 	  return NULL;
 	}
-      if(PyArray_TYPE(arg3) != NPY_FLOAT)
+      if( PyArray_TYPE( ArrayM ) != PyArray_TYPE( arg3 ) )
 	{
-	  PyErr_SetString(PyExc_TypeError, "3rd argument array must be an array of FLOATs.");
+	  PyErr_SetString(PyExc_TypeError, "The 3rd argument is an array and it must be of the same type (float or double) as the 1st argument.");
 	  return NULL;
 	}
       if(ArrayM->dimensions[0] != ((PyArrayObject *)arg3)->dimensions[0]) // matrix and output vector sizes must agree
@@ -1513,6 +1529,14 @@ static PyObject* dot(PyObject* self, PyObject* args)
       // If all is fine, arg3 becomes the output array:
       ArrayR = (PyArrayObject *)arg3;
     }
+  else // if arg 3 is not an array, you have to generate the output array:
+    {
+      // Generate the results array:
+      // (At this point input really must be either float or double, this has been checked twice already.)
+      if(inputFloat) ArrayR = (PyArrayObject *)PyArray_SimpleNew(1, &(ArrayM->dimensions[0]), NPY_FLOAT);
+      else           ArrayR = (PyArrayObject *)PyArray_SimpleNew(1, &(ArrayM->dimensions[0]), NPY_DOUBLE);
+    }
+
   // END OF "CHECKS OF THE INPUT"
   //
   // ArrayR is now the output array, which was either provided on input or
@@ -1526,9 +1550,10 @@ static PyObject* dot(PyObject* self, PyObject* args)
   m = (int) iSizes[0]; // output vector size
 
   // Get the data from the python Array objects into c arrays
-  M = (float*)ArrayM->data;
-  V = (float*)ArrayV->data;
-  R = (float*)ArrayR->data;
+  M = ArrayM->data;
+  V = ArrayV->data;
+  R = ArrayR->data;
+
 
   // (4) DETERMINE THE NUMBER OF THREADS:
   // If the input nThreads is < 1, use the default multi-threading.
@@ -1582,7 +1607,8 @@ static PyObject* dot(PyObject* self, PyObject* args)
       params->R = R;
 
       // multiply:
-      mvm( params );
+      if( inputFloat ) mvm_float( params );   // At this point input must be either float or double.
+      else             mvm_double( params );  //    (This has been checked two times already.)
 
       // free the memory:
       free(params);
@@ -1590,7 +1616,7 @@ static PyObject* dot(PyObject* self, PyObject* args)
   else
     {
       // Threaded:
-
+      //printf(".dot: generating %d threads.", nThreads);
       // Allocate the memory for the 'params' vector
       // (parameters of the mvm function):
       if((params=malloc(sizeof(mvm_data_t)*nThreads))==NULL)
@@ -1630,11 +1656,12 @@ static PyObject* dot(PyObject* self, PyObject* args)
 	    }
 	  else
 	    {
-	      params[i].M = params[i-1].M + (params[i-1].m)*n; // first element of the input matrix
-	      params[i].R = params[i-1].R + params[i-1].m;     // output vector
+	      params[i].M = params[i-1].M + params[i-1].m*n*bytesPerElt; // first element of the input matrix
+	      params[i].R = params[i-1].R + params[i-1].m*bytesPerElt;   // output vector
 	    }
 	  // Run the job in a thread:
-	  pthread_create( &thread[i], NULL, (void*)mvm, &params[i] );
+	  if( inputFloat) pthread_create( &thread[i], NULL, (void*)mvm_float,  &params[i] );
+	  else            pthread_create( &thread[i], NULL, (void*)mvm_double, &params[i] );
 	}
 
       // Wait untill all the threads are finished:

@@ -913,7 +913,7 @@ class recon(base.aobase.aobase):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 else:
-                    tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype) # HERE
+                    tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)# HERE
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp

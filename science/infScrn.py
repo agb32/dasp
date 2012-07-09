@@ -89,7 +89,7 @@ import util.FITS
 ## for fast MVM:
 import util.dot as quick # will replace numpy.dot when I implement it for double
 
-matrixdot=numpy.dot#matrix.dot
+matrixdot=quick.dot#matrix.dot
 
 def computeScrnSizeOld(thetas,phis,ntel,npup,telDiam,altitude):
     """The initial phase screen must be large enough to hold the phase for all objects viewed at a given time - ie including off axis objects.  However, even for an object 1 arcmin off axis at 10km, they are only 2.9m apart, so shouldn't be huge.

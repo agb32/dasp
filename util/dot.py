@@ -23,18 +23,16 @@
 #           if nthr <= 0 : sysconf(_SC_NPROCESSORS_ONLN)/2 threads for big matrices,
 #                          1 thread for small matrices (m*n < 500.000)
 #           if nthr >= 1 : nthr number of threads are used
-import cmod.utils
 
 def dot(a,b,c=None,nthr=0):
     """Calls cmod.utils.dot or numpy.dot, depending on the input."""
 
-    #print "UTIL.DOT CALLED"
-
     ## If it is a matrix-vector multiplication, call the cmod.utils.dot:
     if len(a.shape)==2 and len(b.shape)==1 and a.flags.contiguous and b.flags.contiguous:
-        #print "CMOD.UTILS.DOT CALLED"
+        import cmod.utils
         c=cmod.utils.dot(a, b, c, nthr) # Arguments: input matrix, input vector, 
-                                 #            output vector, number of threads
+                                        #            output vector, number of threads
+
     ## otherwise call the numpy.dot:
     else:
         import numpy

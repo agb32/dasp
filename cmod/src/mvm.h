@@ -12,10 +12,11 @@
 typedef struct {
   int n;     // input vector size
   int m;     // result vector size
-  float* M;  // input matrix
-  float* V;  // input vector
-  float* R;  // result vector
+  void* M;  // input matrix
+  void* V;  // input vector
+  void* R;  // result vector
 } mvm_data_t;
 
 // function to perform the multiplication:
-void mvm( mvm_data_t* arguments );
+void mvm_float( mvm_data_t* arguments );  // for float input
+void mvm_double( mvm_data_t* arguments ); // for double input
