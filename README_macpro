@@ -66,6 +66,10 @@ Add to /etc/fstab:
 /swapfile swap swap defaults 0 0
 
 
+python-Scientific
+python-mpi
+python-scipy
+
 ubuntu boot without GUI (save some memory):
 create /etc/inittab with:
 id:2:initdefault:
