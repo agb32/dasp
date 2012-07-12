@@ -343,6 +343,245 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   return Py_BuildValue("");   /* return None */
 }
 
+// 
+// Urban Bitenc, 12 July 2012:
+// This function is a copy of gslCubSplineIntrp.
+// I created it in order to make changes to it and test it, but not mess up the original function.
+// If changes prove to be useful, this function might replace gslCubSplineIntrp.
+// 
+static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
+  PyArrayObject	*pyin,*pyout;
+  PyObject *pyyin,*pyxin,*pyyout,*pyxout;
+  npy_intp		*pyinDims,*pyoutDims;
+  double			*pyinData,*pyoutData;
+  float *pyinDataf,*pyoutDataf;
+  
+  //double *yin=NULL,*xin=NULL,*yout=NULL,*xout=NULL;
+
+  int		zpad=10;   /* no of pixels to zero-pad input by */
+  
+  double		*x1,*x2,*x3,*x4,*y1,*y2,*ytmp;
+  double *x1free=NULL,*x2free=NULL;
+  double		dx1,dx2,dx3,dx4;
+  int			i,j,n1x,n1y,n2x,n2y,n1xp,n1yp;
+  double *x1usr=NULL,*x2usr=NULL,*x3usr=NULL,*x4usr=NULL;
+  gsl_spline 	*interpObj;
+  //gsl_interp 	*interpObj;
+  gsl_interp_accel *interpAcc ;
+  //size_t  ninterp;
+  int s1y,s1x,s2y,s2x,insize,outsize;
+  
+  /* handle input arrays */
+  if (!PyArg_ParseTuple (args, "O!OOOOO!|i", &PyArray_Type, &pyin, &pyyin,&pyxin,&pyyout,&pyxout,&PyArray_Type, &pyout,&zpad)){
+    printf("Usage: mxin, yin,xin,yout,xout,mxout,zpad (optional, default=10)\nxin/yin should be eg x1=(numpy.arange(n)/(n-1)).astype('d') where n is mxin.shape[0]+npad*2, and xout/yout should be (numpy.arange(nn)+0.5)*(mxin.shape[0]-1)/nn/(n-1)+x1[zpad]\nAny of yin/xin/yout/xout can be None.");
+    return NULL;
+  }
+  if(PyArray_NDIM(pyin)!=2 || PyArray_NDIM(pyout)!=2){
+    printf("in and out must be 2d\n");
+    return NULL;
+  }
+  pyinDims=PyArray_DIMS(pyin);
+  pyoutDims=PyArray_DIMS(pyout);
+  n1y=(int) pyinDims[0];
+  n1x=(int) pyinDims[1];
+  n2y=(int) pyoutDims[0];
+  n2x=(int) pyoutDims[1];
+  pyinData = (double *)PyArray_DATA(pyin);
+  pyoutData = (double *)PyArray_DATA(pyout);
+  pyinDataf = (float *)PyArray_DATA(pyin);
+  pyoutDataf = (float *)PyArray_DATA(pyout);
+  switch(PyArray_TYPE(pyin)){
+  case NPY_FLOAT:
+    insize=4;
+    break;
+  case NPY_DOUBLE:
+    insize=8;
+    break;
+  default:
+    insize=0;
+    break;
+  }
+  switch(PyArray_TYPE(pyout)){
+  case NPY_FLOAT:
+    outsize=4;
+    break;
+  case NPY_DOUBLE:
+    outsize=8;
+    break;
+  default:
+    outsize=0;
+    break;
+  }
+  if(insize==0 || outsize==0){
+    printf("in and out must be float32 or float64\n");
+    return NULL;
+  }
+  s1y=PyArray_STRIDE(pyin,0)/insize;
+  s1x=PyArray_STRIDE(pyin,1)/insize;
+  s2y=PyArray_STRIDE(pyout,0)/outsize;
+  s2x=PyArray_STRIDE(pyout,1)/outsize;
+  n1xp=n1x+2*zpad;
+  n1yp=n1y+2*zpad;
+
+  //Now check the optional input arrays...
+  if(PyArray_Check(pyyin)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyin) || PyArray_TYPE((PyArrayObject*)pyyin)!=NPY_DOUBLE){
+      printf("yin must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==n1yp){//correct shape...
+      x1usr=(double*)PyArray_DATA((PyArrayObject*)pyyin);
+    }else{
+      printf("yin is wrong shape, should be %d\n",n1yp);
+      return NULL;
+    }
+  }
+  if(PyArray_Check(pyxin)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxin) || PyArray_TYPE((PyArrayObject*)pyxin)!=NPY_DOUBLE){
+      printf("xin must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==n1xp){//correct shape...
+      x3usr=(double*)PyArray_DATA((PyArrayObject*)pyxin);
+    }else{
+      printf("xin is wrong shape, should be %d\n",n1xp);
+      return NULL;
+    }
+  }
+  if(PyArray_Check(pyyout)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyout) || PyArray_TYPE((PyArrayObject*)pyyout)!=NPY_DOUBLE){
+      printf("yout must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)==n2y){//correct shape...
+      x2usr=(double*)PyArray_DATA((PyArrayObject*)pyyout);
+    }else{
+      printf("yout is wrong shape, should be %d\n",n2y);
+      return NULL;
+    }
+  }
+  if(PyArray_Check(pyxout)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxout) || PyArray_TYPE((PyArrayObject*)pyxout)!=NPY_DOUBLE){
+      printf("yin must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)==n2x){//correct shape...
+      x4usr=(double*)PyArray_DATA((PyArrayObject*)pyxout);
+    }else{
+      printf("yin is wrong shape, should be %d\n",n2x);
+      return NULL;
+    }
+  }
+
+
+  /* allocate and (partially) populate working arrays */
+  //printf("intrp.interp2d: n1 = %d, n2 = %d, n1p = %d\n",n1,n2,n1p);
+  if(x1usr==NULL || x3usr==NULL){
+    x1=malloc((n1yp>n1xp?n1yp:n1xp)*sizeof(double));
+    x3=x1;
+    x1free=x1;
+  }
+  if(x2usr==NULL || x4usr==NULL){
+    x2=malloc((n2y>n2x?n2y:n2x)*sizeof(double));
+    x4=x2;
+    x2free=x2;
+  }
+  y1=malloc((n1yp>n1xp?n1yp:n1xp)*sizeof(double));//size n1yp needed
+  y2=y1;//size n1xp
+  ytmp=malloc(n1x*n2y*sizeof(double));
+  
+  dx1=1./(n1yp-1.);
+  dx2=dx1 * (n1y-1.) / n2y;
+  dx3=1./(n1xp-1.);
+  dx4=dx3*(n1x-1.)/n2x;
+
+  if(x1usr==NULL){
+    for (i=0; i<n1yp; ++i)
+      x1[i] = i * dx1;
+  }else
+    x1=x1usr;
+  if(x2usr==NULL){
+    for (i=0; i<n2y; ++i)
+      x2[i] = x1[zpad] + (0.5+i) * dx2;
+  }else
+    x2=x2usr;
+  for (i=0; i<zpad; ++i) {
+    y1[i] = 0.;
+    y1[zpad+n1y+i]=0.;
+  }
+  //  interpObj=gsl_spline_alloc(gsl_interp_cspline_periodic, (size_t)n1yp); UB
+  interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)n1yp);
+  interpAcc=gsl_interp_accel_alloc();
+  
+  // do interpolation pass in first dimension 
+  for (j=0; j<n1x; ++j) {
+    if(insize==8){
+      for (i=0; i<n1y; ++i) {
+	y1[zpad+i]=pyinData[i*s1y+j*s1x];
+	//y1[zpad+i]=pyinData[i*n1x+j];
+      }
+    }else{//its a float... cast to double
+      for (i=0; i<n1y; ++i) 
+	y1[zpad+i]=(double)pyinDataf[i*s1y+j*s1x];
+    }      
+    gsl_spline_init(interpObj, x1, y1,(size_t)n1yp);
+    //gsl_interp_init(interpObj, x1, y1, ninterp);
+    
+    for (i=0; i<n2y; ++i) {
+      //ytmp[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc);
+      ytmp[j+i*n1x]=gsl_spline_eval(interpObj,x2[i], interpAcc);
+    }
+  }
+  if(x3usr==NULL){
+    for(i=0; i<n1xp; i++)
+      x3[i]=i*dx3;
+  }else
+    x3=x3usr;
+  if(x4usr==NULL){
+    for(i=0; i<n2x; i++)
+      x4[i]=x3[zpad]+(0.5+i)*dx4;
+  }else
+    x4=x4usr;
+  for (i=0; i<zpad; ++i) {
+    y2[i] = 0.;
+    y2[zpad+n1x+i]=0.;
+  }
+  
+  // do interpolation pass in second dimension and put results in output array
+  gsl_spline_free(interpObj);
+  //  interpObj=gsl_spline_alloc(gsl_interp_cspline_periodic, (size_t)n1xp); // UB
+  interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)n1xp);
+  for (j=0; j<n2y; ++j) {
+    memcpy(&y2[zpad],&ytmp[j*n1x],n1x*sizeof(double));
+    gsl_spline_init(interpObj, x3, y2,(size_t)n1xp);
+    //gsl_interp_init(interpObj, x1, y1, ninterp);
+    if(outsize==8){
+      for (i=0; i<n2x; ++i) {
+	//pyoutData[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc);
+	pyoutData[j*s2y+i*s2x]=gsl_spline_eval(interpObj,x4[i], interpAcc);
+	//pyoutData[j*n2x+i]=gsl_spline_eval(interpObj,x4[i], interpAcc);
+      }	
+    }else{//output is float32
+      for (i=0; i<n2x; ++i)
+	pyoutDataf[j*s2y+i*s2x]=(float)gsl_spline_eval(interpObj,x4[i], interpAcc);
+    }
+
+  }	
+  
+  /* tidy up */
+  gsl_interp_accel_free(interpAcc);
+  gsl_spline_free(interpObj);
+  //gsl_interp_free(interpObj);
+  if(x1free!=NULL)
+    free(x1free);
+  if(x2free!=NULL)
+    free(x2);
+  free(y1);
+  free(ytmp);
+  
+  return Py_BuildValue("");   /* return None */
+}
+
 
 static PyObject *cubIntrpOrig(self,args)
 	PyObject *self, *args;
@@ -967,8 +1206,8 @@ static PyObject *interp_linearshift(PyObject *self,PyObject *args){
     printf("linearshift: input 2D array, x shift, y shift, output array\n");
     return NULL;
   }
-  
-  // get input array dimensions 
+
+  // get input array dimensions
   if(inarr->nd!=2 || outarr->nd!=2){
     printf("input and output must be 2D arrays\n");
     return NULL;
@@ -977,6 +1216,14 @@ static PyObject *interp_linearshift(PyObject *self,PyObject *args){
     printf("input and output array types must be same and one of float or double\n");
     return NULL;
   }
+  // check the value of shift (shift must be between 0 and 1):
+  if( xshift > 1 || yshift > 1 || xshift < 0 || yshift < 0 )
+    {
+      // set exception, print the faulty values and return
+      PyErr_SetString(PyExc_ValueError, "xshift and yshift must be between 0 and 1. If you see this message, the function interp_linearshift must be extended for shifts outside the [0,1] interval.");
+      printf("xshift = %f, yshift = %f\n", xshift, yshift);
+      return NULL;
+    }
   
   ny=outarr->dimensions[0];
   nx=outarr->dimensions[1];
@@ -985,7 +1232,7 @@ static PyObject *interp_linearshift(PyObject *self,PyObject *args){
   dii=outarr->strides[0];
   djj=outarr->strides[1];
   if(inarr->dimensions[0]<ny+1 || inarr->dimensions[1]<nx+1){
-    printf("WARNING (intermodule.c): input array must be at least 1 bigger than output array in each dimension\nContinuing, but output array won't be filled completely. (%d<%d+1, %d<%d+1)\n",inarr->dimensions[0],ny,inarr->dimensions[1],nx);
+    printf("WARNING (intermodule.c): input array must be at least 1 bigger than output array in each dimension\nContinuing, but output array won't be filled completely. (%d<%d+1, %d<%d+1)\n", (int)inarr->dimensions[0], ny, (int)inarr->dimensions[1], nx); // UB 2012Jul12, added "(int)" 2x
     ny=inarr->dimensions[0]-1;
     nx=inarr->dimensions[1]-1;
   }
@@ -1155,6 +1402,7 @@ static PyMethodDef interp_methods[] = 	{
 					{"linearshift",interp_linearshift,METH_VARARGS},
 					{"linearinterp", interp_linearinterp, METH_VARARGS}, 
 					{"gslCubSplineInterp",gslCubSplineIntrp,METH_VARARGS},
+					{"gslCubSplineInterp_UB",gslCubSplineIntrp_UB,METH_VARARGS},
 					{"gslLinInterp",gslLinIntrp,METH_VARARGS},
 					{"gslCubSplineInterpOrig",cubIntrpOrig,METH_VARARGS},
 
