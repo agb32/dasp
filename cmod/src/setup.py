@@ -53,6 +53,7 @@ interp=Extension('interpmodule',
                  sources=['interpmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                  extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm'],
+                 extra_objects = ['interpolate.o']
                  )
 phaseCov=Extension('phaseCovmodule',
                  include_dirs=idnumpy,

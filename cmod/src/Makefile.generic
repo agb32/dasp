@@ -20,7 +20,7 @@ endif
 .PHONY=clean_o clean_so
 
 
-default: ${OBJS:=.o} ${MODULES:=module.so} mvm.o
+default: ${OBJS:=.o} ${MODULES:=module.so} mvm.o interpolate.o 
 	echo ${MODULES}
 	echo ${OBJS}
 	python setup.py install --install-lib=../
