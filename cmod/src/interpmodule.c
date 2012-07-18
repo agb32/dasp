@@ -1,9 +1,9 @@
 
 /* Numpy extension to do matrix interpolation  using Num. Rec. Cubic spline interp */
 
+#include "Python.h"
 #include <stdio.h>
 #include <math.h>
-#include "Python.h"
 
 #include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
 
@@ -756,7 +756,6 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
 
 
 static PyObject *cubIntrpOrig(PyObject* self, PyObject* args)
-//     PyObject *self, *args;
 {
 	PyArrayObject	*pyin,*pyout;
 	npy_intp		*pyinDims,*pyoutDims;
@@ -1015,9 +1014,7 @@ static PyObject *fastmxinterp(PyArrayObject *pymxin,PyArrayObject *pyyin,PyArray
 /* Matrix interpolation function. Takes Python array and vectors of x,y coords for interpolated points */
 /* Returns Python array of interp vales */
 //This is a bicubic spline interpolation.
-static PyObject *interp_mxinterp(self, args)
-	PyObject *self, *args;
-
+static PyObject *interp_mxinterp(PyObject* self, PyObject* args)
 {
 	PyArrayObject	*pymxin,*pymxout,*pyxin,*pyyin,*pyxout,*pyyout;
 	PyObject *tmp;
@@ -1135,9 +1132,7 @@ static PyObject *interp_mxinterp(self, args)
 }
 
 
-static PyObject *interp_bicubicinterp(self,args)
-	PyObject *self, *args;
-
+static PyObject *interp_bicubicinterp(PyObject* self, PyObject* args)
 {
     void bcucof(float y[], float y1[], float y2[], float y12[], 
 		float d1, float d2,float **c);
@@ -1270,8 +1265,6 @@ static PyObject *interp_bicubicinterp(self,args)
 };
 
 
-
-
 static PyObject *interp_linearshift(PyObject *self,PyObject *args){
   //This function takes an input array, a fractional x,y value (<1)
   //and shifts the array by this much into the output array (1 smaller
@@ -1348,9 +1341,7 @@ static PyObject *interp_linearshift(PyObject *self,PyObject *args){
 /* Matrix interpolation function. Takes Python array and vectors of x,y coords for interpolated points */
 /* Returns Python array of interp vales */
 //This is a linear interpolation.
-static PyObject *interp_linearinterp(self,args)
-	PyObject *self, *args;
-
+static PyObject *interp_linearinterp(PyObject* self, PyObject* args)
 {
 	PyArrayObject	*pymxin,*pymxout,*pyxin,*pyyin,*pyxout,*pyyout;
 	int		i,j;
@@ -1492,7 +1483,7 @@ static PyMethodDef interp_methods[] = 	{
 
 /* initialisation - register the methods with the Python interpreter */
 
-void initinterp()
+void initinterp(void)
 {
 	(void) Py_InitModule("interp", interp_methods);
 	import_array();
