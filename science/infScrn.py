@@ -85,7 +85,7 @@ import scipy.linalg as LA
 ##import the matrix vector function (BLAS)
 #import util.matrix as matrix
 import util.FITS
-
+import cmod.scrn
 matrixdot=numpy.dot#matrix.dot
 
 def computeScrnSizeOld(thetas,phis,ntel,npup,telDiam,altitude):
@@ -337,19 +337,12 @@ class infScrn(base.aobase.aobase):
         ##Number of pixels used to simulate the telescope pupil
         self.dpix=config.getVal("npup")
         # Total size of phasescreen (will be larger than dpix if there are off axis sources, and will also depend on height of the layer).
-        self.atmosGeom=config.getVal("atmosGeom",default=None,raiseerror=0)
-        if self.atmosGeom==None:#depreciated
-            self.scrnXPxls=config.getVal("scrnXPxls")#depreciated
-            self.scrnYPxls=config.getVal("scrnYPxls")#depreciated
-            self.windDirection=config.getVal("windDirection")#in degrees depreciated
-            self.vWind=config.getVal("vWind")#in m/s depreciated
-            self.strLayer=config.getVal("strength")#depreciated
-        else:
-            self.scrnXPxls=self.atmosGeom.getScrnXPxls(self.idstr[0])
-            self.scrnYPxls=self.atmosGeom.getScrnYPxls(self.idstr[0])
-            self.windDirection=self.atmosGeom.layerWind(self.idstr[0])
-            self.vWind=self.atmosGeom.layerSpeed(self.idstr[0])
-            self.strLayer=self.atmosGeom.layerStrength(self.idstr[0])
+        self.atmosGeom=config.getVal("atmosGeom")
+        self.scrnXPxls=self.atmosGeom.getScrnXPxls(self.idstr[0])
+        self.scrnYPxls=self.atmosGeom.getScrnYPxls(self.idstr[0])
+        self.windDirection=self.atmosGeom.layerWind(self.idstr[0])
+        self.vWind=self.atmosGeom.layerSpeed(self.idstr[0])
+        self.strLayer=self.atmosGeom.layerStrength(self.idstr[0])
         ##Physical size in meters per pixel
         self.pixScale=self.Dtel/float(self.dpix)
         ##Precision of the output screen array
@@ -359,6 +352,7 @@ class infScrn(base.aobase.aobase):
         #self.altitude=config.getVal("layerAltitude")#in m.
         self.windDirRad=self.windDirection*self.degRad
         self.tstep=config.getVal("tstep")
+        self.useCmodule=config.getVal("useCmodule",default=0)
         # if colAdd<zero, we are adding now columns on the right of the array.
         # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
         self.colAdd=-self.vWind*na.cos(self.windDirRad)/self.pixScale*self.tstep#number of pixels to step each iteration (as float).
@@ -447,6 +441,23 @@ class infScrn(base.aobase.aobase):
             else:
                 self.outputData=self.screen
             print "TODO: infScrn - reduce memory requirements by only storing the part of the initial phasescreen that is required..."
+            self.cmodInfo=None
+            if self.useCmodule:
+                nthreads=config.getVal("nthreads",default="all")
+                if nthreads=="all":
+                    nthreads=config.getVal("ncpu")
+                self.randarr=numpy.zeros((self.scrnXPxls+1 if self.scrnXPxls>self.scrnYPxls else self.scrnYPxls+1,),numpy.float64)
+                self.r0last=self.ro
+                self.xsteplast=self.xstep
+                self.ysteplast=self.ystep
+                seed=0 if self.seed==None else self.seed
+                self.cmodInfo=cmod.scrn.initialise(nthreads,self.ro,self.L0,self.scrnXPxls,self.scrnYPxls,self.sendWholeScreen,self.maxColAdd,self.maxRowAdd,self.colAdd,self.rowAdd,seed,self.screen,self.Ay,self.By,self.AStarty,self.Ax,self.Bx,self.AStartx,self.xstep,self.ystep,self.randarr,self.colOutput,self.rowOutput)
+
+    def __del__(self):
+        if self.cmodInfo!=None:
+            cmod.scrn.free(self.cmodInfo)
+        self.cmodInfo=None
+        
     def computeR0(self):
         """Computes r0 as a function of time."""
         if self.r0Fun!=None:
@@ -643,7 +654,7 @@ class infScrn(base.aobase.aobase):
         ##I found that the matrix AStart used to add new rows or columns at the START is the vertical reciproc
         ##of the A matrix
         ##Ex : if A=(A2 A1 A0) then AStart=(A0 A1 A2)
-        matrixAStart=na.empty(matrixA.shape,dtype=na.float64,order="F")
+        matrixAStart=na.empty(matrixA.shape,dtype=na.float64)#,order="F")
         ##we fill the matrix
         for col in range(self.nbCol):
             jstart=col*dpix
@@ -659,9 +670,9 @@ class infScrn(base.aobase.aobase):
         print "infScrn - doing svd %g"%(time.time()-t0)
         u,w,vt=LA.svd(BBt)
         L=na.sqrt(w)
-        B=u*L[na.newaxis,:]#multiplication of columns of U by diagonal elements
-        matrixB=na.empty(B.shape,dtype=na.float64,order="F")
-        matrixB[:,:]=B#this copy may be necessary, because C is c contiguous, not fortran.
+        matrixB=(u*L[na.newaxis,:]).copy()#multiplication of columns of U by diagonal elements
+        #matrixB=na.empty(B.shape,dtype=na.float64,order="F")
+        #matrixB[:,:]=B#this copy may be necessary, because C is c contiguous, not fortran.
         print "infScrn - done A and B matricees %g"%(time.time()-t0)
         return matrixA,matrixB,matrixAStart
     ##The next functions are the functions used to add new rows or columns at the beginning or the end of the phase screen
@@ -681,10 +692,19 @@ class infScrn(base.aobase.aobase):
         Z2=na.ravel(na.transpose(oldPhi)).astype(na.float64) ##Float64 for data precision
         ##multiplication by the A matrix (BLAS function)
         AZ=matrixdot(self.Ay,Z2)#agbc was Ay
+        #txt="AZ: "
+        #for i in range(AZ.shape[0]):
+        #    txt+="%g, "%AZ[i]
+        #print txt
+
         ##creation of random variables with the good variances
         coeffTurb=(self.L0/ro)**(5./6)
-        #print "addcol %s"%str(coeffTurb)
+        #print "coeffTurb %s"%str(coeffTurb)
         rn=ra.randn(self.nbColToAdd*dpix)#By.shape==nbColToAdd*dpix...
+        #txt="rn: "
+        #for i in range(rn.shape[0]):
+        #    txt+="%g, "%rn[i]
+        #print txt
         rn=matrixdot(self.By,rn)*coeffTurb#agbc was By
         ##rn=generalMatrixVectorMultiply(self.B,rn)
         rn+=AZ ##vector storing the values of the last column
@@ -698,7 +718,10 @@ class infScrn(base.aobase.aobase):
         ##we then replace the last column
         #print self.screen.shape,rn.shape
         self.screen[:,-1]=rn.astype(self.screen.dtype)
-    
+        #txt=""
+        #for i in range(self.screen.shape[1]):
+        #    txt+="%g, "%self.screen[i,-1]
+        #print txt
     def addNewColumnOnStart(self,ro=None):
         """Updates the phase screen by adding a new column to the start of the phase screen and
         putting away the last one
@@ -801,24 +824,43 @@ class infScrn(base.aobase.aobase):
         self.computeR0()
         if ro is None:
             ro=self.ro
-        nrem,nadd,interppos=self.newCols.next()
-        nadd=int(nadd)
-        # if colAdd<zero, we are adding new columns on the right of the array.
-        # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
-        if self.colAdd<0:
-            for i in range(nadd):
-                self.addNewColumnOnEnd(ro)
+        if self.useCmodule:
+            if ro!=self.r0last:
+                if type(ro)==type(()):
+                    cmod.scrn.update(self.cmodInfo,2,ro[0])
+                    cmod.scrn.update(self.cmodInfo,3,ro[1])
+                else:
+                    cmod.scrn.update(self.cmodInfo,1,ro)
+                self.r0last=ro
+            if self.xstep!=self.xsteplast:
+                cmod.scrn.update(self.cmodInfo,4,self.xstep)
+                self.xsteplast=self.xstep
+            if self.ystep!=self.ysteplast:
+                cmod.scrn.update(self.cmodInfo,5,self.ystep)
+                self.ysteplast=self.ystep
+            #print self.cmodInfo,self.cmodInfo.flags,self.cmodInfo.size,self.cmodInfo.itemsize,self.cmodInfo.dtype.char
+            #randn=ra.randn(self.scrnXPxls+1 if self.scrnXPxls>self.scrnYPxls else self.scrnYPxls+1)
+            #cmod.scrn.update(self.cmodInfo,6,randn)
+            cmod.scrn.run(self.cmodInfo)
         else:
-            for i in range(nadd):
-                self.addNewColumnOnStart(ro)
-        nrem,nadd,interppos=self.newRows.next()
-        nadd=int(nadd)
-        if self.rowAdd<0:
-            for i in range(nadd):
-                self.addNewRowOnEnd(ro)
-        else:
-            for i in range(nadd):
-                self.addNewRowOnStart(ro)
+            nrem,nadd,interppos=self.newCols.next()
+            nadd=int(nadd)
+            # if colAdd<zero, we are adding new columns on the right of the array.
+            # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
+            if self.colAdd<0:
+                for i in range(nadd):
+                    self.addNewColumnOnEnd(ro)
+            else:
+                for i in range(nadd):
+                    self.addNewColumnOnStart(ro)
+            nrem,nadd,interppos=self.newRows.next()
+            nadd=int(nadd)
+            if self.rowAdd<0:
+                for i in range(nadd):
+                    self.addNewRowOnEnd(ro)
+            else:
+                for i in range(nadd):
+                    self.addNewRowOnStart(ro)
     def prepareOutput(self):
         """If not sending whole screen, copies the parts to be sent..."""
         if self.sendWholeScreen==0:

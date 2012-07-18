@@ -84,6 +84,12 @@ psfparams=Extension('psfparamsmodule',
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
+scrn=Extension('scrnmodule',
+		include_dirs=idnumpy,
+		sources=['scrnmodule.c'],
+		library_dirs=ld,
+		extra_link_args=['-lm','-lgslcblas','-lgsl'],
+		)
                  
 
-setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,zfit,psfparams])
+setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,zfit,psfparams,scrn])
