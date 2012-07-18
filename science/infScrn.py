@@ -64,7 +64,7 @@ import base.aobase,base.dataType,util.getNewCols#,cmod.utils
 import time
 import os
 #import gist
-
+import traceback
 ##Numeric Python import
 import numpy
 na=numpy
@@ -331,6 +331,7 @@ class infScrn(base.aobase.aobase):
         base.aobase.aobase.__init__(self,None,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.degRad=na.pi/180.#self.config.getVal("degRad")
         self.niter=0
+        self.nbColToAdd=1
         ##we first extract basic parameters
         ##Physical size of the telescope
         self.Dtel=config.getVal("telDiam")
@@ -392,7 +393,7 @@ class infScrn(base.aobase.aobase):
                 self.ro=self.globR0*(self.strLayerToPowMinusThreeOverFive)
             
             ##Number of previous rows or columns used to compute the new one (default value : 2)
-            self.nbCol=config.getVal("nbCol",default=2)
+            self.nbCol=2#config.getVal("nbCol",default=2)
             ##we extract the random number generator seed
             self.seed=config.getVal("seed",default=None)
             self.saveCovMat=config.getVal("saveInfPhaseCovMatrix",default=0)
@@ -402,19 +403,60 @@ class infScrn(base.aobase.aobase):
 
             ##we go now through the creation of the required matrices
             ##we compute first the phase covariance matrices
-            print "Computation of the X phase covariance matrix"
-            covMatPhix=self.computePhaseCovarianceMatrix(self.scrnXPxls+1)
-            #util.FITS.Write(covMatPhix,"covmat.fits")
-            print "Computation of the Ax and Bx matrixes"        
-            self.Ax,self.Bx,self.AStartx=self.computeAandBmatrices(self.scrnXPxls+1,covMatPhix)##we compute the A and B matrices
+            if not os.path.exists("scrn/"):
+                os.mkdir("scrn")
+            fname="scrn/infScrnData%d_%g_%g_%d_%d.fits"%(self.scrnXPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+            covMatPhix=None
+            if os.path.exists(fname):
+                print "Loading phase covariance data"
+                try:
+                    data=util.FITS.Read(fname)
+                    covMatPhix=data[1]
+                    self.Ax=data[3]
+                    self.Bx=data[5]
+                    self.AStartx=data[7]
+                except:
+                    print "Unable to load covariance data... generating"
+                    traceback.print_exc()
+                    covMatPhix=None
+            if covMatPhix==None:
+                print "Computation of the X phase covariance matrix"
+                covMatPhix=self.computePhaseCovarianceMatrix(self.scrnXPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+                print "Computation of the Ax and Bx matrixes"        
+                self.Ax,self.Bx,self.AStartx=self.computeAandBmatrices(self.scrnXPxls+1,covMatPhix,self.nbColToAdd,self.nbCol)##we compute the A and B matrices
+                util.FITS.Write(covMatPhix,fname)
+                util.FITS.Write(self.Ax,fname,writeMode="a")
+                util.FITS.Write(self.Bx,fname,writeMode="a")
+                util.FITS.Write(self.AStartx,fname,writeMode="a")
             if self.saveCovMat:
                 self.covMatPhix=covMatPhix
             else:
                 del(covMatPhix)
-            print "Computation of the Y phase covariance matrix"
-            covMatPhiy=self.computePhaseCovarianceMatrix(self.scrnYPxls+1)
-            print "Computation of the Ay and By matrixes"        
-            self.Ay,self.By,self.AStarty=self.computeAandBmatrices(self.scrnYPxls+1,covMatPhiy)##we compute the A and B matrices
+
+            fname="scrn/infScrnData%d_%g_%g_%d_%d.fits"%(self.scrnYPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+            covMatPhiy=None
+            if os.path.exists(fname):
+                print "Loading phase covariance data"
+                try:
+                    data=util.FITS.Read(fname)
+                    covMatPhiy=data[1]
+                    self.Ay=data[3]
+                    self.By=data[5]
+                    self.AStarty=data[7]
+                except:
+                    print "Unable to load covariance data... generating"
+                    traceback.print_exc()
+                    covMatPhiy=None
+            if covMatPhiy==None:
+                print "Computation of the Y phase covariance matrix"
+                covMatPhiy=self.computePhaseCovarianceMatrix(self.scrnYPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+                print "Computation of the Ay and By matrixes"        
+                self.Ay,self.By,self.AStarty=self.computeAandBmatrices(self.scrnYPxls+1,covMatPhiy,self.nbColToAdd,self.nbCol)##we compute the A and B matrices
+                util.FITS.Write(covMatPhiy,fname)
+                util.FITS.Write(self.Ay,fname,writeMode="a")
+                util.FITS.Write(self.By,fname,writeMode="a")
+                util.FITS.Write(self.AStarty,fname,writeMode="a")
+                
             if self.saveCovMat:
                 self.covMatPhiy=covMatPhiy
             else:#save memory (this can be eg 1GB in size...)
@@ -478,7 +520,7 @@ class infScrn(base.aobase.aobase):
                 else:
                     self.xstep=self.ystep=step
 
-    def computePhaseCovarianceMatrix(self,size):
+    def computePhaseCovarianceMatrix(self,size,L0,pixScale,nbColToAdd=1,nbCol=2):
         """Computes the phase covariance matrix required to compute the <XXT>, <XZT> and <ZZT> matrices
         used to compute the A and B matrices
         cf equation 5 of Optics Express paper
@@ -492,11 +534,11 @@ class infScrn(base.aobase.aobase):
         Speed improvements by AGB.
         """
         ##we add one column at each iteration
-        nbColToAdd=1
-        self.nbColToAdd=nbColToAdd
+        #nbColToAdd=1
+        #self.nbColToAdd=nbColToAdd
         
         ##class characteristics
-        nbCol=self.nbCol
+        #nbCol=self.nbCol#2
         dpix=size#agb changed from: self.dpix
         
         nc=nbCol+nbColToAdd
@@ -505,7 +547,7 @@ class infScrn(base.aobase.aobase):
         nbPoints=nc*dpix
         
         ##numbers used for the phase structure matrix computation
-        f0=1./self.L0;
+        f0=1./L0;
         coeff=2*gamma(11./6)/(2**(5./6))/(na.pi**(8./3))
         coeff*=(24./5*gamma(6./5))**(5./6)
         
@@ -514,7 +556,7 @@ class infScrn(base.aobase.aobase):
         
         ##allocation of the covariance matrix
         covMatPhi=na.empty((nbPoints,nbPoints),na.float64,order="F")
-        distMap=distanceMap((nc*2-1),dpix*2-1,-0.5,-0.5)*self.pixScale*2*na.pi*f0
+        distMap=distanceMap((nc*2-1),dpix*2-1,-0.5,-0.5)*pixScale*2*na.pi*f0
         cPhi=distMap**(5./6)
         #same here
         cPhi*=kv(5./6,distMap)
@@ -601,12 +643,12 @@ class infScrn(base.aobase.aobase):
             covMatPhi[i:,i]=line[i:,]
         return covMatPhi
     
-    def computeAandBmatrices(self,size,covMatPhi):
+    def computeAandBmatrices(self,size,covMatPhi,nbColToAdd=1,nbCol=2):
         """Computes the A and B matrices from the phase covariance matrix
         """
         dpix=size#agb changed from: self.dpix
-        N=dpix*(self.nbCol+self.nbColToAdd)
-        M=dpix*self.nbColToAdd
+        N=dpix*(nbCol+nbColToAdd)
+        M=dpix*nbColToAdd
         
         ##we declare the matrices with the fortran keyword to improve efficiency
         ##first matrix: ZZT
@@ -638,7 +680,7 @@ class infScrn(base.aobase.aobase):
         print "infScrn - doing cho_solve 0"
         #util.FITS.Write(ZZT,"zzt.fits")
         try:
-            ZZT_inv=LA.cho_solve(LA.cho_factor(ZZT),na.identity(self.nbCol*dpix))
+            ZZT_inv=LA.cho_solve(LA.cho_factor(ZZT),na.identity(nbCol*dpix))
         except:
             print "cho_solve failed - trying inv... this sometimes happens if the matrix is too large... or is r0/pxl is too small."
             ZZT_inv=LA.inv(ZZT)
@@ -656,7 +698,7 @@ class infScrn(base.aobase.aobase):
         ##Ex : if A=(A2 A1 A0) then AStart=(A0 A1 A2)
         matrixAStart=na.empty(matrixA.shape,dtype=na.float64)#,order="F")
         ##we fill the matrix
-        for col in range(self.nbCol):
+        for col in range(nbCol):
             jstart=col*dpix
             jend=(col+1)*dpix
             ##print "jstart=%d jend=%d" % (jstart,jend)
