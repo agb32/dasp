@@ -88,7 +88,7 @@ scrn=Extension('scrnmodule',
 		include_dirs=idnumpy,
 		sources=['scrnmodule.c'],
 		library_dirs=ld,
-		extra_link_args=['-lm','-lgslcblas','-lgsl'],
+		extra_link_args=['-lm','-lcblas','-latlas','-lgsl'],
 		)
                  
 

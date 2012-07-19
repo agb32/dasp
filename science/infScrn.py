@@ -353,7 +353,7 @@ class infScrn(base.aobase.aobase):
         #self.altitude=config.getVal("layerAltitude")#in m.
         self.windDirRad=self.windDirection*self.degRad
         self.tstep=config.getVal("tstep")
-        self.useCmodule=config.getVal("useCmodule",default=0)
+        self.useCmodule=config.getVal("useCmodule",default=1)
         # if colAdd<zero, we are adding now columns on the right of the array.
         # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
         self.colAdd=-self.vWind*na.cos(self.windDirRad)/self.pixScale*self.tstep#number of pixels to step each iteration (as float).

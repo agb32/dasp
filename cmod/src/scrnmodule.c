@@ -8,7 +8,9 @@ Used by science/infScrn.py
 
 #include "numpy/arrayobject.h"
 
-#include <gsl/gsl_cblas.h>
+//#include <gsl/gsl_cblas.h>
+#include <cblas.h>
+#include <atlas/cblas.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 typedef enum CBLAS_ORDER CBLAS_ORDER;
@@ -127,7 +129,7 @@ int nextNewCols(NewColsStruct *nc){
   return nc->nadd;
 }
 
-int mvm(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,double beta,double *y,int incy){
+inline int mvm(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,double beta,double *y,int incy){
   //performs:
   //y=beta*y + alpha* A dot x
   //todo();
@@ -136,7 +138,7 @@ int mvm(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,do
   cblas_dgemv(CblasRowMajor,CblasNoTrans,m,n,alpha,A,ldb,x,incx,beta,y,incy);
   return 0;
 }
-
+/*
 int mvm2(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,double beta,double *y,int incy){
   //y=beta*y+alpha* A.x
   int i,j;
@@ -150,7 +152,7 @@ int mvm2(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,d
     y[i*incy]+=alpha*tmp;
   }
   return 0;
-}
+  }*/
 
 void addNewColumnsOnEnd(ScrnStruct *ss,int nadd){
   float r0;
