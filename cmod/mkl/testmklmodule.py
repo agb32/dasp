@@ -1,6 +1,7 @@
 import cmod.mkl
 import numpy
 import sys,time
+#import util.dot as quick
 
 def runtest(size,usesdd=1,typ="d",tst=1,overwriteU=0):
     aa=None
@@ -57,9 +58,9 @@ def makeInv(u,evals,vt,minEig=0.):
     for i in xrange(min(ut.shape[0],eval2.shape[0])):
         ut[i]*=eval2[i]
     if v.shape[0]>ut.shape[0]:#ncents>nmodes...
-        inv=numpy.dot(v[:,:ut.shape[0]], ut)
+        inv=quick.dot(v[:,:ut.shape[0]], ut)
     else:
-        inv=numpy.dot(v,ut[:vt.shape[1]])
+        inv=quick.dot(v,ut[:vt.shape[1]])
     return inv
 
 def loadDat(size=16384,dtype="f",uf="u.dat",vf="v.dat",ef="evals.dat"):

@@ -19,7 +19,8 @@ endif
 
 .PHONY=clean_o clean_so
 
-default: ${OBJS:=.o} ${MODULES:=module.so} 
+
+default: ${OBJS:=.o} ${MODULES:=module.so} mvm.o interpolate.o 
 	echo ${MODULES}
 	echo ${OBJS}
 	python setup.py install --install-lib=../
@@ -31,21 +32,12 @@ ${MODULES:=module.so}: %module.so : %module.o
 	${CC} -c ${CFLAGS} $< -o $@
 
 
-
-
 # special case just for float version of mkimgmodule.
 mkimgfloatmodule.so: mkimgfloatmodule.o
 	${LD} ${LDFLAGS} ${SFFTWLIBS} ${LIBS} ${OBJS:=.o} $< -o $@ 
 
-# special case just for float version of mkimgmodule.
 mkimgfloatmodule.o: mkimgmodule.c
 	${CC} -c ${CFLAGS} $< -DUSE_FFTW_FLOAT -o $@
-
-utilsmodule.so: utilsmodule.o
-	${LD} ${LDFLAGS} ${LIBS} ${OBJS:=.o} $< -o $@
-	echo "DOING UTILS"
-utilsmodule.o: utils.c
-	${CC} -c ${CFLAGS} $< -o $@
 
 #special case for centmodule.
 centmodule.so: centmodule.o
@@ -60,9 +52,6 @@ acmlfftmodule.o: acmlfft.c
 	${CC} -c -m64 ${CFLAGS} $< -o $@
 acmlfftmodule.so: acmlfft.c
 	    ${CC} -m64 acmlfft.c -fPIC -shared -lacml -lg2c -o acmlfftmodule.so
-
-
-
 
 
 clean:

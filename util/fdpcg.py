@@ -3,11 +3,12 @@ import numpy
 import numpy.fft as fft
 import types
 import util.FITS,util.phaseCovariance
+import util.dot as quick
 try:
     import gist
 except:
     pass
-import util.createPokeMx
+#import util.createPokeMx
 try:
     import science.infScrn
 except:
@@ -175,7 +176,7 @@ class pcg:
         else:
             centroids=numpy.array(centroids)
         self.centroids=centroids
-        #self.b=numpy.dot(self.pokeNoise,centroids)
+        #self.b=quick.dot(self.pokeNoise,centroids)
         self.b=numpy.zeros((self.nact**2),self.centroids.dtype)
         print "computing pcg centroids"
         self.newCentroids(self.centroids)#compute self.b
@@ -215,7 +216,7 @@ class pcg:
         pokemx=numpy.array(pokemx)
         self.pokemx=pokemx
         pokemxT=numpy.transpose(pokemx)
-        #pn=numpy.dot(pokemxT,invNoiseCovVector
+        #pn=quick.dot(pokemxT,invNoiseCovVector
         #multiply pokemxT with invNoiseCovVector...
         pn=numpy.zeros(pokemxT.shape,pokemx.dtype.char)
         if type(self.invNoiseCovVector)==type(0.):
@@ -229,7 +230,7 @@ class pcg:
             self.GCG=self.pokeNoiseSparse.dot(pokemx)
         else:
             print "warning - pcg: not using sparse version of GCG creation"
-            self.GCG=numpy.dot(pn,pokemx)#with sparse approx, speed this up.
+            self.GCG=quick.dot(pn,pokemx)#with sparse approx, speed this up.
         if len(self.invPhaseCov.shape)==1:#diagonal...
             self.A=self.GCG.copy()
             #print self.A.shape,self.invPhaseCov.shape
@@ -414,7 +415,7 @@ class pcg:
                 zhatreordered=invChat*fftr#rhatreordered*invChatdiag
             else:
                 print "slow mmx multiply"
-                zhatreordered=numpy.dot(invChat,fftr)#Slow MMX multiply
+                zhatreordered=quick.dot(invChat,fftr)#Slow MMX multiply
             # now reorder zhat back to coord sys and FFT back...
             for i in range(self.nLayers):
                 z=fftr[i*olayerSize:(i+1)*olayerSize]#instead of creating new arr
@@ -493,7 +494,7 @@ class pcg:
             self.b[:,]=self.pokeNoiseSparse.dot(centroids)
         else:
             print "warning: pcg.newCentroids() - not sparse matrix"
-            self.b[:,]=numpy.dot(self.pokeNoise,centroids)
+            self.b[:,]=quick.dot(self.pokeNoise,centroids)
 
     def resetX(self):
         """reset the initial guess... can do this when the loop is
@@ -520,8 +521,8 @@ class pcg:
                     self.r[:-key]-=self.sparseA[key]*self.x[key:,]
         else:#full implementation
             print "big mmx multiply"
-            self.r=self.b-numpy.dot(self.A,self.x)
-        #self.z=numpy.dot(self.Cm1,self.r)
+            self.r=self.b-quick.dot(self.A,self.x)
+        #self.z=quick.dot(self.Cm1,self.r)
         #Actually, do the previous line in FFT space (next 3 lines).
         #print "todo: pgc - FFT the L blocks of r separately"
         #self.rhat=numpy.fft.fft(self.r)#FFT the L blocks of r.
@@ -572,13 +573,13 @@ class pcg:
             
         else:#full implementation
             print "big mmx multiply for q=Ap"
-            self.q=numpy.dot(self.A,self.p)#dominant cost
-        qp=numpy.dot(self.q,self.p)#complex
-        self.rz=numpy.dot(self.r,self.z)
+            self.q=quick.dot(self.A,self.p)#dominant cost
+        qp=quick.dot(self.q,self.p)#complex
+        self.rz=quick.dot(self.r,self.z)
         if qp!=0:
             #print type(self.r),type(self.z),type(qp)#agbhome
             #print self.r.shape,self.z.shape,self.r.dtype.char,self.z.dtype.char
-            #tmp=numpy.dot(self.r,self.z)
+            #tmp=quick.dot(self.r,self.z)
             #print type(tmp)
             self.alpha=(self.rz/qp).real#complex
         else:
@@ -595,11 +596,11 @@ class pcg:
             
         
         self.r-=self.alpha*self.q
-        #self.z=numpy.dot(self.Cm1,self.r)#dominant cost
+        #self.z=quick.dot(self.Cm1,self.r)#dominant cost
         #Prev line actually computed in FFT space (next line...).
         self.z=self.computeinvChatr(self.invChatReordered,self.r,mode="diag").real
         if self.rz!=0:
-            self.beta=(numpy.dot(self.r,self.z)/self.rz).real
+            self.beta=(quick.dot(self.r,self.z)/self.rz).real
         else:
             self.beta=0.#if rz is zero, so is new r or z...
         #print "alpha,beta",self.alpha,self.beta
@@ -654,10 +655,10 @@ def computeChat():
                 P[j,Lx]=xxx
                 PHat=[xxx,xxx]
                 PHatT=numpy.conjugate(numpy.transpose(PHat))
-                xbit=numpy.dot(numpy.dot(numpy.dot(GamxHatT,MhatT),Mhat),GamxHat)
-                ybit=numpy.dot(numpy.dot(numpy.dot(GamyHatT,MhatT),Mhat),GamyHat)
+                xbit=quick.dot(quick.dot(quick.dot(GamxHatT,MhatT),Mhat),GamxHat)
+                ybit=quick.dot(quick.dot(quick.dot(GamyHatT,MhatT),Mhat),GamyHat)
 
-                Chat[xxx,xxx]+=numpy.dot(numpy.dot(PHatT,xbit+ybit),PHat)
+                Chat[xxx,xxx]+=quick.dot(quick.dot(PHatT,xbit+ybit),PHat)
             Chat[xxx,xxx]*=SHnoise**2
             if Ly==Lx:
                 Chat[xxx,xxx]+=1./turbStrength(Lx)**2 * kappa
@@ -692,8 +693,8 @@ def computeGradientOperator(dimy,dimx):
         print "pcg: Warning - dimy not equal to dimx, may lead to problems"
     Sx,Sy=computeShiftOperator(dimy,dimx)
     I=numpy.identity(dimy*dimx)
-    Gamx=0.5*numpy.dot(Sx-I,Sy+I)
-    Gamy=0.5*numpy.dot(Sy-I,Sx+I)
+    Gamx=0.5*quick.dot(Sx-I,Sy+I)
+    Gamy=0.5*quick.dot(Sy-I,Sx+I)
     return Gamx,Gamy
 
 def computeFFTmatrix(size):
@@ -761,7 +762,7 @@ def computeChatFromPokeMatrix(pokemx,nLayers,Ngs,sigma,turbStrength,kappa):
         for Lx in range(nLayers):
             Cpart=Chat[Ly*nmodes:(Ly+1)*nmodes,Lx*nmodes:(Lx+1)*nmodes]
             for j in range(Ngs):
-                tmp=sigmam2*numpy.dot(numpy.conjugate(numpy.transpose(fftpokemx[Ly,j])),fftpokemx[Lx,j])
+                tmp=sigmam2*quick.dot(numpy.conjugate(numpy.transpose(fftpokemx[Ly,j])),fftpokemx[Lx,j])
                 Cpart+=tmp
             if Ly==Lx:#turb covariance stuff...
                 Cpart+=1./turbStrength(Lx)**2 * kappa
@@ -799,7 +800,7 @@ def computeChatFromPokeMatrix2(pokemx,sigma,turbStrength,kappa):
     sigmam2=1./(sigma*sigma)
     fftpokemx=numpy.fft.fft2(pokemx)
     fftpokemxCT=numpy.conjugate(numpy.transpose(fftpokemx))
-    Chat=sigmam2*numpy.dot(fftpokemxCT,fftpokemx)
+    Chat=sigmam2*quick.dot(fftpokemxCT,fftpokemx)
     modesPerLayer=float(Chat.shape[0])/turbStrength.shape[0]
     if numpy.ceil(modesPerLayer)!=numpy.floor(modesPerLayer):
         print "pcg: warning - modes per layer not an integer."
@@ -1145,7 +1146,7 @@ def doit(zernlist=None,nact=9,cents=None,avphase=None,readnoise=10.,usePoisson=1
     raw_input("Displaying inverse of A... press return")
     gist.fma();gist.pli(phase)
     raw_input("The phase... press a key")
-    recphase=numpy.dot(invA,Pcg.b)
+    recphase=quick.dot(invA,Pcg.b)
     print "Reconstructed phase min/max:",min(recphase.flat),max(recphase.flat)
     recphase.shape=(9,9)
     gist.window(4);gist.palette("gray.gp");gist.fma();gist.pli(recphase)
@@ -1154,7 +1155,7 @@ def doit(zernlist=None,nact=9,cents=None,avphase=None,readnoise=10.,usePoisson=1
     chires=numpy.zeros((100,),"d")
     #also compute what a traditional MVM with pokemx would give...
     #invpokemx=numpy.linalg.pinv(Pcg.pokemx)#same as generalised_inverse
-    #pmphase=numpy.dot(invpokemx,cents)
+    #pmphase=quick.dot(invpokemx,cents)
     print "Press return for next iteration or key+return to quit"
     #gist.fma()
     #gist.pli(numpy.reshape(pmphase,(nact,nact)))

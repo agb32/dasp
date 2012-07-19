@@ -3,6 +3,7 @@ try:
 except:
     print "Unable to import scipy.sparse.linalg in regularisation.py - continuing - but may raise an error if this is used..."
 import numpy
+#import util.dot as quick
 
 
 class lsreg:
@@ -15,7 +16,7 @@ class lsreg:
         A = H^TH + a^2I, b= H^Ts, H=poke matrix, a=reg_value, s= centroids"""
         pokemxt=numpy.transpose(pokemx)
         regmx=reg_value**2*numpy.identity(pokemx.shape[0])
-        A=numpy.dot(pokemx,pokemxt)+regmx
+        A=quick.dot(pokemx,pokemxt)+regmx
         return A
     
     def solvecg(self,A,b,x0=None,maxiter=40):
@@ -47,11 +48,11 @@ class lsreg:
             F[:,i:i+nact]=numpy.roll(Frow,i,axis=0)
 
         # Waffle matrix V=F^tF
-        V=numpy.dot(F.transpose(),F)
+        V=quick.dot(F.transpose(),F)
         #According to the theory this only penalizes local waffle, so piston penalty should be added as in following lines. suspended temporarily to be tested manually
         #pistmx=numpy.ones((pokemx.shape[0],pokemx.shape[0]))
         #regmx=wafmx + reg_value**2*numpy.identity(pokemx.shape[0])
-        A=numpy.dot(pokemx,pokemxt) +V # reg_value**2*wafmx #+ pistmx
+        A=quick.dot(pokemx,pokemxt) +V # reg_value**2*wafmx #+ pistmx
         return A,V
     
 def invert(pmx,regval,large=0):
@@ -60,19 +61,19 @@ def invert(pmx,regval,large=0):
     if pmx.shape[0]>pmx.shape[1]:
         pmx=pmx.T
     if large:#do it the larger inversion way
-        pmxTpmx=numpy.dot(pmx.T,pmx)
+        pmxTpmx=quick.dot(pmx.T,pmx)
         s=pmxTpmx.shape
         pmxTpmx.shape=pmxTpmx.size,
         pmxTpmx[::s[0]+1]+=regval
         pmxTpmx.shape=s
         ipmxTpmx=numpy.linalg.inv(pmxTpmx)
-        rmx=numpy.dot(ipmxTpmx,pmx.T)
+        rmx=quick.dot(ipmxTpmx,pmx.T)
     else:#do it the smaller inversion way
-        pmxpmxT=numpy.dot(pmx,pmx.T)
+        pmxpmxT=quick.dot(pmx,pmx.T)
         s=pmxpmxT.shape
         pmxpmxT.shape=pmxpmxT.size,
         pmxpmxT[::s[0]+1]+=regval
         pmxpmxT.shape=s
         ipmxpmxT=numpy.linalg.inv(pmxpmxT)
-        rmx=numpy.dot(pmx.T,ipmxpmxT)
+        rmx=quick.dot(pmx.T,ipmxpmxT)
     return rmx

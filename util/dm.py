@@ -1,4 +1,3 @@
-#import Numeric
 import numpy
 import threading
 from cmod.interp import mxinterp,bicubicinterp,linearinterp,gslCubSplineInterp
@@ -6,6 +5,8 @@ import util.tel,util.dist
 import util.FITS
 import scipy
 import cmod.utils
+#import util.dot as quick
+
 """Contains:
 dmInfo class - info about a given DM
 dmOverview class - overview of all DMs in a system
@@ -1617,8 +1618,8 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         try:
             import cmod.mkl
         except:
-            print "Unable to import cmod.mkl - using numpy.dot instead"
-            res=numpy.dot(rmx,v.projmx.T)
+            print "Unable to import cmod.mkl - using quick.dot instead"
+            res=quick.dot(rmx,v.projmx.T)
         else:
             res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
             cmod.mkl.gemm(rmx,v.projmx.T,res)
@@ -1686,7 +1687,7 @@ def dmProjection(dm,vdmList,npup,telDiam,interpolate=1,rcond=1e-15,usemkl=0,usem
    iact=0
    tmp=numpy.linalg.pinv(inf_funcs[0])
    for idm in range(N_DM):
-        projmx[iact:iact+DM_TOTNACT[idm]]=numpy.dot(inf_funcs[idm],tmp)
+        projmx[iact:iact+DM_TOTNACT[idm]]=quick.dot(inf_funcs[idm],tmp)
         iact+=DM_TOTNACT[idm]
 
    return projmx
@@ -1807,7 +1808,7 @@ def dmProjection(dm,vdmList,npup,telDiam,interpolate=1,rcond=1e-15,usemkl=0,usem
         else:
             #invInf=numpy.linalg.pinv(influence,rcond)
             #do it this way, so that gives same results as mkl...
-            invInf=numpy.dot(numpy.linalg.pinv(numpy.dot(influence,influence.transpose()),rcond),influence).transpose()
+            invInf=quick.dot(numpy.linalg.pinv(quick.dot(influence,influence.transpose()),rcond),influence).transpose()
             util.FITS.Write(invInf,basefilename[:-5]+"_rmxden%g.fits"%rcond,doByteSwap=0)
         print "Stage 1 took %gs"%(time.time()-t1)
         #print max(invInf.ravel())
@@ -1950,7 +1951,7 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
                             cmod.interp.mxinterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated)
                         if pupfn!=None:
                             interpolated*=pupfn
-                        #tmp=numpy.dot(interpolated.ravel(),invInf[:,bstart:bend])
+                        #tmp=quick.dot(interpolated.ravel(),invInf[:,bstart:bend])
                         #print max(tmp)
                         #print tmp.shape
                         #projmx[pos,bstart:bend]=tmp
@@ -1963,7 +1964,7 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
                         if usemkl:
                             cmod.mkl.gemm(intflat,invInf,tmp)
                         else:
-                            tmp=numpy.dot(intflat,invInf)
+                            tmp=quick.dot(intflat,invInf)
                         #projmx[pos,bstart:bend]=tmp
                         projmx[pos]=tmp
                         pos+=1
@@ -2034,7 +2035,7 @@ if __name__=="__main__":
             else:
                 rmx=util.FITS.Read(rmxfile)[1]
                 if rmx.shape[1]==projmx.shape[0]:
-                    projmx=numpy.dot(rmx,projmx)
+                    projmx=quick.dot(rmx,projmx)
                 else:
                     print "Failed to dot rmx and projmx: %s %s"%(str(rmx.shape),str(projmx.shape))
         else:

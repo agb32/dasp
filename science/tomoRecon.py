@@ -1,4 +1,3 @@
-#import Numeric
 import os.path
 import numpy
 import base.aobase
@@ -14,6 +13,8 @@ import util.zernikeMod
 import util.regularisation
 import cmod.svd
 import cmod.utils
+import util.dot as quick
+
 try:
     import scipy.linsolve
 except:
@@ -784,25 +785,25 @@ class recon(base.aobase.aobase):
                         print "Writing reconmx to file %s"%self.reconmxFilename
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pinv":
-                    self.reconmx=numpy.linalg.pinv(self.spmx,self.rcond).astype(numpy.float32)
+                    self.reconmx=numpy.linalg.pinv(self.spmx,self.rcond).T.astype(numpy.float32)
                     if self.reconmxFilename!=None:
                         print "Writing reconmx to file %s"%self.reconmxFilename
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pcg":
                     self.pcgB=self.spmx
-                    self.pcgA=numpy.dot(self.spmx,self.spmx.T)
+                    self.pcgA=quick.dot(self.spmx,self.spmx.T)
                     self.pcgA.ravel()[::self.pcgA.shape[0]+1]+=self.pcgRegVal
                     if type(self.pcgAfile)==type(""):
                         util.FITS.Write(self.pcgA,self.pcgAfile)
                     if type(self.pcgBfile)==type(""):
                         util.FITS.Write(self.pcgB,self.pcgBfile)
                 elif self.reconType=="regBig":
-                    self.reconmx=util.regularisation.invert(self.spmx,self.rcond,large=1).astype(numpy.float32)
+                    self.reconmx=util.regularisation.invert(self.spmx,self.rcond,large=1).T.astype(numpy.float32)
                     if self.reconmxFilename!=None:
                         print "Writing reconmx to file %s"%self.reconmxFilename
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType in ["reg","regSmall","regularised"]:
-                    self.reconmx=util.regularisation.invert(self.spmx,self.rcond).astype(numpy.float32)
+                    self.reconmx=util.regularisation.invert(self.spmx,self.rcond).T.astype(numpy.float32)
                     if self.reconmxFilename!=None:
                         print "Writing reconmx to file %s"%self.reconmxFilename
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
@@ -880,9 +881,9 @@ class recon(base.aobase.aobase):
                     tmp=tmp.astype(self.outputData.dtype)
             elif type(self.reconmx)==numpy.ndarray:
                 if data.shape[0]==self.reconmx.shape[0]:
-                    tmp=-numpy.dot(data,self.reconmx).astype(self.outputData.dtype)
+                    tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
                 else:
-                    tmp=-numpy.dot(self.reconmx,data).astype(self.outputData.dtype)
+                    tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
             elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and self.reconmx.__module__ in ["scipy.sparse.sparse"]:
                 #print self.reconmx.shape,data.shape
                 if self.reconmx.shape[0]==data.shape[0]:
@@ -908,17 +909,17 @@ class recon(base.aobase.aobase):
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
             else:
-                if type(self.reconmx)!=numpy.ndarray or self.reconmx.shape!=(data.shape[0],self.gains.shape[0]):
-                    print "Reconstructor shape should be (%d,%d)"%(data.shape[0],self.gains.shape[0])
+                if type(self.reconmx)!=numpy.ndarray or self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
+                    print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 else:
-                    tmp=-(self.gains*numpy.dot(data,self.reconmx))#.astype(self.outputData.dtype)
+                    tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)# HERE
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
         elif self.reconType=="pcg":
             #print data.shape,self.pcgB.shape
-            b=numpy.dot(self.pcgB,data)
+            b=quick.dot(self.pcgB,data)
             #print b.shape,self.pcgA.shape
             self.pcgX0,self.pcgIters=scipy.sparse.linalg.cg(self.pcgA,b,self.pcgX0,self.pcgTol,self.pcgMaxiter)
             #print self.gains.shape,self.pcgX0.shape,iters,self.pcgX0
@@ -928,7 +929,7 @@ class recon(base.aobase.aobase):
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
             else:
-                tmp=-(self.gains*numpy.dot(self.reconmx,data))#.astype(self.outputData.dtype)
+                tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
@@ -1050,7 +1051,7 @@ class recon(base.aobase.aobase):
                 #print "running %d"%i
                 cmod.utils.uncompressFloatArrayAllThreaded(rmx,r[:end*nacts],bits,expMin,expMax,i*nrows*nacts,8)
                 #print "done"
-                tmp+=numpy.dot(data[i*nrows:i*nrows+end],work[:end])
+                tmp+=quick.dot(data[i*nrows:i*nrows+end],work[:end])
         else:
             nacts,ncents=shape
             if work==None:
@@ -1071,7 +1072,7 @@ class recon(base.aobase.aobase):
                 #print "running %d"%i
                 cmod.utils.uncompressFloatArrayAllThreaded(rmx,r[:end*ncents],bits,expMin,expMax,i*nrows*ncents,8)
                 #print "done"
-                tmp[i*nrows:i*nrows+end]=numpy.dot(work[:end],data)
+                tmp[i*nrows:i*nrows+end]=quick.dot(work[:end],data)
         return tmp
 
     def savecsc(self,csc,filename,hdr=None):
@@ -1317,9 +1318,9 @@ class recon(base.aobase.aobase):
         if isinstance(noiseCov,util.blockMatrix.BlockMatrix):
             noiseIsBlock=1
         if phaseIsBlock:
-            self.apa=numpy.dot(util.blockMatrix.dot(pokemx,phaseCov),pokemxT)
+            self.apa=quick.dot(util.blockMatrix.dot(pokemx,phaseCov),pokemxT)
         else:
-            self.apa=numpy.dot(numpy.dot(pokemx,phaseCov),pokemxT)
+            self.apa=quick.dot(quick.dot(pokemx,phaseCov),pokemxT)
         self.iapan=self.apa.copy()
         if type(noiseCov)==type(0) or type(noiseCov)==type(0.) or type(noiseCov)==type(None):
             if noiseCov==0 or noiseCov==None:
@@ -1338,10 +1339,10 @@ class recon(base.aobase.aobase):
         if phaseIsBlock:
             self.pa=phaseCov.dot(pokemxT)
         else:
-            self.pa=numpy.dot(phaseCov,pokemxT)#shape nmodes,ncents
+            self.pa=quick.dot(phaseCov,pokemxT)#shape nmodes,ncents
         if influenceScalarProd!=None:
-            self.pa=numpy.dot(influenceScalarProd,self.pa)#shape nmodes,ncents
-        self.reconmx=numpy.dot(self.pa,self.iapan)#shape nmodes,ncents.
+            self.pa=quick.dot(influenceScalarProd,self.pa)#shape nmodes,ncents
+        self.reconmx=quick.dot(self.pa,self.iapan)#shape nmodes,ncents.
 
         if self.dmModeType=="poke":
             #need to scale the xinetics_dm output to unity...
@@ -1464,9 +1465,9 @@ class recon(base.aobase.aobase):
         #print "tomoRecon:",v.shape,ai.shape,ut.shape,vt.shape,a.shape,u.shape
         #print v.shape,ut.shape
         if v.shape[0]>ut.shape[0]:#ncents>nmodes...
-            self.reconmx = numpy.dot(v[:,:ut.shape[0]], ut)#numpy.matrixmultiply(ai, ut))
+            self.reconmx = quick.dot(v[:,:ut.shape[0]], ut)#numpy.matrixmultiply(ai, ut))
         else:
-            self.reconmx=numpy.dot(v,ut[:vt.shape[1]])
+            self.reconmx=quick.dot(v,ut[:vt.shape[1]])
         t3=time.time()
         if self.svdSparsityFactors!=None:
             print "tomoRecon.createSVDControl - doing possible sparsity checks (matrix multiply took %g s)"%(t3-t2)

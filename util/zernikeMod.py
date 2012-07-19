@@ -12,6 +12,7 @@ Zernike Polynomials follow definition given in Noll-1976 JOSA article
 """
 
 import numpy as na
+#import util.dot as quick # not necessary, as the line where used is commented out
 #import scipy#agbhome
 from util.matrix import symmetricMatrixVectorMultiply#agbhome
 import scipy.linalg as nala#agbhome
@@ -805,7 +806,7 @@ class Zernike:
         ##as the geometric covariance matrix is symetric, its inverse is symetric
         ##we therefore use the function in the matrix package
         result=symmetricMatrixVectorMultiply(self.invGeoCovMat,col)
-        #result=na.dot(self.invGeoCovMat,col)#agbhome
+        #result=quick.dot(self.invGeoCovMat,col)#agbhome
         result.astype(self.natype)
 
         ##we return the result
