@@ -1,4 +1,4 @@
-from cmod.interp import mxinterp,linearshift
+from cmod.interp import gslCubSplineInterp_UB,linearshift
 import time
 import numpy
 import util.dm,util.guideStar
@@ -621,7 +621,7 @@ class atmos:
                     #need to bin down to the correct size...
                     x=posDict[6]
                     x2=posDict[8]
-                    mxinterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,self.interpPhs[:posDict[3],:posDict[3]])#make it square (was rectangular)
+                    gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,self.interpPhs[:posDict[3],:posDict[3]],4)#make it square (was rectangular)
                 # print "atmos time4 %g"%(time.time()-t1)
 
                 if self.sourceAlt>0:
@@ -629,7 +629,7 @@ class atmos:
                     x2=posDict[6]
                     x=posDict[7]
                     #Bicubic interpolation (in C) for LGS projection
-                    mxinterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs)
+                    gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs,4)
                 #print "atmos time5 %g"%(time.time()-t1)
                 self.outputData+=self.interpPhs#and finally add the phase.
         if self.computeUplinkTT:
@@ -723,14 +723,14 @@ class atmos:
         if self.zenithOld!=0:
             x=posDict[6]
             x2=posDict[8]
-            mxinterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,self.interpPhs[:posDict[3],:posDict[3]])#make it square (was rectangular)
+            gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,self.interpPhs[:posDict[3],:posDict[3]],4)#make it square (was rectangular)
             
         if self.sourceAlt>0:
             #this is a LGS... need to project (interpolate)
             x2=posDict[6]
             x=posDict[7]
             #Bicubic interpolation (in C) for LGS projection
-            mxinterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs)
+            gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs,4)
         if control["fullPupil"]:
             return self.interpPhs
         else:

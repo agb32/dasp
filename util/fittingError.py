@@ -10,8 +10,7 @@ import time
 from scipy.special import gamma
 sys.path.append('/home/dmw')
 import numpyFITS as FITS
-from cmod.interp import mxinterp
-# from gausspyrex import gauss_surface
+from cmod.interp import gslCubSplineInterp_UB
 from gp2 import g_surface
 import spline
 
@@ -512,8 +511,7 @@ class quicksplinemirror(mirror):
         x = y = numpy.arange(width).astype("d")/(width-1)
 	x2 = numpy.arange(n_act).astype("d")/(n_act-1)
 	phsOut = numpy.zeros((width,width),"d")
-# mxinterp is a C wrapped Num. Recipies function available on the CRAY
-	mxinterp(actuators,x2,x2,y,x,phsOut)
+	gslCubSplineInterp_UB(actuators,x2,x2,y,x,phsOut,4)
 	return phsOut
 
 

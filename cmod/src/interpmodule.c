@@ -363,7 +363,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   double *x1,*x2,*x3,*x4,*ytmp;
   double *x1free=NULL,*x2free=NULL;
   double dx1,dx2,dx3,dx4;
-  int i,j,n1x,n1y,n2x,n2y,n1xp,n1yp;
+  int i,j,n1x,n1y,n2x,n2y;
   double *x1usr=NULL,*x2usr=NULL,*x3usr=NULL,*x4usr=NULL;
   int s1y,s1x,s2y,s2x,insize,outsize;
 
@@ -433,10 +433,6 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   s1x=PyArray_STRIDE(pyin,1)/insize;
   s2y=PyArray_STRIDE(pyout,0)/outsize;
   s2x=PyArray_STRIDE(pyout,1)/outsize;
-  n1xp=n1x;
-  n1yp=n1y;
-
-  //  printf("s1x = %d, s1y = %d", s1x, s1y);
 
   //Now check the optional input arrays...
   if(PyArray_Check(pyyin)){
@@ -444,7 +440,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
       PyErr_SetString(PyExc_TypeError, "yin must be contiguous, float64\n");
       return NULL;
     }
-    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==n1yp){//correct shape...
+    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==n1y){//correct shape...
       x1usr=(double*)PyArray_DATA((PyArrayObject*)pyyin);
     }else{
       PyErr_SetString(PyExc_TypeError, "yin is wrong shape\n");
@@ -456,7 +452,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
       PyErr_SetString(PyExc_TypeError, "xin must be contiguous, float64\n");
       return NULL;
     }
-    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==n1xp){//correct shape...
+    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==n1x){//correct shape...
       x3usr=(double*)PyArray_DATA((PyArrayObject*)pyxin);
     }else{
       PyErr_SetString(PyExc_TypeError, "xin is wrong shape\n");
@@ -492,7 +488,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   // (3) ALLOCATE AND (PARTIALLY) POPULATE WORKING ARRAYS
   //printf("intrp.interp2d: n1 = %d, n2 = %d, n1p = %d\n",n1,n2,n1p);
   if(x1usr==NULL || x3usr==NULL){
-    x1=malloc((n1yp>n1xp?n1yp:n1xp)*sizeof(double));
+    x1=malloc((n1y>n1x?n1y:n1x)*sizeof(double));
     x3=x1;
     x1free=x1;
   }
@@ -503,13 +499,13 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   }
   ytmp=malloc(n1x*n2y*sizeof(double));
   
-  dx1=1./(n1yp-1.);
+  dx1=1./(n1y-1.);
   dx2=dx1 * (n1y-1.) / n2y;
-  dx3=1./(n1xp-1.);
+  dx3=1./(n1x-1.);
   dx4=dx3*(n1x-1.)/n2x;
 
   if(x1usr==NULL){
-    for (i=0; i<n1yp; ++i)
+    for (i=0; i<n1y; ++i)
       x1[i] = i * dx1;
   }else
     x1=x1usr;
@@ -521,7 +517,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
 
 
   if(x3usr==NULL){
-    for(i=0; i<n1xp; i++)
+    for(i=0; i<n1x; i++)
       x3[i]=i*dx3;
   }else
     x3=x3usr;
@@ -534,9 +530,9 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   // (4) DETERMINE THE NUMBER OF THREADS:
   // If the input nThreads is < 1, use the default multi-threading.
   // Find out the number of cores (hyperthreads) and use half that number for the number of threads.
-  // (For the matrix-vector multiplication, on average this seemed to make most sense - 
-  // see U.B.`s log book 1, p. 124. I have not repeated the test for interpolation.)
-  if(nThreads < 1)
+  // (On average this seems to make most sense -  see U.B.`s log book 1, p. 169)
+  //
+  if(nThreads < 0)
     {
       // Find the number of cores and divide it by two:
       nThreads = sysconf(_SC_NPROCESSORS_ONLN)/2;
@@ -555,7 +551,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   // printf("nThreads = %d\n", nThreads);
 
   //  (5) THREADING:
-  if(nThreads == 1)
+  if(nThreads == 0)
     {
       // (5.1) NON-THREADED:
 
@@ -687,13 +683,19 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
 	  // Now all the parameters are assigned.
 
 	  // (d.2) RUN in threads:
-      	  if(insize==8) pthread_create( &thread[i], NULL, (void*)interp_first_inDouble, &params[i] );
-      	  else          pthread_create( &thread[i], NULL, (void*)interp_first_inFloat,  &params[i] );
+	  if(insize==8) pthread_create( &thread[i], NULL, (void*)interp_first_inDouble, &params[i] );
+	  else          pthread_create( &thread[i], NULL, (void*)interp_first_inFloat,  &params[i] );
       	}
 
       // (e) Wait until all the threads are finished:
       for(i=0; i < nThreads; i++)
-	pthread_join(thread[i], NULL);
+      pthread_join(thread[i], NULL);
+
+      // to test the speed: call the function directly instead of in a thread
+      // (only for nThreads = 1; comment out (d.2) and (e):
+      //if(insize==8) interp_first_inDouble( params );
+      //else          interp_first_inFloat(  params );
+
 
       //     FOR THE SECOND DIMENSION:
       // (f) Determine the number of lines processed by each thread in the second dimension:
@@ -730,7 +732,13 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
 
       // (h) Wait until all the threads are finished:
       for(i=0; i < nThreads; i++)
-	pthread_join(thread[i], NULL);
+      pthread_join(thread[i], NULL);
+
+      // to test the speed: call the function directly instead of in a thread
+      // (only for nThreads = 1; comment out (g.2) and (h):
+      //if(outsize==8) interp_second_outDouble( params );
+      //else           interp_second_outFloat(  params );
+
 
       // (i) Tidy up:
       for(i=0; i < nThreads; i++){

@@ -198,7 +198,7 @@ class vdmUser(base.aobase.aobase):
                     #     st=nactsCumList[-1][0]
                     #     en=nactsCumList[-1][1]
                     #     #interpolate
-                    #     cmod.interp.mxinterp(tmp,yin,xin,actPosMdmy,actPosMdmx,tmp2)
+                    #     cmod.interp.gslCubSplineInterp_UB(tmp,yin,xin,actPosMdmy,actPosMdmx,tmp2,4)
                     #     #and then for each dm actuator, compute how it is affected by neighbours.
                     #     #compute how actuators should be selected in x and y directions.
                     #     xinterp=numpy.interp(numpy.arange(dm.nact),numpy.arange(actPosMdmx.size,actPosMdmx))
@@ -258,7 +258,7 @@ class vdmUser(base.aobase.aobase):
         yin=self.vdmActPosList[indx][0]
         xin=self.vdmActPosList[indx][1]
         #this is just a sub-pxl interpolation I think...(or a compression for LGS) - not interpolation of the DM surface...
-        cmod.interp.mxinterp(vdm,yin,xin,self.mdmActPosList[indx][0],self.mdmActPosList[indx][1],self.interpolated)
+        cmod.interp.gslCubSplineInterp_UB(vdm,yin,xin,self.mdmActPosList[indx][0],self.mdmActPosList[indx][1],self.interpolated,4)
         return self.interpolated
 
     def getInputActuators(self,dmno):

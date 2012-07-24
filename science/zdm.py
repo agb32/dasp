@@ -3,7 +3,7 @@
 import numpy
 import util.zernikeMod
 import util.FITS
-from cmod.interp import mxinterp
+from cmod.interp import gslCubSplineInterp_UB
 import base.aobase
 class dm(base.aobase.aobase):
     """
@@ -279,7 +279,7 @@ class dm(base.aobase.aobase):
                     if this.xoffsub==0 and this.yoffsub==0:#no interp needed
                         pass
                     else:
-                        mxinterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,this.yaxisInterp,this.xaxisInterp,self.interpolated)
+                        gslCubSplineInterp_UB(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,this.yaxisInterp,this.xaxisInterp,self.interpolated,4)
                         self.selectedDmPhs=self.interpolated
 
                 if this.wavelengthAdjustor==1:#dm is shaped for this wavelength...

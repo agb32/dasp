@@ -383,9 +383,9 @@ class Ctrl:
         """
         self.compList=compList
         self.compListNames=[]
-        for c in compList:
-            self.compListNames.append(c.objID)
-            c.finalInitialisation()
+        for module in compList:
+            self.compListNames.append(module.objID)
+            module.finalInitialisation()
         self.simStartTime=time.time()
         print "Took %g seconds to initialise"%(self.simStartTime-self.simInitTime)
         self.thisIterTiming=numpy.zeros((len(compList),),numpy.float64)
@@ -487,6 +487,7 @@ class Ctrl:
         for i in rangeLenCompList:
             self.compListPos=i
             module=compList[i]
+            print "{0}:  {1}".format(module.objID, self.meanTiming[i]) # UB 2012Jul23
             module.endSim()
         print "waiting at mpi barrier for all other processes to finish"
         self.mpiComm.barrier()#wait til they're all ready to finish - not essential, but nice...
@@ -495,6 +496,7 @@ class Ctrl:
         t=time.time()
         print "Total time %gs, running time %gs"%(t-self.simInitTime,t-self.simStartTime)
         time.sleep(1)#allow a bit of time before abort is called - to allow all semaphores to be cleaned up.
+
     def createQueryObjs(self,addHeader=1,addDir=1):
         """Create XML for all the science objects, such that it can be used
         by a GUI for querying..."""

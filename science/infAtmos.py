@@ -2,18 +2,13 @@
 #does interpolation etc and creates the telescope pupil phase.
 #"""
 
-
 import base.aobase,util.getNewCols
 import numpy
-#import Numeric
 import time,types
 import infScrn
-#from cmod.interp import mxinterp,linearshift
 import util.atmos
 import util.dist,util.zernikeMod
 from scipy.special import gamma,kv
-#if Numeric.__version__!="24.2":
-    #raise Exception("Needs Numeric 24.2")
 def calcLayerOffset(scrnSize,thetas,phis,altitude,npup,ntel,telDiam):
     """FUnction to compute the starting points for each layer (dictionary).  This is used in the parameter file."""
     print "ERROR: Please use util.atmos.calcLayerOffset"
