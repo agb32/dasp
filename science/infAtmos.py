@@ -72,6 +72,7 @@ class infAtmos(base.aobase.aobase):
             self.outputData=[(self.npup,self.npup),self.dataType]
         else:#setup for real
             self.timing=self.config.getVal("timing",default=0)
+            self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)
             self.doneFinalInit=0
             self.sentPlotsCnt=0
             # deg - rad conversion
@@ -236,7 +237,7 @@ class infAtmos(base.aobase.aobase):
         storePupilLayers=this.config.getVal("storePupilLayers",default=0)
         computeUplinkTT=this.config.getVal("computeUplinkTT",default=0)
         launchApDiam=this.config.getVal("launchApDiam",default=0)
-        this.atmosObj=util.atmos.atmos(parentDict,sourceAlt,sourceLam,sourceTheta,sourcePhi,self.npup,self.pupil,self.colAdd,self.rowAdd,self.layerAltitude,self.phaseScreens,self.scrnScale,self.layerXOffset,self.layerYOffset,layerList,zenith,intrinsicPhase=intrinsicPhase,storePupilLayers=storePupilLayers,computeUplinkTT=computeUplinkTT,launchApDiam=launchApDiam,ntel=self.ntel,telDiam=self.telDiam)
+        this.atmosObj=util.atmos.atmos(parentDict,sourceAlt,sourceLam,sourceTheta,sourcePhi,self.npup,self.pupil,self.colAdd,self.rowAdd,self.layerAltitude,self.phaseScreens,self.scrnScale,self.layerXOffset,self.layerYOffset,layerList,zenith,intrinsicPhase=intrinsicPhase,storePupilLayers=storePupilLayers,computeUplinkTT=computeUplinkTT,launchApDiam=launchApDiam,ntel=self.ntel,telDiam=self.telDiam,interpolationNthreads=self.interpolationNthreads)
 
     def finalInitialisation(self):
         """since all memories are the same size (npup can't change...), its

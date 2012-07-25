@@ -1,5 +1,5 @@
 import numpy
-from cmod.interp import gslCubSplineInterp_UB
+from cmod.interp import gslCubSplineInterp
 import base.aobase
 import util.FITS,util.dist
 import util.zernikeMod
@@ -40,7 +40,7 @@ class dm(base.aobase.aobase):
             self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             self.npup=self.config.getVal("npup")
             self.pupil=self.config.getVal("pupil")
-            self.interpolationNthreads=self.config.getVal("interpolationNthreads")
+            self.interpolationNthreads=self.config.getVal("interpolationNthreads", default=0)
             self.subtractTipTilt=self.config.getVal("subtractTipTilt",default=0)
             self.monteNoll=None
             self.mirrorModes=None
@@ -397,13 +397,13 @@ class dm(base.aobase.aobase):
                     if this.xoffsub==0 and this.yoffsub==0:#no interp needed
                         pass
                     else:
-                        gslCubSplineInterp_UB(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
+                        gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
                                               this.yaxisInterp,this.xaxisInterp,self.interpolated,
                                               self.interpolationNthreads)
                         self.selectedDmPhs=self.interpolated
                 elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
                     #ground conjugate or not interpolating, but we want to offset anyway...
-                    gslCubSplineInterp_UB(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
+                    gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
                                           this.yaxisInterp,this.xaxisInterp,self.interpolated,
                                           self.interpolationNthreads)
                     self.selectedDmPhs=self.interpolated

@@ -67,7 +67,6 @@ static PyObject *gslLinIntrp(PyObject *self,PyObject *args){
 	interpObj=gsl_interp_alloc(gsl_interp_linear, ninterp);
 	interpAcc=gsl_interp_accel_alloc();
 
-	
 	/* do interpolation pass in first dimension */
 	for (j=0; j<n1; ++j) {
 		for (i=0; i<n1; ++i) {
@@ -113,7 +112,7 @@ static PyObject *gslLinIntrp(PyObject *self,PyObject *args){
 //                                  which requires that the y value 
 // of the last point of the array is equal to the y value of the first point.
 //
-static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
+static PyObject *gslPeriodicCubSplineIntrp(PyObject *self,PyObject *args){
   PyArrayObject	*pyin,*pyout;
   PyObject *pyyin,*pyxin,*pyyout,*pyxout;
   npy_intp		*pyinDims,*pyoutDims;
@@ -345,8 +344,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 }
 
 // 
-// Urban Bitenc, 16 July 2012:
-// This function is a copy of gslCubSplineIntrp. It will replace mxinterp,
+// Urban Bitenc, 25 July 2012:
+// This function was derived from gslPeriodicCubSplineIntrp. It replaced mxinterp,
 // therefore it uses 
 //                   gsl_interp_cspline 
 //
@@ -354,7 +353,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 //
 // It is MULTI-THREADED.
 //
-static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
+static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   PyArrayObject	*pyin,*pyout;
   PyObject *pyyin,*pyxin,*pyyout,*pyxout;
   npy_intp *pyinDims,*pyoutDims;
@@ -542,7 +541,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
       // and the process will run in a single thread. Print a warning so the user is aware of that.
       if(nThreads < 1)
 	{
-	  printf("WARNING: Multiple threading was requested for .gslCubSplineInterp, but the process will run in a single thread, because \"sysconf(_SC_NPROCESSORS_ONLN)\" returned %ld.", sysconf(_SC_NPROCESSORS_ONLN));
+	  printf("WARNING: Multiple threading was requested for .gslCubSplineIntrp, but the process will run in a single thread, because \"sysconf(_SC_NPROCESSORS_ONLN)\" returned %ld.", sysconf(_SC_NPROCESSORS_ONLN));
 	  nThreads = 1;
 	}
     }
@@ -558,7 +557,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
       // (a) Allocate the memory for the parameters that will be passed to the function:
       if( (params = malloc(sizeof(interp_data_t))) == NULL )
 	{
-	  PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp_UB: failed to malloc 'params'.");
+	  PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp: failed to malloc 'params'.");
 	  if(x1free!=NULL) free(x1free);
 	  if(x2free!=NULL) free(x2free);
 	  free(ytmp);
@@ -570,7 +569,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
       params->interpAcc=gsl_interp_accel_alloc();
       //     allocate memory for y1; max(n1y,n1x), so you can use the same vector for both dimensions:
       if( (params->y1 = malloc((n1y>n1x?n1y:n1x)*sizeof(double))) == NULL ){
-	PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp_UB: failed to malloc 'params->y1'.");
+	PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp: failed to malloc 'params->y1'.");
 	if(x1free!=NULL) free(x1free);
 	if(x2free!=NULL) free(x2free);
 	free(params);
@@ -621,7 +620,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
  
       // (a) Allocate the memory for the 'params' vector (parameters of the 'interpolate' function):
       if((params = malloc(sizeof(interp_data_t)*nThreads))==NULL){
-	PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp_UB: Failed to malloc 'params'.\n");
+	PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp: Failed to malloc 'params'.\n");
 	if(x1free!=NULL) free(x1free);
 	if(x2free!=NULL) free(x2free);
 	free(ytmp);
@@ -630,7 +629,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
 
       // (b) Allocate the memory for 'thread' (the vector of threads):
       if((thread=malloc(sizeof(pthread_t)*nThreads))==NULL){
-	PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp_UB: Failed to malloc 'thread'.\n");
+	PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp: Failed to malloc 'thread'.\n");
 	free(params);
 	if(x1free!=NULL) free(x1free);
 	if(x2free!=NULL) free(x2free);
@@ -654,7 +653,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
       	  params[i].interpAcc = gsl_interp_accel_alloc();
 	  //     Allocate memory for y1; if it fails, free all the allocated memory:
       	  if( (params[i].y1 = malloc((n1y>n1x?n1y:n1x)*sizeof(double))) == NULL ){
-	    PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp_UB: Failed to malloc 'params[i].y1'.\n");
+	    PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp: Failed to malloc 'params[i].y1'.\n");
 	    if(x1free!=NULL) free(x1free);
 	    if(x2free!=NULL) free(x2free);
 	    free(ytmp);
@@ -760,7 +759,7 @@ static PyObject *gslCubSplineIntrp_UB(PyObject *self,PyObject *args){
   
   return Py_BuildValue("");   /* return None */
 }
-// END of gslCubSplineIntrp_UB
+// END of gslCubSplineIntrp
 
 
 static PyObject *cubIntrpOrig(PyObject* self, PyObject* args)
@@ -1314,7 +1313,7 @@ static PyObject *interp_linearshift(PyObject *self,PyObject *args){
   dii=outarr->strides[0];
   djj=outarr->strides[1];
   if(inarr->dimensions[0]<ny+1 || inarr->dimensions[1]<nx+1){
-    printf("WARNING (intermodule.c): input array must be at least 1 bigger than output array in each dimension\nContinuing, but output array won't be filled completely. (%d<%d+1, %d<%d+1)\n", (int)inarr->dimensions[0], ny, (int)inarr->dimensions[1], nx); // UB 2012Jul12, added "(int)" 2x
+    printf("WARNING (intermodule.c): input array must be at least 1 bigger than output array in each dimension\nContinuing, but output array won't be filled completely. (%d<%d+1, %d<%d+1)\n", (int)inarr->dimensions[0], ny, (int)inarr->dimensions[1], nx);
     ny=inarr->dimensions[0]-1;
     nx=inarr->dimensions[1]-1;
   }
@@ -1481,8 +1480,8 @@ static PyMethodDef interp_methods[] = 	{
 					{"bicubicinterp", interp_bicubicinterp, METH_VARARGS}, 
 					{"linearshift",interp_linearshift,METH_VARARGS},
 					{"linearinterp", interp_linearinterp, METH_VARARGS}, 
+					{"gslPeriodicCubSplineInterp",gslPeriodicCubSplineIntrp,METH_VARARGS},
 					{"gslCubSplineInterp",gslCubSplineIntrp,METH_VARARGS},
-					{"gslCubSplineInterp_UB",gslCubSplineIntrp_UB,METH_VARARGS},
 					{"gslLinInterp",gslLinIntrp,METH_VARARGS},
 					{"gslCubSplineInterpOrig",cubIntrpOrig,METH_VARARGS},
 

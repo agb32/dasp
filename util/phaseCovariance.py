@@ -129,7 +129,7 @@ def computeCov3(modes,nact,dmflag,r0,l0,telDiam):
                 mpos1+=1
     return out
 
-def computeCov4(mode,xcoord,ycoord,dmflag,modes,modeCoords,vig,npup,nact,r0,l0,telDiam,dovignetted=1):
+def computeCov4(mode,xcoord,ycoord,dmflag,modes,modeCoords,vig,npup,nact,r0,l0,telDiam,dovignetted=1,nThreads=1):
     """
     Python version of quick algorith, which, if works, will be implemented in c
     First, takes 1 mode (assumes all identical), and computes covariance with itself in all positions.  Then this is used to create a BCCB or BTTB or something matrix.  Then any actuator influence functions which are vignetted in anyway are recalculated.
@@ -159,7 +159,7 @@ def computeCov4(mode,xcoord,ycoord,dmflag,modes,modeCoords,vig,npup,nact,r0,l0,t
                 xin=numpy.arange(nx).astype(numpy.float32)
                 yout=yin-yshift
                 xout=xin-xshift
-                cmod.interp.gslCubSplineInterp_UB(mode,yin,xin,yout,xout,mode2,4)
+                cmod.interp.gslCubSplineInterp(mode,yin,xin,yout,xout,mode2,nThreads)
             else:
                 mode2=mode
             for i in range(ny):

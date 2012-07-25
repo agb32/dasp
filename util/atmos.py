@@ -1,4 +1,4 @@
-from cmod.interp import gslCubSplineInterp_UB,linearshift
+from cmod.interp import gslCubSplineInterp,linearshift
 import time
 import numpy
 import util.dm,util.guideStar
@@ -359,7 +359,7 @@ class atmos:
     """A class to carry out computation of a pupil phase screen
     for a given source direction.  This can (possibly) be used stand-alone
     and is used as part of the AO simulation (infAtmos module)."""
-    def __init__(self,parent,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,colAdd,rowAdd,layerAltitude,phaseScreens,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,):
+    def __init__(self,parent,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,colAdd,rowAdd,layerAltitude,phaseScreens,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=0,):
         """parent is a dictionary of parents (keys are the layers).  Source altitude, wavelength and position are given, and info about all the phase screen layers.
         storePupilLayers - if 1, a dictionary of layers along this line of sight will be created - unexpanded in the case of LGS - i.e. full pupil.
         computeUplinkTT - if 1 then uplink tip/tilt will be computed.
@@ -370,6 +370,7 @@ class atmos:
             ntel=npup
         self.ntel=ntel
         self.telDiam=telDiam
+        self.interpolationNthreads=interpolationNthreads
         self.pupil=pupil
         self.parent=parent
         self.colAdd=colAdd
@@ -573,21 +574,28 @@ class atmos:
                 interpPosRow-=phsShiftX
 
                 #now select the area we're interested in for this target...
-                phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
+                phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,
+                                      posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
                 #now do interpolation... (sub-pxl)
                 #print "atmos time3 %g"%(time.time()-t1)
                 #This next section takes a long time (3/4)
                 #Note, posDict[2,3] will be npup unless an LGS... in which case
                 #will be the projected width, which we then interpolate out
                 #to the full pupil array.
-                linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])#c function call about 10x faster.
+                #c function call about 10x faster.
+                linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])
+
                 if self.storePupilLayers or self.computeUplinkTT:
-                    #Want to store the individual layers at pupil size, before LGS compression.  e.g. for uplink tiptilts...
-                    #Note - we do this a bit stupidly - ie brute force... the launch ap is only a small fraction of the pupil, but we still use the full pupil, mostly multiplied by zeros... so if need speedup in future, this is one place...
+                    #Want to store the individual layers at pupil size, before LGS compression.
+                    #  e.g. for uplink tiptilts...
+                    #Note - we do this a bit stupidly - ie brute force... the launch ap is only a small
+                    #  fraction of the pupil, but we still use the full pupil, mostly multiplied by zeros... 
+                    #  so if need speedup in future, this is one place...
                     if self.sourceAlt>0:#lgs
                         # want full pupil, so will have to shift
                         pd=self.uplinkPositionDict[key]
-                        phs2=phaseScreens[key][pd[1]+phsShiftX:pd[1]+pd[3]+1+phsShiftX,pd[0]+phsShiftY:pd[0]+pd[2]+1+phsShiftY]
+                        phs2=phaseScreens[key][pd[1]+phsShiftX:pd[1]+pd[3]+1+phsShiftX,
+                                               pd[0]+phsShiftY:pd[0]+pd[2]+1+phsShiftY]
                         if self.storePupilLayers:
                             phs=self.storedLayer[key]
                         else:
@@ -603,17 +611,21 @@ class atmos:
                         #add phase of this layer to the total uplink phase
                         self.uplinkPhs+=phs
                         #Now compute the combined tip/tilt of the uplink
-                        #uplinkZTT contain a zernike tip and tilt mode on the diameter of the launch telescope, scaled so that sum(phs*uplinkZTT[0]) gives tip in radians.
-                        #tip,tilt=(numpy.inner(self.uplinkZTT[0].ravel(),self.uplinkPhs.ravel()),(numpy.inner(self.uplinkZTT[1].ravel(),self.uplinkPhs.ravel())))
+                        #uplinkZTT contain a zernike tip and tilt mode on the diameter of the 
+                        # launch telescope, scaled so that sum(phs*uplinkZTT[0]) gives tip in radians.
+                        #tip,tilt=(numpy.inner(self.uplinkZTT[0].ravel(),self.uplinkPhs.ravel()),
+                        # (numpy.inner(self.uplinkZTT[1].ravel(),self.uplinkPhs.ravel())))
                         #self.uplinkTTDict[key]=tip,tilt
                         #Now compute how this will shift the spot.
                         #hdiff=self.distToNextLayer[key]
                         #Instead, just compute tip/tilt of this layer.
-                        tip,tilt=(numpy.inner(self.uplinkZTT[0].ravel(),phs.ravel()),(numpy.inner(self.uplinkZTT[1].ravel(),phs.ravel())))
+                        tip,tilt=(numpy.inner(self.uplinkZTT[0].ravel(),phs.ravel()),
+                                  (numpy.inner(self.uplinkZTT[1].ravel(),phs.ravel())))
                         self.uplinkTTDict[key]=tip,tilt
                         #Now compute how this will shift the spot.
                         hdiff=self.distToFocus[key]
-                        #Assuming tip/tilt gives the mean tip and tilt in radians, then we can compute the angle according to:  tan-1(tip*500e-9/(2*numpy.pi*launchApDiam))
+                        #Assuming tip/tilt gives the mean tip and tilt in radians, then we 
+                        # can compute the angle according to:  tan-1(tip*500e-9/(2*numpy.pi*launchApDiam))
                         tottip+=hdiff*numpy.tan(tip)
                         tottilt+=hdiff*numpy.tan(tilt)
 
@@ -621,7 +633,9 @@ class atmos:
                     #need to bin down to the correct size...
                     x=posDict[6]
                     x2=posDict[8]
-                    gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,self.interpPhs[:posDict[3],:posDict[3]],4)#make it square (was rectangular)
+                    #make it square (was rectangular):
+                    gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,
+                                       self.interpPhs[:posDict[3],:posDict[3]],self.interpolationNthreads)
                 # print "atmos time4 %g"%(time.time()-t1)
 
                 if self.sourceAlt>0:
@@ -629,7 +643,8 @@ class atmos:
                     x2=posDict[6]
                     x=posDict[7]
                     #Bicubic interpolation (in C) for LGS projection
-                    gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs,4)
+                    gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,
+                                       self.interpPhs,self.interpolationNthreads)
                 #print "atmos time5 %g"%(time.time()-t1)
                 self.outputData+=self.interpPhs#and finally add the phase.
         if self.computeUplinkTT:
@@ -716,21 +731,24 @@ class atmos:
         #phsShiftX+=1
         #phsShiftY+=1
         #now select the area we're interested in for this target...
-        phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
-        #print "%d:%d, %d:%d, ipc%g ipr%g (posdict%s) ipcd%s iprd%s ca%s ra%s psx%g psy%g tc%g tr%g"%(posDict[1]+phsShiftX,posDict[1]+posDict[3]+1+phsShiftX,posDict[0]+phsShiftY,posDict[0]+posDict[2]+1+phsShiftY,interpPosCol,interpPosRow,str(posDict),str(interpPosColDict[key]),str(interpPosRowDict[key]),str(self.colAdd[key]),str(self.rowAdd[key]),phsShiftX,phsShiftY,tmpcol,tmprow)
+        phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,
+                              posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
         #now do interpolation... (sub-pxl)
-        linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])#c function call about 10x faster.
+        linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])
         if self.zenithOld!=0:
             x=posDict[6]
             x2=posDict[8]
-            gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,self.interpPhs[:posDict[3],:posDict[3]],4)#make it square (was rectangular)
+            #make it square (was rectangular):
+            gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,
+                               self.interpPhs[:posDict[3],:posDict[3]],self.interpolationNthreads)
             
         if self.sourceAlt>0:
             #this is a LGS... need to project (interpolate)
             x2=posDict[6]
             x=posDict[7]
             #Bicubic interpolation (in C) for LGS projection
-            gslCubSplineInterp_UB(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs,4)
+            gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,
+                               self.interpPhs,self.interpolationNthreads)
         if control["fullPupil"]:
             return self.interpPhs
         else:
