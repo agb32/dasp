@@ -1,6 +1,6 @@
 import numpy
 import threading
-from cmod.interp import mxinterp,gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp
+from cmod.interp import gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp
 import util.tel,util.dist
 import util.FITS
 import scipy
@@ -1228,8 +1228,7 @@ class MirrorSurface:
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        #gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
-        mxinterp(actmap,x2,x2,y,x,phsOut)
+        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
         return phsOut
 
     def interpolatePeriodicSpline(self,actmap,phsOut=None,coords=None):
