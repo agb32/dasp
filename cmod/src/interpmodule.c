@@ -351,7 +351,9 @@ static PyObject *gslPeriodicCubSplineIntrp(PyObject *self,PyObject *args){
 //
 // and does not have the zpad argument.
 //
-// It is MULTI-THREADED.
+// It is MULTI-THREADED. For the default value of threads it always uses
+// sysconf(_SC_NPROCESSORS_ONLN)/2 threads, regardless of the size of the input/output
+// arrays.
 //
 static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   PyArrayObject	*pyin,*pyout;
@@ -531,18 +533,30 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   // Find out the number of cores (hyperthreads) and use half that number for the number of threads.
   // (On average this seems to make most sense -  see U.B.`s log book 1, p. 169)
   //
-  if(nThreads < 0)
+  if(nThreads < 1)
     {
-      // Find the number of cores and divide it by two:
-      nThreads = sysconf(_SC_NPROCESSORS_ONLN)/2;
-
-      // For the case that _SC_NPROCESSORS_ONLN returns 1, nThreads will at this point be 0.
-      // Or, if anything else funny happens and the value is even negative, correct it to 1
-      // and the process will run in a single thread. Print a warning so the user is aware of that.
-      if(nThreads < 1)
+      // Check the input matrix size. This was NOT investigated in details and optimised.
+      // On MacBook the simulation for VLT (16x16) runs 10% slower if multi-threaded.
+      // On other computers (gpuserver, cpuserver, gpu2) it is only very little slower.
+      // For ELT (84x84) multi-threaded is faster.
+      // The value of 40 used below lies just somewhere between 16 and 84.
+      if( n1x < 40)
 	{
-	  printf("WARNING: Multiple threading was requested for .gslCubSplineIntrp, but the process will run in a single thread, because \"sysconf(_SC_NPROCESSORS_ONLN)\" returned %ld.", sysconf(_SC_NPROCESSORS_ONLN));
 	  nThreads = 1;
+	}
+      else
+	{
+	  // Find the number of cores and divide it by two:
+	  nThreads = sysconf(_SC_NPROCESSORS_ONLN)/2;
+
+	  // For the case that _SC_NPROCESSORS_ONLN returns 1, nThreads will at this point be 0.
+	  // Or, if anything else funny happens and the value is even negative, correct it to 1
+	  // and the process will run in a single thread. Print a warning so the user is aware of that.
+	  if(nThreads < 1)
+	    {
+	      printf("WARNING: Multiple threading was requested for .gslCubSplineIntrp, but the process will run in a single thread, because \"sysconf(_SC_NPROCESSORS_ONLN)\" returned %ld.", sysconf(_SC_NPROCESSORS_ONLN));
+	      nThreads = 1;
+	    }
 	}
     }
 
@@ -550,7 +564,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   // printf("nThreads = %d\n", nThreads);
 
   //  (5) THREADING:
-  if(nThreads == 0)
+  if(nThreads == 1)
     {
       // (5.1) NON-THREADED:
 

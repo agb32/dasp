@@ -484,11 +484,14 @@ class Ctrl:
 ##             if t.getName()!="MainThread":
 ##                 t._Thread__stop()
         print "Finished - calling endSim for each module"
+        #Sum = sum(self.meanTiming) # UB: to sum up the time spent at modules
         for i in rangeLenCompList:
             self.compListPos=i
             module=compList[i]
-            print "{0}:  {1}".format(module.objID, self.meanTiming[i]) # UB 2012Jul23
+           # print "%s:  %.4f s, %.2f %%"%(module.objID, self.meanTiming[i],
+           #                               self.meanTiming[i]/Sum*100) # UB 2012Jul23
             module.endSim()
+        #print "Sum over modules: {0} s".format(Sum) # UB
         print "waiting at mpi barrier for all other processes to finish"
         self.mpiComm.barrier()#wait til they're all ready to finish - not essential, but nice...
         if cleanShmem:

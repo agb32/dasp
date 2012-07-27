@@ -1228,8 +1228,8 @@ class MirrorSurface:
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
-        #mxinterp(actmap,x2,x2,y,x,phsOut)
+        #gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
+        mxinterp(actmap,x2,x2,y,x,phsOut)
         return phsOut
 
     def interpolatePeriodicSpline(self,actmap,phsOut=None,coords=None):

@@ -32,6 +32,8 @@ def dot(a,b,c=None,nthr=0):
         import cmod.utils
         c=cmod.utils.dot(a, b, c, nthr) # Arguments: input matrix, input vector, 
                                         #            output vector, number of threads
+        #c=cmod.utils.dot(a, b, c, 4) # Arguments: input matrix, input vector, 
+
 
     ## otherwise call the numpy.dot:
     else:

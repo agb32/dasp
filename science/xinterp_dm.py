@@ -355,10 +355,6 @@ class dm(base.aobase.aobase):
                 del(this.parent[key])
             if not this.parent.has_key("atmos"):#maybe we're just using this for a poke matrix?
                 print "xinterp_dm object no parent atmos object found.  Assuming unperturbed phase in."
-            #class dummyAtmosClass:
-            #    dataValid=1
-            #    outputData=0
-            #this.parent["atmos"]=dummyAtmosClass()
         if self.generate==1:
             if self.newDataWaiting:
                 if this.parent.has_key("atmos"):

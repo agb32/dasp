@@ -23,7 +23,6 @@ import scipy.sparse,scipy.linalg
 import util.spmatrix
 import time,types
 import Scientific.MPI
-#print "Search for TODO in tomoRecon.py"
 class recon(base.aobase.aobase):
     """A reconstructor for tomographic reconstruction.
     Sends actuator values for model DMs to the children.
@@ -51,7 +50,8 @@ class recon(base.aobase.aobase):
         self.dmObj=self.config.getVal("dmObj")
         self.dmList=self.dmObj.makeDMList(self.idstr[0])
         if len(self.dmList)==0:
-            raise Exception("No DMs found - do you need to specify actuatorsFrom='%s' in your config file?"%str(self.idstr))
+            raise Exception("No DMs found - do you need to specify actuatorsFrom='%s' in your config file?"%str(
+                    self.idstr))
         #self.nactDMList=self.config.getVal("nactDMList")#list of nact for the DMs.
         #self.DMConjHeightList=self.config.getVal("DMConjHeightList")#list of conjugate heights for the DMs.
         #self.dmList=self.atmosGeom.makeDMList(self.nactDMList,self.DMConjHeightList)
@@ -414,8 +414,9 @@ class recon(base.aobase.aobase):
                 if self.noiseCovFilename!=None:
                     self.noiseCov=util.FITS.loadBlockMatrix(self.noiseCovFilename)
                     if self.noiseCov.shape!=(self.ncents,) and self.noiseCov.shape!=(self.ncents,self.ncents):
-                        print "Warning - tomoRecon - noiseCov shape=%s, not equal to ncents (%d)"%(str(self.noiseCov.shape),self.ncents)
-                        if len(self.noiseCov.shape)==2:#just take the diagonal - but this could be error for LGS case...
+                        print "Warning - tomoRecon - noiseCov shape=%s, not equal to ncents (%d)"%(
+                            str(self.noiseCov.shape),self.ncents)
+                        if len(self.noiseCov.shape)==2:#just take the diagonal-but this could be error for LGS case
                             self.noiseCov=self.noiseCov.diagonal()
                         nsubx=(self.ngsList+self.lgsList)[0].nsubx
                         if self.ncents==self.noiseCov.shape[0]*self.nwfs:
@@ -435,13 +436,16 @@ class recon(base.aobase.aobase):
 
                             for i in xrange(self.nwfs):
                                 self.noiseCov[i*xnoisecov.shape[0]:(i+1)*xnoisecov.shape[0]]=xnoisecov
-                                self.noiseCov[self.ncents/2+i*ynoisecov.shape[0]:self.ncents/2+(i+1)*ynoisecov.shape[0]]=ynoisecov
+                                self.noiseCov[self.ncents/2+i*ynoisecov.shape[0]:self.ncents/2+(i+1)*\
+                                                  ynoisecov.shape[0]]=ynoisecov
                 else:
                     self.noiseCov=0.
 
                         
                 self.influenceScalarProd=None
-                self.computeInfluenceScalarProd=self.config.getVal("computeInfluenceScalarProd",default=0)#should we compute the DM influence function scalar product, and include in the reconstructor computation?
+                self.computeInfluenceScalarProd=self.config.getVal("computeInfluenceScalarProd",default=0)
+                #should we compute the DM influence function scalar product, and include
+                #in the reconstructor computation?
                 if self.computeInfluenceScalarProd:
                     self.computeInfluenceProducts()#this will also compute mirrorScale.
                 else:
@@ -488,14 +492,16 @@ class recon(base.aobase.aobase):
             #else:
             #    self.inputData=numpy.zeros(self.ncents,numpy.float32)
     def finalInitialisation(self):
-        print "tomoRecon decay factors of %s applied where closed loop list %s is 0 - is this what you intended?"%(str(self.decayFactorOpen),str(self.closedLoopList))
+        print "tomoRecon decay factors of %s applied where closed loop list %s is 0 - is this what you intended?"%(
+            str(self.decayFactorOpen),str(self.closedLoopList))
 
     def computeMirrorScale(self):
         self.mirrorScale=numpy.zeros((self.nmodes,),numpy.float32)
         pos=0
         for dm in self.dmList:
             if dm.zonalDM:
-                dm.makeLocalMirrorModes(self.atmosGeom,self.pupil.r2,mirrorSurface=dm.getMirrorSurface())#make the mirror modes and mirror scale.
+                #make the mirror modes and mirror scale:
+                dm.makeLocalMirrorModes(self.atmosGeom,self.pupil.r2,mirrorSurface=dm.getMirrorSurface())
                 self.mirrorScale[pos:pos+dm.mirrorScale.shape[0]]=dm.mirrorScale
                 pos+=dm.mirrorScale.shape[0]
             else:
@@ -552,7 +558,8 @@ class recon(base.aobase.aobase):
             ns=self.ncentList[i]
             if len(self.parent[key].outputData.shape)==3:
                 self.inputData[cnt:cnt+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt:cnt+ns])
-                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt+self.ncents/2:cnt+self.ncents/2+ns])
+                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=numpy.take(\
+                    self.parent[key].outputData.ravel(),self.centIndex[cnt+self.ncents/2:cnt+self.ncents/2+ns])
             else:#wfscent has already cut out the unused subaps... (fullWFSOutput==1 in param file)
                 self.inputData[cnt:cnt+ns]=self.parent[key].outputData[:,0]
                 self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=self.parent[key].outputData[:,1]
@@ -560,26 +567,28 @@ class recon(base.aobase.aobase):
                 stt=self.subtractTipTilt[key]
             else:
                 stt=self.subtractTipTilt
-
-            if stt==-1 or (stt==1 and (self.control["poke"]==0 and self.poking==0 and self.control["takeRef"]==0 and self.takingRef==0)):#this should be used for LGS sensors
+            # this should be used for LGS sensors:
+            if stt==-1 or (stt==1 and (self.control["poke"]==0 and self.poking==0 and
+                                       self.control["takeRef"]==0 and self.takingRef==0)):
                 #remove the mean slopes...
                 #print "Removing mean slopes"
                 self.inputData[cnt:cnt+ns]-=self.inputData[cnt:cnt+ns].mean()
-                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]-=self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns].mean()
+                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns] -= \
+                    self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns].mean()
 
             cnt+=ns
-        
+
     def calc(self):
         if self.takingRef==1:
             self.takingRef=2
-            
-        if self.control["takeRef"]:#flatten mirrors then store reference centroids...(with lgs spots, they might not be zero!).
+
+        #flatten mirrors then store reference centroids...(with lgs spots, they might not be zero!).
+        if self.control["takeRef"]:
             self.control["takeRef"]=0
             self.control["zero_dm"]=1
             self.control["close_dm"]=0
             self.takingRef=1
-            
-            
+
         if self.control["poke"]:
             self.pokeStartClock=time.clock()
             self.pokeStartTime=time.time()
@@ -609,7 +618,8 @@ class recon(base.aobase.aobase):
                     self.spmxData=numpy.zeros((self.ndata,),numpy.float32)
                     self.spmxRowind=numpy.zeros((self.ndata,),numpy.int32)
                     self.spmxIndptr=numpy.zeros((self.ncents+1,),numpy.int32)
-                    self.spmx=cmod.svd.sparseMatrixCreate(self.ndata,self.nmodes,self.ncents,self.spmxData,self.spmxRowind,self.spmxIndptr)
+                    self.spmx=cmod.svd.sparseMatrixCreate(self.ndata,self.nmodes,self.ncents,
+                                                          self.spmxData,self.spmxRowind,self.spmxIndptr)
                 else:
                     if self.pmxFilename!=None:
                         self.pmxfname=self.pmxFilename+".mmap"
@@ -617,14 +627,18 @@ class recon(base.aobase.aobase):
                         self.pmxfname="pmx.mmap"
                     self.spmxValidCnt=0
                     #mmap=cmod.utils.mmapArray(self.pmxfname,(self.nmodes*self.ncents+2880/4,),"f")
-                    #TODO: try this sometime... note, it will change the type of mmap (from numpy.ndarray to numpy.memmap)
+                    #TODO: try this sometime. note, it will change the type of mmap (from numpy.ndarray 
+                    # to numpy.memmap)
                     mmap=numpy.memmap(self.pmxfname,numpy.float32,"w+",shape=(self.nmodes*self.ncents+2880/4,))
                     hdr=mmap[:2880/4].view("c")
                     self.spmx=mmap[2880/4:]
                     default=1
                     if self.sparsePmxType=="mmap":
                         default=0
-                    self.transposeDensePmx=self.config.getVal("transposeDensePmx",default=default)#1 seems to be fastest for converting to csc, but this may/may not be the case for when virtual memory (mmap'd) paging is required - ie for large pmx that won't fit in memory.  Want it set to 0 if intending to use the mmap'd dense matrix.
+                    self.transposeDensePmx=self.config.getVal("transposeDensePmx",default=default)
+                    # 1 seems to be fastest for converting to csc, but this may/may not be the case
+                    # for when virtual memory (mmap'd) paging is required - ie for large pmx that won't
+                    # fit in memory.  Want it set to 0 if intending to use the mmap'd dense matrix.
                     if self.transposeDensePmx==0:
                         self.spmx.shape=(self.nmodes,self.ncents)
                         #self.spmx=cmod.utils.mmapArray(self.pmxfname,(self.nmodes,self.ncents),"f")
@@ -648,14 +662,15 @@ class recon(base.aobase.aobase):
             else:
                 print "Got reference centroids (not saving)"
         if self.control["subtractRef"] and type(self.refCentroids)!=type(None):
-            self.inputData-=self.refCentroids#if this raises an error, it means you specified a reference filename, but it wasn't found.
-
+            self.inputData-=self.refCentroids# if this raises an error, it means you specified a 
+                                             # reference filename, but it wasn't found.
         if self.poking>0 and self.poking<=self.npokes:
             #set actuator(s) to be set.
             if self.dmModeType=="poke":
                 self.outputData[:,]=0.
                 if self.poking<=self.npokes-self.totalLowOrderModalModes:
-                    #find out which DM we're poking, and whether we're poking individually or several actuators at once.
+                    # find out which DM we're poking, and whether we're poking individually 
+                    # or several actuators at once:
                     dm=self.dmList[self.pokingDMNo]
                     if dm.pokeSpacing!=None:
                         #poking several actuators at once
@@ -830,23 +845,27 @@ class recon(base.aobase.aobase):
                 #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE   = %s"%str(self.spmx.shape))
                 #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
                 #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
-            print "Poking took: %gs in CPU time, or %g seconds"%((time.clock()-self.pokeStartClock),time.time()-self.pokeStartTime)
+            print "Poking took: %gs in CPU time, or %g seconds"%((time.clock()-self.pokeStartClock),
+                                                                 time.time()-self.pokeStartTime)
             self.poking=0
             if self.abortAfterPoke:
                 print "Finished poking - aborting simulation"
                 if Scientific.MPI.world.size==1:
                     Scientific.MPI.world.abort()
                 else:
-                    Scientific.MPI.world.abort(0)#this raises an error if python, or aborts correctly if mpipython - however, result is as desired - the simulation finishes.
+                    Scientific.MPI.world.abort(0)#this raises an error if python, or aborts correctly if mpipython -
+                                                 # however, result is as desired - the simulation finishes.
         if self.poking>0:
             self.poking+=1
         if self.control["close_dm"]:#do the reconstruction.
             self.calc2()
+    ## END of calc()
         
     def calc2(self):
         """Reconstruct using poke matrix or pcg."""
         if type(self.reconmxFunction)!=type(None):
-            self.reconmx=self.reconmxFunction()#call a function which can change the reconstructor on a per-iteration basis...
+            #call a function which can change the reconstructor on a per-iteration basis:
+            self.reconmx=self.reconmxFunction()
         if self.reconType!="pcg" and type(self.reconmx)==type(0.):
             #if self.reconmxFilename!=None:
             #    print "Attempting to load reconmx %s"%self.reconmxFilename
@@ -884,7 +903,9 @@ class recon(base.aobase.aobase):
                     tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
                 else:
                     tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
-            elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and self.reconmx.__module__ in ["scipy.sparse.sparse"]:
+            elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or \
+            (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and \
+            self.reconmx.__module__ in ["scipy.sparse.sparse"]:
                 #print self.reconmx.shape,data.shape
                 if self.reconmx.shape[0]==data.shape[0]:
                     tmp=-self.reconmx.transpose().dot(data)
@@ -904,7 +925,8 @@ class recon(base.aobase.aobase):
                         dmoffset+=self.nLowOrderModalModes[dmno]
                         dmno+=1
                     if self.modalActuatorList[dmno]!=None:
-                        self.outputData[self.nactsCumList[dmno]:self.nactsCumList[dmno+1]]+=self.modalGain[mode]*tmp[mode+self.nacts]*self.modalActuatorList[dmno][mode-dmoffset]
+                        self.outputData[self.nactsCumList[dmno]:self.nactsCumList[dmno+1]]+=self.\
+                            modalGain[mode]*tmp[mode+self.nacts]*self.modalActuatorList[dmno][mode-dmoffset]
         elif self.reconType in ["svd","pinv","reg","regularised","regBig","regSmall"]:
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
@@ -935,7 +957,8 @@ class recon(base.aobase.aobase):
             self.outputData[:,]+=tmp
 
     def fillPokemx(self,dm,dmindx):
-        """Here, when we've been poking multiple actuators at once, we need to decide which centroids belong to which actuator, and then place them into the poke matrix.
+        """Here, when we've been poking multiple actuators at once, we need to decide which centroids \
+           belong to which actuator, and then place them into the poke matrix.
         """
         #First compute the poked actuator coords for this DM.
         if not hasattr(dm,"coords"):
@@ -1009,12 +1032,8 @@ class recon(base.aobase.aobase):
                             else:
                                 self.spmx[cpos+self.ncents/2,pos]=val2/self.pokeval#*self.gainFactor
                             self.spmxValidCnt+=1
-
                 cpos+=1
-                
             cnt+=ns
-
-        
 
     def doCompressedDot(self,data,rmx=None,bits=None,shape=None,work=None):
         """Here, rmx is a 1D array in compressed float format, with bits bits per element.
@@ -1376,7 +1395,8 @@ class recon(base.aobase.aobase):
         science.centCov"""
         print "tomoRecon-computeMonteNoiseCovariance depreciated: use science.centCov"
         if self.sumcent==None:
-            print "WARNING - computeMonteNoiseCovariance doesn't actually do what it says, since it doesn't take spot broadening into account - try science.centCov instead"
+            print "WARNING - computeMonteNoiseCovariance doesn't actually do what it says, since it \
+                   doesn't take spot broadening into account - try science.centCov instead"
             self.sumcent=numpy.zeros((self.ncents,),numpy.float64)
             self.sum2cent=numpy.zeros((self.ncents,),numpy.float64)
             self.monteNoiseCov=numpy.zeros((self.ncents,),numpy.float64)
@@ -1386,7 +1406,8 @@ class recon(base.aobase.aobase):
             self.sumcent+=self.inputData
             self.sum2cent+=self.inputData*self.inputData
         #now compute the variance (diagonal only, since covariances are zero).
-        self.monteNoiseCov[:]=self.sum2cent/self.noiseCovCount-self.sumcent*self.sumcent/(self.noiseCovCount*self.noiseCovCount)
+        self.monteNoiseCov[:]=self.sum2cent/self.noiseCovCount-self.sumcent*self.sumcent/(
+            self.noiseCovCount*self.noiseCovCount)
 
     def getNoiseCovariance(self,name="centroidNoiseCovariance"):
         """This can be called when a science.centCovariance is also being used and has computed covariances.
