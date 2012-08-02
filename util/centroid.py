@@ -5,11 +5,8 @@ call the "run" method, passing in your phase.  Currently, using as stand alone
 code means that the FPGAs cannot be easily used - though you can probably
 change this easily enough if required.
 """
-#import Numeric,RandomArray,FFT
 import util.flip,cmod.binimg,cmod.imgnoise
 import numpy,numpy.random,numpy.fft
-#import cmod.mkimgfloat,cmod.mkimg
-#import cmod.utils
 import util.arrayFromArray
 import util.poisson,time,os
 import util.dist
@@ -32,16 +29,22 @@ except:
 def pxlToRadTiltTheoretical(nsubx,phasesize,nimg,wfslam,telDiam):
     """compute the centroid pixel to radians of tilt scaling factor theoretically.  telDiam is in m, wfslam in nm.
     The logic behind this is as follows:
-    Consider a collimated beam incident on a lens with focal length f.  The offset of the focussed spot in the image plane, x, is then x=f tan(t) where t is the angle of the incident wavefront.
-    So, the question then is what is f in the simulation?  For each subaperture, there are n_p phase pixels, each with width z_p.  Similarly there are n_d detector pixels with width z_d.  We note that n_p * z_p = n_d * z_d.
-    Now, the airy disk created by the simulation is 2.44 * oversamplefactor pixels in diameter, where oversamplefactor is n_d/n_p.  The diameter of an airy spot is 2.44 lambda f/d = 2.44*l*f/(n_p*z_p).
-    However, this is equal to the number of detector pixels wide, times the width of a detector pixel, i.e. 2.44*(n_d/n_p)*z_d.
+    Consider a collimated beam incident on a lens with focal length f.  The offset of the focussed
+    spot in the image plane, x, is then x=f tan(t) where t is the angle of the incident wavefront.
+    So, the question then is what is f in the simulation?  For each subaperture, there are n_p
+    phase pixels, each with width z_p.  Similarly there are n_d detector pixels with width z_d.
+    We note that n_p * z_p = n_d * z_d.
+    Now, the airy disk created by the simulation is 2.44 * oversamplefactor pixels in diameter,
+    where oversamplefactor is n_d/n_p.  The diameter of an airy spot is 2.44 lambda f/d = 2.44*l*f/(n_p*z_p).
+    However, this is equal to the number of detector pixels wide, times the width of a detector
+    pixel, i.e. 2.44*(n_d/n_p)*z_d.
     (Each pixel is lambda/d/oversamplefactor wide).  
     Equating these two expressions and cancelling terms therefore gives f = n_p * z_p^2/l.
     Therefore:
     t(x)=arctan(l * x / (n_p * z_p^2))
 
-    So, multiply the centroids (in pixels) by this value to get the phase slopes in radians.  When doing this, use x=1 pixel, ie x=telDiam/nsubx/nimg
+    So, multiply the centroids (in pixels) by this value to get the phase slopes in radians.
+    When doing this, use x=1 pixel, ie x=telDiam/nsubx/nimg
     """
     npup=phasesize*nsubx
     x=telDiam/nsubx/nimg
@@ -79,7 +82,11 @@ class centroid:
     def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
         """
         Variables are:
-         - sig: is the number of photons per phase pixel if pupfn is specified, or is the number of photons per subap if not (ie same...)  Or is a 2D array, with a value for each subap.  If this is just a number, it will be scaled by the number of used phase pixels for each subap.  If an array, assumes that this scaling has already been done.  Use an array version for eg LGS spot elongation.
+         - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
+                of photons per subap if not (ie same...)  Or is a 2D array, with a value for each
+                subap.  If this is just a number, it will be scaled by the number of used phase
+                pixels for each subap.  If an array, assumes that this scaling has already been
+                done.  Use an array version for eg LGS spot elongation.
          - nsubx: number of subaps in 1 direction
          - pupfn: pupil function array (pupil mask) or util.tel.Pupil instance (if using PS3).
          - oversamplefactor: scaling to expand phase by when doing FFTs.  Ignored if fftsize!=None.
@@ -320,9 +327,9 @@ class centroid:
                     if self.imageOnly==0:
                         self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
                     elif self.imageOnly==1:
-                        self.outputData=numpy.zerons((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
+                        self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
                     else:
-                        self.outputData=numpy.zerons((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
+                        self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
                                    
                 else:
                     if self.imageOnly==0:
@@ -352,9 +359,9 @@ class centroid:
                 if self.imageOnly==0:
                     self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
                 elif self.imageOnly==1:
-                    self.outputData=numpy.zerons((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
+                    self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
                 else:
-                    self.outputData=numpy.zerons((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
+                    self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
                                    
             else:
                 if self.imageOnly==0:
@@ -371,7 +378,8 @@ class centroid:
             self.centy=None
         #self.outputData.savespace(1)
         if type(subimgMem)==type(None):
-            self.subimg=numpy.zeros((self.nsubx,self.nsubx,self.fftsize,self.fftsize),numpy.float64)      # SH sub-images (high LL)
+            # SH sub-images (high LL):
+            self.subimg=numpy.zeros((self.nsubx,self.nsubx,self.fftsize,self.fftsize),numpy.float64)
         else:
             self.subimg=util.arrayFromArray.arrayFromArray(subimgMem,(self.nsubx,self.nsubx,self.fftsize,self.fftsize),numpy.float64)
         if type(bimgMem)==type(None):
@@ -407,18 +415,20 @@ class centroid:
     def initialiseCmod(self,nthreads=8,calsource=0,seed=1):
         self.nthreads=nthreads
         if self.usecmod:
-            #print "initialising cmod"
+            print "initialising cmod, nthreads = {0}".format(nthreads)
             sig=self.sig
             if type(self.sig)==numpy.ndarray:
                 sig=self.sig.ravel()
             #temporary til I get it done properly...
-           
             self.centcmod=util.centcmod.centcmod(nthreads,self.nsubx,self.ncen,self.fftsize,self.clipsize,
                                                  self.nimg,self.phasesize,self.readnoise,self.readbg,
                                                  self.addPoisson,self.noiseFloor,sig,self.skybrightness,
                                                  calsource,self.centroidPower,self.nIntegrations,seed,
                                                  self.reorderedPhs,self.pup,self.psf,self.outputData,
-                                                 self.cmodbimg,self.wfs_minarea,self.opticalBinning,self.centWeight,self.correlationCentroiding,self.corrThresh,self.corrPattern,self.corrimg,self.threshType,self.imageOnly,self.useBrightest)
+                                                 self.cmodbimg,self.wfs_minarea,self.opticalBinning,
+                                                 self.centWeight,self.correlationCentroiding,
+                                                 self.corrThresh,self.corrPattern,self.corrimg,
+                                                 self.threshType,self.imageOnly,self.useBrightest)
             #print "initialised cmod - done"
         else:
             self.centcmod=None
@@ -518,14 +528,18 @@ class centroid:
         if self.phaseMultiplier!=1:
             self.reorderedPhs*=self.phaseMultiplier
         if control.get("useFPGA",0) and self.canUseFPGA:
-            # use the FPGA - note that you might get a non-zero centroid value for parts of the array which are masked off simply because of the ccd readout noise.  The software version handles this incorrectly.
-            self.setFPGARegs(control["cal_source"])#check whether registers are still valid for this object, and if not, change them so that they are.
+            # use the FPGA - note that you might get a non-zero centroid value for parts of
+            # the array which are masked off simply because of the ccd readout noise.  The 
+            # software version handles this incorrectly.
+            # Check whether registers are still valid for this object, and if not, change them so that they are:
+            self.setFPGARegs(control["cal_source"])
             self.runFPGA()
         elif control.get("useCell",0) and self.canUseCell:
             self.runCell(control["cal_source"])
         elif control.get("useCmod",1):
             self.runCmod(control["cal_source"])
-            if self.linearSteps==None or self.psf!=None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
+            # no calibration done, or done in c, so ref can be done by c:
+            if self.linearSteps==None or self.psf!=None or self.correlationCentroiding!=None or self.calNCoeff!=0:
                 doref=0#ref subtraction is done in c code...
         else:
             # use software version
@@ -545,7 +559,8 @@ class centroid:
             return
         if self.canUseCell:
             self.cellObj.setCalSource(calsource)
-            self.cellObj.startProcessing(block=self.waitCell)#if waitCell==0, will need to call self.cellObj.waitForCents() at some later time.
+            # If waitCell==0, will need to call self.cellObj.waitForCents() at some later time:
+            self.cellObj.startProcessing(block=self.waitCell)
 
     def runPy(self,calsource):
         """run the python version"""
@@ -555,6 +570,7 @@ class centroid:
         self.createSHImgs()
         self.tidyImage(calsource)
         self.calc_cents(calsource)
+
     def runCmod(self,calsource):
         """run the c version"""
         if self.magicCentroiding:
@@ -571,9 +587,11 @@ class centroid:
             for i in xrange(self.nsubx):
                 for j in xrange(self.nsubx):
                     self.outputData[i*self.nimg:(i+1)*self.nimg,j*self.nimg:(j+1)*self.nimg]=self.cmodbimg[i,j]
+
     def closeCmod(self):
         self.centcmod.free()
         self.centcmod=None
+
     def runFPGA(self):
         """Tell the FPGA where the data is..."""
         if self.magicCentroiding:
@@ -587,7 +605,9 @@ class centroid:
             #array is too large to DMA all at once to FPGA, so do in parts.
             #calculate number of times a full array is needed...
             if self.atmosPhaseType=="phaseonly":
-                reordered=util.arrayFromArray.arrayFromArray(self.reorderedPhs,(self.nsubx*nsubx,self.nIntegrations,self.phasesize,self.phasesize),numpy.float32)
+                reordered=util.arrayFromArray.arrayFromArray(self.reorderedPhs,
+                          (self.nsubx*nsubx,self.nIntegrations,self.phasesize,self.phasesize),
+                                                             numpy.float32)
             else:
                 raise Exception("not phaseonly")
             output=util.arrayFromArray.arrayFromArray(self.outputData,(self.nsubx*self.nsubx,2),numpy.float32)
@@ -819,8 +839,6 @@ class centroid:
                         # Centroid calculation
                         self.centx[i,j]=numpy.sum(numpy.sum(cimg,0)*indx)/totsig  
                         self.centy[i,j]=numpy.sum(numpy.sum(cimg,1)*indx)/totsig
-
-
 
     def testFPGAUsage(self):
         """Checks variables are suitable for FPGA use"""
@@ -1535,6 +1553,7 @@ class centroid:
                             resy+=yc*self.calCoeff[i,j,1,k]
                             yc*=cy
                         data[i,j]=resx,resy
+
     def calibrateSHSIdentical(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
         if self.linearSteps==None:
             return
@@ -1769,6 +1788,7 @@ class centroid:
                 self.corrPatternUser/=max(self.corrPatternUser.ravel())#normalise
                 self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
                 self.centcmod.update(util.centcmod.CORRPATTERN,self.corrPattern)
+
     def takeCentWeight(self,control):
         """If centWeight is a string (eg make or something similar), use a default SH spot pattern as the reference centroid weighting.
         """

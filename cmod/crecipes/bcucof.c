@@ -1,5 +1,4 @@
-void bcucof(float y[], float y1[], float y2[], float y12[], float d1, float d2,
-	float **c)
+void bcucof(float y[], float y1[], float y2[], float y12[], float d1, float d2,	float **c)
 {
 	static int wt[16][16]=
 		{ 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

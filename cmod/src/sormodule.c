@@ -16,18 +16,9 @@
 #include "Python.h"
 
 
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
-/*
-#define NUMERIC
-#ifdef NUMERIC
-#include "Numeric/arrayobject.h"
-#else
-#include "numarray/arrayobject.h"
-#endif
-*/
+#include "numpy/arrayobject.h"
 //#define  ISEGNUM 32
 #define  ISEGSZ 8
-
 
 
 /*This can actually be done in python...

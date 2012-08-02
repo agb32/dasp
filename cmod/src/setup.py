@@ -74,12 +74,6 @@ xpoke=Extension('xpokemodule',
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
-zfit=Extension('zfitmodule',
-                 include_dirs=idnumpy,
-                 sources=['zfitmodule.c','josesubs.c'],
-                 library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-                 extra_link_args=['-lcrecipes','-lm'],
-                 )
 psfparams=Extension('psfparamsmodule',
                  include_dirs=idnumpy,
                  sources=['psfparamsmodule.c','josesubs.c'],
@@ -88,4 +82,4 @@ psfparams=Extension('psfparamsmodule',
                  )
                  
 
-setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,zfit,psfparams])
+setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams])

@@ -1,3 +1,10 @@
+// 
+// This (zfitmodule.c) is apparently not used anywhere in aosim and will most
+// probably not be
+// used in the future. I (UB) moved it to the "obsolete" folder on 2012 Aug 02.
+// Could probably be removed completely, but to stay on the safe side we keep
+// it for a bit longer.
+// 
 
 /* find Zernike coefficients for Shack Hartmann centroid data */
 /* uses NR SVD routine */
@@ -36,7 +43,6 @@ static PyObject *zfit_setup(self,args)
 	if (!PyArg_ParseTuple (args, "O!", &PyArray_Type, &py_zgrad))
 		return NULL;
 
-
 /* get input data array dimensions (2*nsubaps*nzern)  */
 
 	nd=py_zgrad->nd;
@@ -46,9 +52,7 @@ static PyObject *zfit_setup(self,args)
 	di=py_zgrad->strides[0];
 	dj=py_zgrad->strides[1];
 
-
 /* allocate array space for NR SVD matrices */
-
 	
 	zgrad=matrix(1,ndata,1,nz);
 	u=matrix(1,ndata,1,nz);
@@ -90,18 +94,10 @@ static PyObject *zfit_setup(self,args)
 		 u[idata][m] = zgrad[idata][m];
 	 }
 	}
-
-
         return Py_BuildValue("i",status);
-
-
-
 }
 
-
  /* =============== Do SDV fit for this data. Return Zern coeffs =============================== */
-
-
 
 static PyObject *zfit_fit(self,args)
 	PyObject *self, *args;
@@ -114,8 +110,6 @@ static PyObject *zfit_fit(self,args)
 	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &py_data, &PyArray_Type, &py_coeff))
 		return NULL;
 
-
-
 /* get input data array dimensions */
 
 	nd=py_data->nd;
@@ -125,26 +119,21 @@ static PyObject *zfit_fit(self,args)
 
 	diout=py_coeff->strides[0];
 
-
 /* convert input data to C array */
 
 	for(i=0;i<ndata;++i){
 		data[i+1] = (float)(*(double *)(py_data->data + i*di));
 	}
 
-
 /* do the SVD fit */
 
 	svbksb(u,w,v,ndata,nz,data,coeff);
-
 
 /* create new python array for output coeffs */
 
 	nd=1;
 	dims[0]=nz;
 	/* py_coeff=(PyArrayObject *)PyArray_FromDims(nd,dims,PyArray_DOUBLE); */
-
-
 
  /* populate output array with Zernike coeff values */
 
@@ -158,11 +147,7 @@ static PyObject *zfit_fit(self,args)
 
 	return Py_BuildValue("");
 
-
-
 }
-
-
 
 /* =============================================================================== */
 

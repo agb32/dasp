@@ -3,8 +3,6 @@
  *   for non-Kolmogorov turbulence (either Boreman-Dainty or Von Karman)
  */
 
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,10 +10,7 @@
 #include <pthread.h>
 
 #include "Python.h"
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
-/*
-#include "Numeric/arrayobject.h"
-*/
+#include "numpy/arrayobject.h"
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_gamma.h>
@@ -1085,7 +1080,7 @@ static PyMethodDef tiltcov_methods[] = {
                                         {"covariance", covariance, METH_VARARGS},
                                         {"covarianceLocal", covarianceLocal, METH_VARARGS},
                                         {"covarianceQuick", covarianceQuick, METH_VARARGS},
-					    
+
 					{"Kolmogorov", tiltcov_Kolmogorov, METH_VARARGS},
                                         {"BoremanDainty", tiltcov_BoremanDainty, METH_VARARGS},
                                         {"VonKarman", tiltcov_VonKarman, METH_VARARGS},

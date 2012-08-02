@@ -88,10 +88,12 @@ class centcmod:
       self.calsource=calsource
     t=cmod.cent.run(self.centstruct)
     return t
+
   def free(self):
     if self.centstruct!=None:
       cmod.cent.free(self.centstruct)
       self.centstruct=None
+
   def update(self,what,val):
     """what should be an int as defined at the top of this value, eg CALSOURCE=1, SIG=2, etc.  
     val is the new value.

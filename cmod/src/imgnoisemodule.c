@@ -9,19 +9,10 @@
 #include "nrutil.h"
 #include "Python.h"
 
+#include "numpy/arrayobject.h"
 
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
-/*
-#define NUMERIC
-#ifdef NUMERIC
-#include "Numeric/arrayobject.h"
-#else
-#include "numarray/arrayobject.h"
-#endif
-*/
 static PyObject *imgnoise_shot(self,args)
 	PyObject *self, *args;
-
 {
 	PyArrayObject	*imgin,*imgout;
 	long		*idum;
@@ -32,11 +23,9 @@ static PyObject *imgnoise_shot(self,args)
 	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &imgin, &PyArray_Type, &imgout))
 		return NULL;
 
-
 	idum=calloc(1,sizeof(long));
 	*idum=rand(); 
 	/* printf("...%d %p %p\n",*idum,&idum,idum); */
-
 
 /* get input array dimensions */
 
@@ -49,30 +38,21 @@ static PyObject *imgnoise_shot(self,args)
 	diout=imgout->strides[0];
 	djout=imgout->strides[1];
 
-
-
 /* populate output image with random Poisson deviates with mean = input image pixel value */
 
 	for(i=0;i<dims[0];++i){
 	  for(j=0;j<dims[1];++j){
 		mean = (float)(*(double *)(imgin->data + i*di + j*dj));
 		*(double *)(imgout->data+i*diout+j*djout) = (double)poidev(mean,idum);
-
 	  }
 	}
-
 	free(idum);
 
 	return Py_BuildValue("");
-
-
 }
-
-
 
 static PyObject *imgnoise_shot1d(self,args)
 	PyObject *self, *args;
-
 {
 	PyArrayObject	*imgin,*imgout;
 	long		*idum;

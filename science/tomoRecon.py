@@ -85,7 +85,8 @@ class recon(base.aobase.aobase):
             self.closedLoopList.append(dm.closedLoop)
             
         self.nacts=sum(self.nactsList)
-        self.extraActs=self.config.getVal("extraActs",default=0)#won't be sent to dm, but can be useful if need to do anything clever with reconstruction.
+        self.extraActs=self.config.getVal("extraActs",default=0)# won't be sent to dm, but can be useful if 
+                                                                # need to do anything clever with reconstruction.
         self.extraActsDecay=self.config.getVal("extraActsDecay",default=0)
         self.nacts+=self.extraActs
         self.npokes=sum(self.npokesList)
@@ -95,6 +96,7 @@ class recon(base.aobase.aobase):
             self.mirrorScale=None
             self.scaleWhenPoking=self.config.getVal("scaleWhenPoking",default=0)
             self.minarea=self.config.getVal("wfs_minarea")
+            self.nsubx=self.config.getVal("wfs_nsubx") # added by UB, 2012 Aug 1
             self.pokeActMapFifo=[]
             print "tomoRecon: Using %d DMs for reconstruction."%len(self.dmList)
             self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
@@ -116,20 +118,26 @@ class recon(base.aobase.aobase):
             pos=0
             for i in xrange(len(self.ncentList)):
                 self.centIndex[pos:pos+self.ncentList[i]]=(indiceList[i]*2).astype(numpy.int32)
-                self.centIndex[pos+self.ncents/2:pos+self.ncents/2+self.ncentList[i]]=(indiceList[i]*2+1).astype(numpy.int32)
+                self.centIndex[pos+self.ncents/2:pos+self.ncents/2+self.ncentList[i]]=\
+                    (indiceList[i]*2+1).astype(numpy.int32)
                 pos+=self.ncentList[i]
             self.reconType=self.config.getVal("recontype",default="pcg")
-            if self.reconType not in ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","MAP","SVD","pinv","reg","regBig","regSmall","regularised"]:
+            if self.reconType not in ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","MAP",
+                                      "SVD","pinv","reg","regBig","regSmall","regularised"]:
                 raise Exception("tomoRecon: reconType should be pcg, fdpcg, spmxSVD, spmxSVD, spmxGI, svd, SVD, MAP,pinv,reg,regSmall,regBig,regularised")
             if self.reconType=="spmx":
                 raise Exception("tomoRecon - reconType spmx does not work!")
             if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                 self.spmx=None
-                self.sparsePmxType=self.config.getVal("sparsePmxType",default="lil")#whether to use scipy.sparse.lil_matrix or svd.sparseMatrixCreate... or a mmap'd dense matrix which is then sparsified.  Can be one of "lil", "csc","mmap" with mmap being fastest, though requiring space fora mmap file.
+                self.sparsePmxType=self.config.getVal("sparsePmxType",default="lil")#whether to 
+                # use scipy.sparse.lil_matrix or svd.sparseMatrixCreate... or a mmap'd dense
+                # matrix which is then sparsified.  Can be one of "lil", "csc","mmap" with mmap
+                # being fastest, though requiring space fora mmap file.
                 if self.sparsePmxType not in ["lil","csc","dense"]:
                     print "Warning: sparsePmxType not known - will assume dense but will not sparsify"
                 if self.sparsePmxType=="csc":
-                    self.ndata=int(self.config.getVal("spmxNdata",default=self.nmodes*self.ncents*0.1))#default 10% sparsity...
+                    # default 10% sparsity:
+                    self.ndata=int(self.config.getVal("spmxNdata",default=self.nmodes*self.ncents*0.1))
                     if self.ndata>=1<<31:
                         self.ndata=(1<<31)-1
                         print "Error: spmxNdata>=1<<31 - must fit into an int... downsizing to %d."%self.ndata
@@ -142,8 +150,10 @@ class recon(base.aobase.aobase):
             self.poke=0
             self.poking=0
 
-            self.control={"poke":0,"close_dm":1,"zero_dm":0,"noiseCovariance":0,"phaseCovariance":0,"takeRef":0,"subtractRef":1}
-            self.refCentroids=self.config.getVal("refCentroids",default=None,raiseerror=0)#can be an array or a filename or None.
+            self.control={"poke":0,"close_dm":1,"zero_dm":0,"noiseCovariance":0,"phaseCovariance":0,
+                          "takeRef":0,"subtractRef":1}
+            self.refCentroids=self.config.getVal("refCentroids",default=None,raiseerror=0)
+                                                   # (can be an array or a filename or None.)
             self.takingRef=0
             if type(self.refCentroids)==type(""):
                 print "Using reference centroids from %s"%self.refCentroids
@@ -166,8 +176,10 @@ class recon(base.aobase.aobase):
 
             self.pokeval=self.config.getVal("pokeval",default=5.)#value to place on actuators when poking.
             self.wfsIDList=[]
-            wfsIDList=self.atmosGeom.getWFSOrder(self.idstr[0])#self.config.getVal("wfsIDList",default=self.parent.keys())#the list of parent objects (specifies the order in which the centroids are placed - if that makes a difference?)...
-            #print wfsIDList
+            wfsIDList=self.atmosGeom.getWFSOrder(self.idstr[0])#self.config.getVal("wfsIDList",default=
+            # self.parent.keys())#the list of parent objects (specifies the order in which the
+            # centroids are placed - if that makes a difference?)...
+            # print wfsIDList:
             for key in wfsIDList:
                 if key not in self.parent.keys():
                     #if get this error, could try specifying a dummy parent that has outputData an array of zeros.
@@ -175,13 +187,16 @@ class recon(base.aobase.aobase):
                 else:
                     self.wfsIDList.append(key)
             
-            self.dmModeType=self.config.getVal("dmModeType",default="poke")#specifies what the modes of the dm are - are they just pokes, or a more complicated shape fitted to the actuators?  Note, that zernike DMs can also be poked... at the moment, only poke is supported.
+            self.dmModeType=self.config.getVal("dmModeType",default="poke")# specifies what the modes of
+            # the dm are - are they just pokes, or a more complicated shape fitted to the actuators?
+            # Note, that zernike DMs can also be poked... at the moment, only poke is supported.
             if self.dmModeType not in ["poke","file"]:
                 raise Exception("tomoRecon: dmModeType should be one of: poke, file")
             if self.dmModeType=="poke":
                 self.nmodes=self.nacts
-                #self.mirrorModes=None
-                self.nLowOrderModalModes=self.config.getVal("nLowOrderModalModes",default=0)#the number of low order modal modes that should be used for each mirror, in addition to the pokes.  (this gives a mixed modal/zonal reconstructor).
+                self.nLowOrderModalModes=self.config.getVal("nLowOrderModalModes",default=0)#the number
+                # of low order modal modes that should be used for each mirror, in addition to the pokes.
+                # (this gives a mixed modal/zonal reconstructor).
                 if type(self.nLowOrderModalModes)==type(0):
                     self.nLowOrderModalModes=[self.nLowOrderModalModes]*len(self.dmList)
                 if len(self.nLowOrderModalModes)!=len(self.dmList):
@@ -221,11 +236,11 @@ class recon(base.aobase.aobase):
             self.compressedWork=None
 
             self.outputData=numpy.zeros((self.nacts,),numpy.float64)
-            self.reconmxFunction=self.config.getVal("reconmxFunction",default=None,raiseerror=0)#a function that can be called every iteration to generate a new reconstructor matrix on the fly... 
+            self.reconmxFunction=self.config.getVal("reconmxFunction",default=None,raiseerror=0)#a function that
+                               # can be called every iteration to generate a new reconstructor matrix on the fly... 
             self.reconmxFilename=self.config.getVal("reconmxFilename",default=None,raiseerror=0)
-            self.gainFactor=self.config.getVal("gainFactor",default=0.5)#used to multiply the estimated phase by.  Can be an array or single value.
-            #self.gainFactorOpen=self.config.getVal("gainFactorOpen",default=0.5)#used to multiply the estimated phase by.
-            
+            self.gainFactor=self.config.getVal("gainFactor",default=0.5)# used to multiply the estimated phase by.
+                                                                        # Can be an array or single value.
             self.decayFactorOpen=self.config.getVal("decayFactorOpen",default=0.)
 
             self.gains=numpy.zeros((self.nacts,),numpy.float32)
@@ -234,12 +249,14 @@ class recon(base.aobase.aobase):
             for i in range(len(self.dmList)):
                 dm=self.dmList[i]
                 self.gains[self.nactsCumList[i]:self.nactsCumList[i+1]]*=dm.gainAdjustment
-                self.gainList.append(self.gains[self.nactsCumList[i]:self.nactsCumList[i+1]])#GUI control only... (makes it easier to change the gain for 1 DM)
-            #for i in range(len(self.nactsList)):
+                #GUI control only... (makes it easier to change the gain for 1 DM):
+                self.gainList.append(self.gains[self.nactsCumList[i]:self.nactsCumList[i+1]])
+            # for i in range(len(self.nactsList)):
             #    if not self.closedLoopList[i]:
             #        self.gains[self.nactsCumList[i]:self.nactsCumList[i+1]]=self.gainFactorOpen
 
-            self.computeControl=self.config.getVal("computeControl",default=1)#whether to compute the reconstructor after poking.
+            # whether to compute the reconstructor after poking:
+            self.computeControl=self.config.getVal("computeControl",default=1)
             self.pmxFilename=self.config.getVal("pmxFilename",raiseerror=0,default=None)
             if self.reconType=="fdpcg":
                 self.r0=self.atmosGeom.r0#config.getVal("r0")
@@ -260,13 +277,14 @@ class recon(base.aobase.aobase):
                     ns=0
                     for i in range(len(self.ngsList+self.lgsList)):
                         gs=(self.ngsList+self.lgsList)[i]
-                        c=util.centroid.centroid(gs.nsubx,self.pupil.fn,readnoise=self.readNoiseSigma,addPoisson=1,noiseFloor=self.readNoiseSigma*3+self.readNoiseBg,readbg=self.readNoiseBg,sig=self.sigList[i])
+                        c=util.centroid.centroid(gs.nsubx,self.pupil.fn,readnoise=self.readNoiseSigma,
+                                                 addPoisson=1,noiseFloor=self.readNoiseSigma*3+self.readNoiseBg,
+                                                 readbg=self.readNoiseBg,sig=self.sigList[i])
                         tmp=c.computeNoiseCovariance(20,convertToRad=1)/c.convFactor**2
-                        #self.noiseCov[ns:ns+gs.nsubx**2]=tmp[:gs.nsubx**2].astype(numpy.float32)
-                        #self.noiseCov[ns+self.ncents/2:ns+self.ncents/2+gs.nsubx**2]=tmp[gs.nsubx**2:,].astype(numpy.float32)
-                        self.noiseCov[ns:ns+self.ncentList[i]]=numpy.take(tmp.ravel(),self.centIndex[ns:ns+self.ncentList[i]])#tmp[:gs.nsubx**2].astype(numpy.float32)
-                        self.noiseCov[ns+self.ncents/2:ns+self.ncents/2+self.ncentList[i]]=numpy.take(tmp.ravel(),self.centIndex[ns+self.ncents/2:ns+self.ncents/2+self.ncentList[i]])#[gs.nsubx**2:,].astype(numpy.float32)
-                        #ns+=gs.nsubx**2
+                        self.noiseCov[ns:ns+self.ncentList[i]]=numpy.take(tmp.ravel(),
+                                                                          self.centIndex[ns:ns+self.ncentList[i]])
+                        self.noiseCov[ns+self.ncents/2:ns+self.ncents/2+self.ncentList[i]]=\
+                            numpy.take(tmp.ravel(),self.centIndex[ns+self.ncents/2:ns+self.ncents/2+self.ncentList[i]])
                         ns+=self.ncentList[i]
                 if c==None:
                     c=util.centroid.centroid(self.ngsList[0].nsubx,self.pupil.fn)
@@ -552,6 +570,9 @@ class recon(base.aobase.aobase):
         """put all centroids into the input array.
         Note, this is the same order as the ncentList has been defined in...
         """
+
+        print "getInput parent.outputData:"
+
         cnt=0
         for i in range(len(self.wfsIDList)):
             key=self.wfsIDList[i]
@@ -575,10 +596,12 @@ class recon(base.aobase.aobase):
                 self.inputData[cnt:cnt+ns]-=self.inputData[cnt:cnt+ns].mean()
                 self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns] -= \
                     self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns].mean()
-
             cnt+=ns
 
     def calc(self):
+        print "SUBAPFLAGS:" # UB 2012 Aug 1
+        print self.pupil.getSubapFlag(self.nsubx, self.minarea)  # UB 2012 Aug 1
+
         if self.takingRef==1:
             self.takingRef=2
 
@@ -676,16 +699,22 @@ class recon(base.aobase.aobase):
                         #poking several actuators at once
                         self.pokeActMap[:]=0
                         for i in range(self.pokingActNo/dm.pokeSpacing,dm.nact,dm.pokeSpacing):
-                            numpy.put(self.pokeActMap[i],range(self.pokingActNo%dm.pokeSpacing,dm.nact,dm.pokeSpacing),1)
+                            numpy.put(self.pokeActMap[i],range(self.pokingActNo%dm.pokeSpacing,
+                                                               dm.nact,dm.pokeSpacing),1)
                         self.pokeActMapFifo.append(self.pokeActMap*dm.dmflag)
-                        self.outputData[self.nactsCumList[self.pokingDMNo]:self.nactsCumList[self.pokingDMNo+1]]=numpy.take(self.pokeActMap.ravel(),numpy.nonzero(dm.dmflag.ravel()))[0]*self.pokeval#pokeval added by agb 090130.
+                        self.outputData[self.nactsCumList[self.pokingDMNo]:self.nactsCumList[self.pokingDMNo+1]]=\
+                            numpy.take(self.pokeActMap.ravel(),numpy.nonzero(dm.dmflag.ravel()))[0]*\
+                            self.pokeval#pokeval added by agb 090130.
                         if self.scaleWhenPoking:#Added 090625 as a test when trying to get MAP to work.
-                            self.outputData[self.nactsCumList[self.pokingDMNo]:self.nactsCumList[self.pokingDMNo+1]]/=self.mirrorScale[self.nactsCumList[self.pokingDMNo]:self.nactsCumList[self.pokingDMNo+1]]
+                            self.outputData[self.nactsCumList[self.pokingDMNo]:\
+                                                self.nactsCumList[self.pokingDMNo+1]]/=self.mirrorScale[
+                                self.nactsCumList[self.pokingDMNo]:self.nactsCumList[self.pokingDMNo+1]]
                     else:#poking individually.
                         self.outputData[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]=self.pokeval
                         #self.outputData[self.poking-1]=self.pokeval
-                        if self.reconType=="MAP":#reconstructor assumes modes scaled to orthonormal... but DM may not be
-                            self.outputData[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]/=self.mirrorScale[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]
+                        if self.reconType=="MAP":#reconstructor assumes modes scaled to orthonormal. but DM may not be
+                            self.outputData[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]/=\
+                                self.mirrorScale[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]
                     self.pokingActNo+=1
                     if self.pokingActNo==self.npokesList[self.pokingDMNo]:
                         self.pokingDMNo+=1
@@ -699,7 +728,7 @@ class recon(base.aobase.aobase):
                 else:
                     print "Now poking mirror modes"
                     mode=self.totalLowOrderModalModes-1
-                    for i in range(len(self.dmList)):#find out which DM we're poking now... and get the actuators for it.
+                    for i in range(len(self.dmList)):#find out which DM we're poking now and get the actuators for it.
                         if mode<self.nLowOrderModalModes[i]:
                             #this mode in this DM...
                             print self.outputData.shape
@@ -709,7 +738,8 @@ class recon(base.aobase.aobase):
                             if self.modalActuatorList[i]!=None:
                                 print self.modalActuatorList[i].shape
                                 try:
-                                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=self.modalActuatorList[i][mode]
+                                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=\
+                                        self.modalActuatorList[i][mode]
                                 except:
                                     print "ERROR in tomoRecon"
                             break
@@ -720,7 +750,8 @@ class recon(base.aobase.aobase):
         if self.poking>1 and self.poking<=self.npokes+1:
             #then use the centroid values from previous poke to fill the poke matrix.
             if self.poking<=self.npokes-self.totalLowOrderModalModes+1:
-                #find out which DM we've just poked, and whether it was poked individually or several actuators at once.
+                #find out which DM we've just poked, and whether it was poked individually 
+                # or several actuators at once:
                 dm=self.dmList[self.pokingDMNoLast]
                 if dm.pokeSpacing!=None:
                     #poking several at once
@@ -742,38 +773,45 @@ class recon(base.aobase.aobase):
                         for i,val in enumerate(self.inputData):
                             if numpy.fabs(val)>self.pokeIgnore:
                                 if self.sparsePmxType=="lil":
-                                    self.spmx[pokenumber,i]=val/self.pokeval#*self.gainFactor
+                                    self.spmx[pokenumber,i]=val/self.pokeval
                                 elif self.sparsePmxType=="csc":
-                                    cmod.svd.sparseMatrixInsert(self.spmx,pokenumber,i,val/self.pokeval)#*self.gainFactor)
+                                    cmod.svd.sparseMatrixInsert(self.spmx,pokenumber,i,val/self.pokeval)
                     if self.sparsePmxType not in ["lil","csc"]:
                         if self.transposeDensePmx==0:
-                            self.spmx[pokenumber]=self.inputData/self.pokeval#*self.gainFactor#).astype(numpy.float32)
+                            self.spmx[pokenumber]=self.inputData/self.pokeval
                         else:
-                            self.spmx[:,pokenumber]=self.inputData/self.pokeval#*self.gainFactor#).astype(numpy.float32)
+                            self.spmx[:,pokenumber]=self.inputData/self.pokeval
                         self.spmxValidCnt+=numpy.sum(numpy.fabs(self.inputData)>self.pokeIgnore)
                 elif self.reconType in ["svd","MAP","pinv","reg","regularised","regSmall","regBig","pcg"]:
-                    self.spmx[pokenumber]=self.inputData/self.pokeval#*self.gainFactor
+                    self.spmx[pokenumber]=self.inputData/self.pokeval
         if self.poking==self.npokes+1:#finished poking
             self.outputData[:,]=0.
             if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                 if self.sparsePmxType=="lil":
                     pass
                 elif self.sparsePmxType=="csc":#now convert to a sparse matrix...
-                    spmx=scipy.sparse.csc_matrix((numpy.array(self.spmxData,copy=0),numpy.array(self.spmxRowind,copy=0),numpy.array(self.spmxIndptr,copy=0)),(self.nmodes,self.ncents))
+                    spmx=scipy.sparse.csc_matrix((numpy.array(self.spmxData,copy=0),
+                                                  numpy.array(self.spmxRowind,copy=0),
+                                                  numpy.array(self.spmxIndptr,copy=0)),(self.nmodes,self.ncents))
                     cmod.svd.sparseMatrixFree(self.spmx)
                     self.spmx=spmx
                 elif self.sparsePmxType=="dense":#convert to sparse...
                     transpose=self.transposeDensePmx
-                    data=numpy.zeros((self.spmxValidCnt*2,),numpy.float32)#the *2 is to avoid the sparsity failing due to undercounting - not sure why this happens - maybe todo with precision?  Maybe not...
+                    data=numpy.zeros((self.spmxValidCnt*2,),numpy.float32)#the *2 is to avoid the sparsity 
+                                                          # failing due to undercounting - not sure why this happens - 
+                                                          # maybe todo with precision?  Maybe not...
                     rowind=numpy.zeros((self.spmxValidCnt*2,),numpy.int32)
                     indptr=numpy.zeros((self.ncents+1,),numpy.int32)
                     print "Sparsifying poke matrix"
                     c1=time.clock()
                     t1=time.time()
-                    if cmod.svd.sparsifyGenInv(self.spmx,self.pokeIgnore/self.pokeval,transpose,self.nmodes,data,rowind,indptr)!=0:#*self.gainFactor
+                    if cmod.svd.sparsifyGenInv(self.spmx,self.pokeIgnore/self.pokeval,transpose,
+                                               self.nmodes,data,rowind,indptr)!=0:
                         raise Exception("Error sparsifying genInv (%gs)"%(time.time()-t1))
-                    print "tomoRecon - time for sparsifying poke matrix: %gs in clocks or %g seconds"%((time.clock()-c1),time.time()-t1)
-                    spmx=scipy.sparse.csc_matrix((numpy.array(data,copy=0),numpy.array(rowind,copy=0),numpy.array(indptr,copy=0)),(self.nmodes,self.ncents))
+                    print "tomoRecon - time for sparsifying poke matrix: %gs in clocks or %g seconds"%(
+                        (time.clock()-c1),time.time()-t1)
+                    spmx=scipy.sparse.csc_matrix((numpy.array(data,copy=0),numpy.array(rowind,copy=0),
+                                                  numpy.array(indptr,copy=0)),(self.nmodes,self.ncents))
                     self.spmx=spmx
             elif self.reconType in ["svd","MAP","pinv","reg","regularised","regSmall","regBig","pcg"]:
                 print "Finished poking"
@@ -842,7 +880,7 @@ class recon(base.aobase.aobase):
                 elif self.reconType in ["pcg","svd","MAP","pinv","reg","regularised","regBig","regSmall"]:
                     print "Saving poke matrix to file %s (shape %s)"%(self.pmxFilename,str(self.spmx.shape))
                     util.FITS.Write(self.spmx,self.pmxFilename)
-                #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE   = %s"%str(self.spmx.shape))
+                #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE = %s"%str(self.spmx.shape))
                 #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
                 #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
             print "Poking took: %gs in CPU time, or %g seconds"%((time.clock()-self.pokeStartClock),
@@ -860,7 +898,7 @@ class recon(base.aobase.aobase):
         if self.control["close_dm"]:#do the reconstruction.
             self.calc2()
     ## END of calc()
-        
+
     def calc2(self):
         """Reconstruct using poke matrix or pcg."""
         if type(self.reconmxFunction)!=type(None):
@@ -873,7 +911,9 @@ class recon(base.aobase.aobase):
         #nsubx=self.wfs_nsubx
         #wfsdata=self.wfsdata
         data=self.inputData#numpy.zeros(wfsdata*2,numpy.Float)
-        if type(self.decayFactorOpen)==numpy.ndarray and self.decayFactorOpen.shape[0]==self.outputData.shape[0]:#decayFactorOpen is an array...
+        if type(self.decayFactorOpen)==numpy.ndarray and \
+                self.decayFactorOpen.shape[0]==self.outputData.shape[0]:
+        # (decayFactorOpen is an array...)
             self.outputData*=self.decayFactorOpen
         else:
             for i in range(len(self.nactsList)):
@@ -882,17 +922,21 @@ class recon(base.aobase.aobase):
                     self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=dm.decayFactor
                 else:
                     if not self.closedLoopList[i]:
-                        self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=self.decayFactorOpen#open loop actuators...
+                        self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=self.decayFactorOpen
+                        # (open loop actuators...)
         if self.extraActs>0:
             self.outputData[-self.extraActs:]*=self.extraActsDecay
         if self.reconType=="fdpcg":
-            self.pcg.solve(data,usePrevious=0)#for some reason, usePrevious=1 will cause it to blow up eventually... have no idea why - maybe the pcg algorithm is not too good at starting points close to the initial.
+            self.pcg.solve(data,usePrevious=0)# for some reason, usePrevious=1 will 
+                   # cause it to blow up eventually... have no idea why - maybe the pcg
+                   # algorithm is not too good at starting points close to the initial.
             #print "TODO: select only needed phase values - only the used acts"
             #self.outputData[:,]+=-self.pcg.gainfactor*numpy.take(numpy.array(self.pcg.x),self.dmindices)
             self.outputData[:,]+=-self.gainFactor*self.pcg.x
         elif self.reconType=="spmx":#sparse poke matrix reconstruction...
             self.pTc=self.spmx.matvec(numpy.array(data))#dot(data)#do the A^Tb multiplication
-            self.outputData[:,]+=-self.gainFactor*self.LUdecomp.solve(self.pTc)#Solve for x using the LU decomposition
+            # Solve for x using the LU decomposition:
+            self.outputData[:,]+=-self.gainFactor*self.LUdecomp.solve(self.pTc)
         elif self.reconType in ["spmxSVD","spmxGI"]:#SVD reconstruction...
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-self.doCompressedDot(data)
@@ -931,7 +975,8 @@ class recon(base.aobase.aobase):
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
             else:
-                if type(self.reconmx)!=numpy.ndarray or self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
+                if type(self.reconmx)!=numpy.ndarray or \
+                        self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 else:
@@ -943,7 +988,8 @@ class recon(base.aobase.aobase):
             #print data.shape,self.pcgB.shape
             b=quick.dot(self.pcgB,data)
             #print b.shape,self.pcgA.shape
-            self.pcgX0,self.pcgIters=scipy.sparse.linalg.cg(self.pcgA,b,self.pcgX0,self.pcgTol,self.pcgMaxiter)
+            self.pcgX0,self.pcgIters=scipy.sparse.linalg.cg(self.pcgA,b,self.pcgX0,
+                                                            self.pcgTol,self.pcgMaxiter)
             #print self.gains.shape,self.pcgX0.shape,iters,self.pcgX0
             tmp=-self.gains*self.pcgX0
             self.outputData[:]+=tmp
@@ -955,6 +1001,17 @@ class recon(base.aobase.aobase):
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
+    # END of calc2()
+
+
+
+
+
+
+
+
+
+
 
     def fillPokemx(self,dm,dmindx):
         """Here, when we've been poking multiple actuators at once, we need to decide which centroids \
@@ -1000,37 +1057,37 @@ class recon(base.aobase.aobase):
                 # pos is the actuator number in the outputData for this DM
                 # This is where the centroid should go in the poke matrix.
                 if self.reconType in ["svd","pinv","MAP","reg","regularised","regBig","regSmall","pcg"]:
-                    self.spmx[pos,cpos]=self.inputData[cpos]/self.pokeval#*self.gainFactor
-                    self.spmx[pos,cpos+self.ncents/2]=self.inputData[cpos+self.ncents/2]/self.pokeval#*self.gainFactor
+                    self.spmx[pos,cpos]=self.inputData[cpos]/self.pokeval
+                    self.spmx[pos,cpos+self.ncents/2]=self.inputData[cpos+self.ncents/2]/self.pokeval
                 elif self.reconType in ["spmx","spmxSVD","spmxGI"]:
                     if self.sparsePmxType=="lil":
                         val=self.inputData[cpos]
                         if numpy.fabs(val)>self.pokeIgnore:
-                            self.spmx[pos,cpos]=val/self.pokeval#*self.gainFactor
+                            self.spmx[pos,cpos]=val/self.pokeval
                         val=self.inputData[cpos+self.ncents/2]
                         if numpy.fabs(val)>self.pokeIgnore:
-                            self.spmx[pos,cpos+self.ncents/2]=val/self.pokeval#*self.gainFactor
+                            self.spmx[pos,cpos+self.ncents/2]=val/self.pokeval
                     elif self.sparsePmxType=="csc":
                         val=self.inputData[cpos]
                         if numpy.fabs(val)>self.pokeIgnore:
-                            cmod.svd.sparseMatrixInsert(self.spmx,pos,cpos,val/self.pokeval)#*self.gainFactor
+                            cmod.svd.sparseMatrixInsert(self.spmx,pos,cpos,val/self.pokeval)
                         val=self.inputData[cpos+self.ncents/2]
                         if numpy.fabs(val)>self.pokeIgnore:
-                            cmod.svd.sparseMatrixInsert(self.spmx,pos,cpos+self.ncents/2,val/self.pokeval)#*self.gainFactor
+                            cmod.svd.sparseMatrixInsert(self.spmx,pos,cpos+self.ncents/2,val/self.pokeval)
                     else:
                         val=self.inputData[cpos]
                         val2=self.inputData[cpos+self.ncents/2]
                         if numpy.fabs(val)>self.pokeIgnore:
                             if self.transposeDensePmx==0:
-                                self.spmx[pos,cpos]=val/self.pokeval#*self.gainFactor
+                                self.spmx[pos,cpos]=val/self.pokeval
                             else:
-                                self.spmx[cpos,pos]=val/self.pokeval#*self.gainFactor
+                                self.spmx[cpos,pos]=val/self.pokeval
                             self.spmxValidCnt+=1
                         if numpy.fabs(val2)>self.pokeIgnore:
                             if self.transposeDensePmx==0:
-                                self.spmx[pos,cpos+self.ncents/2]=val2/self.pokeval#*self.gainFactor
+                                self.spmx[pos,cpos+self.ncents/2]=val2/self.pokeval
                             else:
-                                self.spmx[cpos+self.ncents/2,pos]=val2/self.pokeval#*self.gainFactor
+                                self.spmx[cpos+self.ncents/2,pos]=val2/self.pokeval
                             self.spmxValidCnt+=1
                 cpos+=1
             cnt+=ns
