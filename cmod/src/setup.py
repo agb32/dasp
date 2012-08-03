@@ -18,7 +18,7 @@ cent = Extension('centmodule',
 #			runtime_library_dirs=['/usr/local/lib'],
 		libraries=["fftw3f"],
                 extra_compile_args=["-pthread"],
-		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-pthread'],
+		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-lpthread'],
 	        sources = ['centmodule.c']
 		)
 binimg=Extension('binimgmodule',
@@ -31,7 +31,7 @@ imgnoise=Extension('imgnoisemodule',
 		include_dirs=idnumpy,
 		sources=['imgnoisemodule.c'],
 		library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-		extra_link_args=['-lcrecipes','-lm'],
+		extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm'],
 		)
 
 
