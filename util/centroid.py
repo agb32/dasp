@@ -250,6 +250,8 @@ class centroid:
         #else:
         pfn=self.pupfn.astype(self.fpDataType)
         indices=[]
+        # This could (and would be nice to) be replaced by util.tel.pupil.getSubapFlags,
+        # but the "indeces" should be taken care of (a bit of work), so we leave like this for now:
         for i in xrange(self.nsubx):        
             for j in xrange(self.nsubx):
                 self.subarea[i,j]=pfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()    # Get pupil fn over subaps

@@ -1,10 +1,10 @@
 import os.path
 import numpy
 import base.aobase
-import cmod.phaseCov
+# import cmod.phaseCov # 2012 Aug 03: apparently not used
 import util.centroid
 import util.phaseCovariance
-import util.fdpcg
+# import util.fdpcg # 2012 Aug 03: apparently not used
 import util.createPokeMx
 import util.tomofdpcg
 import util.FITS
@@ -14,6 +14,7 @@ import util.regularisation
 import cmod.svd
 import cmod.utils
 import util.dot as quick
+import util.dicure
 
 try:
     import scipy.linsolve
@@ -96,7 +97,6 @@ class recon(base.aobase.aobase):
             self.mirrorScale=None
             self.scaleWhenPoking=self.config.getVal("scaleWhenPoking",default=0)
             self.minarea=self.config.getVal("wfs_minarea")
-            self.nsubx=self.config.getVal("wfs_nsubx") # added by UB, 2012 Aug 1
             self.pokeActMapFifo=[]
             print "tomoRecon: Using %d DMs for reconstruction."%len(self.dmList)
             self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
@@ -121,10 +121,15 @@ class recon(base.aobase.aobase):
                 self.centIndex[pos+self.ncents/2:pos+self.ncents/2+self.ncentList[i]]=\
                     (indiceList[i]*2+1).astype(numpy.int32)
                 pos+=self.ncentList[i]
+
             self.reconType=self.config.getVal("recontype",default="pcg")
-            if self.reconType not in ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","MAP",
-                                      "SVD","pinv","reg","regBig","regSmall","regularised"]:
-                raise Exception("tomoRecon: reconType should be pcg, fdpcg, spmxSVD, spmxSVD, spmxGI, svd, SVD, MAP,pinv,reg,regSmall,regBig,regularised")
+            supportedReconTypes = ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","SVD",
+                                   "MAP","pinv","reg","regSmall","regBig","regularised","dicure"]
+            # check if the recontype given in the parameter file is valid:
+            if self.reconType not in supportedReconTypes:
+                raise ValueError("tomoRecon: recontype must be one of:", supportedReconTypes)
+            del supportedReconTypes
+
             if self.reconType=="spmx":
                 raise Exception("tomoRecon - reconType spmx does not work!")
             if self.reconType in ["spmx","spmxSVD","spmxGI"]:
@@ -144,6 +149,11 @@ class recon(base.aobase.aobase):
 
             if self.reconType=="SVD":
                 self.reconType="svd"
+            if self.reconType=="dicure": # UB, 2012 Aug 3rd
+                nsubx_tmp = self.config.getVal("wfs_nsubx")
+                subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
+                del nsubx_tmp # delete the temporary nsubx, as you don't need it anywhere else
+                self.dicure=util.dicure.DiCuRe( subapMap )
             self.npup=config.getVal("npup")
             self.telDiam=config.getVal("telDiam")
 
@@ -571,8 +581,6 @@ class recon(base.aobase.aobase):
         Note, this is the same order as the ncentList has been defined in...
         """
 
-        print "getInput parent.outputData:"
-
         cnt=0
         for i in range(len(self.wfsIDList)):
             key=self.wfsIDList[i]
@@ -599,8 +607,6 @@ class recon(base.aobase.aobase):
             cnt+=ns
 
     def calc(self):
-        print "SUBAPFLAGS:" # UB 2012 Aug 1
-        print self.pupil.getSubapFlag(self.nsubx, self.minarea)  # UB 2012 Aug 1
 
         if self.takingRef==1:
             self.takingRef=2
@@ -904,7 +910,7 @@ class recon(base.aobase.aobase):
         if type(self.reconmxFunction)!=type(None):
             #call a function which can change the reconstructor on a per-iteration basis:
             self.reconmx=self.reconmxFunction()
-        if self.reconType!="pcg" and type(self.reconmx)==type(0.):
+        if self.reconType not in ["pcg","dicure"] and type(self.reconmx)==type(0.):
             #if self.reconmxFilename!=None:
             #    print "Attempting to load reconmx %s"%self.reconmxFilename
             self.reconmx=self.loadReconmx(self.reconmxFilename)
@@ -1001,16 +1007,9 @@ class recon(base.aobase.aobase):
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
+        elif self.reconType=="dicure":
+            self.outputData = self.dicure.calc( self.inputData )
     # END of calc2()
-
-
-
-
-
-
-
-
-
 
 
     def fillPokemx(self,dm,dmindx):
