@@ -55,7 +55,6 @@ Here, we assume the source is at infinity.
 """
 
 #from science.xinterp_dm import interpolateSpline,interpolateBicubic
-#import Numeric
 import cmod.interp
 import numpy
 import time
@@ -66,6 +65,7 @@ class vdmUser(base.aobase.aobase):
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.dmObj=self.config.getVal("dmObj")
         self.dmlabel=self.config.getVal("dmLabel",default=self.idstr[0],raiseerror=0)
+        self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)
         if self.dmlabel==None:
             print "Warning: science.vdmUser - dmlabel not found, using vdm.  idstr=%s"%str(self.idstr)
             self.dmlabel="vdm"
@@ -84,16 +84,21 @@ class vdmUser(base.aobase.aobase):
             self.outputData=numpy.zeros((self.nacts),numpy.float32)
             self.actmap=numpy.zeros((self.nact,self.nact),numpy.float32)
             self.atmosGeom=self.config.getVal("atmosGeom")
-            self.reconIdStr=self.config.getVal("reconIdStr",raiseerror=0)#if the reconstructor (tomoRecon) has an idstr, this should be used here... otherwise it won't agree... however, by default this is None, so should be ok.
-            self.reconstructorDmList=self.dmObj.makeDMList(self.reconIdStr)#the DMs reconstructed by the reconstructor.  This is the order that the reconstructor will have them too.
-            virtDmListUnordered=self.dmObj.makeDMList(actsFrom=self.dmInfo.actuatorsFrom)#the DMs used here as virtual ones.
+            #if the reconstructor (tomoRecon) has an idstr, this should be used here... 
+            # otherwise it won't agree... however, by default this is None, so should be ok:
+            self.reconIdStr=self.config.getVal("reconIdStr",raiseerror=0)
+            #the DMs reconstructed by the reconstructor.This is the order that the reconstructor will have them too.
+            self.reconstructorDmList=self.dmObj.makeDMList(self.reconIdStr)
+            #the DMs used here as virtual ones:
+            virtDmListUnordered=self.dmObj.makeDMList(actsFrom=self.dmInfo.actuatorsFrom)
             if self.dmInfo in virtDmListUnordered:
                 virtDmListUnordered.remove(self.dmInfo)
             if self.projMxFilename:
                 nactstot=0
                 for dm in self.reconstructorDmList:
                     if dm.zonalDM:
-                        dmindices=numpy.nonzero(dm.computeDMPupil(self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
+                        dmindices=numpy.nonzero(dm.computeDMPupil(
+                                self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
                         nacts=int(dmindices.shape[0])
                     else:
                         nacts=dm.nact
@@ -102,16 +107,21 @@ class vdmUser(base.aobase.aobase):
             else:
                 self.projmx=None
             self.npup=self.config.getVal("npup")
-            self.offset=self.dmInfo.actoffset#config.getVal("offsetmdm")#the actuator offset from the edge of the mirror.
+            #the actuator offset from the edge of the mirror:
+            self.offset=self.dmInfo.actoffset#config.getVal("offsetmdm")
             #get the direction of the centre of the DM, and the DM FOV.
-            self.mdmTheta=self.dmInfo.primaryTheta#self.config.getVal("mdmTheta")#the direction in which the moao mirror is facing
-            self.mdmPhi=self.dmInfo.primaryPhi#config.getVal("mdmPhi")#the direction in which the moao mirror is facing.
+            #the direction in which the moao mirror is facing:
+            self.mdmTheta=self.dmInfo.primaryTheta#self.config.getVal("mdmTheta")
+            #the direction in which the moao mirror is facing:
+            self.mdmPhi=self.dmInfo.primaryPhi#config.getVal("mdmPhi")
             self.fov=self.dmInfo.fov#config.getVal("fov")#mirror field of view (irrelevant if ground conjugate).
             print "MOAO vdmUser is in direction theta=%g, phi=%g, with fov=%g"%(self.mdmTheta,self.mdmPhi,self.fov)
-            self.compressFov=self.config.getVal("compressFov",default=0.)#specifies the amount of each vdm that is used.  If this is zero, only a telDiam sized section of the vdm is used.  If non-zero, means that a slightly larger section will be compressed onto the mdm.
+            self.compressFov=self.config.getVal("compressFov",default=0.)#specifies the amount of each vdm that is 
+                                                # used.  If this is zero, only a telDiam sized section of the 
+                                                # vdm is used.  If non-zero, means that a slightly larger 
+                                                # section will be compressed onto the mdm.
             self.nactsList=[]
-            self.nactsCumList=[]#[0]#cumulative version.
-            #self.closedLoopList=[]
+            self.nactsCumList=[]
             self.actValList=[]
             self.vdmCoordList=[]
             self.mdmActPosList=[]
@@ -127,7 +137,8 @@ class vdmUser(base.aobase.aobase):
             print "vdm reconstructor dm list: %s"%str(self.reconstructorDmList)
             for dm in self.reconstructorDmList:
                 if dm.zonalDM:
-                    dmindices=numpy.nonzero(dm.computeDMPupil(self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
+                    dmindices=numpy.nonzero(dm.computeDMPupil(self.dmObj.atmosGeom,
+                                    centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
                     nacts=int(dmindices.shape[0])
                 else:
                     nacts=dm.nact
@@ -168,7 +179,7 @@ class vdmUser(base.aobase.aobase):
                     sy=numpy.floor(actPosMdmy[0]/actSpacingVdm+oe+tol)-oe
                     ey=numpy.ceil(actPosMdmy[-1]/actSpacingVdm+oe-tol)-oe
 
-                    #now get the positions of the relevant vdm actuators (in m).  These are then used for interpolation.  
+                    #now get the positions of the relevant vdm actuators (in m).These are then used for interpolation.
                     actPos=(numpy.arange(sy,ey+1)*actSpacingVdm,numpy.arange(sx,ex+1)*actSpacingVdm)
                     self.vdmActPosList.append(actPos)
                     #and get the array coordinates for these actuator values.
@@ -186,19 +197,22 @@ class vdmUser(base.aobase.aobase):
                                 pos+=1
                                 actVal[i]=0
                             except:
-                                print "(proj shape %s, interpolated shape %s, resshape %s)"%(pos,self.projmx.shape[1],str(self.projmx.shape),str(self.interpolated.shape),str(res.shape))
+                                print "(proj shape %s, interpolated shape %s, resshape %s)"%(
+                                    pos,self.projmx.shape[1],str(self.projmx.shape),
+                                    str(self.interpolated.shape),str(res.shape))
                                 raise
                         print "Projection matrix done next mirror...                               "
                     #     tmp=numpy.zeros((dm.nact,dm.nact),numpy.float32)
                     #     tmp2=numpy.zeros((dm.nact,dm.nact),numpy.float32)
-                    #     tmp=tmp[coords[0]:coords[1],coords[2]:coords[3]]#select the portion that impactsthis direction.
+                    #     tmp=tmp[coords[0]:coords[1],coords[2]:coords[3]]#select the 
+                    #         portion that impactsthis direction.
                     #     #now work out which vdm actuators affect dm.
                     #     yin=actPos[0]
                     #     xin=actPos[1]
                     #     st=nactsCumList[-1][0]
                     #     en=nactsCumList[-1][1]
                     #     #interpolate
-                    #     cmod.interp.mxinterp(tmp,yin,xin,actPosMdmy,actPosMdmx,tmp2)
+                    #     cmod.interp.gslCubSplineInterp(tmp,yin,xin,actPosMdmy,actPosMdmx,tmp2,4)
                     #     #and then for each dm actuator, compute how it is affected by neighbours.
                     #     #compute how actuators should be selected in x and y directions.
                     #     xinterp=numpy.interp(numpy.arange(dm.nact),numpy.arange(actPosMdmx.size,actPosMdmx))
@@ -257,15 +271,19 @@ class vdmUser(base.aobase.aobase):
         vdm=self.actValList[indx][c[0]:c[1],c[2]:c[3]]#the virtual DM actuator values that are in the fov.
         yin=self.vdmActPosList[indx][0]
         xin=self.vdmActPosList[indx][1]
-        #this is just a sub-pxl interpolation I think...(or a compression for LGS) - not interpolation of the DM surface...
-        cmod.interp.mxinterp(vdm,yin,xin,self.mdmActPosList[indx][0],self.mdmActPosList[indx][1],self.interpolated)
+        #this is just a sub-pxl interpolation I think...(or a compression for LGS)
+        # - not interpolation of the DM surface...
+        # Number of threads set to 1, since the function is not used in aosim
+        cmod.interp.gslCubSplineInterp(vdm,yin,xin,self.mdmActPosList[indx][0],self.mdmActPosList[indx][1],
+                                       self.interpolated,self.interpolationNthreads)
         return self.interpolated
 
     def getInputActuators(self,dmno):
         """Put the 1D array of actuators for the given dm no into a 2D array"""
         i=dmno
         dm=self.virtDmList[i]
-        numpy.put(self.actValList[i].ravel(),self.dmindicesList[i],self.reconData[self.nactsCumList[i][0]:self.nactsCumList[i][1]])
+        numpy.put(self.actValList[i].ravel(),self.dmindicesList[i],
+                  self.reconData[self.nactsCumList[i][0]:self.nactsCumList[i][1]])
         return self.actValList[i]
 
         

@@ -1,11 +1,12 @@
 import numpy
 import threading
-from cmod.interp import mxinterp,bicubicinterp,linearinterp,gslCubSplineInterp
+from cmod.interp import gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp
 import util.tel,util.dist
 import util.FITS
 import scipy
 import cmod.utils
-#import util.dot as quick
+import util.dot as quick
+import time
 
 """Contains:
 dmInfo class - info about a given DM
@@ -625,7 +626,7 @@ class dmInfo:
 #             mode/=scale
 #             xcoord=numpy.arange(self.nact)*self.actSpacing/self.dmDiam*self.dmpup
 #             ycoord=xcoord
-#             phasecov=util.phaseCovariance.computeCov4(mode,xcoord,ycoord,self.dmflag,mirrorModes,mirrorModeCoords,vig,self.dmpup,self.nact,atmosGeom.r0,atmosGeom.l0,atmosGeom.telDiam,dovignetted=dovignetted)
+#             phasecov=util.phaseCovariance.computeCov4(mode,xcoord,ycoord,self.dmflag,mirrorModes,mirrorModeCoords,vig,self.dmpup,self.nact,atmosGeom.r0,atmosGeom.l0,atmosGeom.telDiam,dovignetted=dovignetted,nThreads=self.interpolationNthreads)
 #         elif width=="testquickc":
 #             W=int(4*self.actSpacing/self.dmDiam*self.dmpup+0.5)
 
@@ -678,7 +679,7 @@ class dmInfo:
                 phasecov[:,i]*=self.mirrorScale[i]
         return phasecov
 
-    def getMirrorSurface(self,interpType=None,actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,phsOut=None,infFunc=None):
+    def getMirrorSurface(self,interpType=None,actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,phsOut=None,infFunc=None, interpolationNthreads = 0):
         """Create a MirrorSurface object for this DM"""
         if interpType==None:
             interpType=self.interpType
@@ -688,7 +689,7 @@ class dmInfo:
             actFlattening=self.actFlattening
         if infFunc==None:
             infFunc=self.infFunc
-        return MirrorSurface(typ=interpType,npup=self.dmpup,nact=self.nact,phsOut=phsOut,actoffset=self.actoffset,actCoupling=actCoupling,actFlattening=actFlattening,couplingcoeff=couplingcoeff,gaussianIndex=gaussianIndex,gaussianOverlapAccuracy=gaussianOverlapAccuracy,infFunc=infFunc)
+        return MirrorSurface(typ=interpType,npup=self.dmpup,nact=self.nact,phsOut=phsOut,actoffset=self.actoffset,actCoupling=actCoupling,actFlattening=actFlattening,couplingcoeff=couplingcoeff,gaussianIndex=gaussianIndex,gaussianOverlapAccuracy=gaussianOverlapAccuracy,infFunc=infFunc, interpolationNthreads = interpolationNthreads)
 
 class dmOverview:
     """DM object to hold info about DMs etc.
@@ -1127,7 +1128,7 @@ class dmOverview:
 class MirrorSurface:
     """A class for interpolating actuators onto a mirror surface.
     """
-    def __init__(self,typ,npup,nact,phsOut=None,actoffset="fried",actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,infFunc=None):
+    def __init__(self,typ,npup,nact,phsOut=None,actoffset="fried",actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,infFunc=None, interpolationNthreads=0):
         """typ can be spline, bicubic, gaussian, linear, influence or pspline.  Others can be added as necessary.
         actCoupling and actFlattening are used for bicubic only.
         actCoupling is also used for spline and pspline
@@ -1154,6 +1155,7 @@ class MirrorSurface:
         self.couplingcoeff=couplingcoeff
         self.gaussianIndex=gaussianIndex
         self.gaussianOverlapAccuracy=gaussianOverlapAccuracy
+        self.interpolationNthreads = interpolationNthreads
         if self.typ=="spline":
             pass
         elif self.typ=="bicubic":
@@ -1204,7 +1206,7 @@ class MirrorSurface:
         nact=self.nact
         actoffset=self.actoffset
 
-        zpad=10#the zero padding using in gslCubSplineInterp.
+        zpad=10#the zero padding using in gslPeriodicCubSplineInterp.
         #spacing=(npup-1.)/(nact-1+actoffset*2.)
         spacing=1./(nact-1+actoffset*2.)
         self.x2ps=(numpy.arange(nact+2*zpad)*spacing+spacing*actoffset).astype(numpy.float64)
@@ -1226,7 +1228,7 @@ class MirrorSurface:
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        mxinterp(actmap,x2,x2,y,x,phsOut)
+        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
         return phsOut
 
     def interpolatePeriodicSpline(self,actmap,phsOut=None,coords=None):
@@ -1244,7 +1246,7 @@ class MirrorSurface:
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut)
+        gslPeriodicCubSplineInterp(actmap,x2,x2,y,x,phsOut)
         return phsOut
 
     def interpolateLinear(self,actmap,phsOut=None,coords=None):
@@ -1596,6 +1598,10 @@ class MirrorSurface:
             self.phsOut[:]=res
         return res
 
+# # # # # # # # # # #  END OF CLASS MirrorSurface  # # # # # # # # # # # # # # # # # # # 
+
+# # The functions below are not used anywhere in the aosim:  # # # # # # # # # # # # # # 
+
 def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=None,reconIdStr=None):
     """Uses vdmUser to do a geometrical projection"""
     if config==None:
@@ -1605,7 +1611,8 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         config=base.readConfig.AOXml(config,batchno=batchno)
     if config.getVal("projMxFilename",raiseerror=0)==None:
         config.this.globals.projMxFilename="projmx%d.fits"%batchno
-    if reconIdStr!=None:#should be specified in config file, but if not, can specify here... (though may still be overwritten by config file one)
+    if reconIdStr!=None:#should be specified in config file, but if not, can specify here...
+                        #(though may still be overwritten by config file one)
         config.this.globals.reconIdStr=reconIdStr
     import science.vdmUser
     v=science.vdmUser.vdmUser(None,config,idstr=vdmidstr)
@@ -1948,7 +1955,9 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
                         if interpolate==0:#just select the correct bit of phase
                             interpolated=phs[yf:yt,xf:xt]
                         else:
-                            cmod.interp.mxinterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated)
+                            #   Comment, UB: ProjectionWorker is not used in aosim and is called only
+                            #   interactively, therefore the number of threads is hard-coded and set to 1:
+                            cmod.interp.gslCubSplineInterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated,1)
                         if pupfn!=None:
                             interpolated*=pupfn
                         #tmp=quick.dot(interpolated.ravel(),invInf[:,bstart:bend])

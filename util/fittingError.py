@@ -10,8 +10,7 @@ import time
 from scipy.special import gamma
 sys.path.append('/home/dmw')
 import numpyFITS as FITS
-from cmod.interp import mxinterp
-# from gausspyrex import gauss_surface
+from cmod.interp import gslCubSplineInterp
 from gp2 import g_surface
 import spline
 
@@ -277,8 +276,8 @@ class mirror:
         return arr_2, rmslog
 
     def fit_steepest(self,maxitns):
-#       Another working, but poor, minimisation function.
-#       Works by steepest descent...
+        # Another working, but poor, minimisation function.
+        # Works by steepest descent...
         self.calls = 0
         arr_1   = self.target
         arr_2   = self.actuators
@@ -291,29 +290,27 @@ class mirror:
         grad = numpy.zeros(numpy.shape(arr_2))
         # An array to hold the n_act*n_act gradient of the function findrms...
 
-#       Firstly find a gradient...
+        # Firstly find a gradient...
 	for m in range(maxitns):
             for i in range(numpy.shape(arr_2)[0]):
                     for j in range(numpy.shape(arr_2)[0]):
                         arr_poke = numpy.copy(arr_2)
-#                       Poke an actuator a little bit...
+                        # Poke an actuator a little bit...
                         arr_poke[i,j] = arr_poke[i,j] * 1.0002
-#                       And whatever difference it makes... record it.                        
+                        # And whatever difference it makes... record it.                        
                         grad[i,j] = (start_rms - findrms(
                             arr_1,self.interpolate(arr_poke,sh_res,spacing)))/ \
                             (arr_2[i,j] / 1000.)
             stepsize = 8000.
             for n in range(1000):
-#               Then go in that direction
+                # Then go in that direction
                 new_rms = findrms(self.interpolate(arr_2+grad*stepsize,
                                                    sh_res,spacing),arr_1)
                 if new_rms < start_rms:
-#                   And keep going in that direction until it doesn't go
-#                                                           down any more
+                    # And keep going in that direction until it doesn't go down any more
                     arr_2 = arr_2 + grad*stepsize
                     rmslog.append(new_rms)
-                    stepsize = 4000./float(m+1) # Alter stepsize to be
-#                                               smaller closer to a minimum...
+                    stepsize = 4000./float(m+1) # Alter stepsize to be smaller closer to a minimum...
                     start_rms = new_rms
                 else:
                     print ('Exited at grad addition number ' + str(n))
@@ -325,8 +322,8 @@ class mirror:
         return arr_2, rmslog
 
     def fit_polak(self, maxitns, lmintol=0.001, tol=0.01, poke=1.0002):
-#       A rather more refined gradient method. This uses conjugate
-#       gradients and golden section line minimisation.
+        # A rather more refined gradient method. This uses conjugate
+        # gradients and golden section line minimisation.
         self.calls = 0
         arr_1   = self.target
         arr_2   = self.actuators
@@ -336,13 +333,13 @@ class mirror:
         interpolation = self.interpolate(arr_2,sh_res,spacing)
         start_rms = findrms(arr_1,interpolation)
         grad = numpy.zeros(numpy.shape(arr_2))
-# Find steepest descent
+        # Find steepest descent
         for i in range(numpy.shape(arr_2)[0]):
                 for j in range(numpy.shape(arr_2)[0]):
-#                   Poke an actuator a little bit...
+                    # Poke an actuator a little bit...
                     arr_poke = numpy.copy(arr_2)
                     arr_poke[i,j] = arr_poke[i,j] * poke
-#                   And whatever difference it makes... record it.   
+                    # And whatever difference it makes... record it.   
                     grad[i,j] = (start_rms - findrms(
                         arr_1,self.interpolate(arr_poke,sh_res,spacing))) / \
                         (arr_2[i,j] / 1000.)
@@ -512,8 +509,7 @@ class quicksplinemirror(mirror):
         x = y = numpy.arange(width).astype("d")/(width-1)
 	x2 = numpy.arange(n_act).astype("d")/(n_act-1)
 	phsOut = numpy.zeros((width,width),"d")
-# mxinterp is a C wrapped Num. Recipies function available on the CRAY
-	mxinterp(actuators,x2,x2,y,x,phsOut)
+	gslCubSplineInterp(actuators,x2,x2,y,x,phsOut,1)
 	return phsOut
 
 

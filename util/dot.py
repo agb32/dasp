@@ -30,6 +30,7 @@ def dot(a,b,c=None,nthr=0):
 
     ## If it is a matrix-vector multiplication, call the cmod.utils.dot:
     if len(a.shape)==2 and len(b.shape)==1 and a.flags.contiguous and b.flags.contiguous:
+        # To determine the number of threads by hand, replace "nthr" with a number:
         c=cmod.utils.dot(a, b, c, nthr) # Arguments: input matrix, input vector, 
                                         #            output vector, number of threads
 

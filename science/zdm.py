@@ -1,9 +1,8 @@
 #This used to be glao_zdm, but name was changed as it works for anything...
-#from math import *
 import numpy
 import util.zernikeMod
 import util.FITS
-from cmod.interp import mxinterp
+from cmod.interp import gslCubSplineInterp
 import base.aobase
 class dm(base.aobase.aobase):
     """
@@ -23,6 +22,7 @@ class dm(base.aobase.aobase):
             self.npup=self.config.getVal("npup")
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
             self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
+            self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)
             self.dmInfo=self.dmObj.getDM(self.idstr[0])
             self.monteNoll=None
             self.montePhaseCovfname=self.config.getVal("montePhaseCovFilename",raiseerror=0)
@@ -279,7 +279,9 @@ class dm(base.aobase.aobase):
                     if this.xoffsub==0 and this.yoffsub==0:#no interp needed
                         pass
                     else:
-                        mxinterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,this.yaxisInterp,this.xaxisInterp,self.interpolated)
+                        gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
+                                           this.yaxisInterp,this.xaxisInterp,self.interpolated,
+                                           self.interpolationNthreads)
                         self.selectedDmPhs=self.interpolated
 
                 if this.wavelengthAdjustor==1:#dm is shaped for this wavelength...

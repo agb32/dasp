@@ -1,9 +1,6 @@
-#from math import *
-#import Numeric
 import numpy
-from cmod.interp import mxinterp
+from cmod.interp import gslCubSplineInterp
 import base.aobase
-#import math
 import util.FITS,util.dist
 import util.zernikeMod
 from util.dm import MirrorSurface
@@ -43,6 +40,7 @@ class dm(base.aobase.aobase):
             self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             self.npup=self.config.getVal("npup")
             self.pupil=self.config.getVal("pupil")
+            self.interpolationNthreads=self.config.getVal("interpolationNthreads", default=0)
             self.subtractTipTilt=self.config.getVal("subtractTipTilt",default=0)
             self.monteNoll=None
             self.mirrorModes=None
@@ -74,7 +72,9 @@ class dm(base.aobase.aobase):
                 self.interpType=self.config.getVal("dmInterpType",default="spline")
                 self.actSlaves=None
                 self.actFlattening=config.getVal("actFlattening",default=1.)#flattening of gradients, default 1., should be between 0-1.
-                self.mirrorSurface=MirrorSurface(self.interpType,self.dmpup,self.nact,1,self.actoffset,self.actCoupling,self.actFlattening)
+                self.mirrorSurface=MirrorSurface(self.interpType,self.dmpup,self.nact,1,
+                                                 self.actoffset,self.actCoupling,self.actFlattening,
+                                                 interpolationNthreads = self.interpolationNthreads)
 
             else:
                 self.thisdm=self.dmObj.getDM(self.idstr[0])
@@ -95,7 +95,7 @@ class dm(base.aobase.aobase):
                 self.dmflag=self.dmObj.computeDMPupil(self.idstr[0],centObscuration=self.pupil.r2,retPupil=0)[0]
                 self.actCoupling=self.dmObj.getcoupling(self.idstr[0])
                 self.actSlaves=self.thisdm.getSlaving()
-                self.mirrorSurface=self.thisdm.getMirrorSurface(phsOut=1)
+                self.mirrorSurface = self.thisdm.getMirrorSurface(phsOut = 1,                                                                interpolationNthreads = self.interpolationNthreads)
             if self.subtractTipTilt:
                 self.tilt=numpy.arange(self.nact)-self.nact/2.+0.5
                 self.tilt/=numpy.sqrt((self.tilt**2).sum()*self.nact)
@@ -355,10 +355,6 @@ class dm(base.aobase.aobase):
                 del(this.parent[key])
             if not this.parent.has_key("atmos"):#maybe we're just using this for a poke matrix?
                 print "xinterp_dm object no parent atmos object found.  Assuming unperturbed phase in."
-            #class dummyAtmosClass:
-            #    dataValid=1
-            #    outputData=0
-            #this.parent["atmos"]=dummyAtmosClass()
         if self.generate==1:
             if self.newDataWaiting:
                 if this.parent.has_key("atmos"):
@@ -397,11 +393,15 @@ class dm(base.aobase.aobase):
                     if this.xoffsub==0 and this.yoffsub==0:#no interp needed
                         pass
                     else:
-                        mxinterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,this.yaxisInterp,this.xaxisInterp,self.interpolated)
+                        gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
+                                              this.yaxisInterp,this.xaxisInterp,self.interpolated,
+                                              self.interpolationNthreads)
                         self.selectedDmPhs=self.interpolated
                 elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
                     #ground conjugate or not interpolating, but we want to offset anyway...
-                    mxinterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,this.yaxisInterp,this.xaxisInterp,self.interpolated)
+                    gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
+                                          this.yaxisInterp,this.xaxisInterp,self.interpolated,
+                                          self.interpolationNthreads)
                     self.selectedDmPhs=self.interpolated
 
                 if this.wavelengthAdjustor==1:#dm is shaped for this wavelength...
