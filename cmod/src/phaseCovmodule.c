@@ -20,7 +20,7 @@
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_gamma.h>
 
-#include "nr.h"
+//#include "nr.h"
 //#include "nrutil.h"
 
 
@@ -505,7 +505,7 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   Py_END_ALLOW_THREADS;
   return Py_BuildValue("");
 }
-
+/*
 #define NRANSI
 #include "nrutil.h"
 
@@ -532,7 +532,7 @@ void splin4(float *x1a, float *x2a, float *ya,int di, float *y2a, int m, int n, 
   free_vector(ytmp,1,m);
 }
 #undef NRANSI
-
+*/
 
 int covWorkerQuick(runStruct *runInfo){
   int g,h,i,j,k,l,nact,m,n;
@@ -574,9 +574,11 @@ int covWorkerQuick(runStruct *runInfo){
 	  xout[i]=xin[i]-xshift;
 	}
 	mode2=tmparr;
-	for(i=0; i<m; i++)
+	printf("OOOPS - need to get spline and splin4 working in covWorkerQuick (cmod/phaseCovmodule.c)\n");
+	/*Uncomment, if want to actually use this function
+	  for(i=0; i<m; i++)
 	  spline(&xin[-1],&mode[i*n-1],n,1e30,1e30,&deriv[i*n-1]);
-	splin4(yin,xin,mode,m,deriv,m,n,m,n,yout,xout,mode2,n,1);
+	  splin4(yin,xin,mode,m,deriv,m,n,m,n,yout,xout,mode2,n,1);*/
       }else{
 	mode2=mode;
       }
@@ -633,7 +635,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
 
   //If you change this function, then please also increment the version 
   //number in aosim/util/phaseCoveriance.py
-
+  printf("Depreciated (or at least, not yet working without numerical recipes)\n");
+  return NULL;
   if (!PyArg_ParseTuple(args, "O!O!O!O!|Oi", &PyArray_Type ,&phaseCov,&PyArray_Type ,&pymode,&PyArray_Type,&modeCoords,&PyArray_Type,&output,&phaseCovObj,&nthreads)){
       printf("Inputs should be phase covariance (2d array) and mode (2d array), modeCoords (2d array), and output (2d array), phaseCov output (optional, array or None), nthreads (optional)\n");
       return NULL;
