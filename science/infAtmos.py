@@ -271,7 +271,7 @@ class infAtmos(base.aobase.aobase):
                         if self.parent[key].dataValid==1:
                             if self.inputData[key] is not self.parent[key].outputData:
                                 #create the arrays...
-                                print "Allocating infAtmos arrays (hopefully this only happens during first iteration...)"
+                                #print "Allocating infAtmos arrays (hopefully this only happens during first iteration...)"
                                 self.inputData[key]=self.parent[key].outputData
                                 if self.inputData[key].dtype.char!=self.dataType:
                                     raise Exception("infAtmos and infScrn dataTypes must be same")
@@ -315,6 +315,8 @@ class infAtmos(base.aobase.aobase):
                 #use the exact same copy from the infScrn object.
                 #Note, this only works if it is in the same python process.
                 self.phaseScreens[key]=self.parent[key].screen
+                nremCol,naddCol,self.interpPosCol[key]=self.newCols[key].next()
+                nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].next()
             else:#construct the layer.
                 self.makeLayer(key)
         
