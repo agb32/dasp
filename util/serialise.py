@@ -8,13 +8,12 @@ efficiency (most arrays are sent direct, without converting to a
 string). """
 
 # Python implementation of functions to read and write serialised data
-try:
-    import Numeric
-except:
-    print "Not importing Numeric."
-    class dummy:
-        ArrayType="Numeric not imported"
-    Numeric=dummy()
+#try:
+#    import Numeric
+#except:
+#    class dummy:
+#        ArrayType="Numeric not imported"
+#    Numeric=dummy()
 import types, os, cPickle,numpy
 
 
@@ -174,9 +173,9 @@ def Serialise(value):
         value = numpy.array(value, numpy.int32)#"i"
     elif thisType == types.FloatType:
         value = numpy.array(value, numpy.float64)#"d"
-    elif thisType==Numeric.ArrayType:#THIS SHOULD SAY NUMERIC not numpy.
-        value=numpy.array(value,copy=0)
-        thisType=type(value)
+    #elif thisType==Numeric.ArrayType:#THIS SHOULD SAY NUMERIC not numpy.
+    #    value=numpy.array(value,copy=0)
+    #    thisType=type(value)
     #thisType = type(value)
     
     if thisType == numpy.ndarray:#Numeric.ArrayType
@@ -245,9 +244,9 @@ def SerialiseToList(value,sendList=[]):
         value = numpy.array(value, numpy.int32)#"i"
     elif thisType == types.FloatType:
         value = numpy.array(value, numpy.float64)#"d"
-    elif thisType==Numeric.ArrayType:#THIS SHOULD SAY NUMERIC not numpy.
-        value=numpy.array(value,copy=0)
-        thisType=type(value)
+    #elif thisType==Numeric.ArrayType:#THIS SHOULD SAY NUMERIC not numpy.
+    #    value=numpy.array(value,copy=0)
+    #    thisType=type(value)
 
     #thisType = type(value)
     length=None
@@ -374,7 +373,7 @@ if __name__ == "__main__":
     if option == 'w':
         file = open(fileName, 'w')
         file.write(Serialise(["python test first part!",
-                              Numeric.array([1.2345678,3.45,4.5], Numeric.Float32),
+                              numpy.array([1.2345678,3.45,4.5], numpy.float32),
                               numpy.array([[1,2,3],[4,5,6]], numpy.int16),
                               numpy.array(99,numpy.int32),
                               ("inner string", 0x12345), 12345.6789]))

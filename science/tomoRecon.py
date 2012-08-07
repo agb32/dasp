@@ -1,7 +1,6 @@
 import os.path
 import numpy
 import base.aobase
-import cmod.phaseCov
 import util.centroid
 import util.phaseCovariance
 import util.fdpcg

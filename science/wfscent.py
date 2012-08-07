@@ -1456,7 +1456,9 @@ class wfscent(base.aobase.aobase):
             #outputData is only valid for one object at a time, when that has just run...
             txt+="""<plot title="WFS SH img%s" cmd="data=%s.drawCents(0)" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
             if self.imageOnly==0:
-                txt+="""<plot title="Centroids%s" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="XCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="YCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="1D centroids%s" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
             elif self.imageOnly==1:
                 txt+="""<plot title="Centroids%s" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
             else:

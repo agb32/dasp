@@ -407,6 +407,8 @@ class atmos:
         # If rowAdd<zero, we add new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
         self.storePupilLayers=storePupilLayers
         self.computeUplinkTT=computeUplinkTT
+        if self.computeUplinkTT and self.sourceAlt==-1:
+            raise Exception("Cannot compute uplink for source at infinity")
         self.launchApDiam=launchApDiam
         if self.storePupilLayers or self.computeUplinkTT:
             self.uplinkPositionDict={}
@@ -524,9 +526,9 @@ class atmos:
         #Across the pupil this corresponds to a tilt of diam*tan(theta) = diam*dist/height, giving the P-V tilt in m.  diam*dist/height/500e-9*2*pi gives in radians.  ie this is the range of tt values that need to be applied.  But what is the range of the zernike generated?
         dtt=util.zernikeMod.Zernike(self.pupil.fn,3,computeInv=0).zern[1:]
         #Find range - same for tip and tilt.
-        r=numpy.max(dtt[0])-numpy.min(dtt[0])
+        r=numpy.ptp(dtt[0])#numpy.max(dtt[0])-numpy.min(dtt[0])
         dtt*=self.telDiam*2*numpy.pi/(self.sourceAlt*500e-9*r)
-        self.uplinkDownTT=dtt
+        self.uplinkDownTT=-dtt
         print "Computed uplink related calibrations"
 
     def createPupilPhs(self,phaseScreens,interpPosColDict,interpPosRowDict,control):
