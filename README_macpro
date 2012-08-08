@@ -66,6 +66,10 @@ Add to /etc/fstab:
 /swapfile swap swap defaults 0 0
 
 
+python-Scientific
+python-mpi
+python-scipy
+
 ubuntu boot without GUI (save some memory):
 create /etc/inittab with:
 id:2:initdefault:
@@ -312,3 +316,8 @@ sudo apt-get install nfs-kernel-server nfs-common
 echo "id:2:initdefault" > /etc/inittab
 rm /etc/rc2.d/S30gdm
 echo "umask 0011" >> /etc/bash.bashrc
+
+Other things:
+on fedora:  yum install atlas-devel
+
+on ubuntu libatlas-dev libatlas-base-dev

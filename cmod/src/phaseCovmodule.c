@@ -15,7 +15,7 @@
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_gamma.h>
 
-#include "nr.h"
+//#include "nr.h"
 //#include "nrutil.h"
 
 
@@ -501,6 +501,13 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   return Py_BuildValue("");
 }
 
+
+// 
+// UB, 2012 Aug 07:
+// This function uses Numerical Recipies (spline, splint).
+// We comment it out to remove NR, but keep the code "just in case".
+// 
+/*
 #define NRANSI
 #include "nrutil.h"
 
@@ -527,8 +534,18 @@ void splin4(float *x1a, float *x2a, float *ya,int di, float *y2a, int m, int n, 
   free_vector(ytmp,1,m);
 }
 #undef NRANSI
+*/
 
-
+// 
+// UB, 2012 Aug 07:
+// This function uses Numerical Recipies (spline, splint).
+// At the moment it is not used in aosim. (It is called by covarianceQuick, which is called 
+// only by computeCov5 of dm.py, which is commented out.)
+ //
+// We BREAK THIS FUNCTION by commenting out the loop using NR. If it is ever to be used again,
+// this needs to be taken care of. Possibilities: use NR or replace by the gsl interpolation
+// functions (see interpmodule for an example).
+//
 int covWorkerQuick(runStruct *runInfo){
   int g,h,i,j,k,l,nact,m,n;
   float yshift,xshift;
@@ -569,9 +586,11 @@ int covWorkerQuick(runStruct *runInfo){
 	  xout[i]=xin[i]-xshift;
 	}
 	mode2=tmparr;
-	for(i=0; i<m; i++)
+	printf("OOOPS - need to get spline and splin4 working in covWorkerQuick (cmod/phaseCovmodule.c)\n");
+	/*Uncomment, if want to actually use this function
+	  for(i=0; i<m; i++)
 	  spline(&xin[-1],&mode[i*n-1],n,1e30,1e30,&deriv[i*n-1]);
-	splin4(yin,xin,mode,m,deriv,m,n,m,n,yout,xout,mode2,n,1);
+	  splin4(yin,xin,mode,m,deriv,m,n,m,n,yout,xout,mode2,n,1);*/
       }else{
 	mode2=mode;
       }
@@ -594,7 +613,18 @@ int covWorkerQuick(runStruct *runInfo){
   free(deriv);
   return 0;
 }
+// END of covWorkerQuick
 
+// 
+// UB, 2012 Aug 07:
+// This function calls covWorkerQuick which uses Numerical Recipies (spline, splint).
+// At the moment it is not used in aosim. (It is called only by computeCov5 of dm.py,
+// which is commented out.)
+//
+// We BREAK THE FUNCTION by commenting out the NR stuff in covWorkerQuick.
+// If it is ever to be used again, this needs to be taken care of (get the NR back
+// or replace by gsl interpolation functions).
+//
 static PyObject *covarianceQuick(PyObject *self,PyObject *args)
 {
   //A version of above that uses a single generic mode to do the bulk of the computation.
@@ -628,7 +658,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
 
   //If you change this function, then please also increment the version 
   //number in aosim/util/phaseCoveriance.py
-
+  printf("Depreciated (or at least, not yet working without numerical recipes)\n");
+  return NULL;
   if (!PyArg_ParseTuple(args, "O!O!O!O!|Oi", &PyArray_Type ,&phaseCov,&PyArray_Type ,&pymode,&PyArray_Type,&modeCoords,&PyArray_Type,&output,&phaseCovObj,&nthreads)){
       printf("Inputs should be phase covariance (2d array) and mode (2d array), modeCoords (2d array), and output (2d array), phaseCov output (optional, array or None), nthreads (optional)\n");
       return NULL;
@@ -738,10 +769,6 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   printf("\nCreating phase covariance: Done               \n");
   Py_END_ALLOW_THREADS;
 
-
-
-
-  
   /*
   deriv=malloc(sizeof(float)*m*n);
 
@@ -803,9 +830,9 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
     }
 
   }
-
   return Py_BuildValue("");
 }
+// END of covarianceQuick
 
 
 /* Calculate subaperture tilt covariances for Kolmogorov power spectrum

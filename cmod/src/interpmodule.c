@@ -1,5 +1,9 @@
 
-/* Numpy extension to do matrix interpolation  using Num. Rec. Cubic spline interp */
+/* 
+Numpy extension to do matrix interpolation using gsl Cubic spline interpolation.
+UB, 2012 Aug 08: In bicubic_spline the Numerical Recipies function is still used
+(could be cleaned up, but needs some effort).
+*/
 
 #include "Python.h"
 #include <stdio.h>
@@ -7,18 +11,12 @@
 
 #include "numpy/arrayobject.h"
 
-//#include "nr.h"
-//#include "nrutil.h"
 //#include <time.h> // commented out UB, 30th Jul 2012
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_spline.h>
 
 #include <pthread.h>     // for multi-threaded interpolation
 #include "interpolate.h" // functions for multi-threaded interpolation
-
-// for the stuff stolen from Numerical Recipies:
-#define NR_END 1
-#define FREE_ARG char*
 
 /* =============================================================================*/
 
@@ -741,9 +739,9 @@ float *NRvector(long nl, long nh)
 {
 	float *v;
 
-	v=(float *)malloc((size_t) ((nh-nl+1+NR_END)*sizeof(float)));
+	v=(float *)malloc((size_t) ((nh-nl+1+1)*sizeof(float)));
 	if (!v) printf("allocation failure in vector()");
-	return v-nl+NR_END;
+	return v-nl+1;
 }
 
 // Stolen from Numerical Recipies:
@@ -754,15 +752,15 @@ float **NRmatrix(long nrl, long nrh, long ncl, long nch)
 	float **m;
 
 	/* allocate pointers to rows */
-	m=(float **) malloc((size_t)((nrow+NR_END)*sizeof(float*)));
+	m=(float **) malloc((size_t)((nrow+1)*sizeof(float*)));
 	if (!m) printf("allocation failure 1 in matrix()");
-	m += NR_END;
+	m += 1;
 	m -= nrl;
 
 	/* allocate rows and set pointers to them */
-	m[nrl]=(float *) malloc((size_t)((nrow*ncol+NR_END)*sizeof(float)));
+	m[nrl]=(float *) malloc((size_t)((nrow*ncol+1)*sizeof(float)));
 	if (!m[nrl]) printf("allocation failure 2 in matrix()");
-	m[nrl] += NR_END;
+	m[nrl] += 1;
 	m[nrl] -= ncl;
 
 	for(i=nrl+1;i<=nrh;i++) m[i]=m[i-1]+ncol;
@@ -775,15 +773,15 @@ float **NRmatrix(long nrl, long nrh, long ncl, long nch)
 void NRfree_vector(float *v, long nl, long nh)
 /* free a float vector allocated with vector() */
 {
-	free((FREE_ARG) (v+nl-NR_END));
+	free((char*) (v+nl-1));
 }
 
 // Stolen from Numerical Recipies:
 void NRfree_matrix(float **m, long nrl, long nrh, long ncl, long nch)
 /* free a float matrix allocated by matrix() */
 {
-	free((FREE_ARG) (m[nrl]+ncl-NR_END));
-	free((FREE_ARG) (m+nrl-NR_END));
+	free((char*) (m[nrl]+ncl-1));
+	free((char*) (m+nrl-1));
 }
 
 

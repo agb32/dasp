@@ -488,35 +488,6 @@ class dm(base.aobase.aobase):
                 if self.actSlaves!=None:
                     self.applySlaving(self.actmap.ravel(),self.actSlaves)
             self.geom=None#"fried"#use the actoffset instead.  If this is zero (default), same as fried.
-        #self.actmap*=self.wavelengthRatio
-##         if self.control["poke"]:#User has started a poke process.
-##                     self.control["close_dm"]=0 #Open AO loop ready for poke
-##                     self.control["zero_dm"]=1 #Zero DM ready for addition of offsets 
-##             self.poking=1
-##             self.control["poke"]=0
-
-##         if self.control["zero_dm"]:#User want to zero the DM
-##             self.control["zero_dm"]=0
-##             self.tempphs[:,]=0.0#zeros((self.npup,self.npup),numpy.float64)
-##             self.dmphs[:,]=0.
-        
-##         if self.control["close_dm"]:#User wants to close AO loop
-##                     #print "actmap dimensions", self.actmap.shape, self.reconData.shape, self.nact
-##             self.actmap[:,]+=numpy.reshape(self.actmap_1d,(self.nact,self.nact))
-
-##                 if numpy.sum(zoffset)>0: #If offsets are present, add them to the actuator values
-##                     self.actmap += numpy.reshape(zoffset,(self.nact,self.nact)) # Add static offsets (if present)
-##             if self.poking>0:
-##             if self.poking==(self.nact*self.nact)+1:#finish poking.
-##                 self.poking=0
-##             else:#continue poking
-##             zpoke*=0.0#set the poke matrix to zero
-##             if self.dmflag_1d[self.poking-1]==1:
-##                             zpoke[self.poking-1]=self.pokeval
-##                             self.actmap += numpy.reshape(zpoke,(self.nact,self.nact))
-##                             self.poking+=1 # Move to next actuator
-##                         else:
-##                             self.poking+=1 # Move to next actuator without poking
         if self.subtractTipTilt:
             #remove tip and tilt from actmap.
             #Do this in a lazy way... which isn't totally accurate for non-square geometry (i.e. ie uses corner actuators too).
@@ -534,11 +505,6 @@ class dm(base.aobase.aobase):
             self.mirrorSurface.rotate(self.rotation())
 	#self.doInterpolation(self.actmap)
 
-##     def doInterpolation(self,actmap):
-##         if self.interpType=="bicubic":
-##             interpolateBicubic(actmap,self.dmpup,self.actCoupling,self.actFlattening,self.dmphs)
-##         else:#bicubuc spline
-##             interpolateSpline(actmap,self.dmpup,self.dmphs,self.geom,self.actoffset)
 
     def applySlaving(self,actmap,actslaves):
         """actslaves is a dict of indx:slavelist) where indx is the index of the actuator to be slaved, and slavelist is a list of (indx,val) where indx is the actuator index to get slaving from, and val is the strength to apply.

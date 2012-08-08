@@ -262,8 +262,9 @@ class plot:
         #    print axis.shape
         if self.update:
             if hasattr(self.ax.xaxis,"callbacks"):
-                self.ax.xaxis.callbacks.callbacks=dict([(s,dict()) for s in self.ax.xaxis.callbacks.signals])#needed to fix a bug!
-                self.ax.yaxis.callbacks.callbacks=dict([(s,dict()) for s in self.ax.yaxis.callbacks.signals])#needed to fix a bug!
+                if hasattr(self.ax.xaxis.callbacks,"signals") and hasattr(self.ax.xaxis.callbacks,"callbacks"):
+                    self.ax.xaxis.callbacks.callbacks=dict([(s,dict()) for s in self.ax.xaxis.callbacks.signals])#needed to fix a bug!
+                    self.ax.yaxis.callbacks.callbacks=dict([(s,dict()) for s in self.ax.yaxis.callbacks.signals])#needed to fix a bug!
             
             self.ax.clear()
             freeze,logscale,data,scale=self.mytoolbar.prepare(self.data,dim=self.dims)

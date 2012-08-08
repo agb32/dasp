@@ -31,7 +31,7 @@ imgnoise=Extension('imgnoisemodule',
 		include_dirs=idnumpy,
 		sources=['imgnoisemodule.c'],
 		library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-		extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm'],
+		extra_link_args=['-lgsl','-lgslcblas','-lm'],
 		)
 
 
@@ -52,7 +52,7 @@ interp=Extension('interpmodule',
                  include_dirs=idnumpy,
                  sources=['interpmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-                 extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm'],
+                 extra_link_args=['-lgsl','-lgslcblas','-lm'],
                  extra_objects = ['interpolate.o']
                  )
 phaseCov=Extension('phaseCovmodule',
@@ -60,7 +60,7 @@ phaseCov=Extension('phaseCovmodule',
                  sources=['phaseCovmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                    extra_compile_args=["-pthread"],
-                 extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm','-lpthread'],
+                 extra_link_args=['-lgsl','-lgslcblas','-lm','-lpthread'],
                  )
 zernike=Extension('zernikemodule',
                  include_dirs=idnumpy,
@@ -80,6 +80,12 @@ psfparams=Extension('psfparamsmodule',
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
+scrn=Extension('scrnmodule',
+		include_dirs=idnumpy,
+		sources=['scrnmodule.c'],
+		library_dirs=ld,
+		extra_link_args=['-lm','-lcblas','-latlas','-lgsl'],
+		)
                  
 
 setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams])
