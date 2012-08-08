@@ -19,10 +19,10 @@ import scipy.linalg as nala#agbhome
 import util.tel
 from scipy.special import gamma,gammaln
 import time
-try:
-    import Numeric
-except:
-    print "Unable to import Numeric - continuing"
+# try:
+#     import Numeric
+# except:
+#     print "Unable to import Numeric - continuing"
 
 def makeThetaGrid(npup,natype=na.float32):
     """
@@ -178,10 +178,7 @@ def makegammas(nzrad,returntype="numpy"):
     Code from Tim Butterley, date 20070111.
     nzrad is the radial order.
     """
-    if returntype=="numpy":
-        natype=na
-    else:
-        natype=Numeric
+    natype=na
     n=[0]
     m=[0]
     tt=[1]
@@ -212,8 +209,9 @@ def makegammas(nzrad,returntype="numpy"):
         gamx=na.zeros((nzmax,nzmax),na.float64)
         gamy=na.zeros((nzmax,nzmax),na.float64)
     else:
-        gamx=Numeric.zeros((nzmax,nzmax),Numeric.Float64)
-        gamy=Numeric.zeros((nzmax,nzmax),Numeric.Float64)
+        raise Exception("Numeric not supported anymore")
+        #gamx=Numeric.zeros((nzmax,nzmax),Numeric.Float64)
+        #gamy=Numeric.zeros((nzmax,nzmax),Numeric.Float64)
         
 
     # Gamma x
@@ -553,7 +551,7 @@ class Zernike:
         - jmax : maximum index of the Zernike polynomial to store into the zern array, either a int, or a list of ints to be generated.
         - natype : output array data type (by default Float32):
         """
-        if type(pupil)==na.ndarray or type(pupil)==Numeric.ArrayType:#ArrayType:
+        if type(pupil)==na.ndarray:# or type(pupil)==Numeric.ArrayType:#ArrayType:
             self.pupfn=pupil#na.array(pupil.copy())
         elif type(pupil)==type(1):
             self.pupfn=util.tel.Pupil(pupil,pupil/2.,0).fn
