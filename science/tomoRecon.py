@@ -1,12 +1,8 @@
 import os.path
 import numpy
 import base.aobase
-<<<<<<< HEAD
-=======
->>>>>>> 209052132d4a44f3cbf8da4c7cf9ce80a50eb4b6
 import util.centroid
 import util.phaseCovariance
-# import util.fdpcg # 2012 Aug 03: apparently not used
 import util.createPokeMx
 import util.tomofdpcg
 import util.FITS
