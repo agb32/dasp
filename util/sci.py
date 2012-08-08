@@ -1,13 +1,9 @@
-#import util.acmlfft
 import cmod.fft
-#import cmod.utils
 import util.arrayFromArray
-#import Numeric
 import numpy
 from util.flip import fliparray2
 from util.dist import dist
 import time
-#from plwf import dif_
 import util.FITS
 import os
 import tempfile

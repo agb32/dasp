@@ -1,9 +1,9 @@
 
 /* Numpy extension to create  Zernikes on a 2D Numpy array */
 
+#include <Python.h>
 #include <stdio.h>
 #include <math.h>
-#include <Python.h>
 
 #include "numpy/arrayobject.h"
 #include "jose.h"
@@ -29,12 +29,10 @@ float fac(float n)
 
 }
 
-static PyObject *zernike_zern(self,args)
-	PyObject *self, *args;
-
+static PyObject *zernike_zern(PyObject *self,PyObject *args)
 {
 	PyArrayObject	*pyzern;
-	int		i,j,nd,di,dj,nx,ny,n,jz,p1,q1,t1,s,nz,status=0;
+	int		i,j,di,dj,nx,ny,n,p1,q1,t1,s,status=0;
 	float		x,y,r,theta,a,b,c,d,exp,coeff,sum;
 	float		**zern;
 
@@ -45,7 +43,6 @@ static PyObject *zernike_zern(self,args)
 
 /* get input array dimensions */
 
-	nd=pyzern->nd;
 	ny=pyzern->dimensions[0];
 	nx=pyzern->dimensions[1];
 	di=pyzern->strides[0];
@@ -125,7 +122,7 @@ static PyMethodDef zernike_methods[] = 	{
 
 /* initialisation - register the methods with the Python interpreter */
 
-void initzernike()
+void initzernike(void)
 {
 	(void) Py_InitModule("zernike", zernike_methods);
 	import_array();

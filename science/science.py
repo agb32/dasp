@@ -8,7 +8,6 @@
 #import base.readConfig#,cmod.utils
 import base.aobase as aobase
 #import sys,math,thread
-#import Numeric
 #import math#,FFT
 import os
 import numpy
@@ -19,10 +18,8 @@ import string
 
 #from util.dist import dist
 
-#import cmod.Numfftw3.numfftw3 as nrfft ##Python wrapper to FFTW functions
 ##from cmod.psfparams import azav
 
-##import cmod.mkimg ##we use numfftw, therefore we don't need mkimg anymore
 #import types
 import time
 

@@ -989,7 +989,10 @@ static PyObject *mmapArray(PyObject *self,PyObject *args){
     if(st.st_size<size){
       //append to file...
       printf("File not large enough for mmap - appending to it\n");
-      truncate64(filename,size);
+      if(truncate64(filename,size)<0){
+	printf("Call (1) to truncate64 failed\n");
+	perror(NULL);
+      }
     }
   }else{//file doesn't exist..
     //create file and make it right size...
@@ -997,7 +1000,7 @@ static PyObject *mmapArray(PyObject *self,PyObject *args){
     if((fd=open(filename,O_RDWR|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO))>=0){
       close(fd);
       if(truncate64(filename,size)<0){
-	printf("Call to truncate64 failed\n");
+	printf("Call (2) to truncate64 failed\n");
 	perror(NULL);
       }
     }else{
@@ -1684,7 +1687,6 @@ static PyObject* dot(PyObject* self, PyObject* args)
 }
 
 
-
 static PyMethodDef UtilsMethods[] = {
   {"rotateArray",rotateArray,METH_VARARGS,"Rotate a 2D array"},
   {"compressFloatArray",CompressFloatArray,METH_VARARGS,"Compress floating point"},
@@ -1705,8 +1707,7 @@ static PyMethodDef UtilsMethods[] = {
   {"queryNumericArray",  queryNumericArray, METH_VARARGS,
    "Find out about a numeric array."},
   {"arrayfrombuffer", arrayfrombuffer, METH_VARARGS, "Create a Numeric array from an existing mmap.mmap object"},
-  {"dot", dot, METH_VARARGS, 
-   "Matrix-Vector multiplication. Usage:\n\c = dot(a, b, r, N)\n\       a ... 2-D array - input matrix\n\       b ... 1-D array - input vector\n\       r ... 1-D array - result vector (optional)\n\       N ... the number of threads (optional)"},
+  {"dot", dot, METH_VARARGS, "Matrix-Vector multiplication. Usage:\nc = dot(a, b, r, N)\n       a ... 2-D array - input matrix\n       b ... 1-D array - input vector\n       r ... 1-D array - result vector (optional)\n       N ... the number of threads (optional)"},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 //PyMODINIT_FUNC 

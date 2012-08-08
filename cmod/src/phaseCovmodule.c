@@ -3,20 +3,17 @@
  *   for non-Kolmogorov turbulence (either Boreman-Dainty or Von Karman)
  */
 
+#include "Python.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <pthread.h>
 
-#include "Python.h"
 #include "numpy/arrayobject.h"
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_gamma.h>
-
-//#include "nr.h"
-//#include "nrutil.h"
 
 
 /* Kolmogorov structure function
@@ -198,7 +195,7 @@ static PyObject *covariance(PyObject *self,PyObject *args)
 {
   PyArrayObject	*phaseCov,*modes,*output;
 
-  int nmodes,nx,ny,odi,odj,pcdi,pcdj,mdi,mdj,mdk;
+  int nmodes,nx,ny; //,odi,odj,pcdi,pcdj,mdi,mdj,mdk; (commented out as not used any more; UB 2012Aug08)
   int t;
   //float partint;
   int nthreads=1;
@@ -231,13 +228,13 @@ static PyObject *covariance(PyObject *self,PyObject *args)
   nmodes=modes->dimensions[0];
   ny=modes->dimensions[1];
   nx=modes->dimensions[2];
-  odi=output->strides[0];
-  odj=output->strides[1];
-  pcdi=phaseCov->strides[0];
-  pcdj=phaseCov->strides[1];
-  mdi=modes->strides[0];
-  mdj=modes->strides[1];
-  mdk=modes->strides[2];
+  //  odi=output->strides[0];    7 lines commented out as not used any more; UB 2012Aug08
+  //  odj=output->strides[1];
+  //  pcdi=phaseCov->strides[0];
+  //  pcdj=phaseCov->strides[1];
+  //  mdi=modes->strides[0];
+  //  mdj=modes->strides[1];
+  //  mdk=modes->strides[2];
   if(phaseCov->dimensions[0]!=ny || phaseCov->dimensions[1]!=nx || output->dimensions[0]!=nmodes || output->dimensions[1]!=nmodes){
       printf("Shape of phaseCov or output is wrong\n");
       return NULL;
@@ -313,7 +310,7 @@ static PyObject *covariance(PyObject *self,PyObject *args)
       }
     }
     }*/
-  printf("Creating phase covariance: Done               \n");
+  printf("Creating phase covariance: Done\n");
   Py_END_ALLOW_THREADS;
   return Py_BuildValue("");
 }
@@ -388,7 +385,7 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   //A version of above that uses modes that are localised... scales much better for large pupils.
   PyArrayObject	*phaseCov,*modes,*output,*modeCoords,*vig;
   PyObject *vigObj;
-  int nmodes,nx,ny;
+  int nmodes; //,nx,ny; nx and ny not used - comment out; UB 2012Aug08
   //int odi,odj,pcdi,pcdj,mdi,mdj,mdk;
   int t;
   //float partint;
@@ -423,8 +420,8 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   }
 
   nmodes=modes->dimensions[0];
-  ny=modes->dimensions[1];
-  nx=modes->dimensions[2];
+  //  ny=modes->dimensions[1];  2 lines not used - comment out; UB 2012Aug08
+  //  nx=modes->dimensions[2];
   if(phaseCov->dimensions[0]!=phaseCov->dimensions[1] || output->dimensions[0]!=nmodes || output->dimensions[1]!=nmodes || modeCoords->dimensions[0]!=nmodes || modeCoords->dimensions[1]!=2){
       printf("Shape of phaseCov or output or modeCoords is wrong\n");
       return NULL;
@@ -547,11 +544,11 @@ void splin4(float *x1a, float *x2a, float *ya,int di, float *y2a, int m, int n, 
 // functions (see interpmodule for an example).
 //
 int covWorkerQuick(runStruct *runInfo){
-  int g,h,i,j,k,l,nact,m,n;
+  int g,h,i,j,k,l,nact,m,n; // di
   float yshift,xshift;
   float *coords,*pc,*xin,*yin,*xout,*yout,*deriv,*tmparr,*mode,*mode2,*out;
   float partint;
-  int di,pcdi,pcdj,odi,odj,msg;
+  int pcdi,pcdj,odi,odj,msg;
   out=runInfo->out;
   odi=runInfo->odi;
   odj=runInfo->odj;
@@ -561,7 +558,7 @@ int covWorkerQuick(runStruct *runInfo){
   m=runInfo->ny;
   n=runInfo->nx;
   yin=xin=runInfo->xin;
-  di=runInfo->di;
+  //  di=runInfo->di; not used - comment out; UB 2012Aug08
   pc=runInfo->pc;
   pcdi=runInfo->pcdi;
   pcdj=runInfo->pcdj;
@@ -641,8 +638,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   float *coords;
   //int NperThread2;
   int s,e,t,i,j,m,n;
-  float *pc,*xin,*yin,*mode,*out,*outbig=NULL;
-  int pcdi,pcdj,di,dj,odi,odj;
+  float *pc,*xin,*mode,*out,*outbig=NULL; // *yin  not used - comment out; UB 2012Aug08
+  int pcdi,pcdj,odi,odj; // dj, di  not used - comment out; UB 2012Aug08
   int nthreads=1;
   int nact;
   /*
@@ -716,8 +713,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   pcdj=phaseCov->strides[1]/sizeof(float);
   m=pymode->dimensions[0];
   n=pymode->dimensions[1];
-  di=pymode->strides[0];
-  dj=pymode->strides[1];
+  //  di=pymode->strides[0];
+  //  dj=pymode->strides[1];
   mode=(float*)pymode->data;
   odi=output->strides[0]/sizeof(float);
   odj=output->strides[1]/sizeof(float);
@@ -726,7 +723,7 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   for(i=0; i<n; i++){
     xin[i]=i;
   }
-  yin=xin;
+  //  yin=xin;  not used - comment out; UB 2012Aug08
   Py_BEGIN_ALLOW_THREADS;
   thread=(pthread_t*)malloc(sizeof(pthread_t)*nthreads);
   threadInfo=(runStruct*)malloc(sizeof(runStruct)*nthreads);

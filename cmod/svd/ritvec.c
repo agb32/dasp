@@ -130,7 +130,7 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
    double b, test, g, r, s, c, p, f;
    clock_t starttime, endtime;
    //double *twocols=NULL;
-   long k1,k2,k1off,k2off;
+   long k1,k2,k1off;//,k2off not used - comment out - UB 2012Aug08
    int row;
    STYPE pp;//,sf,cf,ff;
    int ti;
@@ -267,7 +267,7 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
 		    k1=sp->indptr[i];
 		    k2=sp->indptr[i+1];
 		    k1off=0;
-		    k2off=0;
+		    //k2off=0;not used - comment out - UB 2012Aug08
 		    while(k1<sp->indptr[i+1] && k2<sp->indptr[i+2]){
 		      //printf("col %ld, k1=%ld<%d, k2=%ld<%d row %d %d full %d\n",i,k1,sp->indptr[i+1],k2,sp->indptr[i+2],sp->rowind[k1],sp->rowind[k2],sp->cnt==sp->ndata); 
 		      if(sp->rowind[k1]<sp->rowind[k2]){//only the first col contains a value for this row...
@@ -276,14 +276,16 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
 #ifdef SDOUBLE
 			test=sp->data[k1];
 			k1off=smReplaceData(sp,k1,i,c*test);//return 1 if replaced, 0 if removed.
-			k2off=smInsert(sp,row,i+1,s*test);//increment k2 counter if a new value inserted (we don't want to use it).
+			//k2off= ... not used - comment out - UB 2012Aug08
+			smInsert(sp,row,i+1,s*test);//increment k2 counter if a new value inserted (we don't want to use it).
 			//We now find the new values for k1 and k2.  Note, it is not just as simple as incrementing k1.  There are many things to take account of - whether data has been removed or inserted, where the current minimum value was, whether this was removed (if the array was full) etc.
 			k1=smGetIndxForRow(sp,row+1,i,k1);
 			k2=smGetIndxForRow(sp,row+1,i+1,k2);
 #else
 			test=(double)sp->data[k1];
 			k1off=smReplaceDataFloat(sp,k1,i,(float)(c*test));//return 1 if replaced, 0 if removed.
-			k2off=smInsertFloat(sp,row,i+1,(float)(s*test));//increment k2 counter if a new value inserted (we don't want to use it).
+			//k2off= ... not used - comment out - UB 2012Aug08
+			smInsertFloat(sp,row,i+1,(float)(s*test));//increment k2 counter if a new value inserted (we don't want to use it).
 			k1=smGetIndxForRowFloat(sp,row+1,i,k1);
 			k2=smGetIndxForRowFloat(sp,row+1,i+1,k2);
 #endif
@@ -294,13 +296,15 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
 			row=sp->rowind[k2];
 #ifdef SDOUBLE
 			f=sp->data[k2];
-			k2off=smReplaceData(sp,k2,i+1,c*f);
+			//k2off= ... not used - comment out - UB 2012Aug08
+			smReplaceData(sp,k2,i+1,c*f);
 			k1off=smInsert(sp,row,i,-s*f);
 			k1=smGetIndxForRow(sp,row+1,i,k1);
 			k2=smGetIndxForRow(sp,row+1,i+1,k2);
 #else
 			f=(double)sp->data[k2];
-			k2off=smReplaceDataFloat(sp,k2,i+1,(float)(c*f));
+			//k2off= ... not used - comment out - UB 2012Aug08
+			smReplaceDataFloat(sp,k2,i+1,(float)(c*f));
 			k1off=smInsertFloat(sp,row,i,(float)(-s*f));
 			k1=smGetIndxForRowFloat(sp,row+1,i,k1);
 			k2=smGetIndxForRowFloat(sp,row+1,i+1,k2);
@@ -313,14 +317,16 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
 			test=sp->data[k1];
 			f=sp->data[k2];
 			k1off=smReplaceData(sp,k1,i,c*test-s*f);
-			k2off=smReplaceData(sp,k2+k1off-1,i+1,s*test+c*f);
+			//k2off= ... not used - comment out - UB 2012Aug08
+			smReplaceData(sp,k2+k1off-1,i+1,s*test+c*f);
 			k1=smGetIndxForRow(sp,row+1,i,k1);
 			k2=smGetIndxForRow(sp,row+1,i+1,k2);
 #else
 			test=(double)sp->data[k1];
 			f=(double)sp->data[k2];
 			k1off=smReplaceDataFloat(sp,k1,i,(float)(c*test-s*f));
-			k2off=smReplaceDataFloat(sp,k2+k1off-1,i+1,(float)(s*test+c*f));
+			//k2off= ... not used - comment out - UB 2012Aug08
+			smReplaceDataFloat(sp,k2+k1off-1,i+1,(float)(s*test+c*f));
 			k1=smGetIndxForRowFloat(sp,row+1,i,k1);
 			k2=smGetIndxForRowFloat(sp,row+1,i+1,k2);
 #endif
@@ -334,13 +340,15 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
 #ifdef SDOUBLE
 		      test=sp->data[k1];
 		      k1off=smReplaceData(sp,k1,i,c*test);
-		      k2off=smInsert(sp,row,i+1,s*test);
+		      //k2off= ... not used - comment out - UB 2012Aug08
+		      smInsert(sp,row,i+1,s*test);
 		      k1=smGetIndxForRow(sp,row+1,i,k1);
 		      k2=smGetIndxForRow(sp,row+1,i+1,k2);
 #else
 		      test=(double)sp->data[k1];
 		      k1off=smReplaceDataFloat(sp,k1,i,(float)(c*test));
-		      k2off=smInsertFloat(sp,row,i+1,(float)(s*test));
+		      //k2off= ... not used - comment out - UB 2012Aug08
+		      smInsertFloat(sp,row,i+1,(float)(s*test));
 		      k1=smGetIndxForRowFloat(sp,row+1,i,k1);
 		      k2=smGetIndxForRowFloat(sp,row+1,i+1,k2);
 #endif
@@ -352,13 +360,15 @@ void IMTQL(long nm, long n, double d[], STORETYPE *e, STYPE *z,SPTYPE *sp,int nt
 		      row=sp->rowind[k2];
 #ifdef SDOUBLE
 		      f=sp->data[k2];
-		      k2off=smReplaceData(sp,k2,i+1,c*f);
+		      //k2off= ... not used - comment out - UB 2012Aug08
+		      smReplaceData(sp,k2,i+1,c*f);
 		      k1off=smInsert(sp,row,i,-s*f);
 		      k1=smGetIndxForRow(sp,row+1,i,k1);
 		      k2=smGetIndxForRow(sp,row+1,i+1,k2);
 #else
 		      f=(double)sp->data[k2];
-		      k2off=smReplaceDataFloat(sp,k2,i+1,(float)(c*f));
+		      //k2off= ... not used - comment out - UB 2012Aug08
+		      smReplaceDataFloat(sp,k2,i+1,(float)(c*f));
 		      k1off=smInsertFloat(sp,row,i,(float)(-s*f));
 		      k1=smGetIndxForRowFloat(sp,row+1,i,k1);
 		      k2=smGetIndxForRowFloat(sp,row+1,i+1,k2);
@@ -477,7 +487,7 @@ long RITVEC(long n, SMat A, SVDRec R, double kappa, double *ritz, double *bnd,
   //dSpMem *sp=NULL;
   //fSpMem *spf=NULL;
   //float *sf=NULL;
-  int xx,yy,allocatedUt=0;
+  int xx,allocatedUt=0;// yy ; yy not used - comment out - UB 2012Aug08
   js = steps + 1;
   jsq = js * js;//agb - this could be large for EAGLE - approx nact**2. - ie about 8GB since double.
   /*size = sizeof(double) * n;*/
@@ -541,7 +551,7 @@ long RITVEC(long n, SMat A, SVDRec R, double kappa, double *ritz, double *bnd,
     printf("Iteration %ld/%ld\r",k,js);
     fflush(NULL);
     tmp = id2;
-    yy=js-1;//added by agb for 2D s array...
+    //    yy=js-1;//added by agb for 2D s array...;  not used - comment out - UB 2012Aug08
     if (bnd[k] <= kappa * fabs(ritz[k]) && k > js-neig-1) {
       if (--x < 0)
 	x = R->d - 1;
@@ -1133,14 +1143,14 @@ long COMPUTEGENINVTHREADED(DMat Ut,DMat Vt,float *S, long neig, long neigForGenI
   //is the number of different values to count for.
   //evalStart (for testing) is the number of initial evals/vecs to ignore...
   long i;
-  clock_t starttime;
+  //  clock_t starttime; // not used - commented out by UB, 2012Aug08
   pthread_t *thread;
   long nleft;
   //long cnt=0;
   int j;
   compGenInvStruct *threadInfo;
   if(genInv!=NULL && genInv->typ!='D' && genInv->typ!='F'){
-    starttime=clock();
+    //    starttime=clock(); // not used - commented out by UB, 2012Aug08
     if(neigForGenInv<=0)
       neigForGenInv=neig;
     if(S!=NULL){
