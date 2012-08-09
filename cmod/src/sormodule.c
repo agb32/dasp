@@ -218,64 +218,64 @@ static PyObject *sor_fit(PyObject *self,PyObject *args){
 	    case 2://(sy[index+isegnum]+sy[index]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/2*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(double *)(py_angy->data + (i+0)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) // IS THIS A BUG?? diy and djy are used for py_angx !! (If it is not a bug because diy == dix and djy == djx, there should be a check above that actually diy==dix and djy==djx.
-				     +(*(double *)(py_angx->data + i*diy + (j+0)*djy)) ));
+				     +(*(double *)(py_angx->data + i*dix + (j+1)*djx))
+				     +(*(double *)(py_angx->data + i*dix + (j+0)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 3://(-sy[index]-sy[index-isegnum]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/2*(-(*(double *)(py_angy->data + (i+0)*diy + j*djy))  
 				     -(*(double *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+0)*djy)) ));
+				     +(*(double *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     +(*(double *)(py_angx->data + i*dix + (j+0)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 4://(sy[index+isegnum]+sy[index]-sx[index]-sx[index-1])*h
 	      ss[index]=(float)(h/2*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(double *)(py_angy->data + (i+0)*diy + j*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j+0)*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     -(*(double *)(py_angx->data + i*dix + (j+0)*djx)) 
+				     -(*(double *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 5://(-sy[index]-sy[index-isegnum]-sx[index]-sx[index-1])*h
 	      ss[index]=(float)(h/2*(-(*(double *)(py_angy->data + (i+0)*diy + j*djy))  
 				     -(*(double *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j+0)*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     -(*(double *)(py_angx->data + i*dix + (j+0)*djx)) 
+				     -(*(double *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 6://(sy[index+isegnum]-sy[index-isegnum]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/3*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     -(*(double *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j-0)*djy)) ));
+				     +(*(double *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     +(*(double *)(py_angx->data + i*dix + (j-0)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 7://(sy[index+isegnum]-sy[index-isegnum]-sx[index]-sx[index-1])*h
 	      ss[index]=(float)(h/3*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     -(*(double *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j+0)*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     -(*(double *)(py_angx->data + i*dix + (j+0)*djx)) 
+				     -(*(double *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 8://(sy[index+isegnum]+sy[index]+sx[index+1]-sx[index-1])*h
 	      ss[index]=(float)(h/3*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(double *)(py_angy->data + (i-0)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     +(*(double *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     -(*(double *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 9://(-sy[index]-sy[index-isegnum]+sx[index+1]-sx[index-1])*h
 	      ss[index]=(float)(h/3*(-(*(double *)(py_angy->data + (i+0)*diy + j*djy))  
 				     -(*(double *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     +(*(double *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     -(*(double *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 1://(sy[index+isegnum]-sy[index-isegnum]+sx[index+1]-sx[index-1])*h
 	      ss[index]=(float)(h/4*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     -(*(double *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     -(*(double *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     +(*(double *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     -(*(double *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
 	    default:
@@ -293,64 +293,64 @@ static PyObject *sor_fit(PyObject *self,PyObject *args){
 	    case 2://(sy[index+isegnum]+sy[index]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/2*(+(*(float *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(float *)(py_angy->data + (i+0)*diy + j*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+0)*djy)) ));
+				     +(*(float *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     +(*(float *)(py_angx->data + i*dix + (j+0)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 3://(-sy[index]-sy[index-isegnum]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/2*(-(*(float *)(py_angy->data + (i+0)*diy + j*djy))  
 				     -(*(float *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+0)*djy)) ));
+				     +(*(float *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     +(*(float *)(py_angx->data + i*dix + (j+0)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 4://(sy[index+isegnum]+sy[index]-sx[index]-sx[index-1])*h
 	      ss[index]=(float)(h/2*(+(*(float *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(float *)(py_angy->data + (i+0)*diy + j*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j+0)*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     -(*(float *)(py_angx->data + i*dix + (j+0)*djx)) 
+				     -(*(float *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 5://(-sy[index]-sy[index-isegnum]-sx[index]-sx[index-1])*h
 	      ss[index]=(float)(h/2*(-(*(float *)(py_angy->data + (i+0)*diy + j*djy))  
 				     -(*(float *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j+0)*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     -(*(float *)(py_angx->data + i*dix + (j+0)*djx)) 
+				     -(*(float *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 6://(sy[index+isegnum]-sy[index-isegnum]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/3*(+(*(float *)(py_angy->data + (i+1)*diy + j*djy))  
 				     -(*(float *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j-0)*djy)) ));
+				     +(*(float *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     +(*(float *)(py_angx->data + i*dix + (j-0)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 7://(sy[index+isegnum]-sy[index-isegnum]-sx[index]-sx[index-1])*h
 	      ss[index]=(float)(h/3*(+(*(float *)(py_angy->data + (i+1)*diy + j*djy))  
 				     -(*(float *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j+0)*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     -(*(float *)(py_angx->data + i*dix + (j+0)*djx)) 
+				     -(*(float *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 8://(sy[index+isegnum]+sy[index]+sx[index+1]-sx[index-1])*h
 	      ss[index]=(float)(h/3*(+(*(float *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(float *)(py_angy->data + (i-0)*diy + j*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     +(*(float *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     -(*(float *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 9://(-sy[index]-sy[index-isegnum]+sx[index+1]-sx[index-1])*h
 	      ss[index]=(float)(h/3*(-(*(float *)(py_angy->data + (i+0)*diy + j*djy))  
 				     -(*(float *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     +(*(float *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     -(*(float *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    case 1://(sy[index+isegnum]-sy[index-isegnum]+sx[index+1]-sx[index-1])*h
 	      ss[index]=(float)(h/4*(+(*(float *)(py_angy->data + (i+1)*diy + j*djy))  
 				     -(*(float *)(py_angy->data + (i-1)*diy + j*djy)) 
-				     +(*(float *)(py_angx->data + i*diy + (j+1)*djy)) 
-				     -(*(float *)(py_angx->data + i*diy + (j-1)*djy)) ));
+				     +(*(float *)(py_angx->data + i*dix + (j+1)*djx)) 
+				     -(*(float *)(py_angx->data + i*dix + (j-1)*djx)) ));
 	      p[index] = (float)(*(float *)(py_pist->data + i*di + j*dj));
 	      break;
 	    default:
@@ -361,7 +361,7 @@ static PyObject *sor_fit(PyObject *self,PyObject *args){
 	}
       }
     }else{
-      printf("sormodule - array inputs should be of same type\n");
+      PyErr_SetString(PyExc_TypeError, "Input arrays must be of same type, float or double.\n");
       return NULL;
     }
 

@@ -354,7 +354,7 @@ SVDRec svdLAS2A(SMat A, long dimensions) {
 SVDRec svdLAS2(SMat A, long dimensions, long iterations, double end[2], 
                double kappa,SVDRec R,long ritvecSize,int userNeig,ArrUnion *genInv, float minEig, float fracEig,int useStoreFloat, int useSFloat,double minGIVal,int transposeGI,int prepareForGenInv,int considerSwap,int nthreads){
   char transpose = FALSE;
-  long ibeta, it, irnd, machep, negep, n, i, steps, nsig, neig, m;
+  long ibeta, it, irnd, machep, negep, n, i, steps, neig, m; // nsig; not used - commented out by UB, 2012Aug08
   double *wptr[10], *ritz, *bnd;
   //int allocatedR=0; // not used - commented out by UB, 2012Aug08
   LanStoreStruct *lss;

@@ -2,61 +2,28 @@
 #
 # $Id: Makefile.generic,v 1.21 2009/09/11 08:03:39 ali Exp $
 #
+# Updated (cleaned up) by UB, 2012 Aug 09
+#
 
-#This was the original list.  These are now gradually being moved to
-#the setup.py file
-#MODULES=mkimg mkimgfloat
-#no longer required,I think.
-MODULES=
-#ifeq (`ls /usr/local/lib/libacml.so`,0)
-ifdef ACML
-#if we're on the cray, then add acml... (ACML is defined in the /etc/bash.bashrc.local file)
-MODULES += acmlfft
-#`echo Using acml`
-else
-#`echo Not using acml`
-endif
+OBJS = josesubs mvm interpolate
 
 .PHONY=clean_o clean_so
 
-
-default: ${OBJS:=.o} ${MODULES:=module.so} mvm.o interpolate.o 
-	echo ${MODULES}
-	echo ${OBJS}
+default: ${OBJS:=.o}
+	echo "OBJS:" ${OBJS}
 	python setup.py install --install-lib=../
-
-${MODULES:=module.so}: %module.so : %module.o
-	${LD} $< -o $@ ${LDFLAGS} ${FFTWLIBS} ${LIBS} ${OBJS:=.o}
 
 %.o: %.c
 	${CC} -c ${CFLAGS} $< -o $@
-
-
-# special case just for float version of mkimgmodule.
-mkimgfloatmodule.so: mkimgfloatmodule.o
-	${LD} ${LDFLAGS} ${SFFTWLIBS} ${LIBS} ${OBJS:=.o} $< -o $@ 
-
-mkimgfloatmodule.o: mkimgmodule.c
-	${CC} -c ${CFLAGS} $< -DUSE_FFTW_FLOAT -o $@
-
-#special case for centmodule.
-centmodule.so: centmodule.o
-	${LD} ${LDFLAGS} -lpthread -lgsl -lgslcblas -lfftw3f -lm ${OBJS:=.o} $< -o $@
-
-centmodule.o: centmodule.c
-	${CC} -c ${CFLAGS} $< -o $@
-
 
 #acml FFT functions...
 acmlfftmodule.o: acmlfft.c
 	${CC} -c -m64 ${CFLAGS} $< -o $@
 acmlfftmodule.so: acmlfft.c
-	    ${CC} -m64 acmlfft.c -fPIC -shared -lacml -lg2c -o acmlfftmodule.so
-
+	${CC} -m64 acmlfft.c -fPIC -shared -lacml -lg2c -o acmlfftmodule.so
 
 clean:
-	for x in utilsmodule mkimgfloatmodule ${MODULES:=module} ${OBJS} ; do if [ -r ../$$x.so ] ; then rm ../$$x.so ; fi ; if [ -r $$x.so ] ; then rm $$x.so ; fi ; if [ -r $$x.o ] ; then rm $$x.o ; fi ; done
+	for x in ${OBJS} ; do if [ -r $$x.o ] ; then rm $$x.o ; fi ; done
 	python setup.py clean --all 
+
 install: default
-#	mv ${MODULES:=module.so} ../
-	echo "Copy acmlmodule.so to .. by hand if on cray (or fix makefile)"
