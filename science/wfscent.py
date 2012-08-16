@@ -540,7 +540,7 @@ class wfscent(base.aobase.aobase):
             #wfs.initialiseCell(nspu=6,calsource=0,showCCDImg=0,allCents=1,cellseed=1)
             wfs.finishInit()
             #wfs.initialiseCell(nspu=6,calsource=self.control["cal_source"],showCCDImg=0,allCents=1,cellseed=self.cellseed)
-            #wfs.initialiseCmod(self.nthreads,self.control["cal_source"],self.cmodcentseed)
+            wfs.initialiseCmod(self.nthreads,self.control["cal_source"],self.cmodcentseed)
             #Take correlation image, if don't yet have one, and if doing correlationCentroiding.
             wfs.takeCorrImage(self.control)
             #Take the centroid weighting if we're using it...
