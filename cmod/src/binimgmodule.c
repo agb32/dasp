@@ -1,29 +1,16 @@
 
 /* Numpy extension to bin up a Numpy image/array  */
 //squash an image from dimsIn pixels into array of size dimsOut pixels.
+#include "Python.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "Python.h"
+#include "numpy/arrayobject.h"
 
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
-/*
-
-#define NUMERIC
-#ifdef NUMERIC
-#include "Numeric/arrayobject.h"
-#else
-#include "numarray/arrayobject.h"
-#endif
-*/
-
-
-static PyObject *binimg_binimg(self,args)
-	PyObject *self, *args;
-
+static PyObject *binimg_binimg(PyObject *self, PyObject *args)
 {
 	PyArrayObject	*imgin,*imgout;
-	int		i,j,i2,j2,id,jd,nbin,nd,diin,djin,diout,djout,size,dimsin[2],dimsout[2];
+	int		i,j,i2,j2,id,jd,nbin,diin,djin,diout,djout,dimsin[2],dimsout[2];
 	double		pixelin,pixelout;
 
  
@@ -34,7 +21,6 @@ static PyObject *binimg_binimg(self,args)
 
 /* get input and output array dimensions */
 
-	nd=imgin->nd;
 	dimsin[0]=imgin->dimensions[0];
 	dimsin[1]=imgin->dimensions[1];
 	diin=imgin->strides[0];
@@ -125,7 +111,7 @@ static PyMethodDef binimg_methods[] = 	{
 
 /* initialisation - register the methods with the Python interpreter */
 
-void initbinimg()
+void initbinimg(void)
 {
 	(void) Py_InitModule("binimg", binimg_methods);
 	import_array();

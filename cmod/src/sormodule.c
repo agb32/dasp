@@ -5,29 +5,16 @@
 *
 ****************************************************************************/ 
 
-
+#include "Python.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
 #include <string.h>
 #include <math.h>
-//#include "nr.h"
-//#include "nrutil.h"
-#include "Python.h"
 
-
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
-/*
-#define NUMERIC
-#ifdef NUMERIC
-#include "Numeric/arrayobject.h"
-#else
-#include "numarray/arrayobject.h"
-#endif
-*/
+#include "numpy/arrayobject.h"
 //#define  ISEGNUM 32
 #define  ISEGSZ 8
-
 
 
 /*This can actually be done in python...
@@ -231,7 +218,7 @@ static PyObject *sor_fit(PyObject *self,PyObject *args){
 	    case 2://(sy[index+isegnum]+sy[index]+sx[index+1]+sx[index])*h
 	      ss[index]=(float)(h/2*(+(*(double *)(py_angy->data + (i+1)*diy + j*djy))  
 				     +(*(double *)(py_angy->data + (i+0)*diy + j*djy)) 
-				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) 
+				     +(*(double *)(py_angx->data + i*diy + (j+1)*djy)) // IS THIS A BUG?? diy and djy are used for py_angx !! (If it is not a bug because diy == dix and djy == djx, there should be a check above that actually diy==dix and djy==djx.
 				     +(*(double *)(py_angx->data + i*diy + (j+0)*djy)) ));
 	      p[index] = (float)(*(double *)(py_pist->data + i*di + j*dj));
 	      break;
@@ -496,7 +483,7 @@ static PyObject *sor_fitOld1(PyObject *self,PyObject *args){
     int i,j,ix,iy,dimirr;
     int index,ns;
     int iter;
-    int ndx,dix,djx,dimsx[2],ndy,diy,djy,dimsy[2],nd,di,dj,dims[2];
+    int dix,djx,dimsx[2],diy,djy,dimsy[2],di,dj,dims[2];
     float w;
     float err;
     float avpist;
@@ -518,19 +505,16 @@ static PyObject *sor_fitOld1(PyObject *self,PyObject *args){
 /* get input Python array dimensions */
     dimirr=imirr->strides[0];
 
-    ndx=py_angx->nd;
     dimsx[0]=py_angx->dimensions[0];
     dimsx[1]=py_angx->dimensions[1];
     dix=py_angx->strides[0];
     djx=py_angx->strides[1];
     
-    ndy=py_angy->nd;
     dimsy[0]=py_angy->dimensions[0];
     dimsy[1]=py_angy->dimensions[1];
     diy=py_angy->strides[0];
     djy=py_angy->strides[1];
     
-    nd=py_pist->nd;
     dims[0]=py_pist->dimensions[0];
     dims[1]=py_pist->dimensions[1];
     di=py_pist->strides[0];
@@ -748,7 +732,7 @@ static PyObject *sor_fitOld(PyObject *self,PyObject *args){
     int i,j,ix,iy,dimirr;
     int index,ns;
     int iter;
-    int ndx,dix,djx,dimsx[2],ndy,diy,djy,dimsy[2],nd,di,dj,dims[2];
+    int dix,djx,dimsx[2],diy,djy,dimsy[2],di,dj,dims[2];
     float w;
     float err, pl;
     float avpist;
@@ -777,19 +761,16 @@ static PyObject *sor_fitOld(PyObject *self,PyObject *args){
 /* get input Python array dimensions */
     dimirr=imirr->strides[0];
 
-    ndx=py_angx->nd;
     dimsx[0]=py_angx->dimensions[0];
     dimsx[1]=py_angx->dimensions[1];
     dix=py_angx->strides[0];
     djx=py_angx->strides[1];
     
-    ndy=py_angy->nd;
     dimsy[0]=py_angy->dimensions[0];
     dimsy[1]=py_angy->dimensions[1];
     diy=py_angy->strides[0];
     djy=py_angy->strides[1];
     
-    nd=py_pist->nd;
     dims[0]=py_pist->dimensions[0];
     dims[1]=py_pist->dimensions[1];
     di=py_pist->strides[0];
@@ -984,6 +965,7 @@ static PyObject *sor_fitOld(PyObject *self,PyObject *args){
 		    //}
 		    break;
 		    default:
+		      diff = 0;
 		    break;
 		}
 		if((*(int*)(imirr->data+index*dimirr))!=0) {  
@@ -1070,7 +1052,7 @@ static PyMethodDef sor_methods[] = 	{
 
 /* initialisation - register the methods with the Python interpreter */
 
-void initsor()
+void initsor(void)
 {
 	(void) Py_InitModule("sor", sor_methods);
 	import_array();

@@ -8,14 +8,8 @@
 #include <pthread.h>
 #include <math.h>
 #include <string.h>//memcpy etc.
-//#include </usr/local/include/python2.4/Numeric/arrayobject.h>
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
+#include "numpy/arrayobject.h"
 #include "qsort.h"
-/*
-#include <Numeric/arrayobject.h>
-*/
-//taken from Numeric/Src/arrayobject.c - has comment that "obviously this needs some work".
-//#define ISCONTIGUOUS(m) ((m)->flags & CONTIGUOUS)//Use PyArray_ISCONTIGUOUS()
 static PyObject *CentError;
 
 #define simmalloc malloc
@@ -748,7 +742,7 @@ int calcCorrelation(int nimg,float *corrPattern,float *bimg,float *corrimg,float
       r7=a[i*n+n/2]*B(i,n/2)-a[(m-i)*n+n/2]*B(m-i,n/2);
       r8=a[i*n+n/2]*B(m-i,n/2)+a[(m-i)*n+n/2]*B(i,n/2);
       a[i*n+n/2]=r7;
-      a[(m-i)*n+n/2]=r7;
+      a[(m-i)*n+n/2]=r7; // IS THIS A BUG?? SHOULD IT BE "=r8" INSTEAD?? (UB, 2012Aug08)
     }
     
     for(j=1; j<(n+1)/2; j++){

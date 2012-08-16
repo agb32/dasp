@@ -296,7 +296,10 @@ double *svdLoadDenseArray(char *filename, int *np, char binary) {
     return NULL;
   }
   if (binary) svd_readBinInt(file, np);
-  else fscanf(file, " %d", np);
+  else{
+    if( fscanf(file, " %d", np) != 1 ) // "if" check added by UB 2012Aug08
+      svd_error("fscanf failure (1) in svdLoadDenseArray");
+  }
   n = *np;
   a = svd_doubleArray(n, FALSE, "svdLoadDenseArray: a");
   if (!a) return NULL;
@@ -308,7 +311,8 @@ double *svdLoadDenseArray(char *filename, int *np, char binary) {
     }
   } else {
     for (i = 0; i < n; i++)
-      fscanf(file, " %lf\n", a + i);
+      if( fscanf(file, " %lf\n", a + i) != 1 ) // "if" check added by UB 2012Aug08
+	svd_error("fscanf failure (2) in svdLoadDenseArray");
   }
   svd_closeFile(file);
   return a;

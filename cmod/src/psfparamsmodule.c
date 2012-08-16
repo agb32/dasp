@@ -1,26 +1,22 @@
 
 /* Calculate PSF azimuthal average etc. */
 
+#include "Python.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "Python.h"
-
 
 #include "numpy/arrayobject.h"
 #include "jose.h"
-
 
 /* ==================  azav =================================================*/ 
 /* find PSF azimuthal average, around peak pixel */
 
 
-static PyObject *psfparams_azav(self,args)
-	PyObject *self, *args;
-
+static PyObject *psfparams_azav(PyObject *self, PyObject *args)
 {
 	PyArrayObject	*pypsf,*pyazav,*pyencirc;
-	int		i,j,ir,nx,ny,di,dj,dims[2],dims1[1],nd,imax,jmax;
+	int		i,j,ir,nx,ny,di,dj,imax=0,jmax=0;
 	float		x,y,r,max,total,sum;
 	float		**psf,*azav,*encirc,*npts;
 
@@ -32,7 +28,6 @@ static PyObject *psfparams_azav(self,args)
 /* get input psf array dimensions */
 
 
-	nd=pypsf->nd;
 	ny=pypsf->dimensions[0];
 	nx=pypsf->dimensions[1];
 	di=pypsf->strides[0];
@@ -165,7 +160,7 @@ static PyMethodDef psfparams_methods[] = 	{
 
 /* initialisation - register the methods with the Python interpreter */
 
-void initpsfparams()
+void initpsfparams(void)
 {
 	(void) Py_InitModule("psfparams", psfparams_methods);
 	import_array();

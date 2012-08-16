@@ -76,7 +76,6 @@ class zernikeRecon:
                         subzgrad[k,m]=   self.subzxgrad[m,i,j]
                         subzgrad[k+1,m]= self.subzygrad[m,i,j]
         print "Performing zernike setup (SVD/matrix inverse)"
-        #status=cmod.zfit.setup(subzgrad) # C-call to do SVD setup (does svd decomposition into UWV, and sets small elements of W to zero.
         self.subzgrad=subzgrad
         if computeReconmx:
             self.zernikeReconMx,self.eigenVals=self.calcZernikeRecon(subzgrad,1e-6)
@@ -214,7 +213,6 @@ class zernikeRecon:
                     idata+=1
                     self.data[idata]=self.centy[i,j]
         #and then fit them.
-        #cmod.zfit.fit(self.data,self.coeff)# C-call for SVD Zernike fit
         self.coeff[:,]=quick.dot(self.zernikeReconMx,self.data)
         self.pist*=0.
         self.xtilt*=0.

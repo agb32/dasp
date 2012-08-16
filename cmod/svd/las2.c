@@ -356,7 +356,7 @@ SVDRec svdLAS2(SMat A, long dimensions, long iterations, double end[2],
   char transpose = FALSE;
   long ibeta, it, irnd, machep, negep, n, i, steps, nsig, neig, m;
   double *wptr[10], *ritz, *bnd;
-  int allocatedR=0;
+  //int allocatedR=0; // not used - commented out by UB, 2012Aug08
   LanStoreStruct *lss;
   //SVDRec R = NULL;
   clock_t starttime;
@@ -465,7 +465,7 @@ SVDRec svdLAS2(SMat A, long dimensions, long iterations, double end[2],
   //kappa=(fabs(kappa)>eps34?fabs(kappa):eps34);
   
   if(R==NULL){
-    allocatedR=1;
+    //allocatedR=1; // not used - commented out by UB, 2012Aug08
     R = svdNewSVDRec();
     if (!R) {
       svd_error("svdLAS2: allocation of R failed");
@@ -507,29 +507,37 @@ SVDRec svdLAS2(SMat A, long dimensions, long iterations, double end[2],
   if(lss->LanStore==NULL){//so using LanStoreFloat
     if(R->Vt->value==NULL){//float - ie valuef is assumed to be in use.
       if(useSFloat){//float
-	nsig = ritvecfff(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecfff(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }else{
-	nsig = ritvecdff(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecdff(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }
     }else{
       if(useSFloat){//float
-	nsig = ritvecffd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecffd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }else{
-	nsig = ritvecdfd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecdfd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], (float*)wptr[5],lss, steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }
     }
   }else{//using LanStore (double).
     if(R->Vt->value==NULL){//float - ie valuef is assumed to be in use.
       if(useSFloat){//float
-	nsig = ritvecfdf(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecfdf(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }else{
-	nsig = ritvecddf(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecddf(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }
     }else{
       if(useSFloat){//float
-	nsig = ritvecfdd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecfdd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }else{
-	nsig = ritvecddd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
+	//nsig = ... // not used - commented out by UB, 2012Aug08
+	ritvecddd(n, A, R, kappa, ritz, bnd, wptr[6], wptr[9], wptr[5], lss,steps, neig,ritvecSize,genInv,userNeig,minEig,fracEig,minGIVal,transposeGI,prepareForGenInv,considerSwap,nthreads,&ierr);
       }
     }
   }

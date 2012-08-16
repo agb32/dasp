@@ -18,7 +18,7 @@ cent = Extension('centmodule',
 #			runtime_library_dirs=['/usr/local/lib'],
 		libraries=["fftw3f"],
                 extra_compile_args=["-pthread"],
-		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-pthread'],
+		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-lpthread'],
 	        sources = ['centmodule.c']
 		)
 binimg=Extension('binimgmodule',
@@ -31,7 +31,7 @@ imgnoise=Extension('imgnoisemodule',
 		include_dirs=idnumpy,
 		sources=['imgnoisemodule.c'],
 		library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-		extra_link_args=['-lcrecipes','-lm'],
+		extra_link_args=['-lgsl','-lgslcblas','-lm'],
 		)
 
 
@@ -52,7 +52,7 @@ interp=Extension('interpmodule',
                  include_dirs=idnumpy,
                  sources=['interpmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-                 extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm'],
+                 extra_link_args=['-lgsl','-lgslcblas','-lm'],
                  extra_objects = ['interpolate.o']
                  )
 phaseCov=Extension('phaseCovmodule',
@@ -60,7 +60,7 @@ phaseCov=Extension('phaseCovmodule',
                  sources=['phaseCovmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                    extra_compile_args=["-pthread"],
-                 extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm','-lpthread'],
+                 extra_link_args=['-lgsl','-lgslcblas','-lm','-lpthread'],
                  )
 zernike=Extension('zernikemodule',
                  include_dirs=idnumpy,
@@ -73,12 +73,6 @@ xpoke=Extension('xpokemodule',
                  sources=['xpokemodule.c','josesubs.c'],
                  library_dirs=ld,
                  extra_link_args=['-lm'],
-                 )
-zfit=Extension('zfitmodule',
-                 include_dirs=idnumpy,
-                 sources=['zfitmodule.c','josesubs.c'],
-                 library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-                 extra_link_args=['-lcrecipes','-lm'],
                  )
 psfparams=Extension('psfparamsmodule',
                  include_dirs=idnumpy,
@@ -94,4 +88,4 @@ scrn=Extension('scrnmodule',
 		)
                  
 
-setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,zfit,psfparams,scrn])
+setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams])

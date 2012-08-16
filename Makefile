@@ -6,7 +6,7 @@
 
 install:
 	echo "Touching __init__.py's"
-	touch base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py cmod/Numfftw3/__init__.py gui/__init__.py gui/selectionbox/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py gui/pylab/__init__.py
+	touch base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py gui/__init__.py gui/selectionbox/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py gui/pylab/__init__.py
 	chmod +x gui/simctrl/simctrl.py
 	chmod +x gui/simsetup/simsetup.py
 	chmod +x gui/paramgui/paramgui.py
@@ -19,7 +19,7 @@ install:
 clean:
 	echo "Cleaning C"
 	(cd cmod/ ; make clean )
-	rm -f base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py gui/__init.py__ gui/selectionbox/__init__.py cmod/Numfftw3/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py
+	rm -f base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py gui/__init.py__ gui/selectionbox/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py
 	find . -name \*.pyc | xargs rm
 
 #	for x in base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py gui/__init.py__ gui/selectionbox/__init__.py cmod/Numfftw3/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py ; do if [ -a $$x ] ; then rm $$x ; fi ; done

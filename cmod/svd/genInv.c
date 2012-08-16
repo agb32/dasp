@@ -10,7 +10,7 @@ int convertToSparse(ArrUnion *genInv,double minGIVal, int transpose,ArrUnion *sp
   //the genInv in the first place.
   float fval;
   double dval;
-  int rout,cout,rin,cin;
+  int rout,cout,cin;//rin not used - comment out - UB 2012Aug08
   long colstep,rowstep;
   long ndata,indx,ii;
   int i,j;
@@ -27,12 +27,12 @@ int convertToSparse(ArrUnion *genInv,double minGIVal, int transpose,ArrUnion *sp
       ndata=spGenInv->data.dSp->ndata;
     }
     if(transpose){
-      rin=cout;
+      //      rin=cout; not used - comment out - UB 2012Aug08
       cin=rout;
       colstep=1;
       rowstep=(long)cin;
     }else{
-      rin=rout;
+      //      rin=rout; not used - comment out - UB 2012Aug08
       cin=cout;
       colstep=(long)cin;
       rowstep=1;

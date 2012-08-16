@@ -4,9 +4,7 @@
 # Integrate WFS CCD images
 
 import math
-#import Numeric,RandomArray
-import numpy,numpy.random#,numpy.fft
-#import FFT
+import numpy,numpy.random
 import cmod.imgnoise
 #from imgnoise import *
 import util.centroid
@@ -15,7 +13,6 @@ import util.guideStar
 #import cmod.mkimg
 #import cmod.mkimgfloat
 #import cmod.utils
-#from util.tel import Pupil
 #import thread
 import time,string
 import base.aobase
@@ -89,7 +86,9 @@ class wfscent(base.aobase.aobase):
         #then change its parent depending on control...
             
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
-        self.imageOnly=self.config.getVal("imageOnly",default=0)#0 to return slopes, 1 to return image as nsubx,nsubx,nimg,nimg, and 2 to return image as a 2d image.
+        self.imageOnly=self.config.getVal("imageOnly",default=0)# 0 to return slopes, 
+                                                                # 1 to return image as nsubx,nsubx,nimg,nimg, 
+                                                                # 2 to return image as a 2d image.
         if forGUISetup==1:#this won't be set if resource sharing - whats the point!  So, this is ok.
             nsubx=self.config.getVal("wfs_nsubx")
             nimg=self.config.getVal("wfs_nimg")
@@ -120,7 +119,7 @@ class wfscent(base.aobase.aobase):
             self.debug=debug
             self.fpid=None
             self.fullOutput=self.config.getVal("fullWFSOutput",default=1)
-            self.fpDataType=self.config.getVal("fpDataType",default=numpy.float32)                             # Numeric.Float64
+            self.fpDataType=self.config.getVal("fpDataType",default=numpy.float32)
             self.doneFinalInit=0
 ##             self.atmosPhaseType=self.config.getVal("atmosPhaseType",default="phaseonly")
 ##             if self.atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
@@ -344,7 +343,7 @@ class wfscent(base.aobase.aobase):
         if (wfs_int/tstep)%1!=0:
             print "Warning: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep)
         pupil=this.config.getVal("pupil")
-        wfs_minarea=this.config.getVal("wfs_minarea")#0.5...                                      # Min unvignetted subap area to use - why here ????
+        wfs_minarea=this.config.getVal("wfs_minarea")#0.5... # Min unvignetted subap area to use - why here ????
 
 
         
@@ -975,19 +974,20 @@ class wfscent(base.aobase.aobase):
                     #print "wfs: Reorder time %g"%(time.time()-t)
 
                 wfs.texp+=wfs.tstep
-                if wfs.texp>=wfs.integtime+wfs.latency:                                # Exposure Complete
+                if wfs.texp>=wfs.integtime+wfs.latency:  # Exposure Complete
                     wfs.texp=0.
                     if self.control["zeroOutput"]:
                         wfs.outputData[:]=0
                     else:
                         wfs.runCalc(self.control)
-                        if wfs.subtractTipTilt==-1 or (wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):#this should be used for LGS sensors
+                        # this should be used for LGS sensors:
+                        if wfs.subtractTipTilt==-1 or (
+                            wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
                             N=wfs.nsubaps
+                            # subtract average x centroid:
                             wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
+                            # subtract average y centroid:
                             wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
-                            #wfs.outputData[:,:,0]-=numpy.average(numpy.average(wfs.outputData[:,:,0]))#subtract average x centroid
-                            #wfs.outputData[:,:,1]-=numpy.average(numpy.average(wfs.outputData[:,:,1]))#subtract average y centroid
-                        
                     self.dataValid=1
 
                 if self.timing:
@@ -998,6 +998,13 @@ class wfscent(base.aobase.aobase):
         if self.debug!=None:
             print "wfs: Done generateNext (debug=%s)"%str(self.debug)
         self.generateNextTime=time.time()-t1
+
+
+
+
+
+
+
 
 ##     def runFPGA(self):
 ##         """Tell the FPGA where the data is..."""
@@ -1389,7 +1396,8 @@ class wfscent(base.aobase.aobase):
                 bimg=wfsobj.bimg.astype("f")
             for i in xrange(wfsobj.nsubx):     # Loop over subaps
                 for j in xrange(wfsobj.nsubx):
-                    self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=(bimg[i,j]*wfsobj.subflag[i,j])#.astype("f")    # Tessalate up for WFS display
+                    self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=\
+                        (bimg[i,j]*wfsobj.subflag[i,j])#.astype("f")    # Tessalate up for WFS display
         result=self.shimg[:wfsobj.nimg*wfsobj.nsubx,:wfsobj.nimg*wfsobj.nsubx]
         if mask!=0:
             if mask==1:
@@ -1425,7 +1433,8 @@ class wfscent(base.aobase.aobase):
             img=wfsobj.corrPatternUser
         for i in xrange(wfsobj.nsubx):
             for j in xrange(wfsobj.nsubx):
-                self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=img[i,j]    # Tessalate up for WFS display
+                 # Tessalate up for WFS display:
+                self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=img[i,j]
         result=self.shimg[:wfsobj.nimg*wfsobj.nsubx,:wfsobj.nimg*wfsobj.nsubx]
         if mask!=0:
             if mask==1:
