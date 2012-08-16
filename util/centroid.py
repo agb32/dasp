@@ -12,18 +12,18 @@ import util.poisson,time,os
 import util.dist
 import util.centcmod
 import util.correlation
-haveFPGA=1
-try:
-    import fpga
-except:
-    print "FPGA module not installed."
-    haveFPGA=0
-haveCell=1
-try:
-    import util.centcell
-except:
-    print "cell centcell/centppu module not installed"
-    haveCell=0
+# haveFPGA=1
+# try:
+#     import fpga
+# except:
+#     print "FPGA module not installed."
+#     haveFPGA=0
+# haveCell=1
+# try:
+#     import util.centcell
+# except:
+#     print "cell centcell/centppu module not installed"
+#     haveCell=0
 
 
 def pxlToRadTiltTheoretical(nsubx,phasesize,nimg,wfslam,telDiam):
@@ -79,7 +79,8 @@ class centroid:
     When used in the simulation framework, it enables resource sharing
     (memory and FPGA shared by more than one wfscent algorithm calculator).
     """
-    def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
+    #def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
+    def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -148,11 +149,11 @@ class centroid:
         self.binfactor=binfactor
         self.atmosPhaseType=atmosPhaseType
         self.fpDataType=fpDataType
-        self.useFPGA=useFPGA#shouldn't change
-        self.waitFPGA=waitFPGA
-        self.waitFPGATime=waitFPGATime
-        self.useCell=useCell#shouldn't change
-        self.waitCell=waitCell
+        # self.useFPGA=useFPGA#shouldn't change
+        # self.waitFPGA=waitFPGA
+        # self.waitFPGATime=waitFPGATime
+        # self.useCell=useCell#shouldn't change
+        # self.waitCell=waitCell
         self.phasesize=phasesize
         self.fftsize=fftsize
         self.clipsize=clipsize
@@ -207,31 +208,31 @@ class centroid:
         self.wfsn=8#this is changed when phase is input...
         if self.nsubx!=1 and oversamplefactor!=None and binfactor!=None:
             self.computePxlToRad(self.wfsn)
-        self.canUseFPGA=0
-        self.canUseCell=0
-        if self.useFPGA:
-            self.sigFPGA=int(self.sig*2**7/(self.phasesize**2))&0x7ffffff#20.7 format.
-            if int(self.sig*2**7)>0x7ffffff:#dont divide by phasesize^2 here.
-                print "wfscent: Warning - SIG too large, will overflow in FPGA"
-            self.fpgaSkybrightness=int(self.skybrightness*2**10/self.phasesize**2)
-            self.fpga_readbg=int((self.readbg-self.readnoise*127/26.11)*256)
-            self.fpga_readnoise=int(self.readnoise/26.11*256)
-            self.testFPGAUsage()
-            self.usePupil=1
-            self.symtype=0
-            npxls=(self.nsubx*self.phasesize)**2
-            if npxls>4*1024*1024*8*4:
-                print "Warning: can't fit pupil function into FPGA.  Assuming all pixels needed."
-                self.usePupil=0
-            elif npxls>4*1024*1024*8*2:
-                print "Using 2 fold symmetry for pupil function"
-                self.symtype=2
-            elif npxls>4*1024*1024*8:
-                print "Using 1 fold symmetry for pupil function"
-                self.symtype=1
-        elif self.useCell:
-            self.canUseCell=haveCell
-            self.phasesize_v=(self.phasesize+3)&~3#vectorised version for SPUs.
+        # self.canUseFPGA=0
+        # self.canUseCell=0
+        # if self.useFPGA:
+        #     self.sigFPGA=int(self.sig*2**7/(self.phasesize**2))&0x7ffffff#20.7 format.
+        #     if int(self.sig*2**7)>0x7ffffff:#dont divide by phasesize^2 here.
+        #         print "wfscent: Warning - SIG too large, will overflow in FPGA"
+        #     self.fpgaSkybrightness=int(self.skybrightness*2**10/self.phasesize**2)
+        #     self.fpga_readbg=int((self.readbg-self.readnoise*127/26.11)*256)
+        #     self.fpga_readnoise=int(self.readnoise/26.11*256)
+        #     self.testFPGAUsage()
+        #     self.usePupil=1
+        #     self.symtype=0
+        #     npxls=(self.nsubx*self.phasesize)**2
+        #     if npxls>4*1024*1024*8*4:
+        #         print "Warning: can't fit pupil function into FPGA.  Assuming all pixels needed."
+        #         self.usePupil=0
+        #     elif npxls>4*1024*1024*8*2:
+        #         print "Using 2 fold symmetry for pupil function"
+        #         self.symtype=2
+        #     elif npxls>4*1024*1024*8:
+        #         print "Using 1 fold symmetry for pupil function"
+        #         self.symtype=1
+        # elif self.useCell:
+        #     self.canUseCell=haveCell
+        #     self.phasesize_v=(self.phasesize+3)&~3#vectorised version for SPUs.
         self.magicCentroiding=magicCentroiding
         self.linearSteps=linearSteps
         self.calNCoeff=calNCoeff
@@ -275,7 +276,8 @@ class centroid:
         #Then, put your data into self.reorderedPhs... 
         #Now, can use self.runCalc({'cal_source':0/1})
 
-    def initMem(self,useFPGA,fpgaarr=None,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None,useCell=0):
+#    def initMem(self,useFPGA,fpgaarr=None,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None,useCell=0):
+    def initMem(self,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None):
         """initialise memory banks - useful if resource sharing is used in the simulation.
         Not needed if not using simulation framework.
         if useFPGA is set, tells us that we're using the FPGA... (only used
@@ -291,68 +293,69 @@ class centroid:
         self.fittedSubaps=None
         self.shareReorderedPhs=shareReorderedPhs
         phasesize_v=self.phasesize_v
-        if useFPGA:
-            if self.atmosPhaseType=="phaseonly":
-                atmosfactor=1#phaseonly...
-            else:
-                raise Exception("centroid: atmosphasetype...")
-            if type(fpgaarr)==type(None):
-                raise Exception("centroid: initMem called for FPGA use without passing the fpga accessible array.")
-            self.fpgaarr=fpgaarr
-            fpgaarrsize=fpgaarr.shape[0]
-            self.fpgaarrsize=fpgaarrsize
-            memNeeded=self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4*atmosfactor+self.nsubx*self.nsubx*2*4
-            nsubx=self.nsubx
-            nIntegrations=self.nIntegrations
-            phasesize=self.phasesize
-            if memNeeded>1024*1024*1024:
-                #cant all fit in fpga memory bank at once.
-                self.doPartialFPGA=1
-                #now see how many subaps can fit at once...
-                self.fittedSubaps=1024*1024*1024/(nIntegrations*phasesize*phasesize*4*atmosfactor+2*4)
-                self.partialFull=int(nsubx*nsubx/self.fittedSubaps)
-                #and the number of subaps left to do.
-                self.partialLeftOver=nsubx*nsubx-self.partialFull*self.fittedSubaps
-                self.waitLeftOver=self.partialLeftOver*nIntegrations*phasesize*phasesize*5e-9
-                #temporary input and output arrays for FPGA to access.
-                if atmosfactor==1:
-                    self.fpgaInArr=util.arrayFromArray.arrayFromArray(fpgaarr,(self.fittedSubaps,nIntegrations,phasesize,phasesize),numpy.float32)
-                #create the input and output to copy from and to...
-                #if self.atmosPhaseType!="phaseonly":
-                #    pass
-                self.fpgaOutArr=util.arrayFromArray.arrayFromArray(fpgaarr,(self.fittedSubaps,2),numpy.float32)
-                if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
-                    self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
-                else:
-                    self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
-                if type(outputDataMem)==type(None):
-                    if self.imageOnly==0:
-                        self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
-                    elif self.imageOnly==1:
-                        self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
-                    else:
-                        self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
+        # if useFPGA:
+        #     if self.atmosPhaseType=="phaseonly":
+        #         atmosfactor=1#phaseonly...
+        #     else:
+        #         raise Exception("centroid: atmosphasetype...")
+        #     if type(fpgaarr)==type(None):
+        #         raise Exception("centroid: initMem called for FPGA use without passing the fpga accessible array.")
+        #     self.fpgaarr=fpgaarr
+        #     fpgaarrsize=fpgaarr.shape[0]
+        #     self.fpgaarrsize=fpgaarrsize
+        #     memNeeded=self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4*atmosfactor+self.nsubx*self.nsubx*2*4
+        #     nsubx=self.nsubx
+        #     nIntegrations=self.nIntegrations
+        #     phasesize=self.phasesize
+        #     if memNeeded>1024*1024*1024:
+        #         #cant all fit in fpga memory bank at once.
+        #         self.doPartialFPGA=1
+        #         #now see how many subaps can fit at once...
+        #         self.fittedSubaps=1024*1024*1024/(nIntegrations*phasesize*phasesize*4*atmosfactor+2*4)
+        #         self.partialFull=int(nsubx*nsubx/self.fittedSubaps)
+        #         #and the number of subaps left to do.
+        #         self.partialLeftOver=nsubx*nsubx-self.partialFull*self.fittedSubaps
+        #         self.waitLeftOver=self.partialLeftOver*nIntegrations*phasesize*phasesize*5e-9
+        #         #temporary input and output arrays for FPGA to access.
+        #         if atmosfactor==1:
+        #             self.fpgaInArr=util.arrayFromArray.arrayFromArray(fpgaarr,(self.fittedSubaps,nIntegrations,phasesize,phasesize),numpy.float32)
+        #         #create the input and output to copy from and to...
+        #         #if self.atmosPhaseType!="phaseonly":
+        #         #    pass
+        #         self.fpgaOutArr=util.arrayFromArray.arrayFromArray(fpgaarr,(self.fittedSubaps,2),numpy.float32)
+        #         if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
+        #             self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
+        #         else:
+        #             self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
+        #         if type(outputDataMem)==type(None):
+        #             if self.imageOnly==0:
+        #                 self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
+        #             elif self.imageOnly==1:
+        #                 self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
+        #             else:
+        #                 self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
                                    
-                else:
-                    if self.imageOnly==0:
-                        self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,2),numpy.float32)
-                    elif self.imageOnly==1:
-                        self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
-                    else:
-                        self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
+        #         else:
+        #             if self.imageOnly==0:
+        #                 self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,2),numpy.float32)
+        #             elif self.imageOnly==1:
+        #                 self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
+        #             else:
+        #                 self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
                         
-            else: #fpga can access whole array.
-                self.doPartialFPGA=0
-                #fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.Int8)
-                #if self.atmosPhaseType!="phaseonly":
-                #    pass
-                if shareReorderedPhs==0:
-                    self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
-                    self.fpgaInput=util.arrayFromArray.arrayFromArray(fpgaarr,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)#copy phase to here, before running the fpga.
-                else:#it has to come from the fpgaarr... 
-                    self.reorderedPhs=util.arrayFromArray.arrayFromArray(fpgaarr,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)#fpga can access this directly.
-                self.outputData=util.arrayFromArray.arrayFromArray(fpgaarr[nsubx*nsubx*nIntegrations*phasesize*phasesize*4:,],(nsubx,nsubx,2),numpy.float32)
-        else:#not using FPGA, so set up memory without it.
+        #     else: #fpga can access whole array.
+        #         self.doPartialFPGA=0
+        #         #fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.Int8)
+        #         #if self.atmosPhaseType!="phaseonly":
+        #         #    pass
+        #         if shareReorderedPhs==0:
+        #             self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
+        #             self.fpgaInput=util.arrayFromArray.arrayFromArray(fpgaarr,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)#copy phase to here, before running the fpga.
+        #         else:#it has to come from the fpgaarr... 
+        #             self.reorderedPhs=util.arrayFromArray.arrayFromArray(fpgaarr,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)#fpga can access this directly.
+        #         self.outputData=util.arrayFromArray.arrayFromArray(fpgaarr[nsubx*nsubx*nIntegrations*phasesize*phasesize*4:,],(nsubx,nsubx,2),numpy.float32)
+        # else:#not using FPGA, so set up memory without it.
+        if 1:
             if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
                 self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
             else:
@@ -402,17 +405,17 @@ class centroid:
         else:
             self.pupsub=util.arrayFromArray.arrayFromArray(pupsubMem,(self.nsubx,self.nsubx,self.phasesize,self.phasesize),self.fpDataType)
         #print "centroid - initMem done"
-    def initialiseCell(self,nspu=6,calsource=0,showCCDImg=0,allCents=1,cellseed=1):
-        if self.canUseCell:
-            self.cellObj=util.centcell.centcell(self.fftsize,self.nsubx,self.nimg,self.phasesize,
-                                                self.ncen,self.nIntegrations,self.reorderdPhs,self.psf,self.pup,
-                                                self.outputData,calsource,self.sig,self.readnoise,
-                                                readbg=self.readbg,noisefloor=self.noiseFloor,
-                                                seed=cellseed,minarea=self.wfs_minarea,
-                                                skybrightness=self.skybrightness,allCents=allCents,
-                                                shimg=None,nspu=nspu)
-            self.cellObj.showCCDImg=showCCDImg
-            self.cellObj.initialise()
+    # def initialiseCell(self,nspu=6,calsource=0,showCCDImg=0,allCents=1,cellseed=1):
+    #     if self.canUseCell:
+    #         self.cellObj=util.centcell.centcell(self.fftsize,self.nsubx,self.nimg,self.phasesize,
+    #                                             self.ncen,self.nIntegrations,self.reorderdPhs,self.psf,self.pup,
+    #                                             self.outputData,calsource,self.sig,self.readnoise,
+    #                                             readbg=self.readbg,noisefloor=self.noiseFloor,
+    #                                             seed=cellseed,minarea=self.wfs_minarea,
+    #                                             skybrightness=self.skybrightness,allCents=allCents,
+    #                                             shimg=None,nspu=nspu)
+    #         self.cellObj.showCCDImg=showCCDImg
+    #         self.cellObj.initialise()
 
     def initialiseCmod(self,nthreads=8,calsource=0,seed=1):
         self.nthreads=nthreads
@@ -435,65 +438,65 @@ class centroid:
         else:
             self.centcmod=None
             
-    def initialiseFPGA(self,fpid=None,ignoreFailure=0,fpgaInfo=None,fpgaBitFile=None):
-        """Load the bin file.  Not needed if not using FPGAs."""
-        self.fpid=fpid
-        self.fpgaInfo=fpgaInfo#store info about what is currently loaded in fpga - eg fft size, pupil map etc.  This should be shared by all centroid objects using the FPGA, and is an instance of fpgaCentStateInformation class.
-        self.fpgaBinaryLoaded=0
-        if self.canUseFPGA:
-            if self.fpid==None:
-                try:
-                    self.fpid=fpga.open(reset=0,start=0)
-                    self.fpgaBinaryLoaded=1
-                except:
-                    if ignoreFailure:
-                        self.fpgaBinaryLoaded=0
-                        self.fpid=None
-                        print "Warning: wfscent - failed to initialise FPGA"
-                    else:
-                        raise
-                if self.fpgaBinaryLoaded:
-                    fpga.load(self.fpid,fpgaBitFile)
-                    if os.environ["HOSTNAME"]=="n1-c437":
-                        print "WARNING: wfscent FPGA module may not work correctly on node1... possibly something not quite right with the FPGA."
-                    fpga.reset(self.fpid)
-                    time.sleep(0.001)
-                    fpga.start(self.fpid)
-                    time.sleep(0.001)
-                    fpga.writeReg(self.fpid,0x2,6)#stop the fpga pipeline
-                    self.fpgaInfo=fpgaCentStateInformation()
-            else:
-                self.fpgaBinaryLoaded=1
-        if self.fpgaBinaryLoaded==0:
-            self.fpid=None
-            self.fpgaInfo=None
-            self.canUseFPGA=0
-        return self.fpid,self.fpgaInfo
+    # def initialiseFPGA(self,fpid=None,ignoreFailure=0,fpgaInfo=None,fpgaBitFile=None):
+    #     """Load the bin file.  Not needed if not using FPGAs."""
+    #     self.fpid=fpid
+    #     self.fpgaInfo=fpgaInfo#store info about what is currently loaded in fpga - eg fft size, pupil map etc.  This should be shared by all centroid objects using the FPGA, and is an instance of fpgaCentStateInformation class.
+    #     self.fpgaBinaryLoaded=0
+    #     if self.canUseFPGA:
+    #         if self.fpid==None:
+    #             try:
+    #                 self.fpid=fpga.open(reset=0,start=0)
+    #                 self.fpgaBinaryLoaded=1
+    #             except:
+    #                 if ignoreFailure:
+    #                     self.fpgaBinaryLoaded=0
+    #                     self.fpid=None
+    #                     print "Warning: wfscent - failed to initialise FPGA"
+    #                 else:
+    #                     raise
+    #             if self.fpgaBinaryLoaded:
+    #                 fpga.load(self.fpid,fpgaBitFile)
+    #                 if os.environ["HOSTNAME"]=="n1-c437":
+    #                     print "WARNING: wfscent FPGA module may not work correctly on node1... possibly something not quite right with the FPGA."
+    #                 fpga.reset(self.fpid)
+    #                 time.sleep(0.001)
+    #                 fpga.start(self.fpid)
+    #                 time.sleep(0.001)
+    #                 fpga.writeReg(self.fpid,0x2,6)#stop the fpga pipeline
+    #                 self.fpgaInfo=fpgaCentStateInformation()
+    #         else:
+    #             self.fpgaBinaryLoaded=1
+    #     if self.fpgaBinaryLoaded==0:
+    #         self.fpid=None
+    #         self.fpgaInfo=None
+    #         self.canUseFPGA=0
+    #     return self.fpid,self.fpgaInfo
 
     
-    def setupFPGAArray(self,fpid=None,fpgaarrsize=None):
-        """allocate FPGA memory buffer.  This assumes that phasetype is "phaseonly".
-        """
-        #fpgaarrsize,doPartialFPGA,fittedSubaps,partialLeftOver,partialFull,waitLeftOver,fpgaarr,fpgaInArr,reorderedPhs,outputData
-        #if self.atmosPhaseType=="phaseonly":
-        atmosfactor=1#phaseonly...
-        #else:
-        #    raise Exception("centroid: atmosphasetype...")
-        nsubx=self.nsubx
-        nIntegrations=self.nIntegrations
-        phasesize=self.phasesize
-        if fpgaarrsize==None:
-            fpgaarrsize=nsubx*nsubx*nIntegrations*phasesize*phasesize*4*atmosfactor+nsubx*nsubx*2*4
-        if fpid==None:
-            fpid=self.fpid
-        if fpgaarrsize<4*1024*1024:
-            fpgaarrsize=4*1024*1024#needs 4MB array for loading QDR memory.
-        if fpgaarrsize>1024*1024*1024:
-            print "Warning: Pupil pixel size is too large for single FPGA array - will use multiple arrays, but speed will be reduced (FPGA can access only a 1GB buffer)."
-            fpgaarrsize=1024*1024*1024#might not all be used, but then we don't know that!  However, it is likely that a whole number of subaps will fit exactly since they are usually powers of two.
+    # def setupFPGAArray(self,fpid=None,fpgaarrsize=None):
+    #     """allocate FPGA memory buffer.  This assumes that phasetype is "phaseonly".
+    #     """
+    #     #fpgaarrsize,doPartialFPGA,fittedSubaps,partialLeftOver,partialFull,waitLeftOver,fpgaarr,fpgaInArr,reorderedPhs,outputData
+    #     #if self.atmosPhaseType=="phaseonly":
+    #     atmosfactor=1#phaseonly...
+    #     #else:
+    #     #    raise Exception("centroid: atmosphasetype...")
+    #     nsubx=self.nsubx
+    #     nIntegrations=self.nIntegrations
+    #     phasesize=self.phasesize
+    #     if fpgaarrsize==None:
+    #         fpgaarrsize=nsubx*nsubx*nIntegrations*phasesize*phasesize*4*atmosfactor+nsubx*nsubx*2*4
+    #     if fpid==None:
+    #         fpid=self.fpid
+    #     if fpgaarrsize<4*1024*1024:
+    #         fpgaarrsize=4*1024*1024#needs 4MB array for loading QDR memory.
+    #     if fpgaarrsize>1024*1024*1024:
+    #         print "Warning: Pupil pixel size is too large for single FPGA array - will use multiple arrays, but speed will be reduced (FPGA can access only a 1GB buffer)."
+    #         fpgaarrsize=1024*1024*1024#might not all be used, but then we don't know that!  However, it is likely that a whole number of subaps will fit exactly since they are usually powers of two.
         
-        fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.int8)
-        return fpgaarr
+    #     fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.int8)
+    #     return fpgaarr
         
 
 
@@ -521,24 +524,21 @@ class centroid:
         self.tilt_indx = (numpy.array(range(self.nimg),numpy.float64))-float(self.nimg/2)+0.5#Index fns for centroiding
         #print "centroid - finishInit done"
 
-    def closeCell(self):
-        if self.canUseCell:
-            self.cellObj.close()
+    # def closeCell(self):
+    #     if self.canUseCell:
+    #         self.cellObj.close()
 
     def runCalc(self,control):
         doref=1
         if self.phaseMultiplier!=1:
             self.reorderedPhs*=self.phaseMultiplier
-        if control.get("useFPGA",0) and self.canUseFPGA:
-            # use the FPGA - note that you might get a non-zero centroid value for parts of
-            # the array which are masked off simply because of the ccd readout noise.  The 
-            # software version handles this incorrectly.
-            # Check whether registers are still valid for this object, and if not, change them so that they are:
-            self.setFPGARegs(control["cal_source"])
-            self.runFPGA()
-        elif control.get("useCell",0) and self.canUseCell:
-            self.runCell(control["cal_source"])
-        elif control.get("useCmod",1):
+        # if control.get("useFPGA",0) and self.canUseFPGA:
+        #     # use the FPGA - note that you might get a non-zero centroid value for parts of the array which are masked off simply because of the ccd readout noise.  The software version handles this incorrectly.
+        #     self.setFPGARegs(control["cal_source"])#check whether registers are still valid for this object, and if not, change them so that they are.
+        #     self.runFPGA()
+        # elif control.get("useCell",0) and self.canUseCell:
+        #     self.runCell(control["cal_source"])
+        if control.get("useCmod",1):
             self.runCmod(control["cal_source"])
             # no calibration done, or done in c, so ref can be done by c:
             if self.linearSteps==None or self.psf!=None or self.correlationCentroiding!=None or self.calNCoeff!=0:
@@ -554,15 +554,14 @@ class centroid:
             if self.refCents!=None:
                 self.outputData-=self.refCents
 
-    def runCell(self,calsource):
-        """Tell the cell to perform computations."""
-        if self.magicCentroiding:
-            self.magicShackHartmann()
-            return
-        if self.canUseCell:
-            self.cellObj.setCalSource(calsource)
-            # If waitCell==0, will need to call self.cellObj.waitForCents() at some later time:
-            self.cellObj.startProcessing(block=self.waitCell)
+    # def runCell(self,calsource):
+    #     """Tell the cell to perform computations."""
+    #     if self.magicCentroiding:
+    #         self.magicShackHartmann()
+    #         return
+    #     if self.canUseCell:
+    #         self.cellObj.setCalSource(calsource)
+    #         self.cellObj.startProcessing(block=self.waitCell)#if waitCell==0, will need to call self.cellObj.waitForCents() at some later time.
 
     def runPy(self,calsource):
         """run the python version"""
@@ -593,83 +592,80 @@ class centroid:
     def closeCmod(self):
         self.centcmod.free()
         self.centcmod=None
+    # def runFPGA(self):
+    #     """Tell the FPGA where the data is..."""
+    #     if self.magicCentroiding:
+    #         self.magicShackHartmann()
+    #         return
+    #     fpid=self.fpid
+    #     #now, we set the FPGA going (after copying data if necessary).
+    #     t0=time.time()
+    #     #print "runfpga"
+    #     if self.doPartialFPGA:
+    #         #array is too large to DMA all at once to FPGA, so do in parts.
+    #         #calculate number of times a full array is needed...
+    #         if self.atmosPhaseType=="phaseonly":
+    #             reordered=util.arrayFromArray.arrayFromArray(self.reorderedPhs,(self.nsubx*nsubx,self.nIntegrations,self.phasesize,self.phasesize),numpy.float32)
+    #         else:
+    #             raise Exception("not phaseonly")
+    #         output=util.arrayFromArray.arrayFromArray(self.outputData,(self.nsubx*self.nsubx,2),numpy.float32)
+    #         fpga.writeAddr(fpid,self.fpgaInArr,1)#input address
+    #         fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
+    #         fpga.writeAddr(fpid,self.fpgaOutArr,3)#output address
+    #         fpga.writeReg(fpid,self.fittedSubaps,4)#size to write (in bytes).
+    #         for i in range(self.partialFull):
+    #             #copy memory into FPGA buffer
+    #             self.fpgaInArr[:,]=reordered[i*self.fittedSubaps:(i+1)*self.fittedSubaps]
+    #             fpga.writeReg(fpid,0x2,6)#reinitialise
+    #             fpga.writeReg(fpid,1,6)#set it going.
+    #             time.sleep(self.waitFPGATime/self.partialFull)#wait for it to complete (or almost)
+    #             while fpga.readReg(fpid,5)!=7:#wait for reading to complete by checking register.
+    #                 pass
+    #             #copy centroids to the output...
+    #             output[i*self.fittedSubaps:(i+1)*self.fittedSubaps]=self.fpgaOutArr
+    #         if self.partialLeftOver>0:#copy the last bit...
+    #             self.fpgaInArr[:self.partialLeftOver]=reordered[self.partialFull*self.fittedSubaps:self.partialFull*self.fittedSubaps+self.partialLeftOver]
+    #             fpga.writeReg(fpid,0x2,6)#reinitialise
+    #             fpga.writeReg(fpid,self.partialLeftOver*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#read siz
+    #             fpga.writeReg(fpid,self.partialLeftOver,4)#size to write
+    #             fpga.writeReg(fpid,1,6)#set it going
+    #             time.sleep(self.waitLeftOver)
+    #             while fpga.readReg(fpid,5)!=7:#wait til finished
+    #                 pass
+    #             #and copy centroids to the output array.
+    #             output[self.partialFull*self.fittedSubaps:self.partialFull*self.fittedSubaps+self.partialLeftOver]=self.fpgaOutArr[:self.partialLeftOver]
 
-    def runFPGA(self):
-        """Tell the FPGA where the data is..."""
-        if self.magicCentroiding:
-            self.magicShackHartmann()
-            return
-        fpid=self.fpid
-        #now, we set the FPGA going (after copying data if necessary).
-        t0=time.time()
-        #print "runfpga"
-        if self.doPartialFPGA:
-            #array is too large to DMA all at once to FPGA, so do in parts.
-            #calculate number of times a full array is needed...
-            if self.atmosPhaseType=="phaseonly":
-                reordered=util.arrayFromArray.arrayFromArray(self.reorderedPhs,
-                          (self.nsubx*nsubx,self.nIntegrations,self.phasesize,self.phasesize),
-                                                             numpy.float32)
-            else:
-                raise Exception("not phaseonly")
-            output=util.arrayFromArray.arrayFromArray(self.outputData,(self.nsubx*self.nsubx,2),numpy.float32)
-            fpga.writeAddr(fpid,self.fpgaInArr,1)#input address
-            fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
-            fpga.writeAddr(fpid,self.fpgaOutArr,3)#output address
-            fpga.writeReg(fpid,self.fittedSubaps,4)#size to write (in bytes).
-            for i in range(self.partialFull):
-                #copy memory into FPGA buffer
-                self.fpgaInArr[:,]=reordered[i*self.fittedSubaps:(i+1)*self.fittedSubaps]
-                fpga.writeReg(fpid,0x2,6)#reinitialise
-                fpga.writeReg(fpid,1,6)#set it going.
-                time.sleep(self.waitFPGATime/self.partialFull)#wait for it to complete (or almost)
-                while fpga.readReg(fpid,5)!=7:#wait for reading to complete by checking register.
-                    pass
-                #copy centroids to the output...
-                output[i*self.fittedSubaps:(i+1)*self.fittedSubaps]=self.fpgaOutArr
-            if self.partialLeftOver>0:#copy the last bit...
-                self.fpgaInArr[:self.partialLeftOver]=reordered[self.partialFull*self.fittedSubaps:self.partialFull*self.fittedSubaps+self.partialLeftOver]
-                fpga.writeReg(fpid,0x2,6)#reinitialise
-                fpga.writeReg(fpid,self.partialLeftOver*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#read siz
-                fpga.writeReg(fpid,self.partialLeftOver,4)#size to write
-                fpga.writeReg(fpid,1,6)#set it going
-                time.sleep(self.waitLeftOver)
-                while fpga.readReg(fpid,5)!=7:#wait til finished
-                    pass
-                #and copy centroids to the output array.
-                output[self.partialFull*self.fittedSubaps:self.partialFull*self.fittedSubaps+self.partialLeftOver]=self.fpgaOutArr[:self.partialLeftOver]
-
-                #now reset the registers for next time...
-                fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#read siz
-                fpga.writeReg(fpid,self.fittedSubaps,4)#size to write
+    #             #now reset the registers for next time...
+    #             fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#read siz
+    #             fpga.writeReg(fpid,self.fittedSubaps,4)#size to write
 
                       
-        else:
-            #all subaps at once...
-            if self.shareReorderedPhs:#this must be the only object using it...
-                pass#already in the fpga array
-            else:#copy to fpga array.
-                self.fpgaInput[:,]=self.reorderedPhs
-            fpga.writeReg(fpid,0x2,6)#reinitialise
-            fpga.writeAddr(fpid,self.fpgaarr,1)#input address
-            fpga.writeReg(fpid,self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
-            fpga.writeAddr(fpid,self.outputData,3)#output address
-            fpga.writeReg(fpid,self.nsubx*self.nsubx,4)#size to write (in bytes).
-            #print "reading fpga reg %s"%hex(fpga.readReg(fpid,5))
-            t0=time.time()
-            fpga.writeReg(fpid,1,6)#set it going.
-            if self.waitFPGA:
-                if self.waitFPGATime>0:
-                    time.sleep(self.waitFPGATime)#wait for it to complete (or almost).
-                v=fpga.readReg(fpid,5)
-                #print hex(v)
-                while v!=7:#wait for reading to complete by checking register...
-                    v=fpga.readReg(fpid,5)
-                    #print hex(v)
-                    pass
-        if self.timing:
-            t1=time.time()
-            print "WFSCent time taken: %s"%str(t1-t0)
+    #     else:
+    #         #all subaps at once...
+    #         if self.shareReorderedPhs:#this must be the only object using it...
+    #             pass#already in the fpga array
+    #         else:#copy to fpga array.
+    #             self.fpgaInput[:,]=self.reorderedPhs
+    #         fpga.writeReg(fpid,0x2,6)#reinitialise
+    #         fpga.writeAddr(fpid,self.fpgaarr,1)#input address
+    #         fpga.writeReg(fpid,self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
+    #         fpga.writeAddr(fpid,self.outputData,3)#output address
+    #         fpga.writeReg(fpid,self.nsubx*self.nsubx,4)#size to write (in bytes).
+    #         #print "reading fpga reg %s"%hex(fpga.readReg(fpid,5))
+    #         t0=time.time()
+    #         fpga.writeReg(fpid,1,6)#set it going.
+    #         if self.waitFPGA:
+    #             if self.waitFPGATime>0:
+    #                 time.sleep(self.waitFPGATime)#wait for it to complete (or almost).
+    #             v=fpga.readReg(fpid,5)
+    #             #print hex(v)
+    #             while v!=7:#wait for reading to complete by checking register...
+    #                 v=fpga.readReg(fpid,5)
+    #                 #print hex(v)
+    #                 pass
+    #     if self.timing:
+    #         t1=time.time()
+    #         print "WFSCent time taken: %s"%str(t1-t0)
         #print "runfpgadone"
     def reorder(self,phs,pos):
         """Do a reodering of the phase buffer, so that it is in the form ready
@@ -842,353 +838,354 @@ class centroid:
                         self.centx[i,j]=numpy.sum(numpy.sum(cimg,0)*indx)/totsig  
                         self.centy[i,j]=numpy.sum(numpy.sum(cimg,1)*indx)/totsig
 
-    def testFPGAUsage(self):
-        """Checks variables are suitable for FPGA use"""
-        self.canUseFPGA=haveFPGA
-        if self.atmosPhaseType!="phaseonly":
-            print "WARNING: Cannot use FPGA - atmosPhaseType must be phaseonly"
-            self.canUseFPGA=0
-        if self.fpDataType!=numpy.float32:
-            print "WARNING: Cannot use FPGA - fpDataType must be float32"
-            self.canUseFPGA=0
-        if self.fftsize not in [8,16,32]:
-            print "WARNING: FPGA cannot use this FFT array size"
-            self.canUseFPGA=0
-        if self.nIntegrations<1 or self.nIntegrations>63:
-            print "WARNING: Illegal number of integrations for FPGA - must be less than 64"
-            self.canUseFPGA=0
-        if self.nimg<2 or self.nimg>32:
-            print "WARNING: Illegal pixel size for centroiding in FPGA (nimg) - must be 2-32"
-            self.canUseFPGA=0
-        if self.phasesize<1 or self.phasesize>32:
-            print "WARNING: Illegal phase size for use in FPGA (phasesize) - must be <32"
-            self.canUseFPGA=0
-        if type(self.sig)!=type(0.0):
-            print "WARNING: Signal cannot be array for use in FPGA."
-            self.canUseFPGA=0
-        if int(self.sig*2**7)>0x7ffffff:
-            print "WARNING: Signal is too bright for use in FPGA - should be less than 0xfffff"
-            self.canUseFPGA=0
-        if self.skybrightness>0xffff:
-            print "WARNING: Sky background is too bright for use in FPGA - should be less than 0xffff"
-            self.canUseFPGA=0
-        if self.noiseFloor>0xffff:
-            print "WARNING: WFS floor (threshold) value is too high for use in FPGA - should be less than 0xffff"
-            self.canUseFPGA=0
-        if self.fpga_readbg>0xffffff or self.fpga_readnoise>0xffff:
-            print "WARNING: CCD readout noise is too high for use in FPGA (mean or sigma)"
-            self.canUseFPGA=0
-        if self.nsubx<1 or self.nsubx>1023:
-            print "WARNING: Number of subapertures is too large for use in FPGA (needs nsubx<1024)"
-            self.caUseFPGA=0
-        if type(self.psf)!=type(None):
-            print "WARNING: FPGA cannot use psf (eg lgs spot elongation, or airy disc convolution)"
-            self.canUseFPGA=0
-        if self.opticalBinning:
-            print "WARNING: FPGA cannot use optical binning"
-            self.canUseFPGA=0
-        return self.canUseFPGA
 
-    def setFPGARegs(self,calsource):
-        """Here we check that the registers in the FPGA are what they should be for this instance of centroid.  If not, we set the registers correctly.  If using resource sharing, this should be called everytime a new FPGA calc is required."""
-        #print "setfpgaregs"
-        if not self.canUseFPGA:
-            return
-        #set up memory...
-        if self.fpgaInfo.calSource!=calsource:
-            self.loadPoisson(calsource)
-        if self.fpgaInfo.seedLoaded==0:
-            self.loadSeed()
-        if self.fpgaInfo.pupil is not self.pupfn:#different arrays
-            self.loadPupil()
-        #now initialise the registers...
-        if self.fpgaInfo.nimg!=self.nimg or self.fpgaInfo.fftsize!=self.fftsize:
-            self.loadBinCtrl()
-        if type(self.fpgaInfo.cenmask)==type(None) or self.fpgaInfo.cenmask.shape!=self.cenmask.shape or numpy.sum(numpy.sum(self.fpgaInfo.cenmask==self.cenmask))!=self.nimg*self.nimg:
-            self.loadCenMask()
-        if self.fpgaInfo.doPartialFPGA!=self.doPartialFPGA or self.fittedSubaps!=self.fpgaInfo.fittedSubaps or self.nIntegrations!=self.fpgaInfo.nIntegrations or self.nsubx!=self.fpgaInfo.nsubx or self.phasesize!=self.fpgaInfo.phasesize:
-            self.loadFPGARegAddr()
 
-        if self.nIntegrations!=self.fpgaInfo.nIntegrations or self.nimg!=self.fpgaInfo.nimg or self.fftsize!=self.fpgaInfo.fftsize or self.phasesize!=self.fpgaInfo.phasesize or self.nsubx!=self.fpgaInfo.nsubx or self.symtype!=self.fpgaInfo.symtype:
-            self.loadFPGADimData()
-            
-        if self.sigFPGA!=self.fpgaInfo.sigFPGA or calsource!=self.fpgaInfo.calSource or self.fpgaSkybrightness!=self.fpgaInfo.fpgaSkybrightness or self.noiseFloor!=self.fpgaInfo.noiseFloor or self.fpga_readbg!=self.fpgaInfo.fpga_readbg or self.fpga_readnoise!=self.fpgaInfo.fpga_readnoise:
-            self.loadFPGASourceData(calsource)
-        fpid=self.fpid
-        fpga.writeReg(fpid,0x2,6)#stop pipe
-        fpga.writeReg(fpid,64,6)#reset input/output fifos.
-        fpga.writeReg(fpid,2,512)#set pipe to do WFSing.
+#     def testFPGAUsage(self):
+#         """Checks variables are suitable for FPGA use"""
+#         self.canUseFPGA=haveFPGA
+#         if self.atmosPhaseType!="phaseonly":
+#             print "WARNING: Cannot use FPGA - atmosPhaseType must be phaseonly"
+#             self.canUseFPGA=0
+#         if self.fpDataType!=numpy.float32:
+#             print "WARNING: Cannot use FPGA - fpDataType must be float32"
+#             self.canUseFPGA=0
+#         if self.fftsize not in [8,16,32]:
+#             print "WARNING: FPGA cannot use this FFT array size"
+#             self.canUseFPGA=0
+#         if self.nIntegrations<1 or self.nIntegrations>63:
+#             print "WARNING: Illegal number of integrations for FPGA - must be less than 64"
+#             self.canUseFPGA=0
+#         if self.nimg<2 or self.nimg>32:
+#             print "WARNING: Illegal pixel size for centroiding in FPGA (nimg) - must be 2-32"
+#             self.canUseFPGA=0
+#         if self.phasesize<1 or self.phasesize>32:
+#             print "WARNING: Illegal phase size for use in FPGA (phasesize) - must be <32"
+#             self.canUseFPGA=0
+#         if type(self.sig)!=type(0.0):
+#             print "WARNING: Signal cannot be array for use in FPGA."
+#             self.canUseFPGA=0
+#         if int(self.sig*2**7)>0x7ffffff:
+#             print "WARNING: Signal is too bright for use in FPGA - should be less than 0xfffff"
+#             self.canUseFPGA=0
+#         if self.skybrightness>0xffff:
+#             print "WARNING: Sky background is too bright for use in FPGA - should be less than 0xffff"
+#             self.canUseFPGA=0
+#         if self.noiseFloor>0xffff:
+#             print "WARNING: WFS floor (threshold) value is too high for use in FPGA - should be less than 0xffff"
+#             self.canUseFPGA=0
+#         if self.fpga_readbg>0xffffff or self.fpga_readnoise>0xffff:
+#             print "WARNING: CCD readout noise is too high for use in FPGA (mean or sigma)"
+#             self.canUseFPGA=0
+#         if self.nsubx<1 or self.nsubx>1023:
+#             print "WARNING: Number of subapertures is too large for use in FPGA (needs nsubx<1024)"
+#             self.caUseFPGA=0
+#         if type(self.psf)!=type(None):
+#             print "WARNING: FPGA cannot use psf (eg lgs spot elongation, or airy disc convolution)"
+#             self.canUseFPGA=0
+#         if self.opticalBinning:
+#             print "WARNING: FPGA cannot use optical binning"
+#             self.canUseFPGA=0
+#         return self.canUseFPGA
+
+#     def setFPGARegs(self,calsource):
+#         """Here we check that the registers in the FPGA are what they should be for this instance of centroid.  If not, we set the registers correctly.  If using resource sharing, this should be called everytime a new FPGA calc is required."""
+#         #print "setfpgaregs"
+#         if not self.canUseFPGA:
+#             return
+#         #set up memory...
+#         if self.fpgaInfo.calSource!=calsource:
+#             self.loadPoisson(calsource)
+#         if self.fpgaInfo.seedLoaded==0:
+#             self.loadSeed()
+#         if self.fpgaInfo.pupil is not self.pupfn:#different arrays
+#             self.loadPupil()
+#         #now initialise the registers...
+#         if self.fpgaInfo.nimg!=self.nimg or self.fpgaInfo.fftsize!=self.fftsize:
+#             self.loadBinCtrl()
+#         if type(self.fpgaInfo.cenmask)==type(None) or self.fpgaInfo.cenmask.shape!=self.cenmask.shape or numpy.sum(numpy.sum(self.fpgaInfo.cenmask==self.cenmask))!=self.nimg*self.nimg:
+#             self.loadCenMask()
+#         if self.fpgaInfo.doPartialFPGA!=self.doPartialFPGA or self.fittedSubaps!=self.fpgaInfo.fittedSubaps or self.nIntegrations!=self.fpgaInfo.nIntegrations or self.nsubx!=self.fpgaInfo.nsubx or self.phasesize!=self.fpgaInfo.phasesize:
+#             self.loadFPGARegAddr()
+
+#         if self.nIntegrations!=self.fpgaInfo.nIntegrations or self.nimg!=self.fpgaInfo.nimg or self.fftsize!=self.fpgaInfo.fftsize or self.phasesize!=self.fpgaInfo.phasesize or self.nsubx!=self.fpgaInfo.nsubx or self.symtype!=self.fpgaInfo.symtype:
+#             self.loadFPGADimData()
+#         if self.sigFPGA!=self.fpgaInfo.sigFPGA or calsource!=self.fpgaInfo.calSource or self.fpgaSkybrightness!=self.fpgaInfo.fpgaSkybrightness or self.noiseFloor!=self.fpgaInfo.noiseFloor or self.fpga_readbg!=self.fpgaInfo.fpga_readbg or self.fpga_readnoise!=self.fpgaInfo.fpga_readnoise:
+#             self.loadFPGASourceData(calsource)
+#         fpid=self.fpid
+#         fpga.writeReg(fpid,0x2,6)#stop pipe
+#         fpga.writeReg(fpid,64,6)#reset input/output fifos.
+#         fpga.writeReg(fpid,2,512)#set pipe to do WFSing.
         
-        self.fpgaInfo.calSource=calsource
-        self.fpgaInfo.seedLoaded=1#never needs reloading.
-        self.fpgaInfo.pupil=self.pupfn
-        self.fpgaInfo.nimg=self.nimg
-        self.fpgaInfo.fftsize=self.fftsize
-        self.fpgaInfo.cenmask=self.cenmask
-        self.fpgaInfo.doPartialFPGA=self.doPartialFPGA
-        self.fpgaInfo.fittedSubaps=self.fittedSubaps
-        self.fpgaInfo.nIntegrations=self.nIntegrations
-        self.fpgaInfo.nsubx=self.nsubx
-        self.fpgaInfo.phasesize=self.phasesize
-        self.fpgaInfo.sigFPGA=self.sigFPGA
-        self.fpgaInfo.fpgaSkybrightness=self.fpgaSkybrightness
-        self.fpgaInfo.noiseFloor=self.noiseFloor
-        self.fpgaInfo.fpga_readbg=self.fpga_readbg
-        self.fpgaInfo.fpga_readnoise=self.fpga_readnoise
-        self.fpgaInfo.symtype=self.symtype
+#         self.fpgaInfo.calSource=calsource
+#         self.fpgaInfo.seedLoaded=1#never needs reloading.
+#         self.fpgaInfo.pupil=self.pupfn
+#         self.fpgaInfo.nimg=self.nimg
+#         self.fpgaInfo.fftsize=self.fftsize
+#         self.fpgaInfo.cenmask=self.cenmask
+#         self.fpgaInfo.doPartialFPGA=self.doPartialFPGA
+#         self.fpgaInfo.fittedSubaps=self.fittedSubaps
+#         self.fpgaInfo.nIntegrations=self.nIntegrations
+#         self.fpgaInfo.nsubx=self.nsubx
+#         self.fpgaInfo.phasesize=self.phasesize
+#         self.fpgaInfo.sigFPGA=self.sigFPGA
+#         self.fpgaInfo.fpgaSkybrightness=self.fpgaSkybrightness
+#         self.fpgaInfo.noiseFloor=self.noiseFloor
+#         self.fpgaInfo.fpga_readbg=self.fpga_readbg
+#         self.fpgaInfo.fpga_readnoise=self.fpga_readnoise
+#         self.fpgaInfo.symtype=self.symtype
+# 
+    # def loadPupil(self):
+    #     """Load the pupil map - note, using this overwrites the reorderedPhs array..."""
+    #     print "Loading FPGA pupil map"
+    #     #Now, place the pupil into a bit format that can be read by FPGA.
+    #     usexsubap=self.nsubx
+    #     useysubap=self.nsubx
+    #     self.puparr=numpy.zeros((4*1024*1024,),numpy.uint8)
+    #     if self.usePupil==0:#use every pixel.
+    #         self.puparr[:,]=0xff
+    #     else:
+    #         if self.symtype==0:
+    #             pupfn=self.pupsub
+    #         elif self.symtype==1:
+    #             useysubap=(useysubap+1)/2
+    #             pupfn=self.pupsub[:useysubap]
+    #         else:
+    #             usexsubap=(usexsubap+1)/2
+    #             useysubap=(useysubap+1)/2
+    #             pupfn=self.pupsub[:useysubap,:usexsubap]
+    #         for i in range(useysubap):
+    #             for j in range(usexsubap):
+    #                 for k in range(self.phasesize):
+    #                     for l in range(self.phasesize):
+    #                         indx=l+self.phasesize*k+self.phasesize**2*(j+usexsubap*i)
+    #                         if pupfn[i,j,k,l]==1 and self.subflag[i,j]==1:
+    #                             self.puparr[indx/8]=self.puparr[indx/8] | (1<<(indx%8))
+    #     #finished getting it in bit form... so...
+    #     #now check that the pupil has been created in a legal symmetrical form - if not, warn user.
+    #     if self.symtype==1:
+    #         tmppupsub=self.pupsub.copy()
+    #         tmppupsub[(self.nsubx+1)/2:,]=self.pupsub[self.nsubx/2-1::-1]
+    #         if numpy.sum((1-(tmppupsub==self.pupsub)).flat)>0:
+    #             print "WARNING: pupil mask is not subap-symmetric about the x axis - the FPGA will be using a slightly different pupil mask"
+    #     elif self.symtype==2:
+    #         tmppupsub=self.pupsub.copy()
+    #         tmppupsub[(self.nsubx+1)/2:,]=self.pupsub[self.nsubx/2-1::-1]
+    #         tmppupsub[:,(self.nsubx+1)/2:,]=tmppupsub[:,self.nsubx/2-1::-1]
+    #         if numpy.sum((1-(tmppupsub==self.pupsub)).flat)>0:
+    #             print "WARNING: pupil mask is not subap-symmetric about the x axis - the FPGA will be using a slightly different pupil mask"
 
-    def loadPupil(self):
-        """Load the pupil map - note, using this overwrites the reorderedPhs array..."""
-        print "Loading FPGA pupil map"
-        #Now, place the pupil into a bit format that can be read by FPGA.
-        usexsubap=self.nsubx
-        useysubap=self.nsubx
-        self.puparr=numpy.zeros((4*1024*1024,),numpy.uint8)
-        if self.usePupil==0:#use every pixel.
-            self.puparr[:,]=0xff
-        else:
-            if self.symtype==0:
-                pupfn=self.pupsub
-            elif self.symtype==1:
-                useysubap=(useysubap+1)/2
-                pupfn=self.pupsub[:useysubap]
-            else:
-                usexsubap=(usexsubap+1)/2
-                useysubap=(useysubap+1)/2
-                pupfn=self.pupsub[:useysubap,:usexsubap]
-            for i in range(useysubap):
-                for j in range(usexsubap):
-                    for k in range(self.phasesize):
-                        for l in range(self.phasesize):
-                            indx=l+self.phasesize*k+self.phasesize**2*(j+usexsubap*i)
-                            if pupfn[i,j,k,l]==1 and self.subflag[i,j]==1:
-                                self.puparr[indx/8]=self.puparr[indx/8] | (1<<(indx%8))
-        #finished getting it in bit form... so...
-        #now check that the pupil has been created in a legal symmetrical form - if not, warn user.
-        if self.symtype==1:
-            tmppupsub=self.pupsub.copy()
-            tmppupsub[(self.nsubx+1)/2:,]=self.pupsub[self.nsubx/2-1::-1]
-            if numpy.sum((1-(tmppupsub==self.pupsub)).flat)>0:
-                print "WARNING: pupil mask is not subap-symmetric about the x axis - the FPGA will be using a slightly different pupil mask"
-        elif self.symtype==2:
-            tmppupsub=self.pupsub.copy()
-            tmppupsub[(self.nsubx+1)/2:,]=self.pupsub[self.nsubx/2-1::-1]
-            tmppupsub[:,(self.nsubx+1)/2:,]=tmppupsub[:,self.nsubx/2-1::-1]
-            if numpy.sum((1-(tmppupsub==self.pupsub)).flat)>0:
-                print "WARNING: pupil mask is not subap-symmetric about the x axis - the FPGA will be using a slightly different pupil mask"
+    #     tmparr=util.arrayFromArray.arrayFromArray(self.fpgaarr,(4*1024*1024,),numpy.uint8)
+    #     savedarr=tmparr.copy()
+    #     tmparr[:,]=self.puparr[:,]
+    #     #now load the data to the fpga.
+    #     print "Loading pupil function into FPGA..."
+    #     fpid=self.fpid
+    #     fpga.writeReg(fpid,0x2,6)#stop pipe
+    #     fpga.writeAddr(fpid,tmparr,1)#input address
+    #     fpga.writeReg(fpid,4*1024*1024/8,2)#size (quad words)
+    #     fpga.writeReg(fpid,0,4)#size to write (0 bytes).
+    #     fpga.writeReg(fpid,64,6)#reset input/output fifos.
+    #     fpga.writeReg(fpid,8,512)#set pipe to write pupil fn.
+    #     addr=fpga.readReg(fpid,525)
+    #     print "Loading Pupil: Current QDR address is: %s, setting to zero"%str(addr)
+    #     fpga.writeReg(fpid,0,525)
+    #     fpga.writeReg(fpid,1,6)#set it going.
+    #     while 1:#should only print a few messages here at most before done.
+    #         time.sleep(0.008)
+    #         addr=fpga.readReg(fpid,525)
+    #         print "Loading Pupil: Writing to address %s"%str(addr)
+    #         if addr==0 or addr==2**19:
+    #             break
+    #     print "FPGA QDR memory filled with pupil function"
+    #     tmparr[:,]=savedarr#copy data back.
+    #     time.sleep(0.01)
+    #     fpga.writeReg(fpid,0,512)#unset the QDR write pipe.
 
-        tmparr=util.arrayFromArray.arrayFromArray(self.fpgaarr,(4*1024*1024,),numpy.uint8)
-        savedarr=tmparr.copy()
-        tmparr[:,]=self.puparr[:,]
-        #now load the data to the fpga.
-        print "Loading pupil function into FPGA..."
-        fpid=self.fpid
-        fpga.writeReg(fpid,0x2,6)#stop pipe
-        fpga.writeAddr(fpid,tmparr,1)#input address
-        fpga.writeReg(fpid,4*1024*1024/8,2)#size (quad words)
-        fpga.writeReg(fpid,0,4)#size to write (0 bytes).
-        fpga.writeReg(fpid,64,6)#reset input/output fifos.
-        fpga.writeReg(fpid,8,512)#set pipe to write pupil fn.
-        addr=fpga.readReg(fpid,525)
-        print "Loading Pupil: Current QDR address is: %s, setting to zero"%str(addr)
-        fpga.writeReg(fpid,0,525)
-        fpga.writeReg(fpid,1,6)#set it going.
-        while 1:#should only print a few messages here at most before done.
-            time.sleep(0.008)
-            addr=fpga.readReg(fpid,525)
-            print "Loading Pupil: Writing to address %s"%str(addr)
-            if addr==0 or addr==2**19:
-                break
-        print "FPGA QDR memory filled with pupil function"
-        tmparr[:,]=savedarr#copy data back.
-        time.sleep(0.01)
-        fpga.writeReg(fpid,0,512)#unset the QDR write pipe.
-
-    def loadSeed(self):
-        """Load the random number generator seed (for readout noise).  This is taken from the Cray mta_test.c example, converted to python.  Note, this overwrites any data in reorderedPhs..."""
-        print "Loading FPGA seed"
-        defaultSeed=4357L
-        int32_mask=0xffffffff
-        multiplier=1812433253L #Don Knuth, Vol 2
-        seedarr=util.arrayFromArray.arrayFromArray(self.fpgaarr,(624,),numpy.int32)#really should be UInt32, but haven't recompiled fpgamodule.c to cope yet.  Seed different, but so what!.
-        savedarr=seedarr.copy()
-        s=defaultSeed
-        seedarr[0]=s&int32_mask
-        for i in range(1,624):
-            tmp=(multiplier*(seedarr[i-1]^(seedarr[i-1]>>30))+i)
-            seedarr[i]=tmp&int32_mask
-        #now load the data to the fpga.
-        print "Random seed memory array created, loading into FPGA..."
-        fpid=self.fpid
-        fpga.writeReg(fpid,0x2,6)#stop pipe
-        fpga.writeAddr(fpid,seedarr,1)#input address
-        fpga.writeReg(fpid,624/2,2)#size (quad words)
-        fpga.writeReg(fpid,0,4)#size to write (0 bytes).
-        fpga.writeReg(fpid,64,6)#reset input/output fifos.
-        fpga.writeReg(fpid,4,512)#set pipe to write QDR.
-        fpga.writeReg(fpid,1,6)#set it going.
-        time.sleep(0.01)
-        print "Written seed to FPGA"
-        seedarr[:,]=savedarr
-        fpga.writeReg(fpid,0,512)#unset the QDR write pipe.
+    # def loadSeed(self):
+    #     """Load the random number generator seed (for readout noise).  This is taken from the Cray mta_test.c example, converted to python.  Note, this overwrites any data in reorderedPhs..."""
+    #     print "Loading FPGA seed"
+    #     defaultSeed=4357L
+    #     int32_mask=0xffffffff
+    #     multiplier=1812433253L #Don Knuth, Vol 2
+    #     seedarr=util.arrayFromArray.arrayFromArray(self.fpgaarr,(624,),numpy.int32)#really should be UInt32, but haven't recompiled fpgamodule.c to cope yet.  Seed different, but so what!.
+    #     savedarr=seedarr.copy()
+    #     s=defaultSeed
+    #     seedarr[0]=s&int32_mask
+    #     for i in range(1,624):
+    #         tmp=(multiplier*(seedarr[i-1]^(seedarr[i-1]>>30))+i)
+    #         seedarr[i]=tmp&int32_mask
+    #     #now load the data to the fpga.
+    #     print "Random seed memory array created, loading into FPGA..."
+    #     fpid=self.fpid
+    #     fpga.writeReg(fpid,0x2,6)#stop pipe
+    #     fpga.writeAddr(fpid,seedarr,1)#input address
+    #     fpga.writeReg(fpid,624/2,2)#size (quad words)
+    #     fpga.writeReg(fpid,0,4)#size to write (0 bytes).
+    #     fpga.writeReg(fpid,64,6)#reset input/output fifos.
+    #     fpga.writeReg(fpid,4,512)#set pipe to write QDR.
+    #     fpga.writeReg(fpid,1,6)#set it going.
+    #     time.sleep(0.01)
+    #     print "Written seed to FPGA"
+    #     seedarr[:,]=savedarr
+    #     fpga.writeReg(fpid,0,512)#unset the QDR write pipe.
         
-    def loadPoisson(self,calsource):
-        """Load the QDR memory with appropriate random variables.
-        For <2ppp, have 256 bins, each with 512 byte entries. (64 qwords)
-        For <8ppp, have 384 bins, each with 1024 byte entries. (128 qwords)
-        For <32ppp, have 768 bins, each with 2048 byte entries. (256 qwords)
-        For >=32ppp, have gaussian. (262144 qwords, 2MB, 1048576 short entries)
-          --addressing scheme: 20 bits (only 19 valid for QDR).
-          --01234567890123456789
-          --000000ppppppppcccccc     <2 (14 bits)
-          --0000aapppppppccccccc    2-8 (16 bits)
-          --00aappppppppcccccccc   8-32 (18 bits)
-          --01iiiiiiiiiiiiiiiiii   Gaussian.
-          --(aa here means that at least one of these numbers will be 1.
-          --p represents bits coming from the light level, c represents bits
-          --coming from the bin, ie the dpbm output)
-        Note, this overwrites any data in the reorderedPhs array...
-        """
-        print "Loading FPGA Poisson seed"
-        qdrmem=util.arrayFromArray.arrayFromArray(self.fpgaarr,(4*1024*1024,),numpy.uint8)#everything
-        qdrmemp=util.arrayFromArray.arrayFromArray(self.fpgaarr,(2*1024*1024,),numpy.uint8)#poisson part
-        qdrmems=util.arrayFromArray.arrayFromArray(self.fpgaarr[2*1024*1024:,],(1024*1024,),numpy.int16)#gaussian part - signed 8.8 format.
-        savedarr=qdrmem.copy()
-        for i in range(256):#less than 2ppp, fill the array.
-            ppp=i*2**-7#the mean light level of this bin.
-            #RandomArray.poisson(ppp,(512,)).astype(numpy.UInt8)
-            if calsource==0:
-                qdrmemp[i*512:i*512+512]=util.poisson.mypoissondist(ppp,512)
-            else:
-                qdrmemp[i*512:i*512+512]=int(ppp)
-        for i in range(384):
-            #2-8ppp.
-            ppp=2+i*2**-6
-            if calsource==0:
-                qdrmemp[256*512+i*1024:256*512+i*1024+1024]=util.poisson.mypoissondist(ppp,1024)
-            else:
-                qdrmemp[256*512+i*1024:256*512+i*1024+1024]=int(ppp)
-        for i in range(768):
-            ppp=8+i*2**-5
-            if calsource==0:
-                qdrmemp[256*512+384*1024+i*2048:256*512+384*1024+i*2048+2048]=util.poisson.mypoissondist(ppp,2048)
-            else:
-                qdrmemp[256*512+384*1024+i*2048:256*512+384*1024+i*2048+2048]=int(ppp)
-        if calsource==0:
-            qdrmems[:,]=(numpy.random.standard_normal(1024*1024)*2**8).astype(numpy.int16)
-        else:
-            qdrmems[:,]=0
-        self.savedQDRMem=qdrmem.copy()
+    # def loadPoisson(self,calsource):
+    #     """Load the QDR memory with appropriate random variables.
+    #     For <2ppp, have 256 bins, each with 512 byte entries. (64 qwords)
+    #     For <8ppp, have 384 bins, each with 1024 byte entries. (128 qwords)
+    #     For <32ppp, have 768 bins, each with 2048 byte entries. (256 qwords)
+    #     For >=32ppp, have gaussian. (262144 qwords, 2MB, 1048576 short entries)
+    #       --addressing scheme: 20 bits (only 19 valid for QDR).
+    #       --01234567890123456789
+    #       --000000ppppppppcccccc     <2 (14 bits)
+    #       --0000aapppppppccccccc    2-8 (16 bits)
+    #       --00aappppppppcccccccc   8-32 (18 bits)
+    #       --01iiiiiiiiiiiiiiiiii   Gaussian.
+    #       --(aa here means that at least one of these numbers will be 1.
+    #       --p represents bits coming from the light level, c represents bits
+    #       --coming from the bin, ie the dpbm output)
+    #     Note, this overwrites any data in the reorderedPhs array...
+    #     """
+    #     print "Loading FPGA Poisson seed"
+    #     qdrmem=util.arrayFromArray.arrayFromArray(self.fpgaarr,(4*1024*1024,),numpy.uint8)#everything
+    #     qdrmemp=util.arrayFromArray.arrayFromArray(self.fpgaarr,(2*1024*1024,),numpy.uint8)#poisson part
+    #     qdrmems=util.arrayFromArray.arrayFromArray(self.fpgaarr[2*1024*1024:,],(1024*1024,),numpy.int16)#gaussian part - signed 8.8 format.
+    #     savedarr=qdrmem.copy()
+    #     for i in range(256):#less than 2ppp, fill the array.
+    #         ppp=i*2**-7#the mean light level of this bin.
+    #         #RandomArray.poisson(ppp,(512,)).astype(numpy.UInt8)
+    #         if calsource==0:
+    #             qdrmemp[i*512:i*512+512]=util.poisson.mypoissondist(ppp,512)
+    #         else:
+    #             qdrmemp[i*512:i*512+512]=int(ppp)
+    #     for i in range(384):
+    #         #2-8ppp.
+    #         ppp=2+i*2**-6
+    #         if calsource==0:
+    #             qdrmemp[256*512+i*1024:256*512+i*1024+1024]=util.poisson.mypoissondist(ppp,1024)
+    #         else:
+    #             qdrmemp[256*512+i*1024:256*512+i*1024+1024]=int(ppp)
+    #     for i in range(768):
+    #         ppp=8+i*2**-5
+    #         if calsource==0:
+    #             qdrmemp[256*512+384*1024+i*2048:256*512+384*1024+i*2048+2048]=util.poisson.mypoissondist(ppp,2048)
+    #         else:
+    #             qdrmemp[256*512+384*1024+i*2048:256*512+384*1024+i*2048+2048]=int(ppp)
+    #     if calsource==0:
+    #         qdrmems[:,]=(numpy.random.standard_normal(1024*1024)*2**8).astype(numpy.int16)
+    #     else:
+    #         qdrmems[:,]=0
+    #     self.savedQDRMem=qdrmem.copy()
 
-        #now we have the memory done, should load it into the FPGA.
-        print "QDR memory array created, loading into FPGA..."
-        fpid=self.fpid
-        fpga.writeReg(fpid,0x2,6)#stop pipe
-        fpga.writeAddr(fpid,qdrmem,1)#input address
-        fpga.writeReg(fpid,4*1024*1024/8,2)#size (quad words)
-        fpga.writeReg(fpid,0,4)#size to write (0 bytes).
-        fpga.writeReg(fpid,64,6)#reset input/output fifos.
-        fpga.writeReg(fpid,1,512)#set pipe to write QDR.
-        addr=fpga.readReg(fpid,525)
-        print "Loading poisson RV to FPGA: Current QDR address is %s, setting to zero"%str(addr)
-        fpga.writeReg(fpid,0,525)
-        fpga.writeReg(fpid,1,6)#set it going.
-        while 1:#should only print a few messages here at most before done.
-            time.sleep(0.008)
-            addr=fpga.readReg(fpid,525)
-            print "Loading Poisson RV: Writing to address %s"%str(addr)
-            if addr==0 or addr==2**19:
-                break
-        print "QDR memory filled"
-        qdrmem[:,]=savedarr
-        fpga.writeReg(fpid,0,512)#unset the QDR write pipe.
+    #     #now we have the memory done, should load it into the FPGA.
+    #     print "QDR memory array created, loading into FPGA..."
+    #     fpid=self.fpid
+    #     fpga.writeReg(fpid,0x2,6)#stop pipe
+    #     fpga.writeAddr(fpid,qdrmem,1)#input address
+    #     fpga.writeReg(fpid,4*1024*1024/8,2)#size (quad words)
+    #     fpga.writeReg(fpid,0,4)#size to write (0 bytes).
+    #     fpga.writeReg(fpid,64,6)#reset input/output fifos.
+    #     fpga.writeReg(fpid,1,512)#set pipe to write QDR.
+    #     addr=fpga.readReg(fpid,525)
+    #     print "Loading poisson RV to FPGA: Current QDR address is %s, setting to zero"%str(addr)
+    #     fpga.writeReg(fpid,0,525)
+    #     fpga.writeReg(fpid,1,6)#set it going.
+    #     while 1:#should only print a few messages here at most before done.
+    #         time.sleep(0.008)
+    #         addr=fpga.readReg(fpid,525)
+    #         print "Loading Poisson RV: Writing to address %s"%str(addr)
+    #         if addr==0 or addr==2**19:
+    #             break
+    #     print "QDR memory filled"
+    #     qdrmem[:,]=savedarr
+    #     fpga.writeReg(fpid,0,512)#unset the QDR write pipe.
 
-    def loadBinCtrl(self):
-        """Load control vectors for binning into the FPGA"""
-        #now set up the binning control...
-        tmp=numpy.zeros((32,),numpy.int8)
-        cnt=0
-        #first do x...
-        for i in range(32):
-            cnt+=self.nimg
-            if cnt>=self.fftsize:
-                excess=cnt-self.fftsize
-                use=self.nimg-excess
-                tmp[i]=(use&0x3f)|0x40
-                cnt=excess
-            else:
-                tmp[i]=(self.nimg&0x3f)
-        larr=util.arrayFromArray.arrayFromArray(tmp,(4,),numpy.int64)
-        for i in range(4):
-            fpga.writeReg(self.fpid,larr[i],536+i)
-        cnt=0
-        #now for the y...
-        for i in range(32):
-            cnt+=self.nimg
-            if cnt>=self.fftsize:
-                excess=cnt-self.fftsize
-                use=self.nimg-excess
-                tmp[i]=(use&0x3f)|0x40
-                cnt=excess
-            else:
-                tmp[i]=(self.nimg&0x3f)
-        for i in range(4):
-            fpga.writeReg(self.fpid,larr[i],540+i)
-        #have now finished setting up the binning control.
-    def loadCenMask(self):
-        """Load the centroid mask into the FPGA registers..."""
-        iarr=numpy.zeros((32,),numpy.uint32)
-        larr=util.arrayFromArray.arrayFromArray(iarr,(16,),numpy.int64)
-        #Largest cent mask to be loaded is 32x32 pixels.  So, have to map
-        #out cent mask onto an array this size.
-        pos=0
-        cenmask=self.cenmask.astype(numpy.int64)
-        for y in range(self.nimg):
-            for x in range(self.nimg):
-                iarr[pos/32]=iarr[pos/32] | (cenmask[y,x]<<(pos%32))
-                pos+=1
-        #print larr
-        for i in range(16):
-            fpga.writeReg(self.fpid,larr[i],544+i)
+    # def loadBinCtrl(self):
+    #     """Load control vectors for binning into the FPGA"""
+    #     #now set up the binning control...
+    #     tmp=numpy.zeros((32,),numpy.int8)
+    #     cnt=0
+    #     #first do x...
+    #     for i in range(32):
+    #         cnt+=self.nimg
+    #         if cnt>=self.fftsize:
+    #             excess=cnt-self.fftsize
+    #             use=self.nimg-excess
+    #             tmp[i]=(use&0x3f)|0x40
+    #             cnt=excess
+    #         else:
+    #             tmp[i]=(self.nimg&0x3f)
+    #     larr=util.arrayFromArray.arrayFromArray(tmp,(4,),numpy.int64)
+    #     for i in range(4):
+    #         fpga.writeReg(self.fpid,larr[i],536+i)
+    #     cnt=0
+    #     #now for the y...
+    #     for i in range(32):
+    #         cnt+=self.nimg
+    #         if cnt>=self.fftsize:
+    #             excess=cnt-self.fftsize
+    #             use=self.nimg-excess
+    #             tmp[i]=(use&0x3f)|0x40
+    #             cnt=excess
+    #         else:
+    #             tmp[i]=(self.nimg&0x3f)
+    #     for i in range(4):
+    #         fpga.writeReg(self.fpid,larr[i],540+i)
+    #     #have now finished setting up the binning control.
+    # def loadCenMask(self):
+    #     """Load the centroid mask into the FPGA registers..."""
+    #     iarr=numpy.zeros((32,),numpy.uint32)
+    #     larr=util.arrayFromArray.arrayFromArray(iarr,(16,),numpy.int64)
+    #     #Largest cent mask to be loaded is 32x32 pixels.  So, have to map
+    #     #out cent mask onto an array this size.
+    #     pos=0
+    #     cenmask=self.cenmask.astype(numpy.int64)
+    #     for y in range(self.nimg):
+    #         for x in range(self.nimg):
+    #             iarr[pos/32]=iarr[pos/32] | (cenmask[y,x]<<(pos%32))
+    #             pos+=1
+    #     #print larr
+    #     for i in range(16):
+    #         fpga.writeReg(self.fpid,larr[i],544+i)
         
-    def loadFPGARegAddr(self):
-        """Initialise the FPGA registers"""
-        print "Loading FPGA address registers"
-        fpid=self.fpid
-        fpga.writeReg(fpid,0x2,6)#stop pipe
-        if self.doPartialFPGA:
-            fpga.writeAddr(fpid,self.fpgaInArr,1)#input address
-            fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
-            fpga.writeAddr(fpid,self.fpgaOutArr,3)#output address
-            fpga.writeReg(fpid,self.fittedSubaps,4)#size to write (in bytes).
-        else:
-            fpga.writeAddr(fpid,self.reorderedPhs,1)#input address
-            fpga.writeReg(fpid,self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
-            fpga.writeAddr(fpid,self.outputData,3)#output address
-            fpga.writeReg(fpid,self.nsubx*self.nsubx,4)#size to write (in bytes).
-    def loadFPGADimData(self):
-        """Break loading of registers up into a few sections..."""
-        print "Loading FPGA dimensions"
-        fpid=self.fpid
-        fpga.writeReg(fpid,self.nIntegrations,519)#number of integrations
-        fpga.writeReg(fpid,self.nimg,520)#centroid subap x size
-        fpga.writeReg(fpid,self.nimg,521)#centroid subap y size
-        fpga.writeReg(fpid,self.fftsize,522)#fft size
-        fpga.writeReg(fpid,self.phasesize,523)#phase size
-        fpga.writeReg(fpid,2**15/self.fftsize,526)#inv fft size
-        #fpga.writeReg(fpid,self.subapsize,527)#scale/norm subapsize
-        fpga.writeReg(fpid,self.nimg,532)#centroid subap x size (again)
-        fpga.writeReg(fpid,self.nimg,533)#centroid subap y size (again)
-        fpga.writeReg(fpid,(self.nsubx&0x3ff)|((self.nsubx&0x3ff)<<10),534)#write the number of subaps
-        fpga.writeReg(fpid,self.symtype,535)#write the symmetry type
-    def loadFPGASourceData(self,calsource):
-        print "Loading FPGA source info"
-        fpid=self.fpid
-        fpga.writeReg(fpid,self.sigFPGA,524)#user scale
-        fpga.writeReg(fpid,(1-calsource)*self.fpgaSkybrightness,528)#sky brightness in 16.10 fixed point format per pupil pixel in each subap...
-        fpga.writeReg(fpid,(1-calsource)*int(self.noiseFloor),529)#threshold value to remove
-        fpga.writeReg(fpid,(1-calsource)*self.fpga_readbg,530)#mean readout noise (const level added to signal)
-        fpga.writeReg(fpid,(1-calsource)*self.fpga_readnoise,531)#standard deviation of readout noise (RMS readout noise)
+    # def loadFPGARegAddr(self):
+    #     """Initialise the FPGA registers"""
+    #     print "Loading FPGA address registers"
+    #     fpid=self.fpid
+    #     fpga.writeReg(fpid,0x2,6)#stop pipe
+    #     if self.doPartialFPGA:
+    #         fpga.writeAddr(fpid,self.fpgaInArr,1)#input address
+    #         fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
+    #         fpga.writeAddr(fpid,self.fpgaOutArr,3)#output address
+    #         fpga.writeReg(fpid,self.fittedSubaps,4)#size to write (in bytes).
+    #     else:
+    #         fpga.writeAddr(fpid,self.reorderedPhs,1)#input address
+    #         fpga.writeReg(fpid,self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
+    #         fpga.writeAddr(fpid,self.outputData,3)#output address
+    #         fpga.writeReg(fpid,self.nsubx*self.nsubx,4)#size to write (in bytes).
+    # def loadFPGADimData(self):
+    #     """Break loading of registers up into a few sections..."""
+    #     print "Loading FPGA dimensions"
+    #     fpid=self.fpid
+    #     fpga.writeReg(fpid,self.nIntegrations,519)#number of integrations
+    #     fpga.writeReg(fpid,self.nimg,520)#centroid subap x size
+    #     fpga.writeReg(fpid,self.nimg,521)#centroid subap y size
+    #     fpga.writeReg(fpid,self.fftsize,522)#fft size
+    #     fpga.writeReg(fpid,self.phasesize,523)#phase size
+    #     fpga.writeReg(fpid,2**15/self.fftsize,526)#inv fft size
+    #     #fpga.writeReg(fpid,self.subapsize,527)#scale/norm subapsize
+    #     fpga.writeReg(fpid,self.nimg,532)#centroid subap x size (again)
+    #     fpga.writeReg(fpid,self.nimg,533)#centroid subap y size (again)
+    #     fpga.writeReg(fpid,(self.nsubx&0x3ff)|((self.nsubx&0x3ff)<<10),534)#write the number of subaps
+    #     fpga.writeReg(fpid,self.symtype,535)#write the symmetry type
+    # def loadFPGASourceData(self,calsource):
+    #     print "Loading FPGA source info"
+    #     fpid=self.fpid
+    #     fpga.writeReg(fpid,self.sigFPGA,524)#user scale
+    #     fpga.writeReg(fpid,(1-calsource)*self.fpgaSkybrightness,528)#sky brightness in 16.10 fixed point format per pupil pixel in each subap...
+    #     fpga.writeReg(fpid,(1-calsource)*int(self.noiseFloor),529)#threshold value to remove
+    #     fpga.writeReg(fpid,(1-calsource)*self.fpga_readbg,530)#mean readout noise (const level added to signal)
+    #     fpga.writeReg(fpid,(1-calsource)*self.fpga_readnoise,531)#standard deviation of readout noise (RMS readout noise)
 
     def tilt(self,x,y):
         return y
@@ -1454,7 +1451,8 @@ class centroid:
                     slop[i*n:(i+1)*n,j*n:(j+1)*n]*=0.
         return slop
 
-    def calibrateSHSUnique(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
+#    def calibrateSHSUnique(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
+    def calibrateSHSUnique(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
         print "Calibrating centroids (all subaps treated differently)"
@@ -1555,8 +1553,8 @@ class centroid:
                             resy+=yc*self.calCoeff[i,j,1,k]
                             yc*=cy
                         data[i,j]=resx,resy
-
-    def calibrateSHSIdentical(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
+#    def calibrateSHSIdentical(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
+    def calibrateSHSIdentical(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
         print "Calibrating centroids (identical subap pupil functions treated same)"
@@ -1725,7 +1723,8 @@ class centroid:
                     self.calCoeff[i,j,1]=numpy.polyfit(self.calibrateData[1,i,j,f:t],self.calibrateSteps[f:t],self.calNCoeff-1)[::-1]
 
 
-    def calibrateSHS(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
+#    def calibrateSHS(self,control={"cal_source":1,"useFPGA":0,"useCell":0,"useCmod":1}):
+    def calibrateSHS(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
         if self.psf==None and self.correlationCentroiding==0 and self.calNCoeff==0:
@@ -1834,25 +1833,25 @@ def createAiryDisc(npup,halfwidth=1.,xoff=0.,yoff=0.):
     return disc
 
 
-class fpgaCentStateInformation:
-    def __init__(self):
-        self.calSource=None
-        self.seedLoaded=None
-        self.pupil=None
-        self.nimg=None
-        self.fftsize=None
-        self.cenmask=None
-        self.doPartialFPGA=None
-        self.fittedSubaps=None
-        self.nIntegrations=None
-        self.nsubx=None
-        self.phasesize=None
-        self.sigFPGA=None
-        self.fpgaSkybrightness=None
-        self.noiseFloor=None
-        self.fpga_readbg=None
-        self.fpga_readnoise=None
-        self.symtype=None
+# class fpgaCentStateInformation:
+#     def __init__(self):
+#         self.calSource=None
+#         self.seedLoaded=None
+#         self.pupil=None
+#         self.nimg=None
+#         self.fftsize=None
+#         self.cenmask=None
+#         self.doPartialFPGA=None
+#         self.fittedSubaps=None
+#         self.nIntegrations=None
+#         self.nsubx=None
+#         self.phasesize=None
+#         self.sigFPGA=None
+#         self.fpgaSkybrightness=None
+#         self.noiseFloor=None
+#         self.fpga_readbg=None
+#         self.fpga_readnoise=None
+#         self.symtype=None
 
 class CalData:
     def __init__(self,xc,xr,yc,yr):

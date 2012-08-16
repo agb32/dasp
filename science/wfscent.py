@@ -134,19 +134,19 @@ class wfscent(base.aobase.aobase):
                 else:
                     self.fpDataType=numpy.float64
             self.sentPlotsCnt=0
-            self.initFPGA=self.config.getVal("initFPGA",default=0)#whether to initialise the FPGA... (load binary, set up arrays etc).
-            self.FPGABitFile=None
-            self.ignoreFPGAOpenFailure=0
-            if self.initFPGA:
-                self.FPGABitFile=self.config.getVal("FPGAWFSBitFile",default=string.join(__file__.split("/")[:-2]+["fpga","wfspipe.bin.ufp"],"/"))
-                self.ignoreFPGAOpenFailure=self.config.getVal("ignoreFPGAOpenFailure",default=0)
-##             self.waitFPGA=self.config.getVal("waitFPGA",1)
-                useFPGA=self.config.getVal("useFPGA",default=0)#whether to use the FPGA initially (global)
-            else:
-                useFPGA=0
-            useCell=self.config.getVal("useCell",default=0)
+#             self.initFPGA=self.config.getVal("initFPGA",default=0)#whether to initialise the FPGA... (load binary, set up arrays etc).
+#             self.FPGABitFile=None
+#             self.ignoreFPGAOpenFailure=0
+#             if self.initFPGA:
+#                 self.FPGABitFile=self.config.getVal("FPGAWFSBitFile",default=string.join(__file__.split("/")[:-2]+["fpga","wfspipe.bin.ufp"],"/"))
+#                 self.ignoreFPGAOpenFailure=self.config.getVal("ignoreFPGAOpenFailure",default=0)
+# ##             self.waitFPGA=self.config.getVal("waitFPGA",1)
+#                 useFPGA=self.config.getVal("useFPGA",default=0)#whether to use the FPGA initially (global)
+#             else:
+#                 useFPGA=0
+#            useCell=self.config.getVal("useCell",default=0)
             useCmod=self.config.getVal("useCmod",default=1)
-            self.cellseed=self.config.getVal("cellseed",default=1)
+            #self.cellseed=self.config.getVal("cellseed",default=1)
             self.cmodcentseed=self.config.getVal("cmodcentseed",default=0)
             self.nthreads=self.config.getVal("nthreads",default="all")#usually an integer... or "all"
             if self.nthreads=="all":#use all available CPUs...
@@ -154,7 +154,8 @@ class wfscent(base.aobase.aobase):
                 print "wfscent: Using %d threads"%self.nthreads
             calSource=self.config.getVal("calsource")
             self.imgmask=1#value used when creating sh img in drawCents()
-            self.control={"cal_source":calSource,"useFPGA":useFPGA,"useCell":useCell,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed"}#ZeroOutput can be used when calibrating a pseudo-open loop system.
+#            self.control={"cal_source":calSource,"useFPGA":useFPGA,"useCell":useCell,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed"}#ZeroOutput can be used when calibrating a pseudo-open loop system.
+            self.control={"cal_source":calSource,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed"}#ZeroOutput can be used when calibrating a pseudo-open loop system.
             self.lastCalSource=0#resourcesharing - todo...?
 
 ##             # Telescope pupil phase array size
@@ -301,11 +302,11 @@ class wfscent(base.aobase.aobase):
         atmosPhaseType=this.config.getVal("atmosPhaseType",default="phaseonly")
         if atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
             raise Exception("wfscent: atmosPhaseType not known %s"%atmosPhaseType)
-        useFPGA=self.config.getVal("useFPGA",default=0)#whether to use the FPGA (shouldn't change)
-        if useFPGA:
-            waitFPGA=self.config.getVal("waitFPGA",default=1)
-        else:
-            waitFPGA=1
+        # useFPGA=self.config.getVal("useFPGA",default=0)#whether to use the FPGA (shouldn't change)
+        # if useFPGA:
+        #     waitFPGA=self.config.getVal("waitFPGA",default=1)
+        # else:
+        #     waitFPGA=1
         # Telescope pupil phase array size
         #npup=this.config.getVal("npup")                                    
         # No. of subaps across tel. pupil
@@ -335,10 +336,10 @@ class wfscent(base.aobase.aobase):
         wfs_lat=this.config.getVal("wfs_lat")                              # WFS readout latency
         skybrightness=this.config.getVal("wfs_skybrightness")
         nIntegrations=int(math.ceil(wfs_int/tstep))        
-        if useFPGA:
-            waitFPGATime=this.config.getVal("waitFPGATime",default=(wfs_nsubx*wfs_n)**2*nIntegrations*5e-9)
-        else:
-            waitFPGATime=0
+        # if useFPGA:
+        #     waitFPGATime=this.config.getVal("waitFPGATime",default=(wfs_nsubx*wfs_n)**2*nIntegrations*5e-9)
+        # else:
+        #     waitFPGATime=0
         if (wfs_int/tstep)%1!=0:
             print "Warning: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep)
         pupil=this.config.getVal("pupil")
@@ -435,7 +436,8 @@ class wfscent(base.aobase.aobase):
             corrPattern=None
             # imageOnly=this.config.getVal("imageOnly",default=0)#0 to return slopes, 1 to return image as nsubx,nsubx,nimg,nimg, and 2 to return image as a 2d image.
         useBrightest=this.config.getVal("useBrightest",default=0)
-        this.wfscentObj=util.centroid.centroid(wfs_nsubx,pup=pupil,oversamplefactor=None,readnoise=wfs_read_sigma,readbg=wfs_read_mean,addPoisson=1,noiseFloor=wfs_floor,binfactor=None,sig=sig,skybrightness=skybrightness,warnOverflow=None,atmosPhaseType=atmosPhaseType,fpDataType=self.fpDataType,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,phasesize=wfs_n,fftsize=wfs_nfft,clipsize=clipsize,nimg=wfs_nimg,ncen=wfs_ncen,tstep=tstep,integtime=wfs_int,latency=wfs_lat,wfs_minarea=wfs_minarea,spotpsf=spotpsf,opticalBinning=opticalBinning,useCell=self.control["useCell"],waitCell=1,usecmod=self.control["useCmod"],subtractTipTilt=subtractTipTilt,magicCentroiding=magicCentroiding,linearSteps=linearSteps,stepRangeFrac=stepRangeFrac,phaseMultiplier=phaseMultiplier,centWeight=centWeight,correlationCentroiding=correlationCentroiding,corrThresh=corrThresh,corrPattern=corrPattern,threshType=threshType,imageOnly=self.imageOnly,calNCoeff=calNCoeff,useBrightest=useBrightest)
+#        this.wfscentObj=util.centroid.centroid(wfs_nsubx,pup=pupil,oversamplefactor=None,readnoise=wfs_read_sigma,readbg=wfs_read_mean,addPoisson=1,noiseFloor=wfs_floor,binfactor=None,sig=sig,skybrightness=skybrightness,warnOverflow=None,atmosPhaseType=atmosPhaseType,fpDataType=self.fpDataType,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,phasesize=wfs_n,fftsize=wfs_nfft,clipsize=clipsize,nimg=wfs_nimg,ncen=wfs_ncen,tstep=tstep,integtime=wfs_int,latency=wfs_lat,wfs_minarea=wfs_minarea,spotpsf=spotpsf,opticalBinning=opticalBinning,useCell=self.control["useCell"],waitCell=1,usecmod=self.control["useCmod"],subtractTipTilt=subtractTipTilt,magicCentroiding=magicCentroiding,linearSteps=linearSteps,stepRangeFrac=stepRangeFrac,phaseMultiplier=phaseMultiplier,centWeight=centWeight,correlationCentroiding=correlationCentroiding,corrThresh=corrThresh,corrPattern=corrPattern,threshType=threshType,imageOnly=self.imageOnly,calNCoeff=calNCoeff,useBrightest=useBrightest)
+        this.wfscentObj=util.centroid.centroid(wfs_nsubx,pup=pupil,oversamplefactor=None,readnoise=wfs_read_sigma,readbg=wfs_read_mean,addPoisson=1,noiseFloor=wfs_floor,binfactor=None,sig=sig,skybrightness=skybrightness,warnOverflow=None,atmosPhaseType=atmosPhaseType,fpDataType=self.fpDataType,phasesize=wfs_n,fftsize=wfs_nfft,clipsize=clipsize,nimg=wfs_nimg,ncen=wfs_ncen,tstep=tstep,integtime=wfs_int,latency=wfs_lat,wfs_minarea=wfs_minarea,spotpsf=spotpsf,opticalBinning=opticalBinning,usecmod=self.control["useCmod"],subtractTipTilt=subtractTipTilt,magicCentroiding=magicCentroiding,linearSteps=linearSteps,stepRangeFrac=stepRangeFrac,phaseMultiplier=phaseMultiplier,centWeight=centWeight,correlationCentroiding=correlationCentroiding,corrThresh=corrThresh,corrPattern=corrPattern,threshType=threshType,imageOnly=self.imageOnly,calNCoeff=calNCoeff,useBrightest=useBrightest)
 
 
     def finalInitialisation(self):
@@ -449,7 +451,7 @@ class wfscent(base.aobase.aobase):
         self.doneFinalInit=1
         fftsizemax=0
         phasesizemax=0
-        fpgarequired=0
+#        fpgarequired=0
         nsubxmax=0
         nsubxnfftmax=0
         maxarrsize=0
@@ -458,8 +460,8 @@ class wfscent(base.aobase.aobase):
         rpmax=0
         imgsizemax=0
         atmosfactor=1#phaseonly...
-        fpgaObj=None
-        fpgaarr=None
+#        fpgaObj=None
+#        fpgaarr=None
         canSharePhs=1
         canSharePupsub=1
         pup=None
@@ -496,23 +498,23 @@ class wfscent(base.aobase.aobase):
                 canSharePhs=0
             if wfs.integtime+wfs.latency!=readouttime:
                 canSharePhs=0
-            if wfs.canUseFPGA==1:
-                fpgarequired=1
-                fpgaObj=wfs
+#            if wfs.canUseFPGA==1:
+#                fpgarequired=1
+#                fpgaObj=wfs
             arrsize=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize*4*atmosfactor+wfs.nsubx*wfs.nsubx*2*4
             if arrsize>maxarrsize:
                 maxarrsize=arrsize
         #now allocate memories...
         reorderedPhsMem=None
-        wfs=fpgaObj#any object that can use the FPGAs
-        if fpgarequired:#use the first object to do some generic setup...
-            fpid,fpgaInfo=wfs.initialiseFPGA(ignoreFailure=self.ignoreFPGAOpenFailure,fpgaBitFile=self.FPGABitFile)#load the fpga binary.
-            fpgaarr=wfs.setupFPGAArray(fpid,maxarrsize)#allocate FPGA buffer
-        else:
-            fpid=None
-            fpgaInfo=None
-            if canSharePhs:
-                reorderedPhsMem=numpy.zeros((rpmax,),numpy.float32)
+        # wfs=fpgaObj#any object that can use the FPGAs
+        # if fpgarequired:#use the first object to do some generic setup...
+        #     fpid,fpgaInfo=wfs.initialiseFPGA(ignoreFailure=self.ignoreFPGAOpenFailure,fpgaBitFile=self.FPGABitFile)#load the fpga binary.
+        #     fpgaarr=wfs.setupFPGAArray(fpid,maxarrsize)#allocate FPGA buffer
+        # else:
+#        fpid=None
+#        fpgaInfo=None
+        if canSharePhs:
+            reorderedPhsMem=numpy.zeros((rpmax,),numpy.float32)
         if self.imageOnly:
             outputDataMem=numpy.zeros((imgsizemax*imgsizemax,),numpy.float32)
         else:
@@ -529,13 +531,15 @@ class wfscent(base.aobase.aobase):
         for this in self.thisObjList:
             wfs=this.wfscentObj
             #set up the memories
-            wfs.initMem(fpgarequired,fpgaarr=fpgaarr,shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
+            #wfs.initMem(fpgarequired,fpgaarr=fpgaarr,shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
+            wfs.initMem(shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
             #share the fpga ID and info.
-            wfs.initialiseFPGA(fpid=fpid,fpgaInfo=fpgaInfo,ignoreFailure=self.ignoreFPGAOpenFailure)
+            #wfs.initialiseFPGA(fpid=fpid,fpgaInfo=fpgaInfo,ignoreFailure=self.ignoreFPGAOpenFailure)
+
             #do we really want to initCell for every wfscentObj?  No.
             #wfs.initialiseCell(nspu=6,calsource=0,showCCDImg=0,allCents=1,cellseed=1)
             wfs.finishInit()
-            wfs.initialiseCell(nspu=6,calsource=self.control["cal_source"],showCCDImg=0,allCents=1,cellseed=self.cellseed)
+            #wfs.initialiseCell(nspu=6,calsource=self.control["cal_source"],showCCDImg=0,allCents=1,cellseed=self.cellseed)
             wfs.initialiseCmod(self.nthreads,self.control["cal_source"],self.cmodcentseed)
             #Take correlation image, if don't yet have one, and if doing correlationCentroiding.
             wfs.takeCorrImage(self.control)
