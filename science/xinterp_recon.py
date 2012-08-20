@@ -1,4 +1,3 @@
-#import Numeric
 import os
 import numpy
 import numpy.linalg
@@ -15,7 +14,7 @@ import util.fdpcg
 import util.createPokeMx
 import util.tel
 import util.zernikeMod
-#import util.dot as quick
+import util.dot as quick
 try:
     import util.regularisation
 except:
@@ -116,12 +115,12 @@ class recon(base.aobase.aobase):
         minarea=self.config.getVal("wfs_minarea")
         self.subflag=self.pupil.getSubapFlag(nsubx,minarea)#config.getVal("subflag")
         if self.dmflag!=None:#not a zonal DM.
-            self.dmflag_1d=self.dmflag.ravel()#numpy.reshape(self.dmflag,(nact*nact,))
+            self.dmflag_1d=self.dmflag.ravel()
             self.dmindices=numpy.nonzero(self.dmflag_1d)[0]
             self.nacts=int(numpy.sum(self.dmflag))
         else:
             self.nacts=self.nact
-        self.subflag_1d=self.subflag.ravel()#numpy.reshape(self.subflag,(nsubx*nsubx,))
+        self.subflag_1d=self.subflag.ravel()
         self.wfsdata = numpy.sum(self.subflag_1d)
 
         self.pxlscale=pxlToRadPistonTheoretical(nsubx,self.wfs_n,self.nimg,self.wfslambda,self.telDiam)#self.wfslambda/(self.telDiam/nsubx)/(self.nfft/self.wfs_n)#number of radians corresponding to centroid offset of 1 pixel.

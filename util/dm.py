@@ -17,25 +17,46 @@ MirrorSurface class - class for interpolating a surface over actuators.
 class dmInfo:
     """A class holding info for a single DM (multiple source directions).
     """
-    def __init__(self,label,idlist,height,nact,fov=None,coupling=0.1,minarea=0.25,actoffset=0.,closedLoop=1,actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None):
-        """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a particular DM object (ie at this height, for a particular direction), and source ID is the idstr for a given source direction.  If this list is just a list of source ID, the dm ID is made by concatenating label with source ID.
+    def __init__(self,label,idlist,height,nact,fov=None,coupling=0.1,minarea=0.25,actoffset=0.,closedLoop=1,
+                 actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
+                 actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
+                 interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None):
+        """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
+        particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
+        a given source direction.  If this list is just a list of source ID, the dm ID is made by 
+        concatenating label with source ID.
         fov is the field of view for this DM, or None in which case the minimum FOV will be computed.
         coupling is the coupling between actuators (fraction), or None.
         gainAdjustment is an adjustment factor which can be multiplied by the global gain to get the gain for this DM.
         if zonalDM==1, is a zonal DM.  Otherwise, is a modal DM, with nact modes.
-        reconstructList is used for zonal DMs to specify which actuators should be controlled.  If equal to "all", a standard circular pupil will be assumed.  Othewise, it should be a list of source directions for which actuators are to be controlled, ie typically, a list of the wavefront sensor directions.  Using this can reduce the reconstruction time, and can make a smaller poke matrix.  For an example, compare the dmflag when using and not using this option.
-        pokeSpacing is either None, or >0 and <nact, the spacing between actuators that is used when poking more than 1 at once.  It should be large enough so that centroids from a given subap aren't affected by more than one actuator, but small enough to allow the poking to be done quickly.  If equal to zero, a fairly good estimate will be used.
+        reconstructList is used for zonal DMs to specify which actuators should be controlled.  If equal to "all",
+        a standard circular pupil will be assumed.  Othewise, it should be a list of source directions for which 
+        actuators are to be controlled, ie typically, a list of the wavefront sensor directions.  Using this can 
+        reduce the reconstruction time, and can make a smaller poke matrix.  For an example, compare the dmflag
+        when using and not using this option.
+        pokeSpacing is either None, or >0 and <nact, the spacing between actuators that is used when poking more
+        than 1 at once.  It should be large enough so that centroids from a given subap aren't affected by more 
+        than one actuator, but small enough to allow the poking to be done quickly.  If equal to zero, a fairly 
+        good estimate will be used.
 
-        maxActDist if not None is used instead of minarea.  This is the maximum distance (in units of actspacing) that an actuator is allowed to be from the edge of a dm for it to be used.  A sensible value may be 1.5 for interpolated DMs (sqrt(2)) in openloop, or the influence function width for others.
+        maxActDist if not None is used instead of minarea.  This is the maximum distance (in units of actspacing) 
+        that an actuator is allowed to be from the edge of a dm for it to be used.  A sensible value may be 1.5 
+        for interpolated DMs (sqrt(2)) in openloop, or the influence function width for others.
 
-        slaving can be None (no slaving), "auto" to automatically slave to nearest, or a dictionary of indx:slavelist where indx is the index of the actuator in question, and slavelist is a list of (indx,val) where indx is the index of the slave driver, and val is the fraction of this actuator to use.
+        slaving can be None (no slaving), "auto" to automatically slave to nearest, or a dictionary of 
+        indx:slavelist where indx is the index of the actuator in question, and slavelist is a list of 
+        (indx,val) where indx is the index of the slave driver, and val is the fraction of this actuator to use.
         reconLam is in nm.
 
         alignmentOffset (x,y) is the offset in pixels caused by misalignment.
         infFunc is the influence functions used if interpType=="influence".
         tiltAngle and tiltTheta are used to model a tilted DM.
-        rotation is a value or function(that is called every iter and returns the rotation), the rotation angle of the DM in degrees.
-        decayFactorAdjustment, if !=None, is used to multiply the output of the previous reconstruction, before adding the new one to it.  A traditional closed loop system would =1, openloop =0, but if wish to do integration with openloop, specify !=0.
+        rotation is a value or function(that is called every iter and returns the rotation), the rotation angle 
+        of the DM in degrees.
+        decayFactorAdjustment, if !=None, is used to multiply the output of the previous reconstruction, before 
+        adding the new one to it.  A traditional closed loop system would =1, openloop =0, but if wish to do 
+        integration with openloop, specify !=0.
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
@@ -169,8 +190,10 @@ class dmInfo:
         return self.slaving
     def computeDMPupil(self,atmosGeom,centObscuration=0.,retPupil=1,reconstructList=None):
         """Computes the DM flag and pupil.
-        centObscuration is the size of the central obscuration in pixels.  This is reduced here depending on the conjugate height.  Typically, it will equal pupil.r2
-        reconstructList is either "all" or a list of sources for which actuators should be computed.  If None, the default is used.
+        centObscuration is the size of the central obscuration in pixels.  This is reduced here depending 
+             on the conjugate height.  Typically, it will equal pupil.r2
+        reconstructList is either "all" or a list of sources for which actuators should be computed.  If 
+             None, the default is used.
         """
         if reconstructList==None:
             reconstructList=self.reconstructList
@@ -214,7 +237,6 @@ class dmInfo:
             sy=(r*numpy.sin(phi/180.*numpy.pi)-yoff)*((1/numpy.cos(numpy.pi/180*self.tiltAngle)-1)*numpy.sin(self.tiltTheta*numpy.pi/180)+1)
             x=dmpup/2.+sx*pxlscale
             y=dmpup/2.+sy*pxlscale
-            #print x,y
             secDiam=centObscuration*telDiam*2/atmosGeom.ntel
             if alt>0:
                 telDiam*=numpy.fabs(alt-height)/alt#rescale to lgs cone...
@@ -229,7 +251,6 @@ class dmInfo:
                 yi2=int(i-y+0.5)**2
                 for j in xrange(int(x-w),min(dmpup,int(numpy.ceil(x+w))+1)):
                     xi2=int(j-x+0.5)**2
-                    #print numpy.sqrt([yi2,xi2,diam2,secDiam2])
                     if yi2+xi2<=diam2 and yi2+xi2>=secDiam2:
                         dmpupil[i,j]=1
             if self.maxActDist!=None:
@@ -264,6 +285,7 @@ class dmInfo:
             return self.dmflag,subarea,dmpupil
         else:
             return self.dmflag,subarea
+
     def computeDMPupilAll(self,atmosGeom,centObscuration=0.,retPupil=1):
         """Computes the DM flag and pupil, for a DM with nAct
         actuators.  actOffset is the offset of the first and last
@@ -272,7 +294,8 @@ class dmInfo:
         0.5 means they are in the centre of subaps (if nact==nsubx).
 
         dmminarea is the minimum area to count in the dmflag.
-        centObscuration is the size of the central obscuration in pixels.  This is reduced here depending on the conjugate height.  Typically, it will equal pupil.r2
+        centObscuration is the size of the central obscuration in pixels.  This is reduced here
+        depending on the conjugate height.  Typically, it will equal pupil.r2
         """
         if self.zonalDM:
             if retPupil:
@@ -282,7 +305,7 @@ class dmInfo:
                 if self.dmflag!=None and self.subarea!=None:
                     return self.dmflag,self.subarea
             nAct=self.nact
-            dmminarea=self.minarea
+            dmminarea=0.45#self.minarea # just for DiCuRe debugging, UB 2012 Aug 16
             actOffset=self.actoffset
             dmflag=numpy.zeros((nAct,nAct),numpy.int32)
             subarea=numpy.zeros((nAct,nAct),numpy.float32)
@@ -350,8 +373,6 @@ class dmInfo:
                                 if y2>=dmpup:
                                     y2=dmpup
                                 dmpupil[y1:y2,x1:x2]=1
-                                
-                        
         else:#a modal DM
             if retPupil:
                 dmpupil=util.tel.Pupil(dmpup,r1,r2).fn
@@ -363,7 +384,8 @@ class dmInfo:
             self.dmpupil=dmpupil
             return dmflag,subarea,dmpupil
         else:
-            return dmflag,subarea        
+            return dmflag,subarea
+
     def calcdmpup(self,atmosGeom):
         """calculate the dmpup needed for a given dm (conjugate at height).
         If fov is specified (arcsec), the dm will have this fov.  Otherwise it will be just large enough to
@@ -660,26 +682,31 @@ class dmInfo:
 
         elif width=="testorig":#do a local mirror mode version.
             width=None
-            mirrorModes,mirrorModeCoords,vig=self.makeLocalMirrorModes(atmosGeom,r2,fitpup=fitpup,mirrorSurface=mirrorSurface,W=width)
-            phasecov=util.phaseCovariance.makeWithLocalModes(self.dmpup,mirrorModes,mirrorModeCoords,r0=atmosGeom.r0,l0=atmosGeom.l0,telDiam=self.dmDiam,typ=typ,nthreads=nthreads,lam=lam)
+            mirrorModes,mirrorModeCoords,vig=self.makeLocalMirrorModes(atmosGeom,r2,fitpup=fitpup,
+                                                                       mirrorSurface=mirrorSurface,W=width)
+            phasecov=util.phaseCovariance.makeWithLocalModes(self.dmpup,mirrorModes,mirrorModeCoords,
+                        r0=atmosGeom.r0,l0=atmosGeom.l0,telDiam=self.dmDiam,typ=typ,nthreads=nthreads,lam=lam)
         else:#do a local mirror mode version.
             if width<0:
                 width=None
             print "Making mirror modes..."
-            mirrorModes,mirrorModeCoords,vig=self.makeLocalMirrorModes(atmosGeom,r2,fitpup=fitpup,mirrorSurface=mirrorSurface,W=width)
+            mirrorModes,mirrorModeCoords,vig=self.makeLocalMirrorModes(atmosGeom,r2,fitpup=fitpup,
+                                                                       mirrorSurface=mirrorSurface,W=width)
             if rescaleModes:
                 print "rescaling mirrorModes."
                 for i in range(mirrorModes.shape[0]):
                     mirrorModes[i]*=self.mirrorScale[i]
             print "Making phase covariance... (mode shape=%s)"%str(mirrorModes.shape)
-            phasecov=util.phaseCovariance.makeWithLocalModesFFTThreaded(self.dmpup,mirrorModes,mirrorModeCoords,r0=atmosGeom.r0,l0=atmosGeom.l0,telDiam=self.dmDiam,typ=typ,nthreads=nthreads,lam=lam)
+            phasecov=util.phaseCovariance.makeWithLocalModesFFTThreaded(self.dmpup,mirrorModes,mirrorModeCoords,
+                       r0=atmosGeom.r0,l0=atmosGeom.l0,telDiam=self.dmDiam,typ=typ,nthreads=nthreads,lam=lam)
         if rescalePhasecov:
             for i in range(mirrorModes.shape[0]):
                 phasecov[i]*=self.mirrorScale[i]
                 phasecov[:,i]*=self.mirrorScale[i]
         return phasecov
 
-    def getMirrorSurface(self,interpType=None,actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,phsOut=None,infFunc=None, interpolationNthreads = 0):
+    def getMirrorSurface(self,interpType=None,actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,
+                         gaussianOverlapAccuracy=1e-6,phsOut=None,infFunc=None, interpolationNthreads = 0):
         """Create a MirrorSurface object for this DM"""
         if interpType==None:
             interpType=self.interpType
@@ -689,15 +716,18 @@ class dmInfo:
             actFlattening=self.actFlattening
         if infFunc==None:
             infFunc=self.infFunc
-        return MirrorSurface(typ=interpType,npup=self.dmpup,nact=self.nact,phsOut=phsOut,actoffset=self.actoffset,actCoupling=actCoupling,actFlattening=actFlattening,couplingcoeff=couplingcoeff,gaussianIndex=gaussianIndex,gaussianOverlapAccuracy=gaussianOverlapAccuracy,infFunc=infFunc, interpolationNthreads = interpolationNthreads)
+        return MirrorSurface(typ=interpType,npup=self.dmpup,nact=self.nact,phsOut=phsOut,actoffset=self.actoffset,
+                             actCoupling=actCoupling,actFlattening=actFlattening,couplingcoeff=couplingcoeff,
+                             gaussianIndex=gaussianIndex,gaussianOverlapAccuracy=gaussianOverlapAccuracy,
+                             infFunc=infFunc, interpolationNthreads = interpolationNthreads)
 
 class dmOverview:
     """DM object to hold info about DMs etc.
     Typically, this is used in the param file.
     """
     def __init__(self,dmInfoList,atmosGeom=None):
-        """Create an object holding info about all DMs (virtual, physical, etc).  If atmosGeom is specified, this can be used for further
-        stuff, eg calculation of number of pixels for each DM etc.
+        """Create an object holding info about all DMs (virtual, physical, etc).  If atmosGeom is 
+        specified, this can be used for further stuff, eg calculation of number of pixels for each DM etc.
         
         dmInfoList is a list of dmInfo objects.
         atmosGeom is an instance of util.atmos.geom, or None, in which
@@ -705,7 +735,6 @@ class dmOverview:
         """
         self.dmInfoList=dmInfoList
         self.atmosGeom=atmosGeom
-
 
         for dm in dmInfoList:
             if atmosGeom!=None and atmosGeom.zenith!=0:
@@ -717,10 +746,11 @@ class dmOverview:
                 xoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.cos(dm.primaryPhi*numpy.pi/180.)
                 yoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.sin(dm.primaryPhi*numpy.pi/180.)
                 for dmid,sourceid in dm.idlist:
-                    x=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*numpy.cos(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-xoff
-                    y=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*numpy.sin(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-yoff
+                    x=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
+                        numpy.cos(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-xoff
+                    y=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
+                        numpy.sin(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-yoff
                     fov=numpy.arctan2(numpy.sqrt(x**2+y**2),dm.height)/numpy.pi*180*60*60
-                    #print sourceid,x,y,fov,dm.fov,dm.height,atmosGeom.sourceTheta(sourceid),atmosGeom.sourcePhi(sourceid),xoff,yoff
                     dm.fov=max(fov,dm.fov)
 
                 print "FOV computed as %g for DM %s"%(dm.fov,dm.label)

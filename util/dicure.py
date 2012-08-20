@@ -66,24 +66,32 @@ class gradientOperatorType1:
         self.subapMask=((pupilMask[:-1,:-1]+pupilMask[1:,:-1]\
                   +pupilMask[1:,1:]+pupilMask[:-1,1:])==4)
         self.newSubaperturesGiven(self.subapMask)
+        print "DICURE SUBAPMASK:", self.subapMask
 
 
 #
 # Class to handle the dicure reconstruction of the wavefront:
 #
 class DiCuRe:
-    def __init__(self, subapMap):
+#    def __init__(self, subapMap):
+    def __init__(self, actuatorMap):
 
-        if subapMap.shape[0] != subapMap.shape[1]:
-            raise Exception("DiCuRe can not be used with non-square subaperture maps.")
+#        if subapMap.shape[0] != subapMap.shape[1]:
+#            raise Exception("DiCuRe can not be used with non-square subaperture maps.")
+        if actuatorMap.shape[0] != actuatorMap.shape[1]:
+            raise Exception("DiCuRe can not be used with non-square actuator maps.")
 
         # Set up the geometry:
-        self.gInst = gradientOperatorType1( subapMap )
+#        self.gInst = gradientOperatorType1( subapMap )
+        self.gInst = gradientOperatorType1( pupilMask = actuatorMap )
         # Define the chains:
         self.chainsDef,\
         self.chainsDefChStrts = self.chainsDefine() # chainsDefine returns 2 values
+        # the actuatorMask:
+        self.actuatorMap = actuatorMap
         # Get the number of subapertures in one direction:
-        self.nsubx = subapMap.shape[0]
+#        self.nsubx = subapMap.shape[0]
+        self.nsubx = actuatorMap.shape[0]-1
         # the number of actuators in one direction:
         self.nactx = self.nsubx+1
 
@@ -113,7 +121,20 @@ class DiCuRe:
             for i in range((self.chainsDef[1][x][1])):
                 comp[ self.nactx**2+self.chainsDef[1][x][0][i] ] += (chains[1][x][i]+offsetEstV[toeI])
                 pass
-        return comp
+        np.set_printoptions(precision = 3)
+#        print "COMP:", comp.reshape((2, self.nactx, self.nactx))
+#        print "ACTUATORS:", self.actuatorMap, "VSOTA:", sum(sum(self.actuatorMap))
+#        print "ILLUMINATED CORNERS:", self.gInst.illuminatedCornersIdx
+#        print "size(ilum corners):", self.gInst.illuminatedCornersIdx.size
+        comp.resize(2, self.nactx**2) # separate chains 1 and chains 2
+        rs = comp.mean(0) # calculate mean over chains 1 and chains 2; rs is nactx**2 long
+#        print "RS:", rs
+        idx = self.actuatorMap.ravel().nonzero() # get the indices of active DM actuators
+#        print "IDX:", idx
+        result  = rs[idx] # get the active-actuators' values from rs to result
+        result -= result.mean() # subtract the mean value from all the elements
+#        print "RESULT:", result
+        return result # that's it
 
     def rotateVectors(self, grads):
         return np.array(

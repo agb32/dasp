@@ -504,6 +504,7 @@ class dm(base.aobase.aobase):
         elif type(self.rotation)!=type(None):
             self.mirrorSurface.rotate(self.rotation())
 	#self.doInterpolation(self.actmap)
+        #print self.actmap
 
 
     def applySlaving(self,actmap,actslaves):

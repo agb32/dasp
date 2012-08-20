@@ -68,7 +68,7 @@ class recon(base.aobase.aobase):
                 tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
                 # tmp is dmflag,subarea (or None,None for modal DMs.)
                 self.dmPupList.append(tmp[0])
-            
+
                 self.nactsList.append(int(numpy.sum(tmp[0].ravel())))
                 if dm.pokeSpacing!=None:
                     self.npokesList.append(dm.pokeSpacing**2)
@@ -82,7 +82,7 @@ class recon(base.aobase.aobase):
                 self.npokesCumList.append(self.npokesCumList[-1]+dm.nact)
             self.nactsCumList.append(self.nactsList[-1]+self.nactsCumList[-1])
             self.closedLoopList.append(dm.closedLoop)
-            
+
         self.nacts=sum(self.nactsList)
         self.extraActs=self.config.getVal("extraActs",default=0)# won't be sent to dm, but can be useful if 
                                                                 # need to do anything clever with reconstruction.
@@ -149,9 +149,17 @@ class recon(base.aobase.aobase):
                 self.reconType="svd"
             if self.reconType=="dicure": # UB, 2012 Aug 3rd
                 nsubx_tmp = self.config.getVal("wfs_nsubx")
+                #print "MINAREA:", self.minarea
                 subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
-                del nsubx_tmp # delete the temporary nsubx, as you don't need it anywhere else
-                self.dicure=util.dicure.DiCuRe( subapMap )
+                print "SUBAPMAP:", subapMap
+                #print "PUPILMASK:", self.dmPupList[0]
+                #del nsubx_tmp # delete the temporary nsubx, as you don't need it anywhere else
+                #self.dicure=util.dicure.DiCuRe( subapMap )
+                self.dicure=util.dicure.DiCuRe( self.dmPupList[0] ) # provide DM actuator map, dmPupList[0].
+                                              # If there are more DMs the method will still do something,
+                                              # but the result will not make sense, since dicure works only
+                                              # for a single DM. (UB, 2012Aug15)
+                #del subapMap
             self.npup=config.getVal("npup")
             self.telDiam=config.getVal("telDiam")
 
@@ -517,6 +525,8 @@ class recon(base.aobase.aobase):
             #    #self.inputData.savespace(1)
             #else:
             #    self.inputData=numpy.zeros(self.ncents,numpy.float32)
+    # END of __init__
+
     def finalInitialisation(self):
         print "tomoRecon decay factors of %s applied where closed loop list %s is 0 - is this what you intended?"%(
             str(self.decayFactorOpen),str(self.closedLoopList))
@@ -984,7 +994,7 @@ class recon(base.aobase.aobase):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 else:
-                    tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)# HERE
+                    tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
@@ -1006,7 +1016,11 @@ class recon(base.aobase.aobase):
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
         elif self.reconType=="dicure":
-            self.outputData = self.dicure.calc( self.inputData )
+            tmp=self.gains*self.dicure.calc( self.inputData )
+            self.outputData+=tmp 
+#        print "self.outputData: ", self.outputData
+#        print "self.inputData.shape: ", self.inputData.shape
+#        print "self.outputData.shape: ", self.outputData.shape
     # END of calc2()
 
 

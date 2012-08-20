@@ -22,11 +22,10 @@ REFCENTS=18
 CALCOEFF=19
 USEBRIGHTEST=20
 class centcmod:
-  def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,
-               nimg,phasesize,readnoise,readbg,
-               addPoisson,noiseFloor,sig,skybrightness,
-               calsource,pxlPower,nintegrations,seed,
-               phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest):
+  def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
+               addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,
+               phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,
+               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest):
     """Wrapper for the c centroid module.
     Here, sig can be a float or a float array.
     """

@@ -112,8 +112,10 @@ class Pupil(user_array.container):#UserArray.UserArray):
             self.makeSpider(spider[0],spider[1])
         self.calcSubaps()
         user_array.container.__init__(self,self.fn,copy=0)
+    # END of __init__
 
     def calcSubaps(self):
+        """ To be used only from tel.py::Pupil::__init__ """
         self.sum=na.sum(na.sum(self.fn))
         nsubx=self.nsubx
         npup=self.npup

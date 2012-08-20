@@ -80,7 +80,13 @@ class centroid:
     (memory and FPGA shared by more than one wfscent algorithm calculator).
     """
     #def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
-    def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
+    def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,
+                 binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",
+                 fpDataType=numpy.float32,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,
+                 tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,
+                 opticalBinning=0,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,
+                 stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,
+                 corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -251,7 +257,7 @@ class centroid:
         #else:
         pfn=self.pupfn.astype(self.fpDataType)
         indices=[]
-        # This could (and would be nice to) be replaced by util.tel.pupil.getSubapFlags,
+        # This could (and would be nice to) be replaced by util.tel.pupil.getSubapFlag,
         # but the "indeces" should be taken care of (a bit of work), so we leave like this for now:
         for i in xrange(self.nsubx):        
             for j in xrange(self.nsubx):
