@@ -1286,7 +1286,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
   PyObject *obj;
   PyArrayObject *aobj;
   if(!PyArg_ParseTuple(args,"liO",&c,&code,&obj)){
-    printf("Usage: centstruct object, code for value to be changed, new value\n");
+    printf("centmodule: parsing parameters failed.\nUsage: centstruct object, code for value to be changed, new value\n");
     return NULL;
   }
   PyErr_Clear();

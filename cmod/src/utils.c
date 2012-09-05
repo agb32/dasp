@@ -1416,7 +1416,7 @@ static PyObject* dot(PyObject* self, PyObject* args)
   npy_intp* iSizes;      // sizes of the input array
   int i;                 // for-loop index
 
-  int forEach;           // m/nThreads = number of ouput elements to be processed by each thread
+  int forEach;           // m/nThreads = number of lines to be processed by each thread
   int oneMore;           // m%nThreads = number of threads that have to process one line more
 
   int check_arg3 = 0;    // a flag to check the output array to make the code more readable

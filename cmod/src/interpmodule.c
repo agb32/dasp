@@ -302,7 +302,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 			                &pyxout,
 			 &PyArray_Type, &pyout, 
 			                &nThreads)){
-    printf("Arguments: mxin,yin,xin,yout,xout,mxout\nxin,yin should be e.g. x1=(numpy.arange(n)/(n-1)).astype('d') where n = mxin.shape[0].\nxout,yout should be e.g. (numpy.arange(nn)+0.5)/nn\nAny of yin,xin,yout,xout can be None.");
+    printf("interp.gslCubSplineInterp: parsing the arguments failed. Arguments: mxin,yin,xin,yout,xout,mxout\nxin,yin should be e.g. x1=(numpy.arange(n)/(n-1)).astype('d') where n = mxin.shape[0].\nxout,yout should be e.g. (numpy.arange(nn)+0.5)/nn\nAny of yin,xin,yout,xout can be None.");
     return NULL;
   }
   if(PyArray_NDIM(pyin)!=2 || PyArray_NDIM(pyout)!=2)
@@ -312,14 +312,14 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     }
 
   // (2) EXTRACT SOME INFO AND CHECK THE INPUT
-  pyinDims=PyArray_DIMS(pyin);
-  pyoutDims=PyArray_DIMS(pyout);
-  n1y=(int) pyinDims[0];
-  n1x=(int) pyinDims[1];
-  n2y=(int) pyoutDims[0];
-  n2x=(int) pyoutDims[1];
-  pyinData = (void *)PyArray_DATA(pyin);
+  pyinData  = (void *)PyArray_DATA(pyin);
   pyoutData = (void *)PyArray_DATA(pyout);
+  pyinDims  = PyArray_DIMS(pyin);
+  pyoutDims = PyArray_DIMS(pyout);
+  n1y = (int) pyinDims[0];
+  n1x = (int) pyinDims[1];
+  n2y = (int) pyoutDims[0];
+  n2x = (int) pyoutDims[1];
 
   switch(PyArray_TYPE(pyin)){
   case NPY_FLOAT:

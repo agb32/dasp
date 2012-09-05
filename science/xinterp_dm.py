@@ -334,12 +334,7 @@ class dm(base.aobase.aobase):
         
     def generateNext(self,ms=None):
         """DM main loop:  Reflect from DM (add DM figure to phase)"""
-##         rankDict=self.rankDict
 
-##                 myproc=rankDict.keys()[comm.rank]                # Rank and source for this process
-##                 i=rankDict.values().index(comm.rank)
-##                 myproc=rankDict.keys()[i]
-##                 source=self.sourceDict[myproc]
         this=self.thisObjList[self.currentIdObjCnt]
         if not this.parent.has_key("atmos") and not this.parent.has_key("recon"):
             print "xinterp_dm object assigning parents automatically"
@@ -349,7 +344,8 @@ class dm(base.aobase.aobase):
                     print "xinterp_dm parent object %s becoming atmos"%str(key)
                     this.parent["atmos"]=this.parent[key]
                 else:
-                    print "xinterp_dm parent object %s becoming recon with output shape %s"%(str(key),str(this.parent[key].outputData.shape))
+                    print "xinterp_dm parent object %s becoming recon with output shape %s"%(\
+                        str(key),str(this.parent[key].outputData.shape))
                     this.parent["recon"]=this.parent[key]
             for key in keylist:
                 del(this.parent[key])
@@ -359,7 +355,7 @@ class dm(base.aobase.aobase):
             if self.newDataWaiting:
                 if this.parent.has_key("atmos"):
                     if this.parent["atmos"].dataValid==1:
-                        self.outputData[:,]=this.parent["atmos"].outputData#make a copy
+                        self.outputData[:,]=this.parent["atmos"].outputData # make a copy
                         self.dataValid=1
                         if self.control["phaseCovariance"]:
                             self.montePhaseCovariance()
@@ -380,12 +376,8 @@ class dm(base.aobase.aobase):
                     if self.actStart==None:
                         self.getActuatorOffsets(this.parent["recon"].outputData)
                     self.reconData=this.parent["recon"].outputData[self.actStart:self.actEnd]
-                    # Recondata needs reformatting to include zeroed actuators
-                    # that are not including in reconstructor
-                    #numpy.put(self.actmap_1d,self.dmindices,self.reconData)
-                    #self.actmap_1d=self.reconData#agb test
-                    self.update()#create self.dmphs... update the dm figure.
-                    self.dataValid=1#update the output.
+                    self.update()    # update the dm figure.
+                    self.dataValid=1 # update the output.
             if self.dataValid:
                 self.selectedDmPhs=this.selectedDmPhs
                 if self.subpxlInterp:
@@ -461,7 +453,6 @@ class dm(base.aobase.aobase):
     def update(self):
         """DM figure update: Add actuator updates to
         mirror (if the loop is closed)"""
-        #self.dmphs*=0.0#numpy.zeros((self.npup,self.npup),numpy.float64)
 
         #zoffset is only used here (I think).  Should be set by GUI.
         zoffset=self.control["zoffset"]#self.controlDict['zoffset']
@@ -476,10 +467,9 @@ class dm(base.aobase.aobase):
             self.actmap+=self.reconData[0]
             self.geom="hudgin"
         elif l==2:
-            self.geom="fried"
             self.actmap+=self.reconData
+            self.geom="fried"
         elif l==1:#output from the xinterp_recon/tomoRecon module...
-            #print self.reconData.shape,self.nact
             if self.reconData.shape[0]==self.nact*self.nact:
                 self.actmap+=numpy.reshape(self.reconData,(self.nact,self.nact))
             else:
@@ -496,15 +486,15 @@ class dm(base.aobase.aobase):
             t=(self.actmap.sum(1)*self.tilt).sum()
             self.actmap.T-=t*self.tilt
 
-        self.mirrorSurface.fit(self.actmap)
+        self.mirrorSurface.fit(self.actmap) # UB, 2012Aug20: just looking at the code it seems that
+                                            # this line has no effect, since the return value is
+                                            # ignored. Can this line be deleted?
         if self.rotation==None or self.rotation==0:
             pass
         elif type(self.rotation) in [type(0),type(0.)]:
             self.mirrorSurface.rotate(self.rotation)
         elif type(self.rotation)!=type(None):
             self.mirrorSurface.rotate(self.rotation())
-	#self.doInterpolation(self.actmap)
-        #print self.actmap
 
 
     def applySlaving(self,actmap,actslaves):
@@ -547,8 +537,6 @@ class dm(base.aobase.aobase):
             else:
                 numpy.put(actmx1d,self.dmindices,modeMatrix[:,-1-i])
             tmp=self.mirrorSurface.fit(actmx)
-            #tmp=self.doInterpolation(actmx)
-            #print tmp.shape,self.mirrorModes.shape
             self.mirrorModes[i]=tmp
             if fitpup:
                 self.mirrorModes[i]*=pfn
@@ -576,7 +564,10 @@ class dm(base.aobase.aobase):
         self.monteNoll+=a[:,numpy.newaxis]*a[numpy.newaxis,:]
         self.navNoll+=1
     def finishMontePhaseCovariance(self,fname="montePhaseCovMat.fits"):
-        self.montePhaseCovMat=self.monteNoll/(self.navNoll)#*self.pupil.sum)#*self.pxlscale**2)#should pupil.sum be with or without the central obscuration? (not that it makes a huge difference!).  Don't scale to pixels, because the poke matrix scales from radians to pixels.
+        self.montePhaseCovMat=self.monteNoll/(self.navNoll)#*self.pupil.sum)#*self.pxlscale**2)
+                    # should pupil.sum be with or without the central obscuration? (not that
+                    # it makes a huge difference!).  Don't scale to pixels, because the poke
+                    # matrix scales from radians to pixels.
         if fname!=None:
             print "%s has been written"%fname
             util.FITS.Write(self.montePhaseCovMat,fname)
