@@ -305,7 +305,7 @@ class dmInfo:
                 if self.dmflag!=None and self.subarea!=None:
                     return self.dmflag,self.subarea
             nAct=self.nact
-            dmminarea=0.45#self.minarea # just for DiCuRe debugging, UB 2012 Aug 16
+            dmminarea=self.minarea # = 0.45 used for DiCuRe debugging, UB 2012 Aug 16
             actOffset=self.actoffset
             dmflag=numpy.zeros((nAct,nAct),numpy.int32)
             subarea=numpy.zeros((nAct,nAct),numpy.float32)
