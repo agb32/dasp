@@ -742,7 +742,7 @@ int calcCorrelation(int nimg,float *corrPattern,float *bimg,float *corrimg,float
       r7=a[i*n+n/2]*B(i,n/2)-a[(m-i)*n+n/2]*B(m-i,n/2);
       r8=a[i*n+n/2]*B(m-i,n/2)+a[(m-i)*n+n/2]*B(i,n/2);
       a[i*n+n/2]=r7;
-      a[(m-i)*n+n/2]=r7; // IS THIS A BUG?? SHOULD IT BE "=r8" INSTEAD?? (UB, 2012Aug08)
+      a[(m-i)*n+n/2]=r8; // IS THIS A BUG?? SHOULD IT BE "=r8" INSTEAD?? (UB, 2012Aug08)  Yes, I think so - changed to r8 on 120830 by agb.
     }
     
     for(j=1; j<(n+1)/2; j++){
