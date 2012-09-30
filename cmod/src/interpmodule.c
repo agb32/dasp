@@ -1,109 +1,24 @@
 
-/* Numpy extension to do matrix interpolation  using Num. Rec. Cubic spline interp */
+/* 
+Numpy extension to do matrix interpolation using gsl Cubic spline interpolation.
+UB, 2012 Aug 08: In bicubic_spline the Numerical Recipies function is still used
+(could be cleaned up, but needs some effort).
+*/
 
 #include "Python.h"
 #include <stdio.h>
 #include <math.h>
 
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
+#include "numpy/arrayobject.h"
 
-#include "nr.h"
-#include "nrutil.h"
-#include <time.h>
+//#include <time.h> // commented out UB, 30th Jul 2012
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_spline.h>
 
-#include "interpolate.h" // for multi-threaded interpolation
-#include <pthread.h>
+#include <pthread.h>     // for multi-threaded interpolation
+#include "interpolate.h" // functions for multi-threaded interpolation
 
 /* =============================================================================*/
-
-#define NRANSI
-#include "nrutil.h"
-
-
-/* Linear interpolation in 2D (requires 64-bit arrays) */
-static PyObject *gslLinIntrp(PyObject *self,PyObject *args){
-	PyArrayObject	*pyin,*pyout;
-	npy_intp *pyinDims,*pyoutDims;
-	double *pyinData,*pyoutData;
-
-	double *x1,*x2,*y1,*ytmp;
-	int i,j,n1,n2;
-
-	gsl_interp *interpObj;
-	gsl_interp_accel *interpAcc ;
-	size_t  ninterp;
-
-
-	/* handle input arrays */
-	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &pyin, &PyArray_Type, &pyout))
-		return NULL;
-	
-	pyinDims=PyArray_DIMS(pyin);
-	pyoutDims=PyArray_DIMS(pyout);
-	n1=(int) pyinDims[0];
-	n2=(int) pyoutDims[0];
-	pyinData = (double *)PyArray_DATA(pyin);
-	pyoutData = (double *)PyArray_DATA(pyout);
-
-
-	/* allocate populate working arrays */
-	x1=calloc(n1, sizeof(double));
-	x2=calloc(n2, sizeof(double));
-	y1=calloc(n1, sizeof(double));
-	ytmp=calloc(n1*n2, sizeof(double));
-
-	for (i=0; i<n1; ++i) {
-		x1[i] = (double)i / (double)(n1-1);
-	}
-	for (i=0; i<n2; ++i) {
-		x2[i] = (0.5 + (double)i) / (double)n2;
-	}
-
-
-	/* allocate interpolation stuff */
-	ninterp=(size_t)n1;
-	interpObj=gsl_interp_alloc(gsl_interp_linear, ninterp);
-	interpAcc=gsl_interp_accel_alloc();
-
-	/* do interpolation pass in first dimension */
-	for (j=0; j<n1; ++j) {
-		for (i=0; i<n1; ++i) {
-			y1[i]=pyinData[i*n1+j];
-		}
-		gsl_interp_init(interpObj, x1, y1, ninterp);
-
-		for (i=0; i<n2; ++i) {
-			ytmp[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc);
-		}	
-	}
-	
-
-	/* do interpolation pass in second dimension and put results in output array */
-	for (j=0; j<n2; ++j) {
-		for (i=0; i<n1; ++i) {
-			y1[i]=ytmp[i*n2+j];
-		}
-		gsl_interp_init(interpObj, x1, y1, ninterp);
-		for (i=0; i<n2; ++i) {
-			pyoutData[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc);
-		}	
-	}	
-	
-	
-	/* tidy up */
-	//printf("intrp.interp2d: Tidying up\n");
-	gsl_interp_accel_free(interpAcc);
-	gsl_interp_free(interpObj);
-	free(x1);
-	free(x2);
-	free(y1);
-	free(ytmp);
-	
-	return Py_BuildValue("");   /* return None */
-}
-
 
 /* Cubic spline interpolation in 2D (requires 64-bit arrays) */
 // 
@@ -342,6 +257,8 @@ static PyObject *gslPeriodicCubSplineIntrp(PyObject *self,PyObject *args){
   
   return Py_BuildValue("");   /* return None */
 }
+// END of gslPeriodicCubSplineIntrp
+
 
 // 
 // Urban Bitenc, 25 July 2012:
@@ -385,7 +302,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 			                &pyxout,
 			 &PyArray_Type, &pyout, 
 			                &nThreads)){
-    printf("Arguments: mxin,yin,xin,yout,xout,mxout\nxin,yin should be e.g. x1=(numpy.arange(n)/(n-1)).astype('d') where n = mxin.shape[0].\nxout,yout should be e.g. (numpy.arange(nn)+0.5)/nn\nAny of yin,xin,yout,xout can be None.");
+    printf("interp.gslCubSplineInterp: parsing the arguments failed. Arguments: mxin,yin,xin,yout,xout,mxout\nxin,yin should be e.g. x1=(numpy.arange(n)/(n-1)).astype('d') where n = mxin.shape[0].\nxout,yout should be e.g. (numpy.arange(nn)+0.5)/nn\nAny of yin,xin,yout,xout can be None.");
     return NULL;
   }
   if(PyArray_NDIM(pyin)!=2 || PyArray_NDIM(pyout)!=2)
@@ -395,14 +312,14 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     }
 
   // (2) EXTRACT SOME INFO AND CHECK THE INPUT
-  pyinDims=PyArray_DIMS(pyin);
-  pyoutDims=PyArray_DIMS(pyout);
-  n1y=(int) pyinDims[0];
-  n1x=(int) pyinDims[1];
-  n2y=(int) pyoutDims[0];
-  n2x=(int) pyoutDims[1];
-  pyinData = (void *)PyArray_DATA(pyin);
+  pyinData  = (void *)PyArray_DATA(pyin);
   pyoutData = (void *)PyArray_DATA(pyout);
+  pyinDims  = PyArray_DIMS(pyin);
+  pyoutDims = PyArray_DIMS(pyout);
+  n1y = (int) pyinDims[0];
+  n1x = (int) pyinDims[1];
+  n2y = (int) pyoutDims[0];
+  n2x = (int) pyoutDims[1];
 
   switch(PyArray_TYPE(pyin)){
   case NPY_FLOAT:
@@ -775,514 +692,226 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 }
 // END of gslCubSplineIntrp
 
-
-static PyObject *cubIntrpOrig(PyObject* self, PyObject* args)
+// Stolen from the Numerical Recipies:
+void NRbcucof(float y[], float y1[], float y2[], float y12[], float d1, float d2,	float **c)
 {
-	PyArrayObject	*pyin,*pyout;
-	npy_intp		*pyinDims,*pyoutDims;
-	double			*pyinData,*pyoutData;
+  static int wt[16][16]=
+    {{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+     {0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0},
+     {-3,0,0,3,0,0,0,0,-2,0,0,-1,0,0,0,0},
+     {2,0,0,-2,0,0,0,0,1,0,0,1,0,0,0,0},
+     {0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0},
+     {0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0},
+     {0,0,0,0,-3,0,0,3,0,0,0,0,-2,0,0,-1},
+     {0,0,0,0,2,0,0,-2,0,0,0,0,1,0,0,1},
+     {-3,3,0,0,-2,-1,0,0,0,0,0,0,0,0,0,0},
+     {0,0,0,0,0,0,0,0,-3,3,0,0,-2,-1,0,0},
+     {9,-9,9,-9,6,3,-3,-6,6,-6,-3,3,4,2,1,2},
+     {-6,6,-6,6,-4,-2,2,4,-3,3,3,-3,-2,-1,-1,-2},
+     {2,-2,0,0,1,1,0,0,0,0,0,0,0,0,0,0},
+     {0,0,0,0,0,0,0,0,2,-2,0,0,1,1,0,0},
+     {-6,6,-6,6,-3,-3,3,3,-4,4,2,-2,-2,-2,-1,-1},
+     {4,-4,4,-4,2,2,-2,-2,2,-2,-2,2,1,1,1,1}};
+  int l,k,j,i;
+  float xx,d1d2,cl[16],x[16];
 
-	int		zpad=10;   /* no of pixels to zero-pad input by */
-
-	double		*x1,*x2,*y1,*ytmp;
-	double		dx1,dx2;
-	int			i,j,n1,n2,n1p;
-
-	gsl_interp 	*interpObj;
-	gsl_interp_accel *interpAcc ;
-	size_t  ninterp;
-
-
-	/* handle input arrays */
-	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &pyin, &PyArray_Type, &pyout))
-		return NULL;
-	
-	pyinDims=PyArray_DIMS(pyin);
-	pyoutDims=PyArray_DIMS(pyout);
-	n1=(int) pyinDims[0];
-	n2=(int) pyoutDims[0];
-	pyinData = (double *)PyArray_DATA(pyin);
-	pyoutData = (double *)PyArray_DATA(pyout);
-
-
-	/* allocate and (partially) populate working arrays */
-	n1p=n1+2*zpad;
-	//printf("intrp.interp2d: n1 = %d, n2 = %d, n1p = %d\n",n1,n2,n1p);
-	x1=calloc(n1p, sizeof(double));
-	x2=calloc(n2, sizeof(double));
-	y1=calloc(n1p, sizeof(double));
-	ytmp=calloc(n1*n2, sizeof(double));
-
-	dx1=1./(double)(n1p-1);
-	dx2=dx1 * (double)(n1-1) / (double)(n2);
-
-	for (i=0; i<n1p; ++i) {
-		x1[i] = (double)i * dx1;
-	}
-	for (i=0; i<n2; ++i) {
-		x2[i] = x1[zpad] + (0.5+(double)i) * dx2;
-	}
-	for (i=0; i<zpad; ++i) {
-		y1[i] = 0.;
-		y1[zpad+n1+i]=0.;
-	}
-	
-
-	/* allocate interpolation stuff (use periodic cspline to make sure influence functions are identical) */
-	ninterp=(size_t)n1p;
-	interpObj=gsl_interp_alloc(gsl_interp_cspline_periodic, ninterp);
-	interpAcc=gsl_interp_accel_alloc();
-
-	
-	/* do interpolation pass in first dimension */
-	for (j=0; j<n1; ++j) {
-		for (i=0; i<n1; ++i) {
-			y1[zpad+i]=pyinData[i*n1+j];
-		}
-		gsl_interp_init(interpObj, x1, y1, ninterp);
-
-		for (i=0; i<n2; ++i) {
-			ytmp[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc);
-		}	
-	}
-	
-	
-	/* do interpolation pass in second dimension and put results in output array */
-	for (j=0; j<n2; ++j) {
-		for (i=0; i<n1; ++i) {
-			y1[zpad+i]=ytmp[i*n2+j];
-		}
-		gsl_interp_init(interpObj, x1, y1, ninterp);
-		for (i=0; i<n2; ++i) {
-			pyoutData[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc);
-		}	
-	}	
-	
-	
-	/* tidy up */
-	gsl_interp_accel_free(interpAcc);
-	gsl_interp_free(interpObj);
-	free(x1);
-	free(x2);
-	free(y1);
-	free(ytmp);
-	
-	return Py_BuildValue("");   /* return None */
-}
-//splint - agb version to avoid exit if h==0.
-int splintagb(float xa[], float ya[], float y2a[], int n, float x, float *y)
-{
-	void nrerror(char error_text[]);
-	int klo,khi,k;
-	float h,b,a;
-
-	klo=1;
-	khi=n;
-	while (khi-klo > 1) {
-		k=(khi+klo) >> 1;
-		if (xa[k] > x) khi=k;
-		else klo=k;
-	}
-	h=xa[khi]-xa[klo];
-	if (h == 0.0){
-	  printf("Bad xa input to routine splint in interpmodule\n");
-	  printf("SIMULATION NEEDS TO BE HALTED\n");
-	  return 1;
-	}
-	a=(xa[khi]-x)/h;
-	b=(x-xa[klo])/h;
-	*y=a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0;
-	return 0;
+  d1d2=d1*d2;
+  for (i=1;i<=4;i++) {
+    x[i-1]=y[i];
+    x[i+3]=y1[i]*d1;
+    x[i+7]=y2[i]*d2;
+    x[i+11]=y12[i]*d1d2;
+  }
+  for (i=0;i<=15;i++) {
+    xx=0.0;
+    for (k=0;k<=15;k++) xx += wt[i][k]*x[k];
+    cl[i]=xx;
+  }
+  l=0;
+  for (i=1;i<=4;i++)
+    for (j=1;j<=4;j++) c[i][j]=cl[l++];
 }
 /* (C) Copr. 1986-92 Numerical Recipes Software 21%. */
 
-
-void splin3(float x1a[], float x2a[], float **ya, float **y2a, int m, int n, int mout, int nout,
-	float x1[], float x2[], float **mxout)
+// Stolen from Numerical Recipies:
+float *NRvector(long nl, long nh)
+/* allocate a float vector with subscript range v[nl..nh] */
 {
-	int i,j;
-	float *ytmp,*yytmp,*y;
-	void spline(float x[], float y[], int n, float yp1, float ypn, float y2[]);
-	void splint(float xa[], float ya[], float y2a[], int n, float x, float *y);
+	float *v;
 
-	ytmp=vector(1,m);
-	yytmp=vector(1,m);
-	y=calloc(1,sizeof(float)); 
-
-	for (i=1;i<=nout;i++){
-
-	  for (j=1;j<=m;j++)
-	    //if(splintagb(x2a,ya[j],y2a[j],n,x2[i],&yytmp[j]))
-	    // return 1;
-	    splint(x2a,ya[j],y2a[j],n,x2[i],&yytmp[j]);
-	  spline(x1a,yytmp,m,1.0e30,1.0e30,ytmp);
-
-	  for (j=1;j<=mout;j++){
-	    //if(splintagb(x1a,yytmp,ytmp,m,x1[j],y))
-	    //return 1;
-	    splint(x1a,yytmp,ytmp,m,x1[j],y);
-	    mxout[i][j]=*y; 
-	  }
-	}
-
-	free(y);
-	free_vector(yytmp,1,m);
-	free_vector(ytmp,1,m);
-	//return 0;
-}
-//splin4 - agb version to avoid excessive data copying
-void splin4(float x1a[], float x2a[], float *ya,int di, float **y2a, int m, int n, int mout, int nout,float x1[], float x2[], float *mxout,int ddi,int ddj)
-{
-  int i,j;
-  float *ytmp,*yytmp;
-  float y=0;
-  void spline(float x[], float y[], int n, float yp1, float ypn, float y2[]);
-  void splint(float xa[], float ya[], float y2a[], int n, float x, float *y);
-  
-  ytmp=vector(1,m);
-  yytmp=vector(1,m);
-  for (i=0;i<nout;i++){
-    for (j=0;j<m;j++)
-      //if(splintagb(x2a-1,&ya[j*di-1],y2a[j+1],n,x2[i],&yytmp[j+1]))
-      //return 1;
-      splint(x2a-1,&ya[j*di-1],y2a[j+1],n,x2[i],&yytmp[j+1]);
-
-    spline(x1a-1,yytmp,m,1.0e30,1.0e30,ytmp);
-    for (j=0;j<mout;j++){
-      //if(splintagb(x1a-1,yytmp,ytmp,m,x1[j],&y))
-      //return 1;
-      splint(x1a-1,yytmp,ytmp,m,x1[j],&y);
-      mxout[i*ddj+ddi*j]=y; 
-    }
-  }
-  free_vector(yytmp,1,m);
-  free_vector(ytmp,1,m);
-  //return 0;
+	v=(float *)malloc((size_t) ((nh-nl+1+1)*sizeof(float)));
+	if (!v) printf("allocation failure in vector()");
+	return v-nl+1;
 }
 
-#undef NRANSI
-
-
-//static PyObject *interp_fastmxinterp(PyObject *self,PyObject *args){
-static PyObject *fastmxinterp(PyArrayObject *pymxin,PyArrayObject *pyyin,PyArrayObject *pyxin,PyArrayObject *pyyout,PyArrayObject *pyxout,PyArrayObject *pymxout){
-  //does the matrix interpolation without copying.  Much more strict on input types.  Should return same result as mxinterp.
-  //Actually not really much faster, though should be very slightly.  Better use of memory too.
-  //PyArrayObject *pymxin,*pyyin,*pyxin,*pyyout,*pyxout,*pymxout;
-  int m,n,di,nyout,nxout,j;
-  float **deriv;
-  //if (!PyArg_ParseTuple (args, "O!O!O!O!O!O!", &PyArray_Type ,&pymxin, &PyArray_Type ,&pyyin, &PyArray_Type ,&pyxin, &PyArray_Type ,&pyyout, &PyArray_Type ,&pyxout, &PyArray_Type ,&pymxout)) {
-  //return NULL;
-  //}
-  if(pymxin->descr->type_num==NPY_FLOAT && 
-     pyyin->descr->type_num==NPY_FLOAT && 
-     pyxin->descr->type_num==NPY_FLOAT && 
-     pyyout->descr->type_num==NPY_FLOAT && 
-     pyxout->descr->type_num==NPY_FLOAT && 
-     pymxout->descr->type_num==NPY_FLOAT){
-    //all float so okay.
-    //Check dimensionality
-    if(pyyin->nd==1 && pyxin->nd==1 && pyyout->nd==1 && pyxout->nd==1 && pymxin->nd==2 && pymxout->nd==2){
-      //okay
-      //Check that all are contiguous.
-      if(pyyin->strides[0]==sizeof(float) &&
-	 pyxin->strides[0]==sizeof(float) &&
-	 pyyout->strides[0]==sizeof(float) &&
-	 pyxout->strides[0]==sizeof(float) &&
-	 pymxin->strides[1]==sizeof(float)){
-	//okay
-	//Now do the calc.
-	//First, a handwritten of splie2.
-	//splie2(yin,xin,mxin,ny,nx,deriv);
-	//void splie2(float x1a[], float x2a[], float **ya, int m, int n, float **y2a)
-	//x1a==yin, x2a==xin, ya==mxin, m=ny, n=nx, y2a==deriv
-	m=pymxin->dimensions[0];
-	n=pymxin->dimensions[1];
-	di=pymxin->strides[0];
-	nyout=pyyout->dimensions[0];
-	nxout=pyxout->dimensions[0];
-	deriv=matrix(1,m,1,n);
-
-	for (j=0;j<m;j++)
-	  spline((float*)(pyxin->data-sizeof(float)),(float*)(pymxin->data+j*di-sizeof(float)),n,1.0e30,1.0e30,deriv[j+1]);
-  	splin4((float*)(pyyin->data),(float*)(pyxin->data),(float*)(pymxin->data),di/sizeof(float),deriv,m,n,nyout,nxout,(float*)(pyyout->data),(float*)(pyxout->data),(float*)(pymxout->data),pymxout->strides[0]/sizeof(float),pymxout->strides[1]/sizeof(float));
-	  //return NULL;
-	free_matrix(deriv,1,m,1,n);
-
-      }else{
-	//printf("fastmxinterp: contiguous condition not met\n");
-	return NULL;
-      }
-
-    }else{
-      //printf("fastmxinterp: Array dimensionality wrong\n");
-      return NULL;
-    }
-       
-
-  }else{
-    //printf("fastmxinterp inputs must be float32\n");
-    return NULL;
-  }
-  
-  return Py_BuildValue(""); 
-
-
-}
-/* ============================================================================= */
-
-
-
-/* Matrix interpolation function. Takes Python array and vectors of x,y coords for interpolated points */
-/* Returns Python array of interp vales */
-//This is a bicubic spline interpolation.
-static PyObject *interp_mxinterp(PyObject* self, PyObject* args)
+// Stolen from Numerical Recipies:
+float **NRmatrix(long nrl, long nrh, long ncl, long nch)
+/* allocate a float matrix with subscript range m[nrl..nrh][ncl..nch] */
 {
-	PyArrayObject	*pymxin,*pymxout,*pyxin,*pyyin,*pyxout,*pyyout;
-	PyObject *tmp;
-	int		i,j,di,dj,nx,ny,nxout,nyout;
-	float		*xin,*yin,*xout,*yout;
-	float		**mxin,**mxout,**deriv;
+	long i, nrow=nrh-nrl+1,ncol=nch-ncl+1;
+	float **m;
 
+	/* allocate pointers to rows */
+	m=(float **) malloc((size_t)((nrow+1)*sizeof(float*)));
+	if (!m) printf("allocation failure 1 in matrix()");
+	m += 1;
+	m -= nrl;
 
-	/* z=calloc(1,sizeof(float)); */
+	/* allocate rows and set pointers to them */
+	m[nrl]=(float *) malloc((size_t)((nrow*ncol+1)*sizeof(float)));
+	if (!m[nrl]) printf("allocation failure 2 in matrix()");
+	m[nrl] += 1;
+	m[nrl] -= ncl;
 
-	if (!PyArg_ParseTuple (args, "O!O!O!O!O!O!", &PyArray_Type ,&pymxin, &PyArray_Type ,&pyyin, &PyArray_Type ,&pyxin, &PyArray_Type ,&pyyout, &PyArray_Type ,&pyxout, &PyArray_Type ,&pymxout)) {
-		return NULL;
-	}
-	//First see if we can do the non-copy version (needs float inputs).
-	if((tmp=fastmxinterp(pymxin,pyyin,pyxin,pyyout,pyxout,pymxout))!=NULL){
-	  return tmp;
-	}
+	for(i=nrl+1;i<=nrh;i++) m[i]=m[i-1]+ncol;
 
-/* get input array dimensions */
-	ny=pymxin->dimensions[0];
-	nx=pymxin->dimensions[1];
-	di=pymxin->strides[0];
-	dj=pymxin->strides[1];
+	/* return pointer to array of pointers to rows */
+	return m;
+}
 
-/* copy to a C array */
-	mxin=matrix(1,ny,1,nx);
-	deriv=matrix(1,ny,1,nx);
-	if(pymxin->descr->type_num==NPY_DOUBLE){
-	    /* mxin=alloc2d_float(ny,nx); */
-	    for(i=0;i<ny;++i){
-		for(j=0;j<nx;++j){
-		    mxin[i+1][j+1] = (float)(*(double *)(pymxin->data + i*di + j*dj));
-		    
-		}
-	    }
-	}else if(pymxin->descr->type_num==NPY_FLOAT){
-	    for(i=0;i<ny;++i){
-		for(j=0;j<nx;++j){
-		    mxin[i+1][j+1] = (float)(*(float *)(pymxin->data + i*di + j*dj));
-		}
-	    } 
-	}else{
-	    printf("ERROR in interpmodule - input array not double or float\n");
-	    return NULL;
-	}
-/* copy python x,y coord
-   vectors to C vectors */
-	if(pyyin->descr->type_num!=NPY_DOUBLE || pyxin->descr->type_num!=NPY_DOUBLE || pyyout->descr->type_num!=NPY_DOUBLE || pyxout->descr->type_num!=NPY_DOUBLE){
-	  printf("mxinterp: pyyin/xin/etc should be float64 unless trying to do the non-copy method (when they should be float32) - if you are trying to do the non-copy method, then some other of your inputs are currently wrong\n");
-	  return NULL;
-	}
-	yin=vector(1,ny);
-	di=pyyin->strides[0];
-	for(i=0;i<ny;++i) yin[i+1] = (float)(*(double *)(pyyin->data + i*di));
+// Stolen from Numerical Recipies:
+void NRfree_vector(float *v, long nl, long nh)
+/* free a float vector allocated with vector() */
+{
+	free((char*) (v+nl-1));
+}
 
-	xin=vector(1,nx);
-	dj=pyxin->strides[0];
-	for(j=0;j<nx;++j) xin[j+1] = (float)(*(double *)(pyxin->data + j*dj));
-
-
-
-	nyout=pyyout->dimensions[0];
-	di=pyyout->strides[0];
-	yout=vector(1,nyout);
-	for(i=0;i<nyout;++i) yout[i+1] = (float)(*(double *)(pyyout->data + i*di));
-
-	nxout=pyxout->dimensions[0];
-	dj=pyxout->strides[0];
-	xout=vector(1,nxout);
-	for(j=0;j<nxout;++j) xout[j+1] = (float)(*(double *)(pyxout->data + j*dj));
-
-/* do the interpolation */
-	splie2(yin,xin,mxin,ny,nx,deriv);
-
-	mxout=matrix(1,nyout,1,nxout);
-
- /* quick version of splin2 for interpd points regular grid */
-  	splin3(yin,xin,mxin,deriv,ny,nx,nyout,nxout,yout,xout,mxout);
-	  //return NULL;
-
-/* populate output Numpy array with the interpolated vals */
-
-	dj=pymxout->strides[0];
-	di=pymxout->strides[1];
-
-	if(pymxout->descr->type_num==NPY_DOUBLE){
-	    for(i=0;i<nyout;++i){
-		for(j=0;j<nxout;++j){
-		    *(double *)(pymxout->data+i*di+j*dj) = (double)mxout[i+1][j+1]; 	/* !!!! this fn transposes the input mx - why ? !!! */
-		}
-	    }
-	}else if(pymxout->descr->type_num==NPY_FLOAT){
-	    for(i=0;i<nyout;++i){
-		for(j=0;j<nxout;++j){
-		    *(float *)(pymxout->data+i*di+j*dj) = (float)mxout[i+1][j+1]; 	/* !!!! this fn transposes the input mx - why ? !!! */
-		}
-	    }
-	}else{
-	    printf("ERROR in interpmodule - output array should be double or float\n");
-	    return NULL;
-	}
-
-	free_vector(yin,1,ny);
-	free_vector(xin,1,nx);
-	free_vector(yout,1,nyout);
-	free_vector(xout,1,nxout);
-
-	free_matrix(mxin,1,ny,1,nx);
-	free_matrix(mxout,1,nyout,1,nxout);
-	free_matrix(deriv,1,ny,1,nx);
-
-/* Return the Numpy array */
-
-	return Py_BuildValue(""); 
+// Stolen from Numerical Recipies:
+void NRfree_matrix(float **m, long nrl, long nrh, long ncl, long nch)
+/* free a float matrix allocated by matrix() */
+{
+	free((char*) (m[nrl]+ncl-1));
+	free((char*) (m+nrl-1));
 }
 
 
 static PyObject *interp_bicubicinterp(PyObject* self, PyObject* args)
 {
-    void bcucof(float y[], float y1[], float y2[], float y12[], 
-		float d1, float d2,float **c);
-	PyArrayObject	*pymxin,*pymxout,*pyxin,*pyyin,*pyxyin;
-	int		i,j,k,l,m,di,dj,nx,ny,nxout,nyout;
-	int diy,djy,dix,djx,dixy,djxy,diout,djout;
-	float		*zin,*dy,*dx,*dxy;
-	float		**c;
-	int iilast=-1,jjlast=-1,ii=-1,jj=-1,iin,jjn;
-	float iif,jjf,xstep,ystep;
-	float yinterppos,xinterppos,ansy;
-	void bcucof(float y[], float y1[], float y2[], float y12[], 
-		    float d1, float d2,float **c);
-	if (!PyArg_ParseTuple (args, "O!O!O!O!O!", &PyArray_Type ,&pymxin, 
-			       &PyArray_Type ,&pyyin, //y gradient of function
-			       &PyArray_Type ,&pyxin, //x gradient of function
-			       &PyArray_Type ,&pyxyin, //xy gradient of func.
-			       &PyArray_Type ,&pymxout)) {
-		return NULL;
+  PyArrayObject	*pymxin,*pymxout,*pyxin,*pyyin,*pyxyin;
+  int		i,j,k,l,m,di,dj,nx,ny,nxout,nyout;
+  int diy,djy,dix,djx,dixy,djxy,diout,djout;
+  float		*zin,*dy,*dx,*dxy;
+  float		**c;
+  int iilast=-1,jjlast=-1,ii=-1,jj=-1,iin,jjn;
+  float iif,jjf,xstep,ystep;
+  float yinterppos,xinterppos,ansy;
+
+  printf("WARNING-REMINDER: interp_bicubicinterp is still using bcucof from Numerical Recipies.\n    TODO: remove bcucoff from bicubicinterp!\n");
+
+  if (!PyArg_ParseTuple (args, "O!O!O!O!O!", &PyArray_Type ,&pymxin, 
+			 &PyArray_Type ,&pyyin, //y gradient of function
+			 &PyArray_Type ,&pyxin, //x gradient of function
+			 &PyArray_Type ,&pyxyin, //xy gradient of func.
+			 &PyArray_Type ,&pymxout)) {
+    return NULL;
+  }
+
+  // get input array dimensions 
+  ny=pymxin->dimensions[0];
+  nx=pymxin->dimensions[1];
+  di=pymxin->strides[0];
+  dj=pymxin->strides[1];
+
+  diy=pyyin->strides[0];
+  djy=pyyin->strides[1];
+  dix=pyxin->strides[0];
+  djx=pyxin->strides[1];
+  dixy=pyxyin->strides[0];
+  djxy=pyxyin->strides[1];
+
+  nyout=pymxout->dimensions[0];
+  nxout=pymxout->dimensions[1];
+  diout=pymxout->strides[0];
+  djout=pymxout->strides[1];
+
+  if(pymxin->descr->type_num!=NPY_FLOAT ||
+     pyyin->descr->type_num!=NPY_FLOAT ||
+     pyxin->descr->type_num!=NPY_FLOAT ||
+     pyxyin->descr->type_num!=NPY_FLOAT ||
+     pymxout->descr->type_num!=NPY_FLOAT 
+     ){
+    printf("matrixes for bicubic interpolation must be float32.\n");
+    return NULL;
+  }
+
+  c=NRmatrix(1,4,1,4);
+  zin=NRvector(1,4);
+  dy=NRvector(1,4);
+  dx=NRvector(1,4);
+  dxy=NRvector(1,4);
+
+  xstep=(float)(nx-1)/(float)(nxout-1);
+  ystep=(float)(ny-1)/(float)(nyout-1);
+
+  for(i=0; i<nyout; i++){
+    for(j=0; j<nxout; j++){
+      //iterate over grid points...
+      iilast=ii;
+      jjlast=jj;
+      iif=(float)i*ystep;
+      jjf=(float)j*xstep;
+      ii=(int)iif;
+      jj=(int)jjf;
+      iin=(int)ceil(iif);
+      jjn=(int)ceil(jjf);
+      if(ii==iin && ii!=ny-1)
+	iin+=1;
+      if(jj==jjn && jj!=nx-1)
+	jjn+=1;
+      if(iilast!=ii || jjlast!=jj){//recompute c...
+	zin[1]=(*(float*)(pymxin->data+ii*di+jj*dj));
+	zin[2]=(*(float*)(pymxin->data+(iin)*di+jj*dj));
+	zin[3]=(*(float*)(pymxin->data+(iin)*di+(jjn)*dj));
+	zin[4]=(*(float*)(pymxin->data+(ii)*di+(jjn)*dj));
+	dy[1]=(*(float*)(pyyin->data+ii*diy+jj*djy));
+	dy[2]=(*(float*)(pyyin->data+(iin)*diy+jj*djy));
+	dy[3]=(*(float*)(pyyin->data+(iin)*diy+(jjn)*djy));
+	dy[4]=(*(float*)(pyyin->data+ii*diy+(jjn)*djy));
+	dx[1]=(*(float*)(pyxin->data+ii*dix+jj*djx));
+	dx[2]=(*(float*)(pyxin->data+(iin)*dix+jj*djx));
+	dx[3]=(*(float*)(pyxin->data+(iin)*dix+(jjn)*djx));
+	dx[4]=(*(float*)(pyxin->data+ii*dix+(jjn)*djx));
+	dxy[1]=(*(float*)(pyxyin->data+ii*dixy+jj*djxy));
+	dxy[2]=(*(float*)(pyxyin->data+(iin)*dixy+jj*djxy));
+	dxy[3]=(*(float*)(pyxyin->data+(iin)*dixy+(jjn)*djxy));
+	dxy[4]=(*(float*)(pyxyin->data+ii*dixy+(jjn)*djxy));
+	//first get the coefficients...
+	NRbcucof(zin,dy,dx,dxy,1.,1.,c);
+	if(isnan(c[1][1])){
+	  printf("Got c as nan for ii iilast jj jjlast %d %d %d %d\nzin dy dx dxy\n",ii,iilast,jj,jjlast);
+	  for(k=1; k<=4; k++){
+	    printf("%g %g %g %g\n",zin[k],dy[k],dx[k],dxy[k]);
+	  }
 	}
-
-        // get input array dimensions 
-	ny=pymxin->dimensions[0];
-	nx=pymxin->dimensions[1];
-	di=pymxin->strides[0];
-	dj=pymxin->strides[1];
-
-	diy=pyyin->strides[0];
-	djy=pyyin->strides[1];
-	dix=pyxin->strides[0];
-	djx=pyxin->strides[1];
-	dixy=pyxyin->strides[0];
-	djxy=pyxyin->strides[1];
-
-	nyout=pymxout->dimensions[0];
-	nxout=pymxout->dimensions[1];
-	diout=pymxout->strides[0];
-	djout=pymxout->strides[1];
-
-	if(pymxin->descr->type_num!=NPY_FLOAT ||
-	   pyyin->descr->type_num!=NPY_FLOAT ||
-	   pyxin->descr->type_num!=NPY_FLOAT ||
-	   pyxyin->descr->type_num!=NPY_FLOAT ||
-	   pymxout->descr->type_num!=NPY_FLOAT 
-	    ){
-	    printf("matrixes for bicubic interpolation must be float32.\n");
-	    return NULL;
+      }
+      yinterppos=iif-(float)ii;
+      xinterppos=jjf-(float)jj;
+      ansy=0.;
+      for(m=4; m>=1; m--){
+	ansy=yinterppos*ansy + ((c[m][4]*xinterppos+c[m][3])*xinterppos+c[m][2])*xinterppos+c[m][1];
+      }
+      //bcuint(zin,dy,dx,dxy,0,1,0,1,xinterppos,yinterppos,&zout,&dyout,&dxout);
+      if(isnan(ansy)){
+	printf("interpmodule: Got nan for %d %d\n",i,j);
+	printf("xinterppos,yinterppos %g %g\n",xinterppos,yinterppos);
+	printf("iif, jjf, ii, jj, iin, jjn %g %g %d %d %d %d\n",iif,jjf, ii,jj,iin,jjn);
+	printf("C:\n");
+	for(k=1; k<=4; k++){
+	  for(l=1; l<=4; l++){
+	    printf("%g ",c[k][l]);
+	  }
+	  printf("\n");
 	}
-	c=matrix(1,4,1,4);
-	zin=vector(1,4);
-	dy=vector(1,4);
-	dx=vector(1,4);
-	dxy=vector(1,4);
-
-	xstep=(float)(nx-1)/(float)(nxout-1);
-	ystep=(float)(ny-1)/(float)(nyout-1);
-
-	for(i=0; i<nyout; i++){
-	    for(j=0; j<nxout; j++){
-		//iterate over grid points...
-		iilast=ii;
-		jjlast=jj;
-		iif=(float)i*ystep;
-		jjf=(float)j*xstep;
-		ii=(int)iif;
-		jj=(int)jjf;
-		iin=(int)ceil(iif);
-		jjn=(int)ceil(jjf);
-		if(ii==iin && ii!=ny-1)
-		    iin+=1;
-		if(jj==jjn && jj!=nx-1)
-		    jjn+=1;
-		if(iilast!=ii || jjlast!=jj){//recompute c...
-		    zin[1]=(*(float*)(pymxin->data+ii*di+jj*dj));
-		    zin[2]=(*(float*)(pymxin->data+(iin)*di+jj*dj));
-		    zin[3]=(*(float*)(pymxin->data+(iin)*di+(jjn)*dj));
-		    zin[4]=(*(float*)(pymxin->data+(ii)*di+(jjn)*dj));
-		    dy[1]=(*(float*)(pyyin->data+ii*diy+jj*djy));
-		    dy[2]=(*(float*)(pyyin->data+(iin)*diy+jj*djy));
-		    dy[3]=(*(float*)(pyyin->data+(iin)*diy+(jjn)*djy));
-		    dy[4]=(*(float*)(pyyin->data+ii*diy+(jjn)*djy));
-		    dx[1]=(*(float*)(pyxin->data+ii*dix+jj*djx));
-		    dx[2]=(*(float*)(pyxin->data+(iin)*dix+jj*djx));
-		    dx[3]=(*(float*)(pyxin->data+(iin)*dix+(jjn)*djx));
-		    dx[4]=(*(float*)(pyxin->data+ii*dix+(jjn)*djx));
-		    dxy[1]=(*(float*)(pyxyin->data+ii*dixy+jj*djxy));
-		    dxy[2]=(*(float*)(pyxyin->data+(iin)*dixy+jj*djxy));
-		    dxy[3]=(*(float*)(pyxyin->data+(iin)*dixy+(jjn)*djxy));
-		    dxy[4]=(*(float*)(pyxyin->data+ii*dixy+(jjn)*djxy));
-		    //first get the coefficients...
-		    bcucof(zin,dy,dx,dxy,1.,1.,c);
-		    if(isnan(c[1][1])){
-			printf("Got c as nan for ii iilast jj jjlast %d %d %d %d\nzin dy dx dxy\n",ii,iilast,jj,jjlast);
-			for(k=1; k<=4; k++){
-			    printf("%g %g %g %g\n",zin[k],dy[k],dx[k],dxy[k]);
-			}
-
-		    }
-	        }
-		yinterppos=iif-(float)ii;
-		xinterppos=jjf-(float)jj;
-		ansy=0.;
-		for(m=4; m>=1; m--){
-		    ansy=yinterppos*ansy + ((c[m][4]*xinterppos+c[m][3])*xinterppos+c[m][2])*xinterppos+c[m][1];
-		}
-		//bcuint(zin,dy,dx,dxy,0,1,0,1,xinterppos,yinterppos,&zout,&dyout,&dxout);
-		if(isnan(ansy)){
-		    printf("interpmodule: Got nan for %d %d\n",i,j);
-		    printf("xinterppos,yinterppos %g %g\n",xinterppos,yinterppos);
-		    printf("iif, jjf, ii, jj, iin, jjn %g %g %d %d %d %d\n",iif,jjf, ii,jj,iin,jjn);
-		    printf("C:\n");
-		    for(k=1; k<=4; k++){
-			for(l=1; l<=4; l++){
-			    printf("%g ",c[k][l]);
-			}
-			printf("\n");
-		    }
-		}
-		(*(float*)(pymxout->data+i*diout+j*djout))=ansy;
-	    }
-	}
-
-
-	free_matrix(c,1,4,1,4);
-	free_vector(zin,1,4);
-	free_vector(dy,1,4);
-	free_vector(dx,1,4);
-	free_vector(dxy,1,4);
-	return Py_BuildValue(""); 
+      }
+      (*(float*)(pymxout->data+i*diout+j*djout))=ansy;
+    }
+  }
+  NRfree_matrix(c,1,4,1,4);
+  NRfree_vector(zin,1,4);
+  NRfree_vector(dy,1,4);
+  NRfree_vector(dx,1,4);
+  NRfree_vector(dxy,1,4);
+  return Py_BuildValue(""); 
 };
 
 
@@ -1377,8 +1006,6 @@ static PyObject *interp_linearinterp(PyObject* self, PyObject* args)
 		return NULL;
 	}
 
-
-
 	/* copy to a C array */
 	if(pymxin->descr->type_num!=NPY_FLOAT || pymxout->descr->type_num!=NPY_FLOAT || pyxin->descr->type_num!=NPY_FLOAT || pyxout->descr->type_num!=NPY_FLOAT || pyyin->descr->type_num!=NPY_FLOAT || pyyout->descr->type_num!=NPY_FLOAT){
 	    /* mxin=alloc2d_float(ny,nx); */
@@ -1394,7 +1021,6 @@ static PyObject *interp_linearinterp(PyObject* self, PyObject* args)
 	  printf("linearinterp error - wrong shapes\n");
 	  return NULL;
 	}
-
 
 	/* do the interpolation.
 	   We first interpolate along one dimension, and then interpolate these
@@ -1490,17 +1116,19 @@ plot(phs,1)
 /* define a methods table for this module */
 
 static PyMethodDef interp_methods[] = 	{
-					{"mxinterp", interp_mxinterp, METH_VARARGS}, 
 					{"bicubicinterp", interp_bicubicinterp, METH_VARARGS}, 
 					{"linearshift",interp_linearshift,METH_VARARGS},
 					{"linearinterp", interp_linearinterp, METH_VARARGS}, 
 					{"gslPeriodicCubSplineInterp",gslPeriodicCubSplineIntrp,METH_VARARGS},
 					{"gslCubSplineInterp",gslCubSplineIntrp,METH_VARARGS},
-					{"gslLinInterp",gslLinIntrp,METH_VARARGS},
-					{"gslCubSplineInterpOrig",cubIntrpOrig,METH_VARARGS},
-
+					//
+					// Not used anymore; commented out by UB on July 30th 2012:
+					//
+					//{"mxinterp", interp_mxinterp, METH_VARARGS}, 
+					//{"gslLinInterp",gslLinIntrp,METH_VARARGS},
+					//{"gslCubSplineInterpOrig",cubIntrpOrig,METH_VARARGS},
+					//
 					{NULL, NULL} };
-
 
 /* initialisation - register the methods with the Python interpreter */
 
@@ -1509,4 +1137,508 @@ void initinterp(void)
 	(void) Py_InitModule("interp", interp_methods);
 	import_array();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ==================================================================================== */
+/* ==================================================================================== */
+/*                                                                                      */
+/*                OLD FUNCTIONS THAT ARE NOT USED ANY MORE                              */
+/*                                                                                      */
+/* ==================================================================================== */
+/* ==================================================================================== */
+// 
+// - splintagb, splin3, splin4 and fastmxinterp are used only by interp_mxinterp
+// - interp_mxinterp was replaced by gslCubSplineInterp
+// - gslLinIntrp and cubIntrpOrig are not used anywhere in the simulation
+// 
+// Commented out and moved below here by UB on July 30th 2012
+//
+
+
+/* #define NRANSI */
+/* #include "nrutil.h" */
+
+/* static PyObject *cubIntrpOrig(PyObject* self, PyObject* args) */
+/* { */
+/* 	PyArrayObject	*pyin,*pyout; */
+/* 	npy_intp		*pyinDims,*pyoutDims; */
+/* 	double			*pyinData,*pyoutData; */
+
+/* 	int		zpad=10;   /\* no of pixels to zero-pad input by *\/ */
+
+/* 	double		*x1,*x2,*y1,*ytmp; */
+/* 	double		dx1,dx2; */
+/* 	int			i,j,n1,n2,n1p; */
+
+/* 	gsl_interp 	*interpObj; */
+/* 	gsl_interp_accel *interpAcc ; */
+/* 	size_t  ninterp; */
+
+
+/* 	/\* handle input arrays *\/ */
+/* 	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &pyin, &PyArray_Type, &pyout)) */
+/* 		return NULL; */
+	
+/* 	pyinDims=PyArray_DIMS(pyin); */
+/* 	pyoutDims=PyArray_DIMS(pyout); */
+/* 	n1=(int) pyinDims[0]; */
+/* 	n2=(int) pyoutDims[0]; */
+/* 	pyinData = (double *)PyArray_DATA(pyin); */
+/* 	pyoutData = (double *)PyArray_DATA(pyout); */
+
+
+/* 	/\* allocate and (partially) populate working arrays *\/ */
+/* 	n1p=n1+2*zpad; */
+/* 	//printf("intrp.interp2d: n1 = %d, n2 = %d, n1p = %d\n",n1,n2,n1p); */
+/* 	x1=calloc(n1p, sizeof(double)); */
+/* 	x2=calloc(n2, sizeof(double)); */
+/* 	y1=calloc(n1p, sizeof(double)); */
+/* 	ytmp=calloc(n1*n2, sizeof(double)); */
+
+/* 	dx1=1./(double)(n1p-1); */
+/* 	dx2=dx1 * (double)(n1-1) / (double)(n2); */
+
+/* 	for (i=0; i<n1p; ++i) { */
+/* 		x1[i] = (double)i * dx1; */
+/* 	} */
+/* 	for (i=0; i<n2; ++i) { */
+/* 		x2[i] = x1[zpad] + (0.5+(double)i) * dx2; */
+/* 	} */
+/* 	for (i=0; i<zpad; ++i) { */
+/* 		y1[i] = 0.; */
+/* 		y1[zpad+n1+i]=0.; */
+/* 	} */
+	
+
+/* 	/\* allocate interpolation stuff (use periodic cspline to make sure influence functions are identical) *\/ */
+/* 	ninterp=(size_t)n1p; */
+/* 	interpObj=gsl_interp_alloc(gsl_interp_cspline_periodic, ninterp); */
+/* 	interpAcc=gsl_interp_accel_alloc(); */
+
+	
+/* 	/\* do interpolation pass in first dimension *\/ */
+/* 	for (j=0; j<n1; ++j) { */
+/* 		for (i=0; i<n1; ++i) { */
+/* 			y1[zpad+i]=pyinData[i*n1+j]; */
+/* 		} */
+/* 		gsl_interp_init(interpObj, x1, y1, ninterp); */
+
+/* 		for (i=0; i<n2; ++i) { */
+/* 			ytmp[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc); */
+/* 		}	 */
+/* 	} */
+	
+	
+/* 	/\* do interpolation pass in second dimension and put results in output array *\/ */
+/* 	for (j=0; j<n2; ++j) { */
+/* 		for (i=0; i<n1; ++i) { */
+/* 			y1[zpad+i]=ytmp[i*n2+j]; */
+/* 		} */
+/* 		gsl_interp_init(interpObj, x1, y1, ninterp); */
+/* 		for (i=0; i<n2; ++i) { */
+/* 			pyoutData[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc); */
+/* 		}	 */
+/* 	}	 */
+	
+	
+/* 	/\* tidy up *\/ */
+/* 	gsl_interp_accel_free(interpAcc); */
+/* 	gsl_interp_free(interpObj); */
+/* 	free(x1); */
+/* 	free(x2); */
+/* 	free(y1); */
+/* 	free(ytmp); */
+	
+/* 	return Py_BuildValue("");   /\* return None *\/ */
+/* } */
+/* // END of cubIntrpOrig */
+
+/* /\* Linear interpolation in 2D (requires 64-bit arrays) *\/ */
+/* static PyObject *gslLinIntrp(PyObject *self,PyObject *args){ */
+/* 	PyArrayObject	*pyin,*pyout; */
+/* 	npy_intp *pyinDims,*pyoutDims; */
+/* 	double *pyinData,*pyoutData; */
+
+/* 	double *x1,*x2,*y1,*ytmp; */
+/* 	int i,j,n1,n2; */
+
+/* 	gsl_interp *interpObj; */
+/* 	gsl_interp_accel *interpAcc ; */
+/* 	size_t  ninterp; */
+
+
+/* 	/\* handle input arrays *\/ */
+/* 	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &pyin, &PyArray_Type, &pyout)) */
+/* 		return NULL; */
+	
+/* 	pyinDims=PyArray_DIMS(pyin); */
+/* 	pyoutDims=PyArray_DIMS(pyout); */
+/* 	n1=(int) pyinDims[0]; */
+/* 	n2=(int) pyoutDims[0]; */
+/* 	pyinData = (double *)PyArray_DATA(pyin); */
+/* 	pyoutData = (double *)PyArray_DATA(pyout); */
+
+
+/* 	/\* allocate populate working arrays *\/ */
+/* 	x1=calloc(n1, sizeof(double)); */
+/* 	x2=calloc(n2, sizeof(double)); */
+/* 	y1=calloc(n1, sizeof(double)); */
+/* 	ytmp=calloc(n1*n2, sizeof(double)); */
+
+/* 	for (i=0; i<n1; ++i) { */
+/* 		x1[i] = (double)i / (double)(n1-1); */
+/* 	} */
+/* 	for (i=0; i<n2; ++i) { */
+/* 		x2[i] = (0.5 + (double)i) / (double)n2; */
+/* 	} */
+
+
+/* 	/\* allocate interpolation stuff *\/ */
+/* 	ninterp=(size_t)n1; */
+/* 	interpObj=gsl_interp_alloc(gsl_interp_linear, ninterp); */
+/* 	interpAcc=gsl_interp_accel_alloc(); */
+
+/* 	/\* do interpolation pass in first dimension *\/ */
+/* 	for (j=0; j<n1; ++j) { */
+/* 		for (i=0; i<n1; ++i) { */
+/* 			y1[i]=pyinData[i*n1+j]; */
+/* 		} */
+/* 		gsl_interp_init(interpObj, x1, y1, ninterp); */
+
+/* 		for (i=0; i<n2; ++i) { */
+/* 			ytmp[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc); */
+/* 		}	 */
+/* 	} */
+	
+
+/* 	/\* do interpolation pass in second dimension and put results in output array *\/ */
+/* 	for (j=0; j<n2; ++j) { */
+/* 		for (i=0; i<n1; ++i) { */
+/* 			y1[i]=ytmp[i*n2+j]; */
+/* 		} */
+/* 		gsl_interp_init(interpObj, x1, y1, ninterp); */
+/* 		for (i=0; i<n2; ++i) { */
+/* 			pyoutData[j*n2+i]=gsl_interp_eval(interpObj, x1, y1, x2[i], interpAcc); */
+/* 		}	 */
+/* 	}	 */
+	
+	
+/* 	/\* tidy up *\/ */
+/* 	//printf("intrp.interp2d: Tidying up\n"); */
+/* 	gsl_interp_accel_free(interpAcc); */
+/* 	gsl_interp_free(interpObj); */
+/* 	free(x1); */
+/* 	free(x2); */
+/* 	free(y1); */
+/* 	free(ytmp); */
+	
+/* 	return Py_BuildValue("");   /\* return None *\/ */
+/* } */
+/* // END of gslLinIntrp */
+
+/* //splint - agb version to avoid exit if h==0. */
+/* int splintagb(float xa[], float ya[], float y2a[], int n, float x, float *y) */
+/* { */
+/* 	void nrerror(char error_text[]); */
+/* 	int klo,khi,k; */
+/* 	float h,b,a; */
+
+/* 	klo=1; */
+/* 	khi=n; */
+/* 	while (khi-klo > 1) { */
+/* 		k=(khi+klo) >> 1; */
+/* 		if (xa[k] > x) khi=k; */
+/* 		else klo=k; */
+/* 	} */
+/* 	h=xa[khi]-xa[klo]; */
+/* 	if (h == 0.0){ */
+/* 	  printf("Bad xa input to routine splint in interpmodule\n"); */
+/* 	  printf("SIMULATION NEEDS TO BE HALTED\n"); */
+/* 	  return 1; */
+/* 	} */
+/* 	a=(xa[khi]-x)/h; */
+/* 	b=(x-xa[klo])/h; */
+/* 	*y=a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0; */
+/* 	return 0; */
+/* } */
+
+
+/* /\* (C) Copr. 1986-92 Numerical Recipes Software 21%. *\/ */
+/* void splin3(float x1a[], float x2a[], float **ya, float **y2a, int m, int n, int mout, int nout, */
+/* 	float x1[], float x2[], float **mxout) */
+/* { */
+/* 	int i,j; */
+/* 	float *ytmp,*yytmp,*y; */
+/* 	void spline(float x[], float y[], int n, float yp1, float ypn, float y2[]); */
+/* 	void splint(float xa[], float ya[], float y2a[], int n, float x, float *y); */
+
+/* 	ytmp=vector(1,m); */
+/* 	yytmp=vector(1,m); */
+/* 	y=calloc(1,sizeof(float));  */
+
+/* 	for (i=1;i<=nout;i++){ */
+
+/* 	  for (j=1;j<=m;j++) */
+/* 	    //if(splintagb(x2a,ya[j],y2a[j],n,x2[i],&yytmp[j])) */
+/* 	    // return 1; */
+/* 	    splint(x2a,ya[j],y2a[j],n,x2[i],&yytmp[j]); */
+/* 	  spline(x1a,yytmp,m,1.0e30,1.0e30,ytmp); */
+
+/* 	  for (j=1;j<=mout;j++){ */
+/* 	    //if(splintagb(x1a,yytmp,ytmp,m,x1[j],y)) */
+/* 	    //return 1; */
+/* 	    splint(x1a,yytmp,ytmp,m,x1[j],y); */
+/* 	    mxout[i][j]=*y;  */
+/* 	  } */
+/* 	} */
+
+/* 	free(y); */
+/* 	free_vector(yytmp,1,m); */
+/* 	free_vector(ytmp,1,m); */
+/* 	//return 0; */
+/* } */
+/* //splin4 - agb version to avoid excessive data copying */
+/* void splin4(float x1a[], float x2a[], float *ya,int di, float **y2a, int m, int n, int mout, int nout,float x1[], float x2[], float *mxout,int ddi,int ddj) */
+/* { */
+/*   int i,j; */
+/*   float *ytmp,*yytmp; */
+/*   float y=0; */
+/*   void spline(float x[], float y[], int n, float yp1, float ypn, float y2[]); */
+/*   void splint(float xa[], float ya[], float y2a[], int n, float x, float *y); */
+  
+/*   ytmp=vector(1,m); */
+/*   yytmp=vector(1,m); */
+/*   for (i=0;i<nout;i++){ */
+/*     for (j=0;j<m;j++) */
+/*       //if(splintagb(x2a-1,&ya[j*di-1],y2a[j+1],n,x2[i],&yytmp[j+1])) */
+/*       //return 1; */
+/*       splint(x2a-1,&ya[j*di-1],y2a[j+1],n,x2[i],&yytmp[j+1]); */
+
+/*     spline(x1a-1,yytmp,m,1.0e30,1.0e30,ytmp); */
+/*     for (j=0;j<mout;j++){ */
+/*       //if(splintagb(x1a-1,yytmp,ytmp,m,x1[j],&y)) */
+/*       //return 1; */
+/*       splint(x1a-1,yytmp,ytmp,m,x1[j],&y); */
+/*       mxout[i*ddj+ddi*j]=y;  */
+/*     } */
+/*   } */
+/*   free_vector(yytmp,1,m); */
+/*   free_vector(ytmp,1,m); */
+/*   //return 0; */
+/* } */
+
+/* #undef NRANSI */
+
+
+/* //static PyObject *interp_fastmxinterp(PyObject *self,PyObject *args){ */
+/* static PyObject *fastmxinterp(PyArrayObject *pymxin,PyArrayObject *pyyin,PyArrayObject *pyxin,PyArrayObject *pyyout,PyArrayObject *pyxout,PyArrayObject *pymxout){ */
+/*   //does the matrix interpolation without copying.  Much more strict on input types.  Should return same result as mxinterp. */
+/*   //Actually not really much faster, though should be very slightly.  Better use of memory too. */
+/*   //PyArrayObject *pymxin,*pyyin,*pyxin,*pyyout,*pyxout,*pymxout; */
+/*   int m,n,di,nyout,nxout,j; */
+/*   float **deriv; */
+/*   //if (!PyArg_ParseTuple (args, "O!O!O!O!O!O!", &PyArray_Type ,&pymxin, &PyArray_Type ,&pyyin, &PyArray_Type ,&pyxin, &PyArray_Type ,&pyyout, &PyArray_Type ,&pyxout, &PyArray_Type ,&pymxout)) { */
+/*   //return NULL; */
+/*   //} */
+/*   if(pymxin->descr->type_num==NPY_FLOAT &&  */
+/*      pyyin->descr->type_num==NPY_FLOAT &&  */
+/*      pyxin->descr->type_num==NPY_FLOAT &&  */
+/*      pyyout->descr->type_num==NPY_FLOAT &&  */
+/*      pyxout->descr->type_num==NPY_FLOAT &&  */
+/*      pymxout->descr->type_num==NPY_FLOAT){ */
+/*     //all float so okay. */
+/*     //Check dimensionality */
+/*     if(pyyin->nd==1 && pyxin->nd==1 && pyyout->nd==1 && pyxout->nd==1 && pymxin->nd==2 && pymxout->nd==2){ */
+/*       //okay */
+/*       //Check that all are contiguous. */
+/*       if(pyyin->strides[0]==sizeof(float) && */
+/* 	 pyxin->strides[0]==sizeof(float) && */
+/* 	 pyyout->strides[0]==sizeof(float) && */
+/* 	 pyxout->strides[0]==sizeof(float) && */
+/* 	 pymxin->strides[1]==sizeof(float)){ */
+/* 	//okay */
+/* 	//Now do the calc. */
+/* 	//First, a handwritten of splie2. */
+/* 	//splie2(yin,xin,mxin,ny,nx,deriv); */
+/* 	//void splie2(float x1a[], float x2a[], float **ya, int m, int n, float **y2a) */
+/* 	//x1a==yin, x2a==xin, ya==mxin, m=ny, n=nx, y2a==deriv */
+/* 	m=pymxin->dimensions[0]; */
+/* 	n=pymxin->dimensions[1]; */
+/* 	di=pymxin->strides[0]; */
+/* 	nyout=pyyout->dimensions[0]; */
+/* 	nxout=pyxout->dimensions[0]; */
+/* 	deriv=matrix(1,m,1,n); */
+
+/* 	for (j=0;j<m;j++) */
+/* 	  spline((float*)(pyxin->data-sizeof(float)),(float*)(pymxin->data+j*di-sizeof(float)),n,1.0e30,1.0e30,deriv[j+1]); */
+/*   	splin4((float*)(pyyin->data),(float*)(pyxin->data),(float*)(pymxin->data),di/sizeof(float),deriv,m,n,nyout,nxout,(float*)(pyyout->data),(float*)(pyxout->data),(float*)(pymxout->data),pymxout->strides[0]/sizeof(float),pymxout->strides[1]/sizeof(float)); */
+/* 	  //return NULL; */
+/* 	free_matrix(deriv,1,m,1,n); */
+
+/*       }else{ */
+/* 	//printf("fastmxinterp: contiguous condition not met\n"); */
+/* 	return NULL; */
+/*       } */
+
+/*     }else{ */
+/*       //printf("fastmxinterp: Array dimensionality wrong\n"); */
+/*       return NULL; */
+/*     } */
+       
+
+/*   }else{ */
+/*     //printf("fastmxinterp inputs must be float32\n"); */
+/*     return NULL; */
+/*   } */
+  
+/*   return Py_BuildValue("");  */
+
+
+/* } */
+/* /\* ============================================================================= *\/ */
+
+
+
+/* /\* Matrix interpolation function. Takes Python array and vectors of x,y coords for interpolated points *\/ */
+/* /\* Returns Python array of interp vales *\/ */
+/* //This is a bicubic spline interpolation. */
+/* static PyObject *interp_mxinterp(PyObject* self, PyObject* args) */
+/* { */
+/* 	PyArrayObject	*pymxin,*pymxout,*pyxin,*pyyin,*pyxout,*pyyout; */
+/* 	PyObject *tmp; */
+/* 	int		i,j,di,dj,nx,ny,nxout,nyout; */
+/* 	float		*xin,*yin,*xout,*yout; */
+/* 	float		**mxin,**mxout,**deriv; */
+
+
+/* 	/\* z=calloc(1,sizeof(float)); *\/ */
+
+/* 	if (!PyArg_ParseTuple (args, "O!O!O!O!O!O!", &PyArray_Type ,&pymxin, &PyArray_Type ,&pyyin, &PyArray_Type ,&pyxin, &PyArray_Type ,&pyyout, &PyArray_Type ,&pyxout, &PyArray_Type ,&pymxout)) { */
+/* 		return NULL; */
+/* 	} */
+/* 	//First see if we can do the non-copy version (needs float inputs). */
+/* 	if((tmp=fastmxinterp(pymxin,pyyin,pyxin,pyyout,pyxout,pymxout))!=NULL){ */
+/* 	  return tmp; */
+/* 	} */
+
+/* /\* get input array dimensions *\/ */
+/* 	ny=pymxin->dimensions[0]; */
+/* 	nx=pymxin->dimensions[1]; */
+/* 	di=pymxin->strides[0]; */
+/* 	dj=pymxin->strides[1]; */
+
+/* /\* copy to a C array *\/ */
+/* 	mxin=matrix(1,ny,1,nx); */
+/* 	deriv=matrix(1,ny,1,nx); */
+/* 	if(pymxin->descr->type_num==NPY_DOUBLE){ */
+/* 	    /\* mxin=alloc2d_float(ny,nx); *\/ */
+/* 	    for(i=0;i<ny;++i){ */
+/* 		for(j=0;j<nx;++j){ */
+/* 		    mxin[i+1][j+1] = (float)(*(double *)(pymxin->data + i*di + j*dj)); */
+		    
+/* 		} */
+/* 	    } */
+/* 	}else if(pymxin->descr->type_num==NPY_FLOAT){ */
+/* 	    for(i=0;i<ny;++i){ */
+/* 		for(j=0;j<nx;++j){ */
+/* 		    mxin[i+1][j+1] = (float)(*(float *)(pymxin->data + i*di + j*dj)); */
+/* 		} */
+/* 	    }  */
+/* 	}else{ */
+/* 	    printf("ERROR in interpmodule - input array not double or float\n"); */
+/* 	    return NULL; */
+/* 	} */
+/* /\* copy python x,y coord */
+/*    vectors to C vectors *\/ */
+/* 	if(pyyin->descr->type_num!=NPY_DOUBLE || pyxin->descr->type_num!=NPY_DOUBLE || pyyout->descr->type_num!=NPY_DOUBLE || pyxout->descr->type_num!=NPY_DOUBLE){ */
+/* 	  printf("mxinterp: pyyin/xin/etc should be float64 unless trying to do the non-copy method (when they should be float32) - if you are trying to do the non-copy method, then some other of your inputs are currently wrong\n"); */
+/* 	  return NULL; */
+/* 	} */
+/* 	yin=vector(1,ny); */
+/* 	di=pyyin->strides[0]; */
+/* 	for(i=0;i<ny;++i) yin[i+1] = (float)(*(double *)(pyyin->data + i*di)); */
+
+/* 	xin=vector(1,nx); */
+/* 	dj=pyxin->strides[0]; */
+/* 	for(j=0;j<nx;++j) xin[j+1] = (float)(*(double *)(pyxin->data + j*dj)); */
+
+
+
+/* 	nyout=pyyout->dimensions[0]; */
+/* 	di=pyyout->strides[0]; */
+/* 	yout=vector(1,nyout); */
+/* 	for(i=0;i<nyout;++i) yout[i+1] = (float)(*(double *)(pyyout->data + i*di)); */
+
+/* 	nxout=pyxout->dimensions[0]; */
+/* 	dj=pyxout->strides[0]; */
+/* 	xout=vector(1,nxout); */
+/* 	for(j=0;j<nxout;++j) xout[j+1] = (float)(*(double *)(pyxout->data + j*dj)); */
+
+/* /\* do the interpolation *\/ */
+/* 	splie2(yin,xin,mxin,ny,nx,deriv); */
+
+/* 	mxout=matrix(1,nyout,1,nxout); */
+
+/*  /\* quick version of splin2 for interpd points regular grid *\/ */
+/*   	splin3(yin,xin,mxin,deriv,ny,nx,nyout,nxout,yout,xout,mxout); */
+/* 	  //return NULL; */
+
+/* /\* populate output Numpy array with the interpolated vals *\/ */
+
+/* 	dj=pymxout->strides[0]; */
+/* 	di=pymxout->strides[1]; */
+
+/* 	if(pymxout->descr->type_num==NPY_DOUBLE){ */
+/* 	    for(i=0;i<nyout;++i){ */
+/* 		for(j=0;j<nxout;++j){ */
+/* 		    *(double *)(pymxout->data+i*di+j*dj) = (double)mxout[i+1][j+1]; 	/\* !!!! this fn transposes the input mx - why ? !!! *\/ */
+/* 		} */
+/* 	    } */
+/* 	}else if(pymxout->descr->type_num==NPY_FLOAT){ */
+/* 	    for(i=0;i<nyout;++i){ */
+/* 		for(j=0;j<nxout;++j){ */
+/* 		    *(float *)(pymxout->data+i*di+j*dj) = (float)mxout[i+1][j+1]; 	/\* !!!! this fn transposes the input mx - why ? !!! *\/ */
+/* 		} */
+/* 	    } */
+/* 	}else{ */
+/* 	    printf("ERROR in interpmodule - output array should be double or float\n"); */
+/* 	    return NULL; */
+/* 	} */
+
+/* 	free_vector(yin,1,ny); */
+/* 	free_vector(xin,1,nx); */
+/* 	free_vector(yout,1,nyout); */
+/* 	free_vector(xout,1,nxout); */
+
+/* 	free_matrix(mxin,1,ny,1,nx); */
+/* 	free_matrix(mxout,1,nyout,1,nxout); */
+/* 	free_matrix(deriv,1,ny,1,nx); */
+
+/* /\* Return the Numpy array *\/ */
+
+/* 	return Py_BuildValue("");  */
+/* } */
 

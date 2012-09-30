@@ -4,12 +4,6 @@ import numpy
 #import util.dot as quick
 import time,os
 from util.tel import Pupil
-#import cmod.zfit
-#import cmod.sor4
-#import cmod.sor8
-#import cmod.sor10
-#import cmod.sor32
-#import cmod.sor128
 import cmod.sor
 import util.sor
 from cmod.zernike import zern
@@ -17,8 +11,6 @@ from cmod.zernike import zern
 import numpy.linalg
 import base.aobase
 import util.zernikeMod,cmod.binimg,util.FITS
-
-#SRCDIR='/home/agb/aosim/src/'
 
 
 class recon(base.aobase.aobase):
@@ -138,7 +130,6 @@ class recon(base.aobase.aobase):
                                 subzgrad[k,m]=   self.subzxgrad[m,i,j]
                                 subzgrad[k+1,m]= self.subzygrad[m,i,j]
                 print "Performing zernike setup"
-                #status=cmod.zfit.setup(subzgrad) # C-call to do SVD setup (does svd decomposition into UWV, and sets small elements of W to zero.
                 #print "Doing svd recon"
                 self.zernikeReconMx,self.eigenVals=self.calcZernikeRecon(subzgrad,1e-6)
                 #print "done"
@@ -243,10 +234,8 @@ class recon(base.aobase.aobase):
                             self.data[idata]=self.centy[i,j]
                 #and then fit them.
                 #t1=time.time()
-                #cmod.zfit.fit(self.data,self.coeff)# C-call for SVD Zernike fit
                 self.coeff[:,]=quick.dot(self.zernikeReconMx,self.data)
                 #t2=time.time()
-                #print "zfit time %g"%(t2-t1)
                 #self.pist*=0.#now done by zero_dm...
                 #self.xtilt*=0.
                 #self.ytilt*=0.
@@ -285,16 +274,6 @@ class recon(base.aobase.aobase):
                     self.centy-=numpy.sum(self.centy*self.subflag)/self.nsubUsed
 
                 self.sorpist[:,]=0.0
-    ##             if(nsubx==4):     # C-call to do SOR fit
-    ##                 cmod.sor4.fit(self.centx,self.centy,self.sorpist)
-    ##             elif(nsubx==8):
-    ##                 cmod.sor8.fit(self.centx,self.centy,self.sorpist)
-    ##             elif(nsubx==10):
-    ##                 cmod.sor10.fit(self.centx,self.centy,self.sorpist)
-    ##             elif(nsubx==32):
-    ##                 cmod.sor32.fit(self.centx,self.centy,self.sorpist)
-    ##             elif(nsubx==128):
-    ##                 cmod.sor128.fit(self.centx,self.centy,self.sorpist)
                 self.soriters,err=cmod.sor.fit(self.centx,self.centy,self.sorpist,self.sorStruct)#mask,self.avPistDivisor,self.conv,self.maxiters,self.tmparr)
                 if self.soriters==self.maxiters and self.raiseReconError:
                     print "WARNING - SOR didn't converge after %d iterations (err=%g, conv=%g).  Trying again with a larger convergence factor."%(self.soriters,err,self.conv)

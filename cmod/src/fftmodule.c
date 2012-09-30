@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <Python.h>
+#include <stdio.h>
 #include <fftw3.h>
 #include <numpy/arrayobject.h>
 //A module for fft related things.
@@ -102,9 +102,9 @@ static PyMethodDef fftMethods[] = {
   {NULL,NULL,0,NULL}
 };
 void initfft(void){
-  PyObject *m;
+  //  PyObject *m; // commented out UB, 2012Aug08
   PyImport_AddModule("fft");
-  m=Py_InitModule("fft",fftMethods);
+  (void)Py_InitModule("fft",fftMethods); // was: m = Py_... (UB, 2012Aug08); changed to remove warning "m set but not used"
   import_array();
 }
 int main(int argc,char *argv[]){

@@ -22,11 +22,10 @@ REFCENTS=18
 CALCOEFF=19
 USEBRIGHTEST=20
 class centcmod:
-  def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,
-               nimg,phasesize,readnoise,readbg,
-               addPoisson,noiseFloor,sig,skybrightness,
-               calsource,pxlPower,nintegrations,seed,
-               phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest):
+  def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
+               addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,
+               phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,
+               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest):
     """Wrapper for the c centroid module.
     Here, sig can be a float or a float array.
     """
@@ -88,10 +87,12 @@ class centcmod:
       self.calsource=calsource
     t=cmod.cent.run(self.centstruct)
     return t
+
   def free(self):
     if self.centstruct!=None:
       cmod.cent.free(self.centstruct)
       self.centstruct=None
+
   def update(self,what,val):
     """what should be an int as defined at the top of this value, eg CALSOURCE=1, SIG=2, etc.  
     val is the new value.

@@ -8,14 +8,8 @@
 #include <pthread.h>
 #include <math.h>
 #include <string.h>//memcpy etc.
-//#include </usr/local/include/python2.4/Numeric/arrayobject.h>
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
+#include "numpy/arrayobject.h"
 #include "qsort.h"
-/*
-#include <Numeric/arrayobject.h>
-*/
-//taken from Numeric/Src/arrayobject.c - has comment that "obviously this needs some work".
-//#define ISCONTIGUOUS(m) ((m)->flags & CONTIGUOUS)//Use PyArray_ISCONTIGUOUS()
 static PyObject *CentError;
 
 #define simmalloc malloc
@@ -748,7 +742,7 @@ int calcCorrelation(int nimg,float *corrPattern,float *bimg,float *corrimg,float
       r7=a[i*n+n/2]*B(i,n/2)-a[(m-i)*n+n/2]*B(m-i,n/2);
       r8=a[i*n+n/2]*B(m-i,n/2)+a[(m-i)*n+n/2]*B(i,n/2);
       a[i*n+n/2]=r7;
-      a[(m-i)*n+n/2]=r7;
+      a[(m-i)*n+n/2]=r8; // IS THIS A BUG?? SHOULD IT BE "=r8" INSTEAD?? (UB, 2012Aug08)  Yes, I think so - changed to r8 on 120830 by agb.
     }
     
     for(j=1; j<(n+1)/2; j++){
@@ -1292,7 +1286,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
   PyObject *obj;
   PyArrayObject *aobj;
   if(!PyArg_ParseTuple(args,"liO",&c,&code,&obj)){
-    printf("Usage: centstruct object, code for value to be changed, new value\n");
+    printf("centmodule: parsing parameters failed.\nUsage: centstruct object, code for value to be changed, new value\n");
     return NULL;
   }
   PyErr_Clear();

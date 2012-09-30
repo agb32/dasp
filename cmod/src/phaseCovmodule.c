@@ -3,25 +3,17 @@
  *   for non-Kolmogorov turbulence (either Boreman-Dainty or Von Karman)
  */
 
-
-
+#include "Python.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <pthread.h>
 
-#include "Python.h"
-#include "numpy/arrayobject.h"//lib/python2.5/site-packages/numpy/core/include/numpy/arrayobject.h
-/*
-#include "Numeric/arrayobject.h"
-*/
+#include "numpy/arrayobject.h"
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_gamma.h>
-
-#include "nr.h"
-//#include "nrutil.h"
 
 
 /* Kolmogorov structure function
@@ -203,7 +195,7 @@ static PyObject *covariance(PyObject *self,PyObject *args)
 {
   PyArrayObject	*phaseCov,*modes,*output;
 
-  int nmodes,nx,ny,odi,odj,pcdi,pcdj,mdi,mdj,mdk;
+  int nmodes,nx,ny; //,odi,odj,pcdi,pcdj,mdi,mdj,mdk; (commented out as not used any more; UB 2012Aug08)
   int t;
   //float partint;
   int nthreads=1;
@@ -236,13 +228,13 @@ static PyObject *covariance(PyObject *self,PyObject *args)
   nmodes=modes->dimensions[0];
   ny=modes->dimensions[1];
   nx=modes->dimensions[2];
-  odi=output->strides[0];
-  odj=output->strides[1];
-  pcdi=phaseCov->strides[0];
-  pcdj=phaseCov->strides[1];
-  mdi=modes->strides[0];
-  mdj=modes->strides[1];
-  mdk=modes->strides[2];
+  //  odi=output->strides[0];    7 lines commented out as not used any more; UB 2012Aug08
+  //  odj=output->strides[1];
+  //  pcdi=phaseCov->strides[0];
+  //  pcdj=phaseCov->strides[1];
+  //  mdi=modes->strides[0];
+  //  mdj=modes->strides[1];
+  //  mdk=modes->strides[2];
   if(phaseCov->dimensions[0]!=ny || phaseCov->dimensions[1]!=nx || output->dimensions[0]!=nmodes || output->dimensions[1]!=nmodes){
       printf("Shape of phaseCov or output is wrong\n");
       return NULL;
@@ -318,7 +310,7 @@ static PyObject *covariance(PyObject *self,PyObject *args)
       }
     }
     }*/
-  printf("Creating phase covariance: Done               \n");
+  printf("Creating phase covariance: Done\n");
   Py_END_ALLOW_THREADS;
   return Py_BuildValue("");
 }
@@ -393,7 +385,7 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   //A version of above that uses modes that are localised... scales much better for large pupils.
   PyArrayObject	*phaseCov,*modes,*output,*modeCoords,*vig;
   PyObject *vigObj;
-  int nmodes,nx,ny;
+  int nmodes; //,nx,ny; nx and ny not used - comment out; UB 2012Aug08
   //int odi,odj,pcdi,pcdj,mdi,mdj,mdk;
   int t;
   //float partint;
@@ -428,8 +420,8 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   }
 
   nmodes=modes->dimensions[0];
-  ny=modes->dimensions[1];
-  nx=modes->dimensions[2];
+  //  ny=modes->dimensions[1];  2 lines not used - comment out; UB 2012Aug08
+  //  nx=modes->dimensions[2];
   if(phaseCov->dimensions[0]!=phaseCov->dimensions[1] || output->dimensions[0]!=nmodes || output->dimensions[1]!=nmodes || modeCoords->dimensions[0]!=nmodes || modeCoords->dimensions[1]!=2){
       printf("Shape of phaseCov or output or modeCoords is wrong\n");
       return NULL;
@@ -506,6 +498,13 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   return Py_BuildValue("");
 }
 
+
+// 
+// UB, 2012 Aug 07:
+// This function uses Numerical Recipies (spline, splint).
+// We comment it out to remove NR, but keep the code "just in case".
+// 
+/*
 #define NRANSI
 #include "nrutil.h"
 
@@ -532,14 +531,24 @@ void splin4(float *x1a, float *x2a, float *ya,int di, float *y2a, int m, int n, 
   free_vector(ytmp,1,m);
 }
 #undef NRANSI
+*/
 
-
+// 
+// UB, 2012 Aug 07:
+// This function uses Numerical Recipies (spline, splint).
+// At the moment it is not used in aosim. (It is called by covarianceQuick, which is called 
+// only by computeCov5 of dm.py, which is commented out.)
+ //
+// We BREAK THIS FUNCTION by commenting out the loop using NR. If it is ever to be used again,
+// this needs to be taken care of. Possibilities: use NR or replace by the gsl interpolation
+// functions (see interpmodule for an example).
+//
 int covWorkerQuick(runStruct *runInfo){
-  int g,h,i,j,k,l,nact,m,n;
+  int g,h,i,j,k,l,nact,m,n; // di
   float yshift,xshift;
   float *coords,*pc,*xin,*yin,*xout,*yout,*deriv,*tmparr,*mode,*mode2,*out;
   float partint;
-  int di,pcdi,pcdj,odi,odj,msg;
+  int pcdi,pcdj,odi,odj,msg;
   out=runInfo->out;
   odi=runInfo->odi;
   odj=runInfo->odj;
@@ -549,7 +558,7 @@ int covWorkerQuick(runStruct *runInfo){
   m=runInfo->ny;
   n=runInfo->nx;
   yin=xin=runInfo->xin;
-  di=runInfo->di;
+  //  di=runInfo->di; not used - comment out; UB 2012Aug08
   pc=runInfo->pc;
   pcdi=runInfo->pcdi;
   pcdj=runInfo->pcdj;
@@ -574,9 +583,11 @@ int covWorkerQuick(runStruct *runInfo){
 	  xout[i]=xin[i]-xshift;
 	}
 	mode2=tmparr;
-	for(i=0; i<m; i++)
+	printf("OOOPS - need to get spline and splin4 working in covWorkerQuick (cmod/phaseCovmodule.c)\n");
+	/*Uncomment, if want to actually use this function
+	  for(i=0; i<m; i++)
 	  spline(&xin[-1],&mode[i*n-1],n,1e30,1e30,&deriv[i*n-1]);
-	splin4(yin,xin,mode,m,deriv,m,n,m,n,yout,xout,mode2,n,1);
+	  splin4(yin,xin,mode,m,deriv,m,n,m,n,yout,xout,mode2,n,1);*/
       }else{
 	mode2=mode;
       }
@@ -599,7 +610,18 @@ int covWorkerQuick(runStruct *runInfo){
   free(deriv);
   return 0;
 }
+// END of covWorkerQuick
 
+// 
+// UB, 2012 Aug 07:
+// This function calls covWorkerQuick which uses Numerical Recipies (spline, splint).
+// At the moment it is not used in aosim. (It is called only by computeCov5 of dm.py,
+// which is commented out.)
+//
+// We BREAK THE FUNCTION by commenting out the NR stuff in covWorkerQuick.
+// If it is ever to be used again, this needs to be taken care of (get the NR back
+// or replace by gsl interpolation functions).
+//
 static PyObject *covarianceQuick(PyObject *self,PyObject *args)
 {
   //A version of above that uses a single generic mode to do the bulk of the computation.
@@ -616,8 +638,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   float *coords;
   //int NperThread2;
   int s,e,t,i,j,m,n;
-  float *pc,*xin,*yin,*mode,*out,*outbig=NULL;
-  int pcdi,pcdj,di,dj,odi,odj;
+  float *pc,*xin,*mode,*out,*outbig=NULL; // *yin  not used - comment out; UB 2012Aug08
+  int pcdi,pcdj,odi,odj; // dj, di  not used - comment out; UB 2012Aug08
   int nthreads=1;
   int nact;
   /*
@@ -633,7 +655,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
 
   //If you change this function, then please also increment the version 
   //number in aosim/util/phaseCoveriance.py
-
+  printf("Depreciated (or at least, not yet working without numerical recipes)\n");
+  return NULL;
   if (!PyArg_ParseTuple(args, "O!O!O!O!|Oi", &PyArray_Type ,&phaseCov,&PyArray_Type ,&pymode,&PyArray_Type,&modeCoords,&PyArray_Type,&output,&phaseCovObj,&nthreads)){
       printf("Inputs should be phase covariance (2d array) and mode (2d array), modeCoords (2d array), and output (2d array), phaseCov output (optional, array or None), nthreads (optional)\n");
       return NULL;
@@ -690,8 +713,8 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   pcdj=phaseCov->strides[1]/sizeof(float);
   m=pymode->dimensions[0];
   n=pymode->dimensions[1];
-  di=pymode->strides[0];
-  dj=pymode->strides[1];
+  //  di=pymode->strides[0];
+  //  dj=pymode->strides[1];
   mode=(float*)pymode->data;
   odi=output->strides[0]/sizeof(float);
   odj=output->strides[1]/sizeof(float);
@@ -700,7 +723,7 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   for(i=0; i<n; i++){
     xin[i]=i;
   }
-  yin=xin;
+  //  yin=xin;  not used - comment out; UB 2012Aug08
   Py_BEGIN_ALLOW_THREADS;
   thread=(pthread_t*)malloc(sizeof(pthread_t)*nthreads);
   threadInfo=(runStruct*)malloc(sizeof(runStruct)*nthreads);
@@ -743,10 +766,6 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
   printf("\nCreating phase covariance: Done               \n");
   Py_END_ALLOW_THREADS;
 
-
-
-
-  
   /*
   deriv=malloc(sizeof(float)*m*n);
 
@@ -808,9 +827,9 @@ static PyObject *covarianceQuick(PyObject *self,PyObject *args)
     }
 
   }
-
   return Py_BuildValue("");
 }
+// END of covarianceQuick
 
 
 /* Calculate subaperture tilt covariances for Kolmogorov power spectrum
@@ -1085,7 +1104,7 @@ static PyMethodDef tiltcov_methods[] = {
                                         {"covariance", covariance, METH_VARARGS},
                                         {"covarianceLocal", covarianceLocal, METH_VARARGS},
                                         {"covarianceQuick", covarianceQuick, METH_VARARGS},
-					    
+
 					{"Kolmogorov", tiltcov_Kolmogorov, METH_VARARGS},
                                         {"BoremanDainty", tiltcov_BoremanDainty, METH_VARARGS},
                                         {"VonKarman", tiltcov_VonKarman, METH_VARARGS},

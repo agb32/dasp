@@ -315,9 +315,15 @@ static PyObject* shmem_newsemid(PyObject *self,PyObject *args,PyObject *kwds){
   }
   if(existingFile==0){
     if(name==NULL){
-      asprintf(&txt,"/tmp/aosimXXXXXX");
+      if(asprintf(&txt,"/tmp/aosimXXXXXX")<0){
+	PyErr_SetString(PyExc_MemoryError, "asprintf (1) failed");
+	return NULL;
+      }
     }else{
-      asprintf(&txt,"/tmp/%sXXXXXX",name);
+      if(asprintf(&txt,"/tmp/%sXXXXXX",name)){
+	PyErr_SetString(PyExc_MemoryError, "asprintf (2) failed");
+	return NULL;
+      }
     }
     if((fd=mkstemp(txt))==-1){
       printf("Failed to create unique tempfilename for semid %s\n",txt);
@@ -719,9 +725,15 @@ static PyObject* shmem_newlock(PyObject *self,PyObject *args,PyObject *keywds){
     return NULL;
   }
   if(realfileflag==0){
-    asprintf(&txt,"/dev/shm%s",name);
+    if(asprintf(&txt,"/dev/shm%s",name)){
+      PyErr_SetString(PyExc_MemoryError, "asprintf (3) failed");
+      return NULL;
+    }
   }else{
-    asprintf(&txt,"%s",name);
+    if(asprintf(&txt,"%s",name)){
+      PyErr_SetString(PyExc_MemoryError, "asprintf (4) failed");
+      return NULL;
+    }
   }
   if((key=ftok(txt,projid))==-1){
     printf("Couldn't get key (%s): %s\n",txt,strerror(errno));

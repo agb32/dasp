@@ -13,9 +13,9 @@ ${MODULES:=.so}: %.so : %.o
 	${CC} -c ${CFLAGS}  $< -o $@
 
 clean:
-	if [ -r shmem.o ] ; then rm *.o ; fi
-	if [ -r shmemmodule.so ] ; then rm *.so ; fi
-	if [ -r ../shmemmodule.so ] ; then rm ../*.so ; fi
+	if [ -r shmem.o ] ; then rm shmem.o ; fi
+	if [ -r shmemmodule.so ] ; then rm shmemmodule.so ; fi
+	if [ -r ../shmemmodule.so ] ; then rm ../shmemmodule.so ; fi
 
 install: ${MODULES:=.so}
 	mv shmem.so ../shmemmodule.so

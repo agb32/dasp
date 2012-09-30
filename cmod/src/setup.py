@@ -1,6 +1,5 @@
 from distutils.core import setup, Extension
 import sys,os.path
-id=[sys.prefix+'/include/python%d.%d/Numeric'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
 idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
 ld=[sys.prefix+'/lib']
 fft=Extension('fftmodule',
@@ -11,14 +10,13 @@ fft=Extension('fftmodule',
               extra_link_args=["-lpthread","-lfftw3f_threads","-lm"],#,"-lfftw3f"
               sources=["fftmodule.c"]
               )
-              
 cent = Extension('centmodule',
                  include_dirs = idnumpy,
 		library_dirs=ld,
 #			runtime_library_dirs=['/usr/local/lib'],
 		libraries=["fftw3f"],
                 extra_compile_args=["-pthread"],
-		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-pthread'],
+		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-lpthread'],
 	        sources = ['centmodule.c']
 		)
 binimg=Extension('binimgmodule',
@@ -31,10 +29,8 @@ imgnoise=Extension('imgnoisemodule',
 		include_dirs=idnumpy,
 		sources=['imgnoisemodule.c'],
 		library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-		extra_link_args=['-lcrecipes','-lm'],
+		extra_link_args=['-lgsl','-lgslcblas','-lm'],
 		)
-
-
 utils=Extension('utilsmodule',
 		include_dirs=idnumpy,
 		sources=['utils.c'],
@@ -52,7 +48,7 @@ interp=Extension('interpmodule',
                  include_dirs=idnumpy,
                  sources=['interpmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-                 extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm'],
+                 extra_link_args=['-lgsl','-lgslcblas','-lm'],
                  extra_objects = ['interpolate.o']
                  )
 phaseCov=Extension('phaseCovmodule',
@@ -60,7 +56,7 @@ phaseCov=Extension('phaseCovmodule',
                  sources=['phaseCovmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                    extra_compile_args=["-pthread"],
-                 extra_link_args=['-lcrecipes','-lgsl','-lgslcblas','-lm','-lpthread'],
+                 extra_link_args=['-lgsl','-lgslcblas','-lm','-lpthread'],
                  )
 zernike=Extension('zernikemodule',
                  include_dirs=idnumpy,
@@ -74,18 +70,18 @@ xpoke=Extension('xpokemodule',
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
-zfit=Extension('zfitmodule',
-                 include_dirs=idnumpy,
-                 sources=['zfitmodule.c','josesubs.c'],
-                 library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
-                 extra_link_args=['-lcrecipes','-lm'],
-                 )
 psfparams=Extension('psfparamsmodule',
                  include_dirs=idnumpy,
                  sources=['psfparamsmodule.c','josesubs.c'],
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
-                 
+scrn=Extension('scrnmodule',
+		include_dirs=idnumpy,
+		sources=['scrnmodule.c'],
+		library_dirs=ld,
+		extra_link_args=['-lm','-lcblas','-latlas','-lgsl'],
+#		extra_link_args=['-lm','-lgsl'],
+		)
 
-setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,zfit,psfparams])
+setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams,scrn])

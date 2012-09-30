@@ -64,7 +64,7 @@ import base.aobase,base.dataType,util.getNewCols#,cmod.utils
 import time
 import os
 #import gist
-
+import traceback
 ##Numeric Python import
 import numpy
 na=numpy
@@ -85,6 +85,7 @@ import scipy.linalg as LA
 ##import the matrix vector function (BLAS)
 #import util.matrix as matrix
 import util.FITS
+import cmod.scrn
 
 ## for fast MVM:
 import util.dot as quick # will replace numpy.dot when I implement it for double
@@ -334,25 +335,19 @@ class infScrn(base.aobase.aobase):
         base.aobase.aobase.__init__(self,None,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.degRad=na.pi/180.#self.config.getVal("degRad")
         self.niter=0
+        self.nbColToAdd=1
         ##we first extract basic parameters
         ##Physical size of the telescope
         self.Dtel=config.getVal("telDiam")
         ##Number of pixels used to simulate the telescope pupil
         self.dpix=config.getVal("npup")
         # Total size of phasescreen (will be larger than dpix if there are off axis sources, and will also depend on height of the layer).
-        self.atmosGeom=config.getVal("atmosGeom",default=None,raiseerror=0)
-        if self.atmosGeom==None:#depreciated
-            self.scrnXPxls=config.getVal("scrnXPxls")#depreciated
-            self.scrnYPxls=config.getVal("scrnYPxls")#depreciated
-            self.windDirection=config.getVal("windDirection")#in degrees depreciated
-            self.vWind=config.getVal("vWind")#in m/s depreciated
-            self.strLayer=config.getVal("strength")#depreciated
-        else:
-            self.scrnXPxls=self.atmosGeom.getScrnXPxls(self.idstr[0])
-            self.scrnYPxls=self.atmosGeom.getScrnYPxls(self.idstr[0])
-            self.windDirection=self.atmosGeom.layerWind(self.idstr[0])
-            self.vWind=self.atmosGeom.layerSpeed(self.idstr[0])
-            self.strLayer=self.atmosGeom.layerStrength(self.idstr[0])
+        self.atmosGeom=config.getVal("atmosGeom")
+        self.scrnXPxls=self.atmosGeom.getScrnXPxls(self.idstr[0])
+        self.scrnYPxls=self.atmosGeom.getScrnYPxls(self.idstr[0])
+        self.windDirection=self.atmosGeom.layerWind(self.idstr[0])
+        self.vWind=self.atmosGeom.layerSpeed(self.idstr[0])
+        self.strLayer=self.atmosGeom.layerStrength(self.idstr[0])
         ##Physical size in meters per pixel
         self.pixScale=self.Dtel/float(self.dpix)
         ##Precision of the output screen array
@@ -362,6 +357,7 @@ class infScrn(base.aobase.aobase):
         #self.altitude=config.getVal("layerAltitude")#in m.
         self.windDirRad=self.windDirection*self.degRad
         self.tstep=config.getVal("tstep")
+        self.useCmodule=config.getVal("useCmodule",default=1)
         # if colAdd<zero, we are adding now columns on the right of the array.
         # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
         self.colAdd=-self.vWind*na.cos(self.windDirRad)/self.pixScale*self.tstep#number of pixels to step each iteration (as float).
@@ -401,7 +397,7 @@ class infScrn(base.aobase.aobase):
                 self.ro=self.globR0*(self.strLayerToPowMinusThreeOverFive)
             
             ##Number of previous rows or columns used to compute the new one (default value : 2)
-            self.nbCol=config.getVal("nbCol",default=2)
+            self.nbCol=2#config.getVal("nbCol",default=2)
             ##we extract the random number generator seed
             self.seed=config.getVal("seed",default=None)
             self.saveCovMat=config.getVal("saveInfPhaseCovMatrix",default=0)
@@ -411,19 +407,60 @@ class infScrn(base.aobase.aobase):
 
             ##we go now through the creation of the required matrices
             ##we compute first the phase covariance matrices
-            print "Computation of the X phase covariance matrix"
-            covMatPhix=self.computePhaseCovarianceMatrix(self.scrnXPxls+1)
-            #util.FITS.Write(covMatPhix,"covmat.fits")
-            print "Computation of the Ax and Bx matrixes"        
-            self.Ax,self.Bx,self.AStartx=self.computeAandBmatrices(self.scrnXPxls+1,covMatPhix)##we compute the A and B matrices
+            if not os.path.exists("scrn/"):
+                os.mkdir("scrn")
+            fname="scrn/infScrnData%d_%g_%g_%d_%d.fits"%(self.scrnXPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+            covMatPhix=None
+            if os.path.exists(fname):
+                print "Loading phase covariance data"
+                try:
+                    data=util.FITS.Read(fname)
+                    covMatPhix=data[1]
+                    self.Ax=data[3]
+                    self.Bx=data[5]
+                    self.AStartx=data[7]
+                except:
+                    print "Unable to load covariance data... generating"
+                    traceback.print_exc()
+                    covMatPhix=None
+            if covMatPhix==None:
+                print "Computation of the X phase covariance matrix"
+                covMatPhix=self.computePhaseCovarianceMatrix(self.scrnXPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+                print "Computation of the Ax and Bx matrixes"        
+                self.Ax,self.Bx,self.AStartx=self.computeAandBmatrices(self.scrnXPxls+1,covMatPhix,self.nbColToAdd,self.nbCol)##we compute the A and B matrices
+                util.FITS.Write(covMatPhix,fname)
+                util.FITS.Write(self.Ax,fname,writeMode="a")
+                util.FITS.Write(self.Bx,fname,writeMode="a")
+                util.FITS.Write(self.AStartx,fname,writeMode="a")
             if self.saveCovMat:
                 self.covMatPhix=covMatPhix
             else:
                 del(covMatPhix)
-            print "Computation of the Y phase covariance matrix"
-            covMatPhiy=self.computePhaseCovarianceMatrix(self.scrnYPxls+1)
-            print "Computation of the Ay and By matrixes"        
-            self.Ay,self.By,self.AStarty=self.computeAandBmatrices(self.scrnYPxls+1,covMatPhiy)##we compute the A and B matrices
+
+            fname="scrn/infScrnData%d_%g_%g_%d_%d.fits"%(self.scrnYPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+            covMatPhiy=None
+            if os.path.exists(fname):
+                print "Loading phase covariance data"
+                try:
+                    data=util.FITS.Read(fname)
+                    covMatPhiy=data[1]
+                    self.Ay=data[3]
+                    self.By=data[5]
+                    self.AStarty=data[7]
+                except:
+                    print "Unable to load covariance data... generating"
+                    traceback.print_exc()
+                    covMatPhiy=None
+            if covMatPhiy==None:
+                print "Computation of the Y phase covariance matrix"
+                covMatPhiy=self.computePhaseCovarianceMatrix(self.scrnYPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
+                print "Computation of the Ay and By matrixes"        
+                self.Ay,self.By,self.AStarty=self.computeAandBmatrices(self.scrnYPxls+1,covMatPhiy,self.nbColToAdd,self.nbCol)##we compute the A and B matrices
+                util.FITS.Write(covMatPhiy,fname)
+                util.FITS.Write(self.Ay,fname,writeMode="a")
+                util.FITS.Write(self.By,fname,writeMode="a")
+                util.FITS.Write(self.AStarty,fname,writeMode="a")
+                
             if self.saveCovMat:
                 self.covMatPhiy=covMatPhiy
             else:#save memory (this can be eg 1GB in size...)
@@ -450,6 +487,23 @@ class infScrn(base.aobase.aobase):
             else:
                 self.outputData=self.screen
             print "TODO: infScrn - reduce memory requirements by only storing the part of the initial phasescreen that is required..."
+            self.cmodInfo=None
+            if self.useCmodule:
+                nthreads=config.getVal("nthreads",default="all")
+                if nthreads=="all":
+                    nthreads=config.getVal("ncpu")
+                self.randarr=numpy.zeros((self.scrnXPxls+1 if self.scrnXPxls>self.scrnYPxls else self.scrnYPxls+1,),numpy.float64)
+                self.r0last=self.ro
+                self.xsteplast=self.xstep
+                self.ysteplast=self.ystep
+                seed=0 if self.seed==None else self.seed
+                self.cmodInfo=cmod.scrn.initialise(nthreads,self.ro,self.L0,self.scrnXPxls,self.scrnYPxls,self.sendWholeScreen,self.maxColAdd,self.maxRowAdd,self.colAdd,self.rowAdd,seed,self.screen,self.Ay,self.By,self.AStarty,self.Ax,self.Bx,self.AStartx,self.xstep,self.ystep,self.randarr,self.colOutput,self.rowOutput)
+
+    def __del__(self):
+        if self.cmodInfo!=None:
+            cmod.scrn.free(self.cmodInfo)
+        self.cmodInfo=None
+        
     def computeR0(self):
         """Computes r0 as a function of time."""
         if self.r0Fun!=None:
@@ -470,7 +524,7 @@ class infScrn(base.aobase.aobase):
                 else:
                     self.xstep=self.ystep=step
 
-    def computePhaseCovarianceMatrix(self,size):
+    def computePhaseCovarianceMatrix(self,size,L0,pixScale,nbColToAdd=1,nbCol=2):
         """Computes the phase covariance matrix required to compute the <XXT>, <XZT> and <ZZT> matrices
         used to compute the A and B matrices
         cf equation 5 of Optics Express paper
@@ -484,11 +538,11 @@ class infScrn(base.aobase.aobase):
         Speed improvements by AGB.
         """
         ##we add one column at each iteration
-        nbColToAdd=1
-        self.nbColToAdd=nbColToAdd
+        #nbColToAdd=1
+        #self.nbColToAdd=nbColToAdd
         
         ##class characteristics
-        nbCol=self.nbCol
+        #nbCol=self.nbCol#2
         dpix=size#agb changed from: self.dpix
         
         nc=nbCol+nbColToAdd
@@ -497,7 +551,7 @@ class infScrn(base.aobase.aobase):
         nbPoints=nc*dpix
         
         ##numbers used for the phase structure matrix computation
-        f0=1./self.L0;
+        f0=1./L0;
         coeff=2*gamma(11./6)/(2**(5./6))/(na.pi**(8./3))
         coeff*=(24./5*gamma(6./5))**(5./6)
         
@@ -506,7 +560,7 @@ class infScrn(base.aobase.aobase):
         
         ##allocation of the covariance matrix
         covMatPhi=na.empty((nbPoints,nbPoints),na.float64,order="F")
-        distMap=distanceMap((nc*2-1),dpix*2-1,-0.5,-0.5)*self.pixScale*2*na.pi*f0
+        distMap=distanceMap((nc*2-1),dpix*2-1,-0.5,-0.5)*pixScale*2*na.pi*f0
         cPhi=distMap**(5./6)
         #same here
         cPhi*=kv(5./6,distMap)
@@ -593,12 +647,12 @@ class infScrn(base.aobase.aobase):
             covMatPhi[i:,i]=line[i:,]
         return covMatPhi
     
-    def computeAandBmatrices(self,size,covMatPhi):
+    def computeAandBmatrices(self,size,covMatPhi,nbColToAdd=1,nbCol=2):
         """Computes the A and B matrices from the phase covariance matrix
         """
         dpix=size#agb changed from: self.dpix
-        N=dpix*(self.nbCol+self.nbColToAdd)
-        M=dpix*self.nbColToAdd
+        N=dpix*(nbCol+nbColToAdd)
+        M=dpix*nbColToAdd
         
         ##we declare the matrices with the fortran keyword to improve efficiency
         ##first matrix: ZZT
@@ -630,7 +684,7 @@ class infScrn(base.aobase.aobase):
         print "infScrn - doing cho_solve 0"
         #util.FITS.Write(ZZT,"zzt.fits")
         try:
-            ZZT_inv=LA.cho_solve(LA.cho_factor(ZZT),na.identity(self.nbCol*dpix))
+            ZZT_inv=LA.cho_solve(LA.cho_factor(ZZT),na.identity(nbCol*dpix))
         except:
             print "cho_solve failed - trying inv... this sometimes happens if the matrix is too large... or is r0/pxl is too small."
             ZZT_inv=LA.inv(ZZT)
@@ -646,9 +700,9 @@ class infScrn(base.aobase.aobase):
         ##I found that the matrix AStart used to add new rows or columns at the START is the vertical reciproc
         ##of the A matrix
         ##Ex : if A=(A2 A1 A0) then AStart=(A0 A1 A2)
-        matrixAStart=na.empty(matrixA.shape,dtype=na.float64,order="F")
+        matrixAStart=na.empty(matrixA.shape,dtype=na.float64)#,order="F")
         ##we fill the matrix
-        for col in range(self.nbCol):
+        for col in range(nbCol):
             jstart=col*dpix
             jend=(col+1)*dpix
             ##print "jstart=%d jend=%d" % (jstart,jend)
@@ -662,9 +716,9 @@ class infScrn(base.aobase.aobase):
         print "infScrn - doing svd %g"%(time.time()-t0)
         u,w,vt=LA.svd(BBt)
         L=na.sqrt(w)
-        B=u*L[na.newaxis,:]#multiplication of columns of U by diagonal elements
-        matrixB=na.empty(B.shape,dtype=na.float64,order="F")
-        matrixB[:,:]=B#this copy may be necessary, because C is c contiguous, not fortran.
+        matrixB=(u*L[na.newaxis,:]).copy()#multiplication of columns of U by diagonal elements
+        #matrixB=na.empty(B.shape,dtype=na.float64,order="F")
+        #matrixB[:,:]=B#this copy may be necessary, because C is c contiguous, not fortran.
         print "infScrn - done A and B matricees %g"%(time.time()-t0)
         return matrixA,matrixB,matrixAStart
     ##The next functions are the functions used to add new rows or columns at the beginning or the end of the phase screen
@@ -684,10 +738,19 @@ class infScrn(base.aobase.aobase):
         Z2=na.ravel(na.transpose(oldPhi)).astype(na.float64) ##Float64 for data precision
         ##multiplication by the A matrix (BLAS function)
         AZ=matrixdot(self.Ay,Z2)#agbc was Ay
+        #txt="AZ: "
+        #for i in range(AZ.shape[0]):
+        #    txt+="%g, "%AZ[i]
+        #print txt
+
         ##creation of random variables with the good variances
         coeffTurb=(self.L0/ro)**(5./6)
-        #print "addcol %s"%str(coeffTurb)
+        #print "coeffTurb %s"%str(coeffTurb)
         rn=ra.randn(self.nbColToAdd*dpix)#By.shape==nbColToAdd*dpix...
+        #txt="rn: "
+        #for i in range(rn.shape[0]):
+        #    txt+="%g, "%rn[i]
+        #print txt
         rn=matrixdot(self.By,rn)*coeffTurb#agbc was By
         ##rn=generalMatrixVectorMultiply(self.B,rn)
         rn+=AZ ##vector storing the values of the last column
@@ -701,7 +764,10 @@ class infScrn(base.aobase.aobase):
         ##we then replace the last column
         #print self.screen.shape,rn.shape
         self.screen[:,-1]=rn.astype(self.screen.dtype)
-    
+        #txt=""
+        #for i in range(self.screen.shape[1]):
+        #    txt+="%g, "%self.screen[i,-1]
+        #print txt
     def addNewColumnOnStart(self,ro=None):
         """Updates the phase screen by adding a new column to the start of the phase screen and
         putting away the last one
@@ -804,24 +870,43 @@ class infScrn(base.aobase.aobase):
         self.computeR0()
         if ro is None:
             ro=self.ro
-        nrem,nadd,interppos=self.newCols.next()
-        nadd=int(nadd)
-        # if colAdd<zero, we are adding new columns on the right of the array.
-        # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
-        if self.colAdd<0:
-            for i in range(nadd):
-                self.addNewColumnOnEnd(ro)
+        if self.useCmodule:
+            if ro!=self.r0last:
+                if type(ro)==type(()):
+                    cmod.scrn.update(self.cmodInfo,2,ro[0])
+                    cmod.scrn.update(self.cmodInfo,3,ro[1])
+                else:
+                    cmod.scrn.update(self.cmodInfo,1,ro)
+                self.r0last=ro
+            if self.xstep!=self.xsteplast:
+                cmod.scrn.update(self.cmodInfo,4,self.xstep)
+                self.xsteplast=self.xstep
+            if self.ystep!=self.ysteplast:
+                cmod.scrn.update(self.cmodInfo,5,self.ystep)
+                self.ysteplast=self.ystep
+            #print self.cmodInfo,self.cmodInfo.flags,self.cmodInfo.size,self.cmodInfo.itemsize,self.cmodInfo.dtype.char
+            #randn=ra.randn(self.scrnXPxls+1 if self.scrnXPxls>self.scrnYPxls else self.scrnYPxls+1)
+            #cmod.scrn.update(self.cmodInfo,6,randn)
+            cmod.scrn.run(self.cmodInfo)
         else:
-            for i in range(nadd):
-                self.addNewColumnOnStart(ro)
-        nrem,nadd,interppos=self.newRows.next()
-        nadd=int(nadd)
-        if self.rowAdd<0:
-            for i in range(nadd):
-                self.addNewRowOnEnd(ro)
-        else:
-            for i in range(nadd):
-                self.addNewRowOnStart(ro)
+            nrem,nadd,interppos=self.newCols.next()
+            nadd=int(nadd)
+            # if colAdd<zero, we are adding new columns on the right of the array.
+            # If rowAdd<zero, we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
+            if self.colAdd<0:
+                for i in range(nadd):
+                    self.addNewColumnOnEnd(ro)
+            else:
+                for i in range(nadd):
+                    self.addNewColumnOnStart(ro)
+            nrem,nadd,interppos=self.newRows.next()
+            nadd=int(nadd)
+            if self.rowAdd<0:
+                for i in range(nadd):
+                    self.addNewRowOnEnd(ro)
+            else:
+                for i in range(nadd):
+                    self.addNewRowOnStart(ro)
     def prepareOutput(self):
         """If not sending whole screen, copies the parts to be sent..."""
         if self.sendWholeScreen==0:

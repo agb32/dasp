@@ -1,10 +1,10 @@
 
 /* Do the pokin' for a Xintetics style DM  */
 
+#include "Python.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "Python.h"
 
 #include "numpy/arrayobject.h"
 #include "jose.h"
@@ -20,13 +20,11 @@ float          ***pokefn;
 /* Setup arrays for poke functions and actuator centers */
 /* Inputs are actuator centers and Gaussian sigmas  */
 
-static PyObject *xpoke_setup(self,args)
-	PyObject *self, *args;
-
+static PyObject *xpoke_setup(PyObject *self, PyObject *args)
 {
 	PyArrayObject	*xain,*yain,*krin,*ktin;
 	int		i,j,iact,di;
-	float          x,y,xc,yc,ra,rp,th,phi,rr,rt;
+	float          x,y,xc,yc,rp,th,phi,rr,rt; // ra not used - commented out by UB, 2012Aug08
 	float          *xa,*ya,*kr,*kt;
 
 
@@ -83,7 +81,7 @@ static PyObject *xpoke_setup(self,args)
 		for(j=0;j<nx;++j){
 		  x=(float)(j-nx/2);
 		  y=(float)(i-nx/2);
-		  ra = sqrt(  pow((xa[iact]-xc),2.)  +  pow((ya[iact]-yc),2.)  );
+		  //ra = sqrt(  pow((xa[iact]-xc),2.)  +  pow((ya[iact]-yc),2.)  ); // ra not used - commented out by UB, 2012Aug08
 		  rp = sqrt(  pow(x,2.)  +  pow(y,2.)  );
 		  th   = atan((ya[iact]-yc)/(xa[iact]-xc));
 		  phi = atan2(y,x);
@@ -109,12 +107,10 @@ static PyObject *xpoke_setup(self,args)
 
 /* Do the pokin' and return the DM figure, for input poke amplitude vector */
 
-static PyObject *xpoke_poke(self,args)
-	PyObject *self, *args;
-
+static PyObject *xpoke_poke(PyObject *self, PyObject *args)
 {
 	PyArrayObject	*coeffin,*dmfig;
-	int		i,j,ii,jj,iact,di,diout,djout,id=0;
+	int		i,j,ii,jj,iact,di,diout,djout; //,id=0;  id not used, commented out by UB, 2012 Aug 08
 	float         coeff;
 
 
@@ -158,7 +154,7 @@ static PyObject *xpoke_poke(self,args)
 	  }
 
 	}
-	id=1;
+	//id=1; id not used, commented out by UB, 2012 Aug 08
 
 	return Py_BuildValue("");
 
@@ -177,7 +173,7 @@ static PyMethodDef xpoke_methods[] = 	{
 
 /* initialisation - register the methods with the Python interpreter */
 
-void initxpoke()
+void initxpoke(void)
 {
 	(void) Py_InitModule("xpoke", xpoke_methods);
 	import_array();

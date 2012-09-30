@@ -14,7 +14,6 @@ example gives the wrong result.
 
 """
 
-#import Numeric
 import cmod.binimg
 import numpy
 import base.aobase
