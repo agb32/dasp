@@ -9,6 +9,26 @@ import base.readConfig
 #import sor30
 #import plwf
 
+def make_circle(r):
+    t = numpy.arange(0, numpy.pi * 2.0, 0.01)
+    t = t.reshape((len(t), 1))
+    x = r * numpy.cos(t)
+    y = r * numpy.sin(t)
+    return numpy.hstack((x, y))
+def makeDoughnut(outer,inner,xoff,yoff):
+    import matplotlib.path as mpath
+    vert=make_circle(outer)
+    codes=numpy.ones(len(vert),dtype=mpath.Path.code_type)*mpath.Path.LINETO
+    codes[0]=mpath.Path.MOVETO
+    if inner!=None and inner!=0:
+        inn=make_circle(inner)
+        vert=numpy.concatenate((vert,inn[::-1]))
+        codes=numpy.concatenate((codes,codes))
+    vert[:,0]+=xoff
+    vert[:,1]+=yoff
+    path=mpath.Path(vert,codes)
+    return path
+
 def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
     """
     Shows a plot of guide star overlaps.
@@ -16,6 +36,11 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
     layerList is a list of layer heights
     """
     import pylab
+    import matplotlib.path as mpath
+    import matplotlib.patches as mpatches
+    if telSec!=None:
+        telSec/=2.
+    
     f=pylab.figure()
     nlayers=len(layerList)
     nx=int(numpy.ceil(numpy.sqrt(nlayers)))
@@ -24,50 +49,47 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
     maxtheta=0
     maxheight=numpy.max(layerList)
     for g in gsList:
-        col="green"
         if type(g) in [type(()),type([])]:
             alt,theta,phi=g[:3]
-            if len(g)>3:
-                col=g[3]
-            else:
-                if alt<0:
-                    col="blue"
-                elif alt>50000:
-                    col="orange"
-                else:
-                    col="green"
         else:
             alt=g.height
             theta=g.theta
             phi=g.phi
-            if isinstance(g,LGS):
-                if alt>50000:
-                    col="orange"
-                else:
-                    col="green"
-            elif isinstance(g,NGS):
-                col="blue"
-            elif hasattr(g,col):
-                col=g.col
-            else:
-                col="blue"
         if theta>maxtheta:
             maxtheta=theta
     lim=maxheight*numpy.tan(maxtheta/3600./180.*numpy.pi)+telDiam/2.
     for l in layerList:
         plotno+=1
         ax=pylab.subplot(nx,ny,plotno)
-        ax.add_patch(pylab.Circle((0,0),telDiam/2.,fill=False,ec="red"))
-        if telSec!=None:
-            ax.add_patch(pylab.Circle((0,0),telSec/2.,fill=False,ec="red"))
+        ax.add_patch(mpatches.PathPatch(makeDoughnut(telDiam/2.,telSec,0,0),fill=False,ec="red"))
+        #ax.add_patch(pylab.Circle((0,0),telDiam/2.,fill=False,ec="red"))
+        #if telSec!=None:
+        #    ax.add_patch(pylab.Circle((0,0),telSec/2.,fill=False,ec="red"))
         obs=[]
         for g in gsList:
+            col="green"
             if type(g) in [type(()),type([])]:
-                alt,theta,phi=g
+                alt,theta,phi=g[:3]
+                if len(g)>3:col=g[3]
+                else:
+                    if alt<0:col="blue"
+                    elif alt>50000:col="orange"
+                    else:col="green"
             else:
                 alt=g.height
                 theta=g.theta
                 phi=g.phi
+                if isinstance(g,LGS):
+                    if alt>50000:
+                        col="orange"
+                    else:
+                        col="green"
+                elif isinstance(g,NGS):
+                    col="blue"
+                elif hasattr(g,col):
+                    col=g.col
+                else:
+                    col="blue"
             if alt<0:#ngs
                 diam=telDiam
             elif alt<l:#spot formed below layer...
@@ -78,11 +100,16 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
             x=r*numpy.cos(phi/180.*numpy.pi)
             y=r*numpy.sin(phi/180.*numpy.pi)
             if diam>0:
-                ax.add_patch(pylab.Circle((x,y),diam/2.,fill=fill,fc=col,alpha=0.25))
-                if telSec!=None:
-                    obs.append((x,y,diam))
-        for o in obs:
-            ax.add_patch(pylab.Circle((o[0],o[1]),telSec/telDiam*o[2]/2.,fill=fill,fc="white",alpha=0.25))
+                if telSec==None:
+                    sec=None
+                else:
+                    sec=telSec/telDiam*diam
+                ax.add_patch(mpatches.PathPatch(makeDoughnut(diam/2.,sec,x,y),fill=fill,fc=col,alpha=0.25))
+                #ax.add_patch(pylab.Circle((x,y),diam/2.,fill=fill,fc=col,alpha=0.25))
+                #if telSec!=None:
+                #    obs.append((x,y,diam))
+        #for o in obs:
+        #    ax.add_patch(pylab.Circle((o[0],o[1]),telSec/telDiam*o[2]/2.,fill=fill,fc="white",alpha=0.25))
         pylab.ylim([-lim,lim])
         pylab.xlim([-lim,lim])
     pylab.show()
