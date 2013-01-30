@@ -434,3 +434,13 @@ def rms(arr):
     arr=na.array(arr).flat
     std=na.sqrt(na.average(arr*arr)-na.average(arr)**2)
     return std
+def smooth(data,degree=5):  
+    """Smooths 1D data"""
+    window=degree*2-1  
+    weight=numpy.ones((window,),numpy.float32)  
+    weight=weight/numpy.exp((4*(numpy.arange(window)-degree+1.)/window)**2)
+    smoothed=numpy.zeros((len(data)-window,),numpy.float32)
+    sw=weight.sum()
+    for i in range(len(smoothed)):
+        smoothed[i]=(numpy.array(data[i:i+window])*weight).sum()/sw
+    return smoothed

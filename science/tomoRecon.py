@@ -503,6 +503,7 @@ class recon(base.aobase.aobase):
                     if os.path.exists(self.pcgAfile):
                         self.pcgA=util.FITS.loadSparse(self.pcgAfile)
                     else:
+                        print "%s not found"%self.pcgAfile
                         self.pcgA=None
                 else:
                     self.pcgA=self.pcgAfile
@@ -511,6 +512,7 @@ class recon(base.aobase.aobase):
                     if os.path.exists(self.pcgBfile):
                         self.pcgB=util.FITS.loadSparse(self.pcgBfile)
                     else:
+                        print "%s not found"%self.pcgBfile
                         self.pcgB=None
                 else:
                     self.pcgB=self.pcgBfile

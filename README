@@ -524,3 +524,23 @@ In TESTING/LIN it fails.  But this doesn't matter.
 Move lapack_LINUX.a to /usr/local/lib/liblapack.a and libflapack.a
 Set up your BLAS and LAPACK environment variables.
 Then do a python setup.py build for scipy.
+
+
+Oct 2012:
+python-scientific
+mpichpython
+mpich2
+purge mpich2
+openmpi-common
+openmpi-bin
+purge openmpi-bin
+purge openmpi-common
+mpich-bin
+mpirun -np 2 /usr/bin/mpipython -c "import Scientific.MPI;print Scientific.MPI.world.duplicate().rank"
+Should then print out:
+0
+1
+
+So, in summary, require:
+sudo apt-get install python-scientific mpichpython mpich-bin
+Also need python-netcdf

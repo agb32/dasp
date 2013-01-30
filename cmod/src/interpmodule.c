@@ -349,6 +349,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   }
   s1y=PyArray_STRIDE(pyin,0)/insize;
   s1x=PyArray_STRIDE(pyin,1)/insize;
+  //printf("%d %d %d %d\n",n1y,n1x,s1y,s1x);
   s2y=PyArray_STRIDE(pyout,0)/outsize;
   s2x=PyArray_STRIDE(pyout,1)/outsize;
 
@@ -589,7 +590,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	    if(x2free!=NULL) free(x2free);
 	    free(ytmp);
 	    for(j=0; j< nThreads; j++) gsl_interp_accel_free( params[j].interpAcc );
-	    for(j=0; j<i; j++) free(params[i].y1);
+	    for(j=0; j<i; j++) free(params[j].y1);
 	    free(thread);
 	    free(params);
 	    return NULL;
@@ -685,7 +686,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 
   // (6) TIDY UP:
   if(x1free!=NULL) free(x1free);
-  if(x2free!=NULL) free(x2);
+  if(x2free!=NULL) free(x2free);
   free(ytmp);
   
   return Py_BuildValue("");   /* return None */

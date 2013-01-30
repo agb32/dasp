@@ -45,11 +45,12 @@ sor=Extension('sormodule',
 #              extra_link_args=['-lm'],
               )
 interp=Extension('interpmodule',
+#                 extra_compile_args=["-g"],
                  include_dirs=idnumpy,
-                 sources=['interpmodule.c'],
+                 sources=['interpmodule.c','interpolate.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                  extra_link_args=['-lgsl','-lgslcblas','-lm'],
-                 extra_objects = ['interpolate.o']
+#                 extra_objects = ['interpolate.o']
                  )
 phaseCov=Extension('phaseCovmodule',
                  include_dirs=idnumpy,

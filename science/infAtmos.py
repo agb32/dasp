@@ -295,7 +295,6 @@ class infAtmos(base.aobase.aobase):
                             #But doesn't matter, because its only really for testing anyway.
                             self.zernikeVariance(self.outputData,forDisplay=0)
                             self.phaseStructFunc(self.outputData,forDisplay=0)
-                            
             else:#no new data ready
                 self.dataValid=0
         else:
