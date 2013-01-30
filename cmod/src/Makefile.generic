@@ -4,7 +4,11 @@
 #
 # Updated (cleaned up) by UB, 2012 Aug 09
 #
-
+# This Makefile:
+# - compiles josesubs.c, mvm.c, interpolate.c,
+#     ( which are the "worker" functions called from modules )
+# - calls  "setup.py"  to compile modules.
+#
 OBJS = josesubs mvm interpolate
 
 .PHONY=clean_o clean_so

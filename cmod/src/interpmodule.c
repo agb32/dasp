@@ -353,52 +353,60 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   s2y=PyArray_STRIDE(pyout,0)/outsize;
   s2x=PyArray_STRIDE(pyout,1)/outsize;
 
-  //Now check the optional input arrays...
+  // Check the input arrays:
+  // pyin is a PyArray (required in PyArg_ParseTuple) so I don't check it here
+  // ( no "if(PyArray_Check(pyin))" )
+  if( PyArray_TYPE((PyArrayObject*)pyin)!=NPY_DOUBLE )  // !PyArray_ISCONTIGUOUS((PyArrayObject*)pyin)
+    {
+      PyErr_SetString(PyExc_TypeError, "The first input parameter must be float64\n");
+      return NULL;
+    }
+
   if(PyArray_Check(pyyin)){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyin) || PyArray_TYPE((PyArrayObject*)pyyin)!=NPY_DOUBLE){
-      PyErr_SetString(PyExc_TypeError, "yin must be contiguous, float64\n");
+      PyErr_SetString(PyExc_TypeError, "The second input parameter must be contiguous, float64\n");
       return NULL;
     }
     if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==n1y){//correct shape...
       x1usr=(double*)PyArray_DATA((PyArrayObject*)pyyin);
     }else{
-      PyErr_SetString(PyExc_TypeError, "yin is wrong shape\n");
+      PyErr_SetString(PyExc_TypeError, "The second input parameter is wrong shape\n");
       return NULL;
     }
   }
   if(PyArray_Check(pyxin)){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxin) || PyArray_TYPE((PyArrayObject*)pyxin)!=NPY_DOUBLE){
-      PyErr_SetString(PyExc_TypeError, "xin must be contiguous, float64\n");
+      PyErr_SetString(PyExc_TypeError, "The third input parameter must be contiguous, float64\n");
       return NULL;
     }
     if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==n1x){//correct shape...
       x3usr=(double*)PyArray_DATA((PyArrayObject*)pyxin);
     }else{
-      PyErr_SetString(PyExc_TypeError, "xin is wrong shape\n");
+      PyErr_SetString(PyExc_TypeError, "The third input parameter is wrong shape\n");
       return NULL;
     }
   }
   if(PyArray_Check(pyyout)){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyout) || PyArray_TYPE((PyArrayObject*)pyyout)!=NPY_DOUBLE){
-      PyErr_SetString(PyExc_TypeError, "yout must be contiguous, float64\n");
+      PyErr_SetString(PyExc_TypeError, "The 4th input parameter must be contiguous, float64\n");
       return NULL;
     }
     if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)==n2y){//correct shape...
       x2usr=(double*)PyArray_DATA((PyArrayObject*)pyyout);
     }else{
-      PyErr_SetString(PyExc_TypeError, "yout is wrong shape\n");
+      PyErr_SetString(PyExc_TypeError, "The 4th input parameter is wrong shape\n");
       return NULL;
     }
   }
   if(PyArray_Check(pyxout)){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxout) || PyArray_TYPE((PyArrayObject*)pyxout)!=NPY_DOUBLE){
-      PyErr_SetString(PyExc_TypeError, "yin must be contiguous, float64\n");
+      PyErr_SetString(PyExc_TypeError, "The 5th input parameter must be contiguous, float64\n");
       return NULL;
     }
     if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)==n2x){//correct shape...
       x4usr=(double*)PyArray_DATA((PyArrayObject*)pyxout);
     }else{
-      PyErr_SetString(PyExc_TypeError, "yin is wrong shape\n");
+      PyErr_SetString(PyExc_TypeError, "The 5th input parameter is wrong shape\n");
       return NULL;
     }
   }
