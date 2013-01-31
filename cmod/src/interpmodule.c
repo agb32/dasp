@@ -278,7 +278,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   npy_intp *pyinDims,*pyoutDims;
   void *pyinData,*pyoutData;  // void, so it can handle both float and double
 
-  double *x1,*x2,*x3,*x4,*ytmp;
+  double *x1,*x2,*x3,*x4,*ytmp, *ytmp2;
   double *x1free=NULL,*x2free=NULL;
   double dx1,dx2,dx3,dx4;
   int i,j,n1x,n1y,n2x,n2y;
@@ -424,7 +424,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     x4=x2;
     x2free=x2;
   }
-  ytmp=malloc(n1x*n2y*sizeof(double));
+  ytmp  = malloc(n1x*n2y*sizeof(double));
+  ytmp2 = malloc(n1x*n2y*sizeof(double));
   
   dx1=1./(n1y-1.);
   dx2=dx1 * (n1y-1.) / n2y;
@@ -501,6 +502,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	  if(x1free!=NULL) free(x1free);
 	  if(x2free!=NULL) free(x2free);
 	  free(ytmp);
+	  free(ytmp2);
 	  return NULL;
 	}
       // (b) Assign the values to the params for interpolation. The first two are
@@ -514,6 +516,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	if(x2free!=NULL) free(x2free);
 	free(params);
 	free(ytmp);
+	free(ytmp2);
 	return NULL;
       }
       //      assign values to the rest of parameters for the first dimension:
@@ -564,6 +567,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	if(x1free!=NULL) free(x1free);
 	if(x2free!=NULL) free(x2free);
 	free(ytmp);
+	free(ytmp2);
 	return NULL;
       }
 
@@ -574,6 +578,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	if(x1free!=NULL) free(x1free);
 	if(x2free!=NULL) free(x2free);
 	free(ytmp);
+	free(ytmp2);
 	return NULL;
       }
 
@@ -597,6 +602,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	    if(x1free!=NULL) free(x1free);
 	    if(x2free!=NULL) free(x2free);
 	    free(ytmp);
+	    free(ytmp2);
 	    for(j=0; j< nThreads; j++) gsl_interp_accel_free( params[j].interpAcc );
 	    for(j=0; j<i; j++) free(params[j].y1);
 	    free(thread);
@@ -696,6 +702,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   if(x1free!=NULL) free(x1free);
   if(x2free!=NULL) free(x2free);
   free(ytmp);
+  free(ytmp2);
   
   return Py_BuildValue("");   /* return None */
 }
