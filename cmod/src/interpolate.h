@@ -38,7 +38,7 @@ typedef struct {
                      // (for a 100x100 input to 991x991 output array).
 
   gsl_interp_accel* interpAcc; // interpolation accelerator
-  double*           y1;        // tmp vector to pass the data to the interpolator
+  //  double*           y1;        // tmp vector to pass the data to the interpolator
 } interp_data_t;
 
 // function to perform the interpolation in a thread:

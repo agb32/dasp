@@ -512,14 +512,16 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       //     allocate the accelerator:
       params->interpAcc=gsl_interp_accel_alloc();
       //     allocate memory for y1; max(nInY,nInX), so you can use the same vector for both dimensions:
-      if( (params->y1 = malloc((nInY>nInX?nInY:nInX)*sizeof(double))) == NULL ){
-	PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp: failed to malloc 'params->y1'.");
-	if(x1free!=NULL) free(x1free);
-	if(x2free!=NULL) free(x2free);
-	free(params);
-	free(ytmp);
-	return NULL;
-      }
+
+      /* if( (params->y1 = malloc((nInY>nInX?nInY:nInX)*sizeof(double))) == NULL ){ */
+      /* 	PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp: failed to malloc 'params->y1'."); */
+      /* 	if(x1free!=NULL) free(x1free); */
+      /* 	if(x2free!=NULL) free(x2free); */
+      /* 	free(params); */
+      /* 	free(ytmp); */
+      /* 	return NULL; */
+      /* } */
+
       // Set the rest of parameters for interpolation in the Y dimension:
       params->inN     = nInY;
       params->outN    = nOutY;
@@ -553,7 +555,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 
       // (f) Tidy up:
       gsl_interp_accel_free( params->interpAcc );
-      free( params->y1);
+      //      free( params->y1);
       free( params );
     }
   else
@@ -597,17 +599,17 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	  //     Allocate the accelerator:
       	  params[i].interpAcc = gsl_interp_accel_alloc();
 	  //     Allocate memory for y1; if it fails, free all the allocated memory:
-      	  if( (params[i].y1 = malloc((nInY>nInX?nInY:nInX)*sizeof(double))) == NULL ){
-	    PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp: Failed to malloc 'params[i].y1'.\n");
-	    if(x1free!=NULL) free(x1free);
-	    if(x2free!=NULL) free(x2free);
-	    free(ytmp);
-	    for(j=0; j< nThreads; j++) gsl_interp_accel_free( params[j].interpAcc );
-	    for(j=0; j<i; j++) free(params[j].y1);
-	    free(thread);
-	    free(params);
-	    return NULL;
-	  }
+      	  /* if( (params[i].y1 = malloc((nInY>nInX?nInY:nInX)*sizeof(double))) == NULL ){ */
+	  /*   PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp: Failed to malloc 'params[i].y1'.\n"); */
+	  /*   if(x1free!=NULL) free(x1free); */
+	  /*   if(x2free!=NULL) free(x2free); */
+	  /*   free(ytmp); */
+	  /*   for(j=0; j< nThreads; j++) gsl_interp_accel_free( params[j].interpAcc ); */
+	  /*   for(j=0; j<i; j++) free(params[j].y1); */
+	  /*   free(thread); */
+	  /*   free(params); */
+	  /*   return NULL; */
+	  /* } */
 	  //     The rest of the parameters for the interpolation in the first dimension:
       	  params[i].inN  = nInY;
       	  params[i].outN = nOutY;
@@ -689,7 +691,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       // (i) Tidy up:
       for(i=0; i < nThreads; i++){
 	gsl_interp_accel_free( params[i].interpAcc );
-	free( params[i].y1);
+	//	free( params[i].y1);
       }
       free( params );
       free( thread );
