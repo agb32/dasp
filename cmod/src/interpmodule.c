@@ -303,22 +303,30 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 			                &pyxout,
 			 &PyArray_Type, &pyout, 
 			                &nThreads)){
-    printf("interp.gslCubSplineInterp: parsing the arguments failed. Arguments: mxin,yin,xin,yout,xout,mxout\nxin,yin should be e.g. x1=(numpy.arange(n)/(n-1)).astype('d') where n = mxin.shape[0].\nxout,yout should be e.g. (numpy.arange(nn)+0.5)/nn\nAny of yin,xin,yout,xout can be None.");
+    printf("%s, line %d: parsing the arguments failed.\n", __FILE__, __LINE__);
+    printf("A working example:\nxin,  yin  = numpy.arange(5).astype(TYPE),\n");
+    printf("xout, yout = numpy.arange(9).astype(TYPE)/2.,\n");
+    printf("mxin = numpy.zeros([5, 5], TYPE), mxout = numpy.zeros([9, 9], TYPE)\n");
+    printf("TYPE must be either 'd' or 'f'; any of xin, yin, xout, yout can be 'None'.\n");
     return NULL;
   }
+
+  // (2) EXTRACT SOME INFO AND CHECK THE INPUT
+
+  // First check that input and output data are 2-D arrays:
   if(PyArray_NDIM(pyin)!=2 || PyArray_NDIM(pyout)!=2)
     {
-      PyErr_SetString(PyExc_TypeError, "First and last argument must be 2-D arrays.\n");
+      PyErr_SetString(PyExc_TypeError, "1st and 6th argument must be 2-D arrays.\n");
       return NULL;
     }
 
-  // (2) EXTRACT SOME INFO AND CHECK THE INPUT
+  // Extract data:
   pyinData  = (void *)PyArray_DATA(pyin);
   pyoutData = (void *)PyArray_DATA(pyout);
   pyinDims  = PyArray_DIMS(pyin);
   pyoutDims = PyArray_DIMS(pyout);
-  nInY = (int) pyinDims[0];
-  nInX = (int) pyinDims[1];
+  nInY  = (int) pyinDims[0];
+  nInX  = (int) pyinDims[1];
   nOutY = (int) pyoutDims[0];
   nOutX = (int) pyoutDims[1];
 
@@ -344,24 +352,21 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     outsize=0;
     break;
   }
+
+  // Check that input and output arrays are float or double:
   if(insize==0 || outsize==0){
     PyErr_SetString(PyExc_TypeError, "in and out arrays must be float32 or float64\n");
     return NULL;
   }
+
+  // Get the strides
   sInY = PyArray_STRIDE(pyin,0)/insize;
   sInX = PyArray_STRIDE(pyin,1)/insize;
-  //printf("%d %d %d %d\n",nInY,nInX,sInY,sInX);
   sOutY = PyArray_STRIDE(pyout,0)/outsize;
   sOutX = PyArray_STRIDE(pyout,1)/outsize;
 
-  // Check the input arrays:
-  // pyin is a PyArray (required in PyArg_ParseTuple) so I don't check it here
-  // ( no "if(PyArray_Check(pyin))" )
-  if( PyArray_TYPE((PyArrayObject*)pyin)!=NPY_DOUBLE )  // !PyArray_ISCONTIGUOUS((PyArrayObject*)pyin)
-    {
-      PyErr_SetString(PyExc_TypeError, "The first input parameter must be float64\n");
-      return NULL;
-    }
+  // Further checks of the input arrays:
+  //   (pyin and pyout have already been checked before up.)
 
   if(PyArray_Check(pyyin)){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyin) || PyArray_TYPE((PyArrayObject*)pyyin)!=NPY_DOUBLE){
@@ -507,20 +512,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 	  free(ytmp);
 	  return NULL;
 	}
-      // (b) Assign the values to the params for interpolation. The first two are
-      //     common to the interpolation in the first and in the second dimension:
-      //     allocate the accelerator:
-      params->interpAcc=gsl_interp_accel_alloc();
-      //     allocate memory for y1; max(nInY,nInX), so you can use the same vector for both dimensions:
-
-      /* if( (params->y1 = malloc((nInY>nInX?nInY:nInX)*sizeof(double))) == NULL ){ */
-      /* 	PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp: failed to malloc 'params->y1'."); */
-      /* 	if(x1free!=NULL) free(x1free); */
-      /* 	if(x2free!=NULL) free(x2free); */
-      /* 	free(params); */
-      /* 	free(ytmp); */
-      /* 	return NULL; */
-      /* } */
+      // (b) Assign the values to the params for interpolation. 
+      params->interpAcc = gsl_interp_accel_alloc(); // common for interpolation over both dimensions
 
       // Set the rest of parameters for interpolation in the Y dimension:
       params->inN     = nInY;
@@ -555,7 +548,6 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
 
       // (f) Tidy up:
       gsl_interp_accel_free( params->interpAcc );
-      //      free( params->y1);
       free( params );
     }
   else
@@ -595,21 +587,9 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       for(i=0; i < nThreads; i++)
       	{
 	  // (d.1) SET THE PARAMETERS to be passed to the thread function:
-	  //     The first two are the same for interpolation in both dimensions:
-	  //     Allocate the accelerator:
+	  //     Allocate the accelerator - common for both dimensions:
       	  params[i].interpAcc = gsl_interp_accel_alloc();
-	  //     Allocate memory for y1; if it fails, free all the allocated memory:
-      	  /* if( (params[i].y1 = malloc((nInY>nInX?nInY:nInX)*sizeof(double))) == NULL ){ */
-	  /*   PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineIntrp: Failed to malloc 'params[i].y1'.\n"); */
-	  /*   if(x1free!=NULL) free(x1free); */
-	  /*   if(x2free!=NULL) free(x2free); */
-	  /*   free(ytmp); */
-	  /*   for(j=0; j< nThreads; j++) gsl_interp_accel_free( params[j].interpAcc ); */
-	  /*   for(j=0; j<i; j++) free(params[j].y1); */
-	  /*   free(thread); */
-	  /*   free(params); */
-	  /*   return NULL; */
-	  /* } */
+
 	  //     The rest of the parameters for the interpolation in the first dimension:
       	  params[i].inN  = nInY;
       	  params[i].outN = nOutY;
