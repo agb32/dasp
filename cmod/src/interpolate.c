@@ -10,25 +10,32 @@
 // 
 // 
 // Some comments:
-//  - params->y1 and params->interpAcc can easily be made local (declared and used only in the
-//    functions below). However, by adding them to params and initialising them in the main function
-//    the program is about 1.5% faster (for a 100x100 input to 991x991 output array), because in the
-//    main program they are initialised only once. If you initialise them in the functions below, they
-//    are initialised twice - once with interp_first... and once with interp_second...
 //
-//  - There are four functions used: first_inFloat, first_inDouble, second_outFloat, second_outDouble.
-//       It would be easy to write on function with two if clauses instead of 4 functions with no
-//       if clauses. I prefer 4 functions with no if clauses because of better readability.
+//  - There are four functions used:
+//       . interp_first_inFloat, 
+//       . interp_first_inDouble, 
+//       . interp_second_outFloat,
+//       . interp_second_outDouble.
+//     It would be easy to write one function with two if clauses instead of 4 functions with no
+//     if clauses. I prefer 4 functions with no if clauses because of better readability.
 //
 //  - The only difference between interp_first_inDouble and interp_first_inFloat is this line:
 //       params->y1[i] = (double)(((double*)(par...
 //       params->y1[i] = (double)(((float* )(par...
-//    I wrote comments for only one of them.
 //
 //  - The only difference between interp_second_inDouble and interp_second_inFloat is this line:
-//    	 ((double*)(params->outData))[j*(params->sy)+i*(params->sx)]=(double)gsl_spline_e...
-//       ((float* )(params->outData))[j*(params->sy)+i*(params->sx)]=(float )gsl_spline_e...
+//    	 ((double*)(params->outData))[j*(params->sy)+i*(params->sx)] = (double)gsl_spline_e...
+//       ((float* )(params->outData))[j*(params->sy)+i*(params->sx)] = (float )gsl_spline_e...
 //
+//  - params->interpAcc can easily be made local (declared and used only in the
+//    functions below). However, by adding it to params execution is a bit faster, probably 
+//    about 0.8% faster for a 100x100 input and 991x991 output array.
+//    Why: in the main program it is initialised only once and then used by both _first_ and
+//    _second_, rather than being initialised twice.
+//
+//  - params->y1: "y1" used to be in "params" for the same reason as interpAcc (combined
+//    improvement of 1.5%). In Jan 2013 I realised that _second_ actually does not need it,
+//    so I made "y1" local to _first and deleted it from prams.
 //
 //
 

@@ -272,19 +272,23 @@ static PyObject *gslPeriodicCubSplineIntrp(PyObject *self,PyObject *args){
 // sysconf(_SC_NPROCESSORS_ONLN)/2 threads, regardless of the size of the input/output
 // arrays.
 //
+// Upgraded: 1st Feb 2013 to handle cases where input and output arrays are the same.
+//
 static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
-  PyArrayObject	*pyin,*pyout;
-  PyObject *pyyin,*pyxin,*pyyout,*pyxout;
-  npy_intp *pyinDims,*pyoutDims;
-  void *pyinData,*pyoutData;  // void, so it can handle both float and double
+
+  PyArrayObject	*pyin,    *pyout;
+  void          *pyinData,*pyoutData;  // void, so it can handle both float and double
+  npy_intp      *pyinDims,*pyoutDims;
+  PyObject *pyyin,*pyxin, *pyyout,*pyxout;
 
   double *x1,*x2,*x3,*x4,*ytmp;
   double *x1free=NULL,*x2free=NULL;
   double dx1,dx2,dx3,dx4;
 
-  int i,j,nInX,nInY,nOutX,nOutY;
-  double *x1usr=NULL,*x2usr=NULL,*x3usr=NULL,*x4usr=NULL;
-  int sInY,sInX,sOutY,sOutX,insize,outsize;
+  int i,j;
+  int nInX, nInY, nOutX, nOutY;
+  int sInY, sInX, sOutY, sOutX, insize, outsize;
+  double *x1usr=NULL, *x2usr=NULL, *x3usr=NULL, *x4usr=NULL;
 
   int nThreads = 0;      // the number of threads (provided on input)
   pthread_t*     thread; // vector of threads
@@ -360,8 +364,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   }
 
   // Get the strides
-  sInY = PyArray_STRIDE(pyin,0)/insize;
-  sInX = PyArray_STRIDE(pyin,1)/insize;
+  sInY  = PyArray_STRIDE(pyin,0)/insize;
+  sInX  = PyArray_STRIDE(pyin,1)/insize;
   sOutY = PyArray_STRIDE(pyout,0)/outsize;
   sOutX = PyArray_STRIDE(pyout,1)/outsize;
 
@@ -372,8 +376,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyin) || PyArray_TYPE((PyArrayObject*)pyyin)!=NPY_DOUBLE){
       PyErr_SetString(PyExc_TypeError, "The second input parameter must be contiguous, float64\n");
       return NULL;
-    }
-    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==nInY){//correct shape...
+    }// correct shape:
+    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==nInY){
       x1usr=(double*)PyArray_DATA((PyArrayObject*)pyyin);
     }else{
       PyErr_SetString(PyExc_TypeError, "The second input parameter is wrong shape\n");
@@ -384,8 +388,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxin) || PyArray_TYPE((PyArrayObject*)pyxin)!=NPY_DOUBLE){
       PyErr_SetString(PyExc_TypeError, "The third input parameter must be contiguous, float64\n");
       return NULL;
-    }
-    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==nInX){//correct shape...
+    }// correct shape:
+    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==nInX){
       x3usr=(double*)PyArray_DATA((PyArrayObject*)pyxin);
     }else{
       PyErr_SetString(PyExc_TypeError, "The third input parameter is wrong shape\n");
@@ -396,8 +400,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyout) || PyArray_TYPE((PyArrayObject*)pyyout)!=NPY_DOUBLE){
       PyErr_SetString(PyExc_TypeError, "The 4th input parameter must be contiguous, float64\n");
       return NULL;
-    }
-    if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)==nOutY){//correct shape...
+    }// correct shape:
+    if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)==nOutY){
       x2usr=(double*)PyArray_DATA((PyArrayObject*)pyyout);
     }else{
       PyErr_SetString(PyExc_TypeError, "The 4th input parameter is wrong shape\n");
@@ -408,15 +412,14 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxout) || PyArray_TYPE((PyArrayObject*)pyxout)!=NPY_DOUBLE){
       PyErr_SetString(PyExc_TypeError, "The 5th input parameter must be contiguous, float64\n");
       return NULL;
-    }
-    if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)==nOutX){//correct shape...
+    }// correct shape:
+    if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)==nOutX){
       x4usr=(double*)PyArray_DATA((PyArrayObject*)pyxout);
     }else{
       PyErr_SetString(PyExc_TypeError, "The 5th input parameter is wrong shape\n");
       return NULL;
     }
   }
-
 
   // (3) ALLOCATE AND (PARTIALLY) POPULATE WORKING ARRAYS
   // (This is Alastair's code, I don't touch.)
@@ -448,7 +451,6 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       x2[i] = x1[0] + (0.5+i) * dx2;
   }else
     x2=x2usr;
-
 
   if(x3usr==NULL){
     for(i=0; i<nInX; i++)
