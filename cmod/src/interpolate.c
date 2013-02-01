@@ -1,7 +1,11 @@
 // 
 // Urban Bitenc, 2012 July 13
+//
+// Upgrade 2013 Feb 01:
+//        Also works also if input and output matrices are the same, e.g.
+//        cmod.interp.gslCubSplineInterp(mxout[0:5, 0:5], yin, xin, yout, xout, mxout, nThreads)
 // 
-// Functions called from interpmodule.c :: gclCubSplineIntrp_UB
+// Functions called from interpmodule.c :: gclCubSplineIntrp
 // 
 // 
 // 
@@ -34,22 +38,22 @@
 // interpolation in first dimension if the input is Double
 void interp_first_inDouble(  interp_data_t* params )
 {
-  int i, j;              // for looping
+  int i, j;              // for looping: i for x-dim., j for y-dim.
   gsl_spline *interpObj; // for interpolation
 
-  // Here you define the interpolation method used:
-  interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
+  // Define the interpolation method used:
+  interpObj = gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
 
-  // For each line of array:
-  for (j=0; j<(params->M); ++j){
+  // For each column of array:
+  for (i=0; i<(params->M); ++i){
     // Move the data into the temporary vector y1 to pass it to the interpolation:
-    for (i=0; i<(params->inN); ++i)
-      params->y1[i] = (double)(((double*)(params->inData))[ i*(params->sy) + j*(params->sx) ]);
+    for (j=0; j<(params->inN); ++j)
+      params->y1[j] = (double)(((double*)(params->inData))[ j*(params->sy) + i*(params->sx) ]);
     // Prepare the interpolation function:
     gsl_spline_init(interpObj, params->inX, params->y1,(size_t)(params->inN));
     // Evaluate the interpolation function and save the result in the intermediate array:
-    for (i=0; i<(params->outN); ++i)
-      ((double*)(params->outData))[j+i*(params->sy)] = gsl_spline_eval(interpObj, (params->outX)[i], params->interpAcc);
+    for (j=0; j<(params->outN); ++j)
+      ((double*)(params->outData))[i+j*(params->sytmp)] = gsl_spline_eval(interpObj, (params->outX)[j], params->interpAcc);
   }
   // Tidy up:
   gsl_spline_free(interpObj);
@@ -58,20 +62,6 @@ void interp_first_inDouble(  interp_data_t* params )
 // interpolation in first dimension if the input is Float
 void interp_first_inFloat(  interp_data_t* params )
 {
-  int i, j;
-  gsl_spline *interpObj;
-
-  interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
-
-  for (j=0; j<(params->M); ++j){
-    for (i=0; i<(params->inN); ++i)
-      params->y1[i] = (double)(((float*)(params->inData))[ i*(params->sy) + j*(params->sx) ]);
-    gsl_spline_init(interpObj, params->inX, params->y1,(size_t)(params->inN));
-    for (i=0; i<(params->outN); ++i)
-      ((double*)(params->outData))[j+i*(params->sy)] = gsl_spline_eval(interpObj, (params->outX)[i], params->interpAcc);
-
-  }
-  gsl_spline_free(interpObj);
 }
 
 // interpolation in second dimension if the input is Double
@@ -100,17 +90,5 @@ void interp_second_outDouble(  interp_data_t* params )
 // interpolation in second dimension if the input is Float
 void interp_second_outFloat(  interp_data_t* params )
 {
-  int i, j;
-  gsl_spline *interpObj;
-
-  interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
-
-  for (j=0; j<(params->M); ++j){
-    memcpy(params->y1, &((double*)(params->inData))[j*(params->inN)], (params->inN)*sizeof(double));
-    gsl_spline_init(interpObj, params->inX, params->y1,(size_t)(params->inN));
-    for (i=0; i<(params->outN); ++i)
-      ((float*)(params->outData))[j*(params->sy)+i*(params->sx)]=(float)gsl_spline_eval(interpObj,(params->outX)[i], params->interpAcc);
-  }
-  gsl_spline_free(interpObj);
 }
 
