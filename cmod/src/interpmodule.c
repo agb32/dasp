@@ -373,7 +373,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       PyErr_SetString(PyExc_TypeError, "The second input parameter must be contiguous, float64\n");
       return NULL;
     }
-    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)==nInY){//correct shape...
+    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)>=nInY){//correct shape...
       x1usr=(double*)PyArray_DATA((PyArrayObject*)pyyin);
     }else{
       PyErr_SetString(PyExc_TypeError, "The second input parameter is wrong shape\n");
@@ -385,7 +385,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       PyErr_SetString(PyExc_TypeError, "The third input parameter must be contiguous, float64\n");
       return NULL;
     }
-    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)==nInX){//correct shape...
+    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)>=nInX){//correct shape...
       x3usr=(double*)PyArray_DATA((PyArrayObject*)pyxin);
     }else{
       PyErr_SetString(PyExc_TypeError, "The third input parameter is wrong shape\n");
@@ -397,7 +397,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       PyErr_SetString(PyExc_TypeError, "The 4th input parameter must be contiguous, float64\n");
       return NULL;
     }
-    if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)==nOutY){//correct shape...
+    if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)>=nOutY){//correct shape...
       x2usr=(double*)PyArray_DATA((PyArrayObject*)pyyout);
     }else{
       PyErr_SetString(PyExc_TypeError, "The 4th input parameter is wrong shape\n");
@@ -409,7 +409,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       PyErr_SetString(PyExc_TypeError, "The 5th input parameter must be contiguous, float64\n");
       return NULL;
     }
-    if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)==nOutX){//correct shape...
+    if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)>=nOutX){//correct shape...
       x4usr=(double*)PyArray_DATA((PyArrayObject*)pyxout);
     }else{
       PyErr_SetString(PyExc_TypeError, "The 5th input parameter is wrong shape\n");

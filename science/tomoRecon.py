@@ -994,6 +994,11 @@ class recon(base.aobase.aobase):
                 if type(self.reconmx)!=numpy.ndarray or \
                         self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
+                    if type(self.reconmx)==numpy.ndarray:
+                        print "But current shape is %s"%str(self.reconmx.shape)
+                        if self.reconmx.size<1e6 and self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
+                            print "Transposing (for small matrices only)"
+                            self.reconmx=self.reconmx.T.copy()
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 else:
                     tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)

@@ -385,6 +385,12 @@ class dm(base.aobase.aobase):
                     if this.xoffsub==0 and this.yoffsub==0:#no interp needed
                         pass
                     else:
+                        #print this.selectedDmPhs.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,this.yaxisInterp.shape,this.xaxisInterp.shape,self.interpolated.shape
+                        #print self.yaxisInterp
+                        #print this.yaxisInterp
+                        #print self.xaxisInterp
+                        #print this.xaxisInterp
+                        #gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp[:this.selectedDmPhs.shape[0]],self.xaxisInterp[:this.selectedDmPhs.shape[1]],
                         gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
                                               this.yaxisInterp,this.xaxisInterp,self.interpolated,
                                               self.interpolationNthreads)
