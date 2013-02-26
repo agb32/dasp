@@ -272,19 +272,23 @@ static PyObject *gslPeriodicCubSplineIntrp(PyObject *self,PyObject *args){
 // sysconf(_SC_NPROCESSORS_ONLN)/2 threads, regardless of the size of the input/output
 // arrays.
 //
+// Upgraded: 1st Feb 2013 to handle cases where input and output arrays are the same.
+//
 static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
-  PyArrayObject	*pyin,*pyout;
-  PyObject *pyyin,*pyxin,*pyyout,*pyxout;
-  npy_intp *pyinDims,*pyoutDims;
-  void *pyinData,*pyoutData;  // void, so it can handle both float and double
+
+  PyArrayObject	*pyin,    *pyout;
+  void          *pyinData,*pyoutData;  // void, so it can handle both float and double
+  npy_intp      *pyinDims,*pyoutDims;
+  PyObject *pyyin,*pyxin, *pyyout,*pyxout;
 
   double *x1,*x2,*x3,*x4,*ytmp;
   double *x1free=NULL,*x2free=NULL;
   double dx1,dx2,dx3,dx4;
 
-  int i,j,nInX,nInY,nOutX,nOutY;
-  double *x1usr=NULL,*x2usr=NULL,*x3usr=NULL,*x4usr=NULL;
-  int sInY,sInX,sOutY,sOutX,insize,outsize;
+  int i,j;
+  int nInX, nInY, nOutX, nOutY;
+  int sInY, sInX, sOutY, sOutX, insize, outsize;
+  double *x1usr=NULL, *x2usr=NULL, *x3usr=NULL, *x4usr=NULL;
 
   int nThreads = 0;      // the number of threads (provided on input)
   pthread_t*     thread; // vector of threads
@@ -360,8 +364,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   }
 
   // Get the strides
-  sInY = PyArray_STRIDE(pyin,0)/insize;
-  sInX = PyArray_STRIDE(pyin,1)/insize;
+  sInY  = PyArray_STRIDE(pyin,0)/insize;
+  sInX  = PyArray_STRIDE(pyin,1)/insize;
   sOutY = PyArray_STRIDE(pyout,0)/outsize;
   sOutX = PyArray_STRIDE(pyout,1)/outsize;
 
@@ -417,7 +421,6 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
     }
   }
 
-
   // (3) ALLOCATE AND (PARTIALLY) POPULATE WORKING ARRAYS
   // (This is Alastair's code, I don't touch.)
   //printf("intrp.interp2d: n1 = %d, n2 = %d, n1p = %d\n",n1,n2,n1p);
@@ -448,7 +451,6 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       x2[i] = x1[0] + (0.5+i) * dx2;
   }else
     x2=x2usr;
-
 
   if(x3usr==NULL){
     for(i=0; i<nInX; i++)
