@@ -34,8 +34,9 @@ acmllist=[]
 for f in files:
     if f.startswith("acml"):
         acmllist.append(f)
+cont=0
 acmllist.sort()
-if os.path.exists("/opt/%s"%acmllist[-1]):
+if len(acmllist)>0 and os.path.exists("/opt/%s"%acmllist[-1]):
     #versions=os.listdir("/opt/intel/mkl")
     #versions=map(lambda x:string.split(x,"."),versions)
     #versions.sort()
@@ -64,6 +65,7 @@ else:
 
     setup (ext_modules = [acml])
 
+cont=0
 if os.path.exists("/usr/lib64/atlas/libatlas.so"):
     #versions=os.listdir("/opt/intel/mkl")
     #versions=map(lambda x:string.split(x,"."),versions)
