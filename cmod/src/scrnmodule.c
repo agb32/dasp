@@ -106,7 +106,9 @@ int checkFContigDoubleSize(PyArrayObject *a,int s){
     return 1;
   if(a->descr->type_num!=NPY_DOUBLE)
     return 1;
-  if(!PyArray_IS_F_CONTIGUOUS(a))
+  if(!PyArray_IS_F_CONTIGUOUS(a))//older versions of numpy don't have this function.  In this case, the easiest thing to do is to add 2 lines to /usr/include/numpy/ndarrayobject.h, containing:  
+    //#define PyArray_IS_C_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_C_CONTIGUOUS)
+    //#define PyArray_IS_F_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_F_CONTIGUOUS)
     return 1;
   return 0;
 }

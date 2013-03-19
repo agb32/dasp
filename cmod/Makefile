@@ -15,8 +15,8 @@ install:
 	(cd svd/ ; make install)
 # commented out by UB, 2012 Aug 8th:
 # (fails to build)
-#	echo "Making MKL module"
-#	(cd mkl ; python setup.py install --install-lib=../)
+	echo "Making MKL/AMD module"
+	(cd mkl ; python setup.py install --install-lib=../)
 clean:
 	echo "Cleaning rww modules"
 	(cd src/ ; make clean )
