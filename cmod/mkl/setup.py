@@ -66,7 +66,12 @@ else:
     setup (ext_modules = [acml])
 
 cont=0
+atpath=None
 if os.path.exists("/usr/lib64/atlas/libatlas.so"):
+    atpath="/usr/lib64/atlas/"
+elif os.path.exists("/usr/lib/libatlas.so"):
+    atpath="/usr/lib/"
+if atpath!=None:
     #versions=os.listdir("/opt/intel/mkl")
     #versions=map(lambda x:string.split(x,"."),versions)
     #versions.sort()
@@ -74,7 +79,7 @@ if os.path.exists("/usr/lib64/atlas/libatlas.so"):
     #    version=string.join(versions[-1],".")
     if 1:
         #mklinclude=["/opt/intel/mkl/%s/include"%version]
-        atlaslib=["/usr/lib64/atlas/"]
+        atlaslib=[atpath]
         ld=[sys.prefix+'/lib']
         #mkllib=["/opt/intel/mkl/%s/lib/em64t"%version]
         atlasinclude=["/usr/include/"]
