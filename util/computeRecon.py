@@ -65,7 +65,10 @@ class makeRecon:
             csc=util.FITS.loadSparse(pmxfname,doByteSwap=1)
         if isinstance(csc,numpy.ndarray):
             shape=csc.shape
-            res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="F")
+            if atlas:
+                res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="C")
+            else:
+                res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="F")
             lines=open("/proc/meminfo").readlines()
             for line in lines:
                 if "MemTotal:" in line:
@@ -406,7 +409,10 @@ class makeRecon:
                 b=b2
                 del(b2)
                 if type(res)==type(None):
-                    res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="F")
+                    if atlas:
+                        res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="C")
+                    else:
+                        res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="F")
                 print "Starting gemm %d %d"%(i,j)
                 t1=time.time()
                 mkl.gemm(a,b,res[astart:aend,bstart:bend])
