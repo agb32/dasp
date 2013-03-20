@@ -62,7 +62,7 @@ class SockConn:
     @cvar globals: global dictionary
     @type globals: Dict
     """
-    def __init__(self, port, host=socket.gethostname(), fwd=None,globals=None,startThread=1,listenSTDIN=1):
+    def __init__(self, port, host="", fwd=None,globals=None,startThread=1,listenSTDIN=1):
         """Opens a listening port, and either acts on commands send, or if
         fwd is (host,port), forwards commands to this port (little used)
         @param port: Port number to listen on

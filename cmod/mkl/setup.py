@@ -1,5 +1,5 @@
 #mklmodule is a module that lets one use Intel MKL SVD and GEMM routines.
-
+import traceback
 from distutils.core import setup, Extension
 import sys,os.path,os,string
 idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
@@ -62,8 +62,11 @@ else:
                   extra_link_args=["-lacml_mp","-lpthread","-lm"],
                   sources=["acmlmodule.c"]
                   )
-
-    setup (ext_modules = [acml])
+    try:
+        setup (ext_modules = [acml])
+    except:
+        traceback.print_exc()
+        print "UNABLE TO COMPILE ACML MODULE... CONTINUING"
 
 cont=0
 atpath=None
@@ -82,7 +85,7 @@ if atpath!=None:
         atlaslib=[atpath]
         ld=[sys.prefix+'/lib']
         #mkllib=["/opt/intel/mkl/%s/lib/em64t"%version]
-        atlasinclude=["/usr/include/"]
+        atlasinclude=["/usr/include/","/usr/include/atlas"]
         print "Using atlas/lapack"
         cont=1
 if cont==0:
@@ -97,4 +100,8 @@ else:
                   sources=["atlasmodule.c"]
                   )
               
-    setup (ext_modules = [atlas])
+    try:
+        setup (ext_modules = [atlas])
+    except:
+        traceback.print_exc()
+        print "UNABLE TO COMPILE ATLAS MODULE... CONTINUING"

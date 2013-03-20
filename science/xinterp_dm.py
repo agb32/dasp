@@ -48,6 +48,7 @@ class dm(base.aobase.aobase):
             self.actStart=None#offsets into the parent actutator lists...
             self.actEnd=None
             self.navNoll=0
+            self.allZero=0
             self.lastPhaseCovariance=0
             if self.dmObj==None:#depreciated mode
                 self.rotation=None
@@ -379,45 +380,49 @@ class dm(base.aobase.aobase):
                     self.update()    # update the dm figure.
                     self.dataValid=1 # update the output.
             if self.dataValid:
-                self.selectedDmPhs=this.selectedDmPhs
-                if self.subpxlInterp:
-                    #do the interpolation...
-                    if this.xoffsub==0 and this.yoffsub==0:#no interp needed
-                        pass
-                    else:
-                        #print this.selectedDmPhs.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,this.yaxisInterp.shape,this.xaxisInterp.shape,self.interpolated.shape
-                        #print self.yaxisInterp
-                        #print this.yaxisInterp
-                        #print self.xaxisInterp
-                        #print this.xaxisInterp
-                        #gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp[:this.selectedDmPhs.shape[0]],self.xaxisInterp[:this.selectedDmPhs.shape[1]],
+                if not self.allZero:
+                    self.selectedDmPhs=this.selectedDmPhs
+                    if self.subpxlInterp:
+                        #do the interpolation...
+                        if this.xoffsub==0 and this.yoffsub==0:#no interp needed
+                            pass
+                        else:
+                            #print this.selectedDmPhs.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,this.yaxisInterp.shape,this.xaxisInterp.shape,self.interpolated.shape
+                            #print self.yaxisInterp
+                            #print this.yaxisInterp
+                            #print self.xaxisInterp
+                            #print this.xaxisInterp
+                            #gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp[:this.selectedDmPhs.shape[0]],self.xaxisInterp[:this.selectedDmPhs.shape[1]],
+                            gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
+                                                  this.yaxisInterp,this.xaxisInterp,self.interpolated,
+                                                  self.interpolationNthreads)
+                            self.selectedDmPhs=self.interpolated
+                    elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
+                        #ground conjugate or not interpolating, but we want to offset anyway...
                         gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
                                               this.yaxisInterp,this.xaxisInterp,self.interpolated,
                                               self.interpolationNthreads)
                         self.selectedDmPhs=self.interpolated
-                elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
-                    #ground conjugate or not interpolating, but we want to offset anyway...
-                    gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
-                                          this.yaxisInterp,this.xaxisInterp,self.interpolated,
-                                          self.interpolationNthreads)
-                    self.selectedDmPhs=self.interpolated
 
-                if this.wavelengthAdjustor==1:#dm is shaped for this wavelength...
-                    if this.parent.has_key("atmos"):
-                        self.outputData+=self.selectedDmPhs
+                    if this.wavelengthAdjustor==1:#dm is shaped for this wavelength...
+                        if this.parent.has_key("atmos"):
+                            self.outputData+=self.selectedDmPhs
+                        else:
+                            self.outputData[:,]=self.selectedDmPhs
                     else:
-                        self.outputData[:,]=self.selectedDmPhs
+                        if this.parent.has_key("atmos"):
+                            self.outputData+=self.selectedDmPhs*this.wavelengthAdjustor
+                        else:
+                            self.outputData[:,]=self.selectedDmPhs*this.wavelengthAdjustor
+
+                    self.outputData*=self.pupil.fn
+                    #now remove any piston...
+                    phasesum=numpy.sum(self.outputData.ravel())
+                    self.outputData-=phasesum/self.pupil.sum
+                    self.outputData*=self.pupil.fn
                 else:
-                    if this.parent.has_key("atmos"):
-                        self.outputData+=self.selectedDmPhs*this.wavelengthAdjustor
-                    else:
-                        self.outputData[:,]=self.selectedDmPhs*this.wavelengthAdjustor
-
-                self.outputData*=self.pupil.fn
-                #now remove any piston...
-                phasesum=numpy.sum(self.outputData.ravel())
-                self.outputData-=phasesum/self.pupil.sum
-                self.outputData*=self.pupil.fn
+                    if not this.parent.has_key("atmos"):
+                        self.outputData[:]=0
         else:
             self.dataValid=0
             
@@ -462,46 +467,54 @@ class dm(base.aobase.aobase):
 
         #zoffset is only used here (I think).  Should be set by GUI.
         zoffset=self.control["zoffset"]#self.controlDict['zoffset']
+        self.allZero=0
         if type(zoffset)==type(None):
+            if numpy.alltrue(self.reconData==0):
+                if self.allZero==0:
+                    self.dmphs[:]=0
+                self.allZero=1#this saves some computation time when poking tomographic systems...
             self.actmap[:,]=0
         else:
             self.actmap[:,]=numpy.reshape(zoffset,(self.nact,self.nact))
         #zpoke also used by reconstructor (but doesn't do anything there)
         #zpoke=self.control["zpoke"]#self.controlDict['zpoke']
-        l=len(self.reconData.shape)
-        if l==3:#output probably from SOR module...
-            self.actmap+=self.reconData[0]
-            self.geom="hudgin"
-        elif l==2:
-            self.actmap+=self.reconData
-            self.geom="fried"
-        elif l==1:#output from the xinterp_recon/tomoRecon module...
-            if self.reconData.shape[0]==self.nact*self.nact:
-                self.actmap+=numpy.reshape(self.reconData,(self.nact,self.nact))
-            else:
-                numpy.put(self.actmap.ravel(),self.dmindices,self.reconData)
-                #can do actuator slaving here.
-                if self.actSlaves!=None:
-                    self.applySlaving(self.actmap.ravel(),self.actSlaves)
-            self.geom=None#"fried"#use the actoffset instead.  If this is zero (default), same as fried.
-        if self.subtractTipTilt:
-            #remove tip and tilt from actmap.
-            #Do this in a lazy way... which isn't totally accurate for non-square geometry (i.e. ie uses corner actuators too).
-            t=(self.actmap.sum(0)*self.tilt).sum()
-            self.actmap-=t*self.tilt
-            t=(self.actmap.sum(1)*self.tilt).sum()
-            self.actmap.T-=t*self.tilt
+        if not self.allZero:
+            l=len(self.reconData.shape)
+            if l==3:#output probably from SOR module...
+                self.actmap+=self.reconData[0]
+                self.geom="hudgin"
+            elif l==2:
+                self.actmap+=self.reconData
+                self.geom="fried"
+            elif l==1:#output from the xinterp_recon/tomoRecon module...
+                if self.reconData.shape[0]==self.nact*self.nact:
+                    self.actmap+=numpy.reshape(self.reconData,(self.nact,self.nact))
+                else:
+                    numpy.put(self.actmap.ravel(),self.dmindices,self.reconData)
+                    #can do actuator slaving here.
+                    if self.actSlaves!=None:
+                        self.applySlaving(self.actmap.ravel(),self.actSlaves)
+                self.geom=None#"fried"#use the actoffset instead.  If this is zero (default), same as fried.
+            if self.subtractTipTilt:
+                #remove tip and tilt from actmap.
+                #Do this in a lazy way... which isn't totally accurate for non-square geometry (i.e. ie uses corner actuators too).
+                t=(self.actmap.sum(0)*self.tilt).sum()
+                self.actmap-=t*self.tilt
+                t=(self.actmap.sum(1)*self.tilt).sum()
+                self.actmap.T-=t*self.tilt
 
-        self.mirrorSurface.fit(self.actmap) # UB, 2012Aug20: just looking at the code it seems that
-                                            # this line has no effect, since the return value is
-                                            # ignored. Can this line be deleted?
-        if self.rotation==None or self.rotation==0:
+            self.mirrorSurface.fit(self.actmap) # UB, 2012Aug20: just looking at the code it seems that
+                                                # this line has no effect, since the return value is
+                                                # ignored. Can this line be deleted?
+            if self.rotation==None or self.rotation==0:
+                pass
+            elif type(self.rotation) in [type(0),type(0.)]:
+                self.mirrorSurface.rotate(self.rotation)
+            elif type(self.rotation)!=type(None):
+                self.mirrorSurface.rotate(self.rotation())
+        else:
+            #self.mirrorSurface.phsOut[:]=0#no need, since it doesn't get used.
             pass
-        elif type(self.rotation) in [type(0),type(0.)]:
-            self.mirrorSurface.rotate(self.rotation)
-        elif type(self.rotation)!=type(None):
-            self.mirrorSurface.rotate(self.rotation())
-
 
     def applySlaving(self,actmap,actslaves):
         """actslaves is a dict of indx:slavelist) where indx is the index of the actuator to be slaved, and slavelist is a list of (indx,val) where indx is the actuator index to get slaving from, and val is the strength to apply.
