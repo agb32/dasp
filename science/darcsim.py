@@ -223,7 +223,7 @@ control={"ncam":%d,
 "mirrorParams":mirrorParams,
 "bleedGain":0.01,
 "v0":numpy.zeros((%d,),numpy.float32),
-"actMin":-numpy.ones((%d,),numpy.float32)*1e-6,
+"actMin":-numpy.ones((%d,),numpy.float32)*1e6,
 "actMax":numpy.ones((%d,),numpy.float32)*1e6,
 }
 """%(self.port,self.port,ncam,str(nsubList),str(npxlx),str(npxly),self.nacts,nthreadstxt,sltxt,bgtxt,rmxtxt,gaintxt,decaytxt,thrVal,thrType,self.nacts,self.nacts,self.nacts)
