@@ -80,7 +80,7 @@ psfparams=Extension('psfparamsmodule',
 scrn=Extension('scrnmodule',
 		include_dirs=idnumpy,
 		sources=['scrnmodule.c'],
-		library_dirs=ld,
+		library_dirs=ld+["/usr/lib64","/usr/lib64/atlas"],
 		extra_link_args=['-lm','-lcblas','-latlas','-lgsl'],
 #		extra_link_args=['-lm','-lgsl'],
 		)
