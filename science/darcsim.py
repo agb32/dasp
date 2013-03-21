@@ -157,7 +157,7 @@ decayFactor.
             bg=self.config.getVal("darcBG",default=0.)
             rmx=self.config.getVal("darcRmx",default=0.)
             gain=self.config.getVal("darcGain",default=0.2)
-            decay=self.config.getVal("darcDecay",default=1.)
+            decay=self.config.getVal("darcDecay",default=0.99)
             E=self.config.getVal("darcEmx",default=None,raiseerror=0)
             nthreads=self.config.getVal("darcThreads",default=1)
             thrVal=self.config.getVal("darcThresholdValue",default=0.)
@@ -221,12 +221,12 @@ control={"ncam":%d,
 "mirrorName":"libmirrorSocket.so",
 "mirrorOpen":1,
 "mirrorParams":mirrorParams,
-"bleedGain":0.01,
+"bleedGain":%g,
 "v0":numpy.zeros((%d,),numpy.float32),
 "actMin":-numpy.ones((%d,),numpy.float32)*1e6,
 "actMax":numpy.ones((%d,),numpy.float32)*1e6,
 }
-"""%(self.port,self.port,ncam,str(nsubList),str(npxlx),str(npxly),self.nacts,nthreadstxt,sltxt,bgtxt,rmxtxt,gaintxt,decaytxt,thrVal,thrType,self.nacts,self.nacts,self.nacts)
+"""%(self.port,self.port,ncam,str(nsubList),str(npxlx),str(npxly),self.nacts,nthreadstxt,sltxt,bgtxt,rmxtxt,gaintxt,decaytxt,thrVal,thrType,0.01/self.nacts,self.nacts,self.nacts,self.nacts)
             print txt
             fname=self.config.getVal("darcConfigFileName",default=None,raiseerror=0)
             if fname==None:
