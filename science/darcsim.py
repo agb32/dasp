@@ -72,7 +72,7 @@ decayFactor.
             self.outputData=self.outputDataBuffer[8:].view(numpy.float32)
             self.minarea=self.config.getVal("wfs_minarea")
             self.pokeActMapFifo=[]
-            print "tomoRecon: Using %d DMs for reconstruction."%len(self.dmList)
+            print "darcsim: Using %d DMs for reconstruction."%len(self.dmList)
             self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
             self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea=self.minarea)
             self.ncents=0
@@ -86,7 +86,7 @@ decayFactor.
             self.nwfs=len(indiceList)
             self.ncents=sum(self.ncentList)*2
             if self.ncents==0:
-                raise Exception("No centroids found for tomoRecon %s - check that your atmos.source objects contain a reconList=['%s'] argument"%(idstr,idstr))
+                raise Exception("No centroids found for darcsim %s - check that your atmos.source objects contain a reconList=['%s'] argument"%(idstr,idstr))
             self.centIndex=numpy.zeros((self.ncents,),numpy.int32)
             pos=0
             for i in xrange(len(self.ncentList)):
@@ -152,39 +152,35 @@ decayFactor.
             self.frameno=0
 
             self.config.setSearchOrder(so)
-            subapLocation=numpy.array(sl).astype(numpy.int32)
-            nslopes=subapLocation.shape[0]*2
-            bg=self.config.getVal("darcBG",default=0.)
-            rmx=self.config.getVal("darcRmx",default=0.)
-            gain=self.config.getVal("darcGain",default=0.2)
-            decay=self.config.getVal("darcDecay",default=1.)
-            E=self.config.getVal("darcEmx",default=None,raiseerror=0)
-            nthreads=self.config.getVal("darcThreads",default=1)
-            thrVal=self.config.getVal("darcThresholdValue",default=0.)
-            thrType=self.config.getVal("darcThresholdType",default=1)
-            self.prefix=self.config.getVal("darcPrefix",default="sim")
-            self.prefix+="%d"%self.config.batchno
-            npxls=(numpy.array(npxlx)*numpy.array(npxly)).sum()
-            self.npxls=npxls
-            self.inputData=numpy.zeros((npxls+2,),numpy.float32)
-            self.inputHdr=self.inputData[:2].view(numpy.uint32)
-            #now make the darc config file...
-            txt=str(subapLocation)
-            go=1
-            while go==1:
-                try:
-                    if txt.index("  "):
-                        txt=txt.replace("  "," ")
-                except:
-                    go=0
-            txt="numpy.array("+txt.replace("[ ","[").replace(" ",",")+")"
-            sltxt=txt
-            bgtxt=self.valToDarcArrTxt(bg,npxls)
-            rmxtxt=self.valToDarcArrTxt(rmx,(self.nacts,nslopes))
-            gaintxt=self.valToDarcArrTxt(gain,self.nacts)
-            decaytxt=self.valToDarcArrTxt(decay,self.nacts)
-            nthreadstxt=self.valToDarcArrTxt(nthreads,len(self.wfsIDList))
-            txt="""
+            fname=self.config.getVal("darcConfigFileName",default=None,raiseerror=0)
+            if fname==None or not os.path.exists(fname) or self.config.getVal("overwriteDarcConfig",default=1):
+                #need to create a new config...
+                subapLocation=numpy.array(sl).astype(numpy.int32)
+                nslopes=subapLocation.shape[0]*2
+                bg=self.config.getVal("darcBG",default=0.)
+                rmx=self.config.getVal("darcRmx",default=0.)
+                gain=self.config.getVal("darcGain",default=0.2)
+                decay=self.config.getVal("darcDecay",default=1.)
+                E=self.config.getVal("darcEmx",default=None,raiseerror=0)
+                nthreads=self.config.getVal("darcThreads",default=1)
+                thrVal=self.config.getVal("darcThresholdValue",default=0.)
+                thrType=self.config.getVal("darcThresholdType",default=1)
+                self.darcArgs=self.config.getVal("darcArgs",default="")
+                self.prefix=self.config.getVal("darcPrefix",default="sim%s"%self.idstr[0])
+                self.prefix+="b%d"%self.config.batchno
+                npxls=(numpy.array(npxlx)*numpy.array(npxly)).sum()
+                self.npxls=npxls
+                self.inputData=numpy.zeros((npxls+2,),numpy.float32)
+                self.inputHdr=self.inputData[:2].view(numpy.uint32)
+                # now make the darc config file...
+                sltxt=arrToDarcTxt(subapLocation)
+                bgtxt=self.valToDarcArrTxt(bg,npxls)
+                rmxtxt=self.valToDarcArrTxt(rmx,(self.nacts,nslopes))
+                gaintxt=self.valToDarcArrTxt(gain,self.nacts)
+                decaytxt=self.valToDarcArrTxt(decay,self.nacts)
+                nthreadstxt=self.valToDarcArrTxt(nthreads,len(self.wfsIDList))
+                darcUserTxt=self.config.getVal("darcUserTxt",default="")
+                txt="""
 import numpy
 cameraParams=numpy.zeros((5,),numpy.int32)
 cameraParams[0]=1#asfloat
@@ -226,18 +222,21 @@ control={"ncam":%d,
 "actMin":-numpy.ones((%d,),numpy.float32)*1e-6,
 "actMax":numpy.ones((%d,),numpy.float32)*1e6,
 }
-"""%(self.port,self.port,ncam,str(nsubList),str(npxlx),str(npxly),self.nacts,nthreadstxt,sltxt,bgtxt,rmxtxt,gaintxt,decaytxt,thrVal,thrType,self.nacts,self.nacts,self.nacts)
-            print txt
-            fname=self.config.getVal("darcConfigFileName",default=None,raiseerror=0)
-            if fname==None:
-                fd=tempfile.NamedTemporaryFile(mode="w",prefix="config",suffix=".py")
-                fname=fd.name
+%s
+"""%(self.port,self.port,ncam,str(nsubList),str(npxlx),str(npxly),self.nacts,nthreadstxt,sltxt,bgtxt,rmxtxt,gaintxt,decaytxt,thrVal,thrType,self.nacts,self.nacts,self.nacts,darcUserTxt)
+                if self.config.getVal("printDarcConfigFile",default=1):
+                    print txt
+                if fname==None:
+                    fd=tempfile.NamedTemporaryFile(mode="w",prefix="config",suffix=".py")
+                    fname=fd.name
+                else:
+                    fd=open(fname,"w")
+                fd.write(txt)
+                fd.close()
+                print "Written config to %s"%fname
             else:
-                fd=open(fname,"w")
+                print "Using darc config file %s"%fname
             self.fname=fname
-            fd.write(txt)
-            fd.close()
-            print "Written config to %s"%fname
             #now start darc, and wait for it to connect.
             self.startDarc()
             print "Waiting for darc to connect"
@@ -259,6 +258,8 @@ control={"ncam":%d,
                 go=0
         txt="numpy.array("+txt.replace("[ ","[").replace(" ",",")+")"
         return txt
+        
+
     def valToDarcArrTxt(self,val,size,dtype="numpy.float32"):
         if type(size) not in (type([]),type(())):
             size=(size,)
@@ -296,7 +297,7 @@ control={"ncam":%d,
             
 
     def startDarc(self):
-        cmd="darccontrol %s --prefix=%s -o &"%(self.fname,self.prefix)
+        cmd="darccontrol %s --prefix=%s %s &"%(self.fname,self.prefix,self.darcArgs)
         print "Running: %s"%cmd
         os.system(cmd)
 
@@ -364,3 +365,16 @@ control={"ncam":%d,
         paramList.append(base.dataType.dataType(description="pupil",typ="code",val="import util.tel;pupil=util.tel.Pupil(npup,npup/2,npup/2*telSec/telDiam,wfs_nsubx,wfs_minarea)",comment="Telescope pupil object"))
         return paramList
 	
+def arrToDarcTxt(arr):
+    numpy.set_printoptions(threshold=arr.size+1)
+    txt=str(arr)
+    numpy.set_printoptions(threshold=1000)
+    go=1
+    while go==1:
+        try:
+            if txt.index("  "):
+                txt=txt.replace("  "," ")
+        except:
+            go=0
+    txt="numpy.array("+txt.replace("[ ","[").replace(" ",",")+")"
+    return txt
