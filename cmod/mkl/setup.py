@@ -7,24 +7,44 @@ cont=0
 if os.path.exists("/opt/intel/mkl"):
     versions=os.listdir("/opt/intel/mkl")
     versions=map(lambda x:string.split(x,"."),versions)
+    v=[]
+    for vv in versions:
+        if len(vv)==4:
+            v.append(vv)
+    versions=v
     versions.sort()
     if len(versions)>0:
         version=string.join(versions[-1],".")
-    
-        mklinclude=["/opt/intel/mkl/%s/include"%version]
-        ld=[sys.prefix+'/lib']
-        mkllib=["/opt/intel/mkl/%s/lib/em64t"%version]
-        print "Using MKL /opt/intel/mkl/%s/lib/em64t"%version
+    else:
+        version=""
+    mklinclude=["/opt/intel/mkl/%s/include"%version]
+    ld=[sys.prefix+'/lib']
+    mkllib=["/opt/intel/mkl/%s/lib/em64t"%version]
+    if not os.path.exists(mkllib[0]):
+        mkllib=["/opt/intel/mkl/%s/lib/intel64"%version]
+    if os.path.exists(mkllib[0]):
+        print "Using MKL %s"%mkllib[0]
         cont=1
+        if os.path.exists(mkllib[0]+"/libmkl_lapack.so"):
+            lapack="mkl_lapack"
+        elif os.path.exists(mkllib[0]+"/libmkl_lapack95_ilp64.so"):
+            lapack="mkl_lapack95_ilp64.so"
+        else:
+            cont=0
+            lapack=None
+        libs=[lapack,"mkl_intel_ilp64","mkl_intel_thread","mkl_core","guide","pthread"]
+        linkArgs=["-l%s"%lapack,"-lmkl_intel_ilp64","-lmkl_intel_thread","-lmkl_core","-lguide","-lpthread","-lm"]
+    else:
+        cont=0
 if cont==0:
     print "MKL library not found - not making mklmodule"
 else:
     mkl=Extension('mklmodule',
                   include_dirs=idnumpy+mklinclude,
                   library_dirs=ld+mkllib,
-                  libraries=["mkl_lapack","mkl_intel_ilp64","mkl_intel_thread","mkl_core","guide","pthread"],
+                  libraries=libs,
                   extra_compile_args=["-DMKL_ILP64"],
-                  extra_link_args=["-lmkl_lapack","-lmkl_intel_ilp64","-lmkl_intel_thread","-lmkl_core","-lguide","-lpthread","-lm"],
+                  extra_link_args=linkArgs,
                   sources=["mklmodule.c"]
                   )
               
