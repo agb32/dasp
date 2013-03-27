@@ -76,6 +76,7 @@ class dm(base.aobase.aobase):
                 self.mirrorSurface=MirrorSurface(self.interpType,self.dmpup,self.nact,1,
                                                  self.actoffset,self.actCoupling,self.actFlattening,
                                                  interpolationNthreads = self.interpolationNthreads)
+                self.maxStroke=0#depreciated mode dones't have max stroke.
 
             else:
                 self.thisdm=self.dmObj.getDM(self.idstr[0])
@@ -91,6 +92,8 @@ class dm(base.aobase.aobase):
                 self.actoffset=self.dmObj.getactoffset(self.idstr[0])
                 self.nact=self.dmObj.getnAct(self.idstr[0])
                 self.sourceLam=self.thisdm.reconLam#the reconstructor wavelength - ie wavelength for which the DM is shaped.
+                #thisdm.maxStroke is in microns.  So, convert to radians, and divide by 2, so that have half in each direction.
+                self.maxStroke=self.thisdm.maxStroke*1000./self.sourceLam*2*numpy.pi/2.
                 sourceID=self.dmObj.getSourceID(self.idstr[0])
                 # need a flag telling us which actuators are valid to use (otherwise we waste time and memory reconstructing all actuators).  This flag will depend on the geometry (Freid etc) and dmpup.
                 self.dmflag=self.dmObj.computeDMPupil(self.idstr[0],centObscuration=self.pupil.r2,retPupil=0)[0]
@@ -502,10 +505,12 @@ class dm(base.aobase.aobase):
                 self.actmap-=t*self.tilt
                 t=(self.actmap.sum(1)*self.tilt).sum()
                 self.actmap.T-=t*self.tilt
-
-            self.mirrorSurface.fit(self.actmap) # UB, 2012Aug20: just looking at the code it seems that
-                                                # this line has no effect, since the return value is
-                                                # ignored. Can this line be deleted?
+            if self.maxStroke!=0:#maxStrke is in radians at sourceLam wavelength.
+                #remove mean
+                self.actmap-=self.actmap.mean()
+                self.actmap[:]=numpy.where(self.actmap>self.maxStroke,self.maxStroke,self.actmap)
+                self.actmap[:]=numpy.where(self.actmap<-self.maxStroke,-self.maxStroke,self.actmap)
+            self.mirrorSurface.fit(self.actmap)
             if self.rotation==None or self.rotation==0:
                 pass
             elif type(self.rotation) in [type(0),type(0.)]:

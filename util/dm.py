@@ -21,7 +21,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -57,6 +57,9 @@ class dmInfo:
         decayFactorAdjustment, if !=None, is used to multiply the output of the previous reconstruction, before 
         adding the new one to it.  A traditional closed loop system would =1, openloop =0, but if wish to do 
         integration with openloop, specify !=0.
+
+        maxStroke is given in microns, the max Peak-Valley allowed.
+
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
@@ -69,6 +72,7 @@ class dmInfo:
         self.closedLoop=closedLoop
         self.gainAdjustment=gainAdjustment
         self.decayFactor=decayFactor
+        self.maxStroke=maxStroke
         self.zonalDM=zonalDM
         self.reconLam=reconLam#the reconstructor wavelength...
         self.subpxlInterp=subpxlInterp
