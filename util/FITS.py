@@ -128,8 +128,9 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
 # SIMPLE, BITPIX, NAXIS* and END records in this list are ignored.
 # Header records are padded to 80 characters where necessary.
 #
-def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserveData=1) :
+def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserveData=1,splitExtraHeader=0) :
     """Writes data to filename, with extraHeader (string or list of strings).  If writeMode="a" will overwrite existing file, or if "a", will append to it.  If doByteSwap==1, then will do the byteswap on systems that require it, to preserve the FITS standard.  If preserveData==1, will then byteswap back after saving to preserve the data.
+    If splitExtraHeader==1, and lines in extraHeader that are too long will be split.
     """
 
     typ=data.dtype.char
@@ -164,7 +165,10 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
             extraHeader=[extraHeader]
 	for rec in extraHeader :
 	    try :
-		key = string.split(rec)[0]
+                if "=" in rec:
+                    key=rec.split("=")[0]
+                else:
+                    key = string.split(rec)[0]
 	    except IndexError :
 		pass
 	    else :
@@ -172,6 +176,10 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
 		   key != 'BITPIX' and \
 		   key[:5] != 'NAXIS' and \
 		   key != 'END' :
+                    if splitExtraHeader:
+                        while len(rec)>80:
+                            header.append(rec[:80])
+                            rec=string.ljust(key,8)+"= "+rec[80:]
 		    header.append(rec)
     header.append('END')
     header = map(lambda x: string.ljust(x,80)[:80], header)
