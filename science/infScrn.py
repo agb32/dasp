@@ -242,8 +242,12 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
         fname=None
     if fname!=None and os.path.exists(fname):
         print "Loading existing screen: %s"%fname
-        phaseArray=util.FITS.Read(fname)[1]
-        return phaseArray
+        try:
+            phaseArray=util.FITS.Read(fname)[1]
+            return phaseArray
+        except:
+            print "Unable to load file %s - generating"%fname
+            fname=None
 
     scrnPxls=max(scrnXPxls,scrnYPxls)
     pixScale=Dtel/float(dpix)
