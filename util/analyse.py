@@ -379,6 +379,7 @@ if __name__=="__main__":
         tmp=sys.argv[1]
         try:
             port=int(tmp)
+            hostname="localhost"
         except:
             hostname=tmp
     if len(sys.argv)>2:
