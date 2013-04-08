@@ -376,7 +376,11 @@ if __name__=="__main__":
     portlist=[9000]
     hostname=socket.gethostname()
     if len(sys.argv)>1:
-        hostname=sys.argv[1]
+        tmp=sys.argv[1]
+        try:
+            port=int(tmp)
+        except:
+            hostname=tmp
     if len(sys.argv)>2:
         portlist=eval(sys.argv[2])
     if type(portlist)==type(0):
