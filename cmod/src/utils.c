@@ -17,6 +17,21 @@
 
 #include "mvm.h"
 
+/* Added by NAB 04/Apr/2013
+ * reason: functions X-64 are not defined, replaced with synonyms to the normal
+ * functions which are 64-bit aware.
+ */
+#ifdef __APPLE__
+   /* Darwin/FreeBSD will have 64bit support built in so can define
+    * macros here */
+  #define _DARWIN_USE_64_BIT_INODE 
+  #define open64 open
+  #define truncate64 truncate
+  #define stat64 stat
+#endif
+/* End of add
+ */
+
 static PyObject *UtilsError;
 
 typedef struct{

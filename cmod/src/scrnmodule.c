@@ -8,11 +8,32 @@ Used by science/infScrn.py
 
 #include "numpy/arrayobject.h"
 
-//#include <gsl/gsl_cblas.h>
+/*#include <gsl/gsl_cblas.h>*/
 #include <cblas.h>
-#include <atlas/cblas.h>
+/* #include <atlas/cblas.h>
+ * NAB 02/Apr/2013 */
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+
+/* Older (<=1.5.1, perhaps <1.7.0) versions of numpy don't have IS_X_CONTIGUOUS
+ * defined in "ndarraytypes.h", so it is added here.
+ * Added NAB 09/Apr/2013
+ */
+#ifndef NPY_ARRAY_C_CONTIGUOUS
+	#define NPY_ARRAY_C_CONTIGUOUS NPY_C_CONTIGUOUS
+#endif
+#ifndef NPY_ARRAY_F_CONTIGUOUS
+	#define NPY_ARRAY_F_CONTIGUOUS NPY_F_CONTIGUOUS
+#endif
+#ifndef PyArray_IS_C_CONTIGUOUS(m)
+	#define PyArray_IS_C_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_ARRAY_C_CONTIGUOUS)
+#endif
+#ifndef PyArray_IS_F_CONTIGUOUS(m)
+	#define PyArray_IS_F_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_ARRAY_F_CONTIGUOUS)
+#endif
+
+
+
 typedef enum CBLAS_ORDER CBLAS_ORDER;
 typedef enum CBLAS_TRANSPOSE CBLAS_TRANSPOSE;
 
@@ -106,9 +127,7 @@ int checkFContigDoubleSize(PyArrayObject *a,int s){
     return 1;
   if(a->descr->type_num!=NPY_DOUBLE)
     return 1;
-  if(!PyArray_IS_F_CONTIGUOUS(a))//older versions of numpy don't have this function.  In this case, the easiest thing to do is to add 2 lines to /usr/include/numpy/ndarrayobject.h, containing:  
-    //#define PyArray_IS_C_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_C_CONTIGUOUS)
-    //#define PyArray_IS_F_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_F_CONTIGUOUS)
+  if(!PyArray_IS_F_CONTIGUOUS(a))
     return 1;
   return 0;
 }

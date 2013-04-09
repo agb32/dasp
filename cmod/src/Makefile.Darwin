@@ -5,13 +5,11 @@
 
 CC      = gcc 
 COPTS   = -fPIC -O3
-LD      = ld 
-LDDIRS  = -L/usr/local/lib/ -L../ -L/usr/lib/gcc/darwin/3.3/
-LDSHARED = -bundle -undefined dynamic_lookup -lbundle1.o
-PYTHON_EXEC= python2.3
-HEADER_INC = -I/sw/include/ -I/usr/local/include/
-# python2.3 is the standard on Tiger, Mac OS X 10.4 or Darwin 8.1
-# /sw/ is for Fink 
+#LD      = ld  # no longer req. NAB 08/Apr/2013
+#LDDIRS  = -L/usr/local/lib/ -L../ -L/usr/lib/gcc/darwin/3.3/  # no longer req. NAB 08/Apr/2013
+#LDSHARED = -bundle -undefined dynamic_lookup -lbundle1.o  # no longer req. NAB 08/Apr/2013
+PYTHON_EXEC= python
+HEADER_INC = -I/sw/include/ -I/usr/local/include/ -I/opt/local/include/
 
 # Don't change below here
 #
