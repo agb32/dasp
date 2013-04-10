@@ -51,18 +51,19 @@ void interp_first_inDouble(  interp_data_t* params )
   gsl_spline *interpObj; // for interpolation
   double* y1;            // to get the data from the input into a contiguous array
                          //        that is needed by gsl_spline_init
-
+  double maxx=params->inX[params->inN-1];
+  double minx=params->inX[0];
+  double val;
   // Malloc y1 (for contigous input data):
   if( (y1 = malloc( params->inN * sizeof(double) )) == NULL )
     {
-      printf("%s, line %d: failed to malloc %d bytes for 'y1'.\n",
+      printf("%s, line %d: failed to malloc %ld bytes for 'y1'.\n",
 	     __FILE__, __LINE__, params->inN * sizeof(double));
       return;
     }
 
   // Define the interpolation method used:
   interpObj = gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
-
   // For each column of the input:
   for (i=0; i<(params->M); ++i)
     {
@@ -72,9 +73,15 @@ void interp_first_inDouble(  interp_data_t* params )
       // Prepare the interpolation function:
       gsl_spline_init(interpObj, params->inX, y1,(size_t)(params->inN));
       // Evaluate the interpolation function and save the result in the intermediate array:
-      for (j=0; j<(params->outN); ++j)
+      for (j=0; j<(params->outN); ++j){
+	val=params->outX[j];
+	if(val>maxx)
+	  val=maxx;
+	if(val<minx)
+	  val=minx;
 	((double*)(params->outData))[i+j*(params->sytmp)] = 
-	  gsl_spline_eval(interpObj, (params->outX)[j], params->interpAcc);
+	  gsl_spline_eval(interpObj, val, params->interpAcc);
+      }
     }
   // Tidy up:
   gsl_spline_free( interpObj );
@@ -91,12 +98,15 @@ void interp_first_inFloat(  interp_data_t* params )
   gsl_spline *interpObj; // for interpolation
   double* y1;            // to get the data from the input into a contiguous array
                          //        that is needed by gsl_spline_init
+  double maxx=params->inX[params->inN-1];
+  double minx=params->inX[0];
+  double val;
   // ? y1 must be double - required by gsl_spline_init ?
 
   // Malloc y1 (for contigous input data):
   if( (y1 = malloc( params->inN * sizeof(double) )) == NULL )
     {
-      printf("%s, line %d: failed to malloc %d bytes for 'y1'.\n",
+      printf("%s, line %d: failed to malloc %ld bytes for 'y1'.\n",
 	     __FILE__, __LINE__, params->inN * sizeof(double));
       return;
     }
@@ -113,9 +123,15 @@ void interp_first_inFloat(  interp_data_t* params )
       // Prepare the interpolation function:
       gsl_spline_init(interpObj, params->inX, y1,(size_t)(params->inN));
       // Evaluate the interpolation function and save the result in the intermediate array:
-      for (j=0; j<(params->outN); ++j)
+      for (j=0; j<(params->outN); ++j){
+	val=params->outX[j];
+	if(val>maxx)
+	  val=maxx;
+	if(val<minx)
+	  val=minx;
 	((double*)(params->outData))[i+j*(params->sytmp)] = 
-	  gsl_spline_eval(interpObj, (params->outX)[j], params->interpAcc);
+	  gsl_spline_eval(interpObj, val, params->interpAcc);
+      }
     }
   // Tidy up:
   gsl_spline_free( interpObj );
@@ -130,6 +146,9 @@ void interp_second_outDouble(  interp_data_t* params )
 {
   int i, j;              // for looping
   gsl_spline *interpObj; // for interpolation
+  double maxx=params->inX[params->inN-1];
+  double minx=params->inX[0];
+  double val;
 
   // Here you define the interpolation method used:
   interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
@@ -141,9 +160,15 @@ void interp_second_outDouble(  interp_data_t* params )
     gsl_spline_init(interpObj, params->inX, 
 		    &((double*)(params->inData))[j*(params->inN)], (size_t)(params->inN));
     // Evaluate the interpolation function and save the result in the output array:
-    for (i=0; i<(params->outN); ++i)
+    for (i=0; i<(params->outN); ++i){
+      val=params->outX[i];
+      if(val>maxx)
+	val=maxx;
+      if(val<minx)
+	val=minx;
       ((double*)(params->outData))[j*(params->sy)+i*(params->sx)] = 
-	(double)gsl_spline_eval(interpObj,(params->outX)[i], params->interpAcc);
+	(double)gsl_spline_eval(interpObj,val, params->interpAcc);
+    }
   }
   // Tidy up:
   gsl_spline_free(interpObj);
@@ -157,6 +182,9 @@ void interp_second_outFloat(  interp_data_t* params )
 {
   int i, j;              // for looping
   gsl_spline *interpObj; // for interpolation
+  double maxx=params->inX[params->inN-1];
+  double minx=params->inX[0];
+  double val;
 
   // Here you define the interpolation method used:
   interpObj=gsl_spline_alloc(gsl_interp_cspline, (size_t)(params->inN));
@@ -168,9 +196,15 @@ void interp_second_outFloat(  interp_data_t* params )
     gsl_spline_init(interpObj, params->inX, 
 		    &((double*)(params->inData))[j*(params->inN)], (size_t)(params->inN));
     // Evaluate the interpolation function and save the result in the output array:
-    for (i=0; i<(params->outN); ++i)
+    for (i=0; i<(params->outN); ++i){
+      val=params->outX[i];
+      if(val>maxx)
+	val=maxx;
+      if(val<minx)
+	val=minx;
       ((float*)(params->outData))[j*(params->sy)+i*(params->sx)] = 
-	(float)gsl_spline_eval(interpObj,(params->outX)[i], params->interpAcc);
+	(float)gsl_spline_eval(interpObj,val, params->interpAcc);
+    }
   }
   // Tidy up:
   gsl_spline_free(interpObj);

@@ -220,10 +220,11 @@ class simctrlGUI:
             except:
                 data=[]
             if data==[]:
-                try:
-                    data=self.sim.queryPortDict("192.168.3.30")
-                except:
-                    data=[]
+                data=[["localhost",9000,"Guess",os.environ.get("USER","?")]]
+                # try:
+                #     data=self.sim.queryPortDict("192.168.3.30")
+                # except:
+                #     data=[]
             if len(data)==0:
                 gui.dialog.dialog.myDialog(msg="No simulation found to connect to.\nPlease check it is running.\nIf util/portdict.py is not running, try running it\nand restarting your simulation so that it is registered.\n",title="No simulations found",buttons=(gtk.STOCK_OK,gtk.RESPONSE_ACCEPT),parent=self.gladetree.get_widget("window1"))
             else:
@@ -232,7 +233,7 @@ class simctrlGUI:
                 mydata=[]
                 odata=[]
                 for d in data:
-                    if d[3]==os.environ["USER"]:
+                    if d[3]==os.environ.get("USER","?"):
                         mysims.append(str(d))
                         mydata.append(d)
                     else:
@@ -254,7 +255,7 @@ class simctrlGUI:
         else:#already selected port and hostname.
             txt=txt.split()
             port=9000
-            host="losastacos.phyaig.dur.ac.uk"
+            host="localhost"
             if len(txt)>1:
                 host=txt[0]
                 port=int(txt[1])

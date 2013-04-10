@@ -385,7 +385,7 @@ class science(aobase.aobase):
                         head.append("RMS     = %s"%rmstxt)
                     if len(this.sciObj.saveFileString)>0:
                         head.append("SIMINFO = '%s'"%this.sciObj.saveFileString)
-                    util.FITS.Write(this.sciObj.longExpImg/this.sciObj.n_integn,this.sciObj.fitsFilename,extraHeader=head,writeMode="a")
+                    util.FITS.Write(this.sciObj.longExpImg/this.sciObj.n_integn,this.sciObj.fitsFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.sciFilename!=None:
                     self.mkdirForFile(this.sciObj.sciFilename)
                     f=open(this.sciObj.sciFilename,"a")
@@ -405,7 +405,7 @@ class science(aobase.aobase):
                     k=k.replace("'",'').replace("[","").replace("]","")
 
                     head.append("KEYS    = '%s'"%k)
-                    util.FITS.Write(this.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a")
+                    util.FITS.Write(this.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFilename!=None:
                     self.mkdirForFile(this.sciObj.luckyFilename)
                     #Now write the history.
@@ -422,7 +422,7 @@ class science(aobase.aobase):
                     k=k.replace("'",'').replace("[","").replace("]","")
 
                     head.append("KEYS    = '%s'"%k)
-                    util.FITS.Write(this.sciObj.luckyHistory[:,:this.sciObj.luckyHistoryCnt],this.sciObj.luckyFilename,extraHeader=head,writeMode="a")
+                    util.FITS.Write(this.sciObj.luckyHistory[:,:this.sciObj.luckyHistoryCnt],this.sciObj.luckyFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFile!=None:
                     self.mkdirForFile(this.sciObj.luckyImgFilename)
                     # we have been writing lucky images, so file is already open - need to finalise it (write correct header size)
@@ -439,7 +439,7 @@ class science(aobase.aobase):
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
-                    txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=1,extension=os.path.exists(this.sciObj.luckyImgFilename))
+                    txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=1,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
                     f=open(this.sciObj.luckyImgFilename,"a")
                     f.write(txt)
                     this.sciObj.luckyFile.seek(0)
