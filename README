@@ -526,7 +526,7 @@ Set up your BLAS and LAPACK environment variables.
 Then do a python setup.py build for scipy.
 
 
-Oct 2012:
+Oct 2012 (ubuntu):
 python-scientific
 mpichpython
 mpich2
@@ -546,3 +546,8 @@ If it doesn't print your python path, you may need to add it to /etc/environment
 So, in summary, require:
 sudo apt-get install python-scientific mpichpython mpich-bin
 Also need python-netcdf
+
+
+On fedora, need ScientificPython.
+Then sudo ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/openmpi/lib/

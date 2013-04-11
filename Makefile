@@ -19,7 +19,7 @@ install:
 #echo Remember to export PYTHONPATH=${PWD} and add gui/bin to your path.
 # color for printf
 #31=red, 32=green, 33=yellow,34=blue, 35=pink, 36=cyan, 37=white
-	@printf '\033[31mRemember to export PYTHONPATH=%s and add gui/bin to your path.\033[m\n' ${PWD}
+	@printf '\033[31mRemember to export PYTHONPATH=$$PYTHONPATH:%s and add gui/bin to your path (export PATH=$$PATH:%s/gui/bin ).\033[m\n' ${PWD} ${PWD}
 clean:
 	@printf 'Cleaning c modules\n'
 	(cd cmod/ ; make clean )
