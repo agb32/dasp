@@ -1,7 +1,7 @@
 from distutils.core import setup, Extension
 import sys,os.path
 idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
-ld=[sys.prefix+'/lib']
+ld=[sys.prefix+'/lib',"/usr/lib64/atlas/"]
 fft=Extension('fftmodule',
               include_dirs=idnumpy,
               library_dirs=ld,
