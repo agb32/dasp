@@ -551,3 +551,6 @@ Also need python-netcdf
 On fedora, need ScientificPython.
 Then sudo ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/openmpi/lib/
+Or - do 
+module load openmpi-x86_64
+(put in ~/.modulerc for it to happen automatically)
