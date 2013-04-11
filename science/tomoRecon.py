@@ -503,6 +503,7 @@ class recon(base.aobase.aobase):
                     if os.path.exists(self.pcgAfile):
                         self.pcgA=util.FITS.loadSparse(self.pcgAfile)
                     else:
+                        print "%s not found"%self.pcgAfile
                         self.pcgA=None
                 else:
                     self.pcgA=self.pcgAfile
@@ -511,6 +512,7 @@ class recon(base.aobase.aobase):
                     if os.path.exists(self.pcgBfile):
                         self.pcgB=util.FITS.loadSparse(self.pcgBfile)
                     else:
+                        print "%s not found"%self.pcgBfile
                         self.pcgB=None
                 else:
                     self.pcgB=self.pcgBfile
@@ -992,6 +994,11 @@ class recon(base.aobase.aobase):
                 if type(self.reconmx)!=numpy.ndarray or \
                         self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
+                    if type(self.reconmx)==numpy.ndarray:
+                        print "But current shape is %s"%str(self.reconmx.shape)
+                        if self.reconmx.size<1e6 and self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
+                            print "Transposing (for small matrices only)"
+                            self.reconmx=self.reconmx.T.copy()
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 else:
                     tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)

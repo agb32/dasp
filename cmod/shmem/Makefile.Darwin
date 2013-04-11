@@ -6,17 +6,15 @@
 CC      = gcc 
 COPTS   = -fPIC -O
 LD      = ld 
-LDDIRS  = -L/sw/lib/ -L/usr/local/lib/
+LDDIRS  = -L/sw/lib/ -L/opt/local/lib/ -L/usr/local/lib/
 LDSHARED = -bundle -undefined dynamic_lookup -lbundle1.o
-PYTHON_EXEC= python2.3
-HEADER_INC = -I/sw/include/ -I/usr/local/include/
-# python2.3 is the standard on Tiger, Mac OS X 10.4 or Darwin 8.1
-# /sw/ is for Fink 
+PYTHON_EXEC= python
+HEADER_INC = -I/sw/include/ -I/opt/local/include/ -I/usr/local/include/
 
 # Don't change below here
 #
 PYTHON_BASE= $(shell ${PYTHON_EXEC} ../pypath.py base)
-PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version)
+PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version) -I$(shell ${PYTHON_EXEC} ../pypath.py site-packages)/numpy/core/include
 LDFLAGS = ${LDSHARED} ${LDDIRS}
 INC_DIRS = ${PYTHON_INC} ${HEADER_INC}
 CFLAGS  = ${COPTS} ${INC_DIRS}

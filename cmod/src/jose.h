@@ -1,5 +1,8 @@
-
-short int       *header;
+#ifndef JOSESUBS_HEADER
+#define JOSESUBS_HEADER
+/*short int       *header;
+ * removed, NAB 02/Apr/2013
+ * reason: unused, conflicts upon multiple include */
 
 
 /* functions */
@@ -9,3 +12,4 @@ float	**alloc2d_float(int, int);
 int free2d_float(float **a,int m,int n);
 FILE	*openfile(char *, char *);
 FILE    *open_image(char *d);
+#endif

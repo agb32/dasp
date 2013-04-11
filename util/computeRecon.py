@@ -10,10 +10,24 @@ import sys,time,os
 #import util.dot as quick
 #sys.path.insert(0,"/home/ali/c/lapack")
 #import svd
+acml=0
+atlas=0
 try:
-    import cmod.mkl
+    import cmod.mkl as mkl
 except:
-    print "Warning: in computeRecon.py - cmod.mkl not found - this may cause problems depending what functions you want - but continuing anyway"
+    print "Cannot import mkl - trying acml..."
+    try:
+        import cmod.acml as mkl
+        acml=1
+    except:
+        print "Cannot import mkl or acml - trying atlas..."
+        try:
+            import cmod.atlas as mkl
+            atlas=1
+        except:
+            print "Warning: in computeRecon.py - cmod.mkl, cmod.acml and cmod.atlas not found - this may cause problems depending what functions you want - but continuing anyway"
+
+        
 import cmod.svd,scipy.sparse
 
 class sparseHolder:
@@ -51,7 +65,10 @@ class makeRecon:
             csc=util.FITS.loadSparse(pmxfname,doByteSwap=1)
         if isinstance(csc,numpy.ndarray):
             shape=csc.shape
-            res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="F")
+            if atlas:
+                res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="C")
+            else:
+                res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="F")
             lines=open("/proc/meminfo").readlines()
             for line in lines:
                 if "MemTotal:" in line:
@@ -85,7 +102,7 @@ class makeRecon:
                     b=csc[ustart:uend].transpose()#f contig
                     print "Starting gemm %d %d"%(i,j)
                     t1=time.time()
-                    cmod.mkl.gemm(a,b,res[vstart:vend,ustart:uend])
+                    mkl.gemm(a,b,res[vstart:vend,ustart:uend])
                     t2=time.time()
                     print "GEMM time %gs"%(t2-t1)
                     del(b)
@@ -162,7 +179,7 @@ class makeRecon:
         vt=numpy.zeros(a.shape,dtype)
         evals=numpy.zeros((a.shape[0],),dtype)
         print "Computing lwork"
-        lwork=cmod.mkl.svd(a,u,evals,vt,None,usesdd)
+        lwork=mkl.svd(a,u,evals,vt,None,usesdd)
         # there is an issue here, that when lwork is large, it isn't accurately represented by a 32 bit float, so is wrong in the conversion.  So, need to work out a larger value that it could be.  This is a bug with intel MKL
         i=0
         aa=numpy.zeros((2,),dtype)
@@ -175,7 +192,7 @@ class makeRecon:
         work=numpy.zeros((lwork,),dtype)
         print "Doing SVD"
         t1=time.time()
-        cmod.mkl.svd(a,u,evals,vt,work,usesdd)#may take a bit of time of paging at the start, but then should run okay.
+        mkl.svd(a,u,evals,vt,work,usesdd)#may take a bit of time of paging at the start, but then should run okay.
         t2=time.time()
         print "SVD time %g"%(t2-t1)
         open(self.timename,"a").write("SVD %gs\n"%(t2-t1))
@@ -248,7 +265,7 @@ class makeRecon:
                     veut=numpy.zeros((ievals.shape[0],ievals.shape[0]),ut.dtype,order="F")
                 print "Starting gemm %d %d"%(i,j)
                 t1=time.time()
-                cmod.mkl.gemm(v,ut,veut[vstart:vend,ustart:uend])
+                mkl.gemm(v,ut,veut[vstart:vend,ustart:uend])
                 t2=time.time()
                 print "GEMM time %gs"%(t2-t1)
                 del(ut)
@@ -282,12 +299,18 @@ class makeRecon:
             raise Exception("A not contiguous")
         if a.dtype!=dtype:
             a=a.astype(dtype)
-        ipiv=numpy.zeros((min(a.shape),),numpy.int64)
+        if acml or atlas:
+            ipiv=numpy.zeros((min(a.shape),),numpy.int32)
+        else:
+            ipiv=numpy.zeros((min(a.shape),),numpy.int64)
         t1=time.time()
-        cmod.mkl.ludecomp(a,ipiv)
-        lw=cmod.mkl.luinv(a,ipiv,None)
+        mkl.ludecomp(a,ipiv)
+        if acml or atlas:
+            lw=1
+        else:
+            lw=mkl.luinv(a,ipiv,None)
         work=numpy.zeros((lw,),a.dtype)
-        cmod.mkl.luinv(a,ipiv,work)
+        mkl.luinv(a,ipiv,work)
         t2=time.time()
         util.FITS.Write(a,self.invname,doByteSwap=0)
         self.log("makeLUInv time %g\n"%(t2-t1))
@@ -386,10 +409,13 @@ class makeRecon:
                 b=b2
                 del(b2)
                 if type(res)==type(None):
-                    res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="F")
+                    if atlas:
+                        res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="C")
+                    else:
+                        res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="F")
                 print "Starting gemm %d %d"%(i,j)
                 t1=time.time()
-                cmod.mkl.gemm(a,b,res[astart:aend,bstart:bend])
+                mkl.gemm(a,b,res[astart:aend,bstart:bend])
                 t2=time.time()
                 print "GEMM time %gs"%(t2-t1)
                 del(b)
@@ -400,14 +426,21 @@ class makeRecon:
         open(self.timename,"a").write("denseDotDense %gs\n"%(t2-t0))
         return res
         
-    def dot(self,a,b,res=None):
+    def dot(self,a,b,res=None,order=None):
         """A simple dot product using mkl"""
         if res==None:
-            res=numpy.empty((a.shape[0],b.shape[1]),b.dtype,order='F')
+            if order==None:
+                if atlas:
+                    order="C"
+                else:
+                    order="F"
+            res=numpy.empty((a.shape[0],b.shape[1]),b.dtype,order=order)
         t1=time.time()
-        cmod.mkl.gemm(a,b,res)
+        mkl.gemm(a,b,res)
         t2=time.time()
         print "dot GEMM time %gs"%(t2-t1)
+        #if order=="C":
+        #    res=res.T
         return res
 
     def finalDot(self,veut=None,rmxtype=2,valmin=0.,save=1,maxelements=2**30,minelements=0):

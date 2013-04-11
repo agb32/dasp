@@ -376,12 +376,17 @@ if __name__=="__main__":
     portlist=[9000]
     hostname=socket.gethostname()
     if len(sys.argv)>1:
-        hostname=sys.argv[1]
+        tmp=sys.argv[1]
+        try:
+            portlist=int(tmp)
+            hostname="localhost"
+        except:
+            hostname=tmp
     if len(sys.argv)>2:
         portlist=eval(sys.argv[2])
     if type(portlist)==type(0):
         portlist=[portlist]
-    txt="data=''\nfor s in scienceList:\n for i in range(len(s.thisObjList)):\n  data+=s.thisObjList[i].idstr+': '+s.strParams(i)+'\\n'\ndata+='Iter %d frametime %g batch %d\\n%s'%(ctrl.thisiter,ctrl.frametime,ctrl.batchno,ctrl.simID)\nprint data"
+    txt="data=''\nscienceList=globals().get('scienceList',[])\nfor s in scienceList:\n for i in range(len(s.thisObjList)):\n  data+=s.thisObjList[i].idstr+': '+s.strParams(i)+'\\n'\ndata+='Iter %d frametime %g batch %d\\n%s'%(ctrl.thisiter,ctrl.frametime,ctrl.batchno,ctrl.simID)\nprint data"
     if len(sys.argv)>3:
         txt="data=None\n"+sys.argv[3]
     a=analyse()

@@ -414,7 +414,7 @@ class Ctrl:
         self.config.connectionParamsDict=connParamsDict
         
         mem=self.checkMem()
-        print "Using approximately %gGB"%(mem/1024./1024/.1024.)
+        print "Using approximately %gGB"%(mem/1024./1024./1024.)
         # if mem>4*1024*1024*1024:
         #     print "Warning: Using more than 4GB memory - inefficient on the cray (%gGB)"%(mem/1024./1024/1024)
         pausedMsg=0

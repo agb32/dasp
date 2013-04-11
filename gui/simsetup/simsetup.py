@@ -325,7 +325,7 @@ class simsetup:
             print "ok",d
         gtk.main_quit()
     def printDrawlist(self,w,d2=None):
-        print self.drawlist
+        print "drawlist",self.drawlist
                       
     def connectParamGui(self,w,d2=None):
         if w.get_active():
@@ -822,7 +822,7 @@ class simsetup:
         maxy=0
         for d in self.drawlist:
             if d!=None:
-                print d.x,d.y,d.x+d.w,d.y+d.h
+                #print d.x,d.y,d.x+d.w,d.y+d.h
                 if minx==None or d.x<minx:
                     minx=d.x
                 if miny==None or d.y<miny:
@@ -836,7 +836,7 @@ class simsetup:
         miny-=30
         maxx+=30
         maxy+=30
-        print "max, min",minx,maxx,miny,maxy
+        #print "max, min",minx,maxx,miny,maxy
         #if minx<0: minx=0
         #if miny<0: miny=0
         #if minx>0 or miny>0:
@@ -1943,12 +1943,15 @@ class simObj:
         okfrom=[]
         for i in range(len(self.endlines)):
             l=self.endlines[i]
-            l.coordList[-1]=self.getHandlePos("top")
-            if l.removed:
-                remlist.append(i)
+            if type(l)==type([]):
+                print "ERROR - endlines"
             else:
-                oklines.append(l)
-                okfrom.append(self.connectfrom[i])
+                l.coordList[-1]=self.getHandlePos("top")
+                if l.removed:
+                    remlist.append(i)
+                else:
+                    oklines.append(l)
+                    okfrom.append(self.connectfrom[i])
         self.endlines=oklines
         self.connectfrom=okfrom
 

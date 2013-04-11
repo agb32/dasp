@@ -1,7 +1,17 @@
 from distutils.core import setup, Extension
 import sys,os.path
 idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
-ld=[sys.prefix+'/lib',"/usr/lib64/atlas/"]
+idgsl=['/opt/local/include'] # Added for different GSL locations, NAB 08/Apr/2013
+
+# platorm dependant stuff
+if sys.platform=='darwin':
+	# MacOSX vecLib framework, for BLAS, NAB 08/Apr/2013
+	idveclib=['/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/'] 
+	scrnmodule_extra_link_args=['-lgsl','-framework vecLib']
+else:
+	scrnmodule_extra_link_args=['-lm','-lcblas','-latlas','-lgsl']
+	idveclib=[]
+ld=[sys.prefix+'/lib']
 fft=Extension('fftmodule',
               include_dirs=idnumpy,
               library_dirs=ld,
@@ -11,7 +21,7 @@ fft=Extension('fftmodule',
               sources=["fftmodule.c"]
               )
 cent = Extension('centmodule',
-                 include_dirs = idnumpy,
+		include_dirs = idnumpy+idgsl,
 		library_dirs=ld,
 #			runtime_library_dirs=['/usr/local/lib'],
 		libraries=["fftw3f"],
@@ -26,7 +36,7 @@ binimg=Extension('binimgmodule',
 		extra_link_args=['-lm'],
 		)
 imgnoise=Extension('imgnoisemodule',
-		include_dirs=idnumpy,
+		include_dirs=idnumpy+idgsl,
 		sources=['imgnoisemodule.c'],
 		library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
 		extra_link_args=['-lgsl','-lgslcblas','-lm'],
@@ -36,7 +46,7 @@ utils=Extension('utilsmodule',
 		sources=['utils.c'],
 		library_dirs=ld,
 		extra_link_args=['-lm'],
-                extra_objects = ['mvm.o']
+		 extra_objects = ['mvm.o']
 		)
 sor=Extension('sormodule',
               include_dirs=idnumpy,
@@ -45,14 +55,15 @@ sor=Extension('sormodule',
 #              extra_link_args=['-lm'],
               )
 interp=Extension('interpmodule',
-                 include_dirs=idnumpy,
-                 sources=['interpmodule.c'],
+#                 extra_compile_args=["-g"],
+                 include_dirs=idnumpy+idgsl,
+                 sources=['interpmodule.c','interpolate.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                  extra_link_args=['-lgsl','-lgslcblas','-lm'],
-                 extra_objects = ['interpolate.o']
+#                 extra_objects = ['interpolate.o']
                  )
 phaseCov=Extension('phaseCovmodule',
-                 include_dirs=idnumpy,
+                 include_dirs=idnumpy+idgsl,
                  sources=['phaseCovmodule.c'],
                  library_dirs=ld+[os.path.realpath('..'),os.path.realpath('.')],
                    extra_compile_args=["-pthread"],
@@ -77,11 +88,10 @@ psfparams=Extension('psfparamsmodule',
                  extra_link_args=['-lm'],
                  )
 scrn=Extension('scrnmodule',
-		include_dirs=idnumpy,
+      include_dirs=idnumpy+idveclib+idgsl,
 		sources=['scrnmodule.c'],
-		library_dirs=ld,
-		extra_link_args=['-lm','-lcblas','-latlas','-lgsl'],
-#		extra_link_args=['-lm','-lgsl'],
+		library_dirs=ld+["/usr/lib64","/usr/lib64/atlas"],
+		extra_link_args=scrnmodule_extra_link_args,
 		)
 
 setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams,scrn])
