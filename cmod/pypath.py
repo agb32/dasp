@@ -1,4 +1,4 @@
-from __future__ import print_function
+#from __future__ import print_function
 # Find python paths
 #
 # $Id: pypath.py,v 1.2 2005/11/17 13:40:55 ali Exp $
@@ -18,6 +18,6 @@ if __name__=="__main__":
       from distutils.sysconfig import get_python_lib;
       op+=get_python_lib()
    else:
-      print("Unknown option")
+      print "Unknown option"
       sys.exit(1)
-   print(op,end="")
+   print op

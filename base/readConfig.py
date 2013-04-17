@@ -131,7 +131,7 @@ class AOXml:
         For more info, see agb (note to agb - example in example/test1/config.py)
         """
         self.this.globals=This()
-        d={"new":This,"this":self.this,"batchno":self.batchno,"batchNumber":self.batchno,"numpy":numpy}
+        d={"new":This,"this":self.this,"batchno":self.batchno,"batchNumber":self.batchno,"numpy":numpy,"filename":self.filename,"ncpu":self.getCpus()}
         try:
             exec txt in d
         except:
@@ -142,7 +142,7 @@ class AOXml:
             if d.has_key(key):
                 del(d[key])
         for key in d.keys():
-            if key not in ["this","new","batchNumber","batchno"]:
+            if key not in ["this","new","batchNumber","batchno","filename","ncpu"]:
                 setattr(self.this.globals,key,d[key])
         self.searchOrder=["globals"]
     def reset(self):
