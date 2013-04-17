@@ -10,7 +10,7 @@ if __name__=="__main__":
    if term=="base":
       op+=sys.prefix
    elif term=="version":
-      op+="{0[0]:d}.{0[1]:d}".format( sys.version_info)
+      op+="%d.%d"%(sys.version_info[0],sys.version_info[1])#"{0[0]:d}.{0[1]:d}".format( sys.version_info)
    elif term=="lib":
       for x in sys.path:
          op+=" -I%s" % (x)
