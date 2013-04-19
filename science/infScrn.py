@@ -339,6 +339,7 @@ class infScrn(base.aobase.aobase):
         base.aobase.aobase.__init__(self,None,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.degRad=na.pi/180.#self.config.getVal("degRad")
         self.niter=0
+        self.cmodInfo=None
         self.nbColToAdd=1
         ##we first extract basic parameters
         ##Physical size of the telescope
@@ -491,7 +492,6 @@ class infScrn(base.aobase.aobase):
             else:
                 self.outputData=self.screen
             print "TODO: infScrn - reduce memory requirements by only storing the part of the initial phasescreen that is required..."
-            self.cmodInfo=None
             if self.useCmodule:
                 nthreads=config.getVal("nthreads",default="all")
                 if nthreads=="all":
