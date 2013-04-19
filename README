@@ -565,3 +565,13 @@ gsl-devel
 fftw3-devel
 atlas-devel
 scipy
+
+
+Hamilton:
+module load python
+module load gsl/gcc
+Note - module display ...
+will show you the paths.
+
+export C_INCLUDE_PATH=/usr/local/Cluster-Apps/fftw/include/:/usr/local/Cluster-Apps/gsl/gcc/64/1.15/include
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Cluster-Apps/fftw/lib/

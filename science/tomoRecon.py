@@ -496,9 +496,17 @@ class recon(base.aobase.aobase):
                 self.pcgRegVal=self.config.getVal("pcgRegVal",1e-5)
                 self.pcgIsSparse=self.config.getVal("pcgSparse",0)
                 self.pcgAfile=self.config.getVal("pcgA",raiseerror=0)
+                self.pcgBfile=self.config.getVal("pcgB",raiseerror=0)
                 self.pcgX0=None
                 self.pcgTol=self.config.getVal("pcgTol",1e-05)
                 self.pcgMaxiter=self.config.getVal("pcgMaxiter",30)
+                self.pcgPreconditioner=self.config.getVal("pcgPreconditioner",raiseerror=0)
+                if type(self.pcgPreconditioner)==type(""):
+                    if os.path.exists(self.pcgPreconditioner):
+                        self.pcgPreconditioner=util.FITS.loadSparse(self.pcgPreconditioner)
+                    else:
+                        print "%s not found"%self.pcgPreconditioner
+                        self.pcgPreconditioner=None
                 if type(self.pcgAfile)==type(""):
                     if os.path.exists(self.pcgAfile):
                         self.pcgA=util.FITS.loadSparse(self.pcgAfile)
@@ -507,7 +515,6 @@ class recon(base.aobase.aobase):
                         self.pcgA=None
                 else:
                     self.pcgA=self.pcgAfile
-                self.pcgBfile=self.config.getVal("pcgB",raiseerror=0)
                 if type(self.pcgBfile)==type(""):
                     if os.path.exists(self.pcgBfile):
                         self.pcgB=util.FITS.loadSparse(self.pcgBfile)
@@ -1010,7 +1017,7 @@ class recon(base.aobase.aobase):
             b=quick.dot(self.pcgB,data)
             #print b.shape,self.pcgA.shape
             self.pcgX0,self.pcgIters=scipy.sparse.linalg.cg(self.pcgA,b,self.pcgX0,
-                                                            self.pcgTol,self.pcgMaxiter)
+                                                            self.pcgTol,self.pcgMaxiter,M=self.pcgPreconditioner)
             #print self.gains.shape,self.pcgX0.shape,iters,self.pcgX0
             tmp=-self.gains*self.pcgX0
             self.outputData[:]+=tmp

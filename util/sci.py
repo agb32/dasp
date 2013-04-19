@@ -1006,8 +1006,8 @@ class science:
                                 self.luckyHistoryCnt=0
                             for ik in range(len(self.luckyHistoryKeys)):
                                 k=self.luckyHistoryKeys[ik]
-                                self.luckyHistory[ik,self.luckyHistoryCnt]=self.luckyDict[k]
-                            self.luckyHistoryCnt=(self.luckyHistoryCnt+1)%self.luckyHistory.shape[1]
+                                self.luckyHistory[ik,self.luckyHistoryCnt%self.luckyHistory.shape[1]]=self.luckyDict[k]
+                            self.luckyHistoryCnt+=1
                             if self.luckyImgFilename!=None and self.luckyImgSize>0:
                                 if self.luckyFile==None:
                                     self.luckyFile=tempfile.TemporaryFile()
