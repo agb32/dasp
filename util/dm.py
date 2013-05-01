@@ -1228,9 +1228,18 @@ class MirrorSurface:
             nact=self.nact
         if actoffset==None:
             actoffset=self.actoffset
-        spacing=(npup-1.)/(nact-1+actoffset*2.)
-        self.x=numpy.arange(npup).astype(numpy.float64)
-        self.x2=(numpy.arange(nact)*spacing+spacing*actoffset).astype(numpy.float64)
+        #spacing=(npup-1.)/(nact-1+actoffset*2.)
+        #self.x=numpy.arange(npup).astype(numpy.float64)
+        #self.x2=(numpy.arange(nact)*spacing+spacing*actoffset).astype(numpy.float64)
+        #Changed by agb on 1st May 2013 to:
+        if self.typ in ["linear","gaussian","bicubic"]:
+            spacing=(npup)/(nact-1+actoffset*2.)
+            self.x=numpy.arange(npup).astype(numpy.float64)
+            self.x2=(numpy.arange(nact)*spacing+spacing*actoffset).astype(numpy.float64)-0.5
+        else:
+            spacing=(npup-1.)/(nact-1+actoffset*2.)
+            self.x=numpy.arange(npup).astype(numpy.float64)
+            self.x2=(numpy.arange(nact)*spacing+spacing*actoffset).astype(numpy.float64)
         return self.x,self.x2
             
     def calcPsplineCoords(self):

@@ -314,7 +314,38 @@ class infAtmos(base.aobase.aobase):
                 nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].next()
             else:#construct the layer.
                 self.makeLayer(key)
-        
+    
+    def makeLayerFast(self,key):
+        """make the phase screen from newly added cols/rows.
+        In fast mode, we don't shift, so don't contain a full phase screen here, rather it is mangled.  Therefore, the interpolation modules need to interpolate from the correct part.  The idea of this is to try to save some time.
+        When screens get generated:
+
+        First adds columns
+        Then adds rows.
+
+        So, we just need to work out where to store the new data.
+        """
+        nremCol,naddCol,self.interpPosCol[key]=self.newCols[key].next()
+        nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].next()
+        self.nremCol[key]=nremCol
+        self.naddCol[key]=naddCol
+        self.nremRow[key]=nremRow
+        self.naddRow[key]=naddRow
+        if self.parentSendWholeScreen:
+            raise Exception("Fast method not applicable when whole screen being sent")
+        shape.self.phaseScreens[key].shape
+        #here we add newly created phase into the current array.
+        if self.colAdd[key]<0:#add at end
+            if self.rowAdd[key]<0:#add at end (top)
+                coldata=(self.colInput[key][self.maxColAdd[key]-naddCol:]).T
+                rowdata=self.rowInput[key][self.maxRowAdd[key]-naddRow:]
+                #insert the columns (wrapping as necesary)
+                self.phaseScreens[key][:self.rowDataPos,self.colDataPos:self.colDataPos+naddCol]=coldata[-self.rowDataPos:]
+                self.phaseScreens[key][self.rowDataPos:,self.colDataPos:self.colDataPos+naddCol]=coldata[:-self.rowDataPos]
+                #and insert the rows (wrapping as necessary)
+                self.phaseScreen[key][self.rowDataPos:self.rowDataPos+naddRow,:self.colDataPos]=rowdata[-self.colDataPos:]
+                self.phaseScreen[key][self.rowDataPos:self.rowDataPos+naddRow,self.colDataPos:]=rowdata[:-self.colDataPos]
+
     def makeLayer(self,key):
         """make the phasescreen from the newly added cols/rows passed from infScrn object"""
         #first, add the new phase values into the phase array.
