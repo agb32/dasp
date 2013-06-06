@@ -3,12 +3,6 @@
 /* This function used Numerical Recipes `poidev' random number generator */
 //
 /* On 2012 Aug 2nd poidev was replaced by gsl_ran_poisson by UB. */
-/* I (UB) found out, that the Numerical Recipies version of this module
-   always called poidev with the same seed, so the result for the same input
-   was always the same.
-   I implemented the same behaviour with gsl_ran_poisson, to there is no 
-   possibility to provide a different seed.
-   I added warnings to notify the user. */
 
 #include "Python.h"
 #include <stdio.h>
@@ -16,6 +10,21 @@
 #include "gsl/gsl_rng.h"
 
 #include "numpy/arrayobject.h"
+
+/* I (UB) found out, that the Numerical Recipies version of this module
+   always called poidev with the same seed, so the result for the same input
+   was always the same.
+   I implemented the same behaviour with gsl_ran_poisson, to there is no 
+   possibility to provide a different seed.
+   I added warnings to notify the user. 
+   2013 Jun 06: Not to flood the user with warnings I (UB) print out this warning
+   only 10 times and suppress further warnings.
+*/
+#define IMGNOISESHOTWARNINGS 10
+
+#ifdef IMGNOISESHOTWARNINGS
+int imgnoise_shot_warning = 0;
+#endif
 
 static PyObject *imgnoise_shot(PyObject *self, PyObject *args)
 {
@@ -25,7 +34,19 @@ static PyObject *imgnoise_shot(PyObject *self, PyObject *args)
 	const gsl_rng_type * T;
 	gsl_rng * r;
 
-	printf("WARNING: imgnoise_shot is called with the same seed every time.\n");
+#ifdef IMGNOISESHOTWARNINGS
+	if( imgnoise_shot_warning < IMGNOISESHOTWARNINGS ) // Print this warning only 10 times.
+	  {
+	    printf("WARNING: imgnoise_shot is called with the same seed every time.\n");
+	    imgnoise_shot_warning++;
+	  }
+	else if (imgnoise_shot_warning == IMGNOISESHOTWARNINGS)
+	  {
+	    printf("WARNING: furhter warnings about the same seed for imgnoise_shot suppressed.");
+	    imgnoise_shot_warning++;
+	  }
+#endif
+
 	// parse the input parameters:
  	if (!PyArg_ParseTuple (args, "O!O!", &PyArray_Type, &imgin, &PyArray_Type, &imgout))
 		return NULL;
