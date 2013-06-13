@@ -604,8 +604,7 @@ class recon(base.aobase.aobase):
             ns=self.ncentList[i]
             if len(self.parent[key].outputData.shape)==3:
                 self.inputData[cnt:cnt+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt:cnt+ns])
-                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=numpy.take(\
-                    self.parent[key].outputData.ravel(),self.centIndex[cnt+self.ncents/2:cnt+self.ncents/2+ns])
+                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt+self.ncents/2:cnt+self.ncents/2+ns])
             else:#wfscent has already cut out the unused subaps... (fullWFSOutput==1 in param file)
                 self.inputData[cnt:cnt+ns]=self.parent[key].outputData[:,0]
                 self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=self.parent[key].outputData[:,1]

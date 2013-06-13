@@ -166,7 +166,10 @@ class Ctrl:
             try:
                 exptime=self.config.getVal("AOExpTime")
                 tstep=self.config.getVal("tstep")
-                self.niter=exptime/tstep
+                if exptime>0:
+                    self.niter=exptime/tstep
+                else:
+                    self.niter=-1
             except:
                 self.niter=-1
 

@@ -107,6 +107,7 @@ class AOXml:
         """
         if file!=None:
             print "\n%s\n\nReading param file %s\n\n%s\n"%("*"*70,file,"*"*70)
+            setattr(self.this,"filename",file)
             if file[-4:]==".xml":
                 #txt=open(file).read()
                 txt=PreFormatXML(file).txt
@@ -141,10 +142,20 @@ class AOXml:
         for key in e.keys():
             if d.has_key(key):
                 del(d[key])
+        this=d["this"]
         for key in d.keys():
             if key not in ["this","new","batchNumber","batchno","filename","ncpu"]:
                 setattr(self.this.globals,key,d[key])
-        self.searchOrder=["globals"]
+        so=dir(self.this)
+        rem=["__doc__","__init__","__module__","ncpu","numpy",'batchNumber', 'batchno', 'filename',"globals"]
+        for r in rem:
+            try:
+                so.remove(r)
+            except:
+                pass
+        so.sort(reverse=True)
+        so.append("globals")
+        self.searchOrder=so#["globals"]
     def reset(self):
         """Reset the object ready to parse a different file"""
         self.error=0

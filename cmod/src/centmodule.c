@@ -1191,6 +1191,33 @@ int prepareSpotPsf(centstruct *c){
   return 0;
 }
 
+int setSigArr(centstruct *c,PyObject *sigObj){
+  PyArrayObject *sigArr;
+  if(PyArray_Check(sigObj)==1){
+    if(checkFloatContigArr((PyArrayObject*)sigObj)!=0){
+      printf("Error: centmodule - sig array must be float and contiguous\n");
+      return -1;
+    }
+    sigArr=(PyArrayObject*)sigObj;
+    if(sigArr->nd==1 && sigArr->dimensions[0]==c->nsubaps){
+      if(c->sigArr==NULL){
+	if((c->sigArr=malloc(sizeof(float)*c->nsubaps))==NULL){
+	  printf("Failed to alloc sigarr\n");
+	  return -1;
+	}
+      }
+      memcpy(c->sigArr,sigArr->data,sizeof(float)*c->nsubaps);
+    }else{
+      printf("sigArr should be 1D, size %d\n",c->nsubaps);
+      return -1;
+    }
+  }else{
+    return 1;
+  }
+  return 0;
+}
+
+
 int setupThreads(centstruct *c,int nthreads){
   int i,subapCnt,subapsLeft;
   int fftsize=c->fftsize;
@@ -1285,6 +1312,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
   centstruct *c;
   PyObject *obj;
   PyArrayObject *aobj;
+  int rt;
   if(!PyArg_ParseTuple(args,"liO",&c,&code,&obj)){
     printf("centmodule: parsing parameters failed.\nUsage: centstruct object, code for value to be changed, new value\n");
     return NULL;
@@ -1300,12 +1328,15 @@ PyObject *py_update(PyObject *self,PyObject *args){
       c->calsource=lval;
       break;
     case SIG:
-      dval=PyFloat_AsDouble(obj);
-      if(PyErr_Occurred()){
-	printf("centmodule: Error extracting float value for sig\n");
-	return NULL;
-      }
-      c->sig=dval;
+      if((rt=setSigArr(c,obj))==1){//failed to set as array - try single value
+	dval=PyFloat_AsDouble(obj);
+	if(PyErr_Occurred()){
+	  printf("centmodule: Error extracting float value for sig\n");
+	  return NULL;
+	}
+	c->sig=dval;
+      }else if(rt==-1)
+	return NULL;//failed
       break;
     case ADDPOISSON:
       lval=PyInt_AsLong(obj);

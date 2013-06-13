@@ -288,6 +288,8 @@ class geom:
 ##             for i in range(len(keylist)):
 ##                 n[keylist[i]]=nsubx[i]
 ##             nsubx=n
+        if reconID=="":
+            reconID=None
         ngslist=[]
         for key in self.sourceOrder:
             nsubx=self.sourcensubx(key)#If None, this is a science object only!
@@ -313,6 +315,8 @@ class geom:
 ##             for i in range(len(keylist)):
 ##                 n[keylist[i]]=nsubx[i]
 ##             nsubx=n
+        if reconID=="":
+            reconID=None
         lgslist=[]
         for key in self.sourceOrder:
             nsubx=self.sourcensubx(key)
@@ -333,6 +337,8 @@ class geom:
         objects makeNGSList()+makeLGSList() would be provided.
         """
         idlist=[]
+        if reconID=="":
+            reconID=None
         for key in self.sourceOrder:
             nsubx=self.sourcensubx(key)
             if self.sourceAlt(key)<0 and nsubx!=None:

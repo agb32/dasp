@@ -133,8 +133,8 @@ def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=Non
             
             h1=(beacon_alt-beacon_depth/2.)/numpy.cos(zenith*numpy.pi/180.)
             h2=(beacon_alt+beacon_depth/2.)/numpy.cos(zenith*numpy.pi/180.)
-            a1=numpy.arctan(h1/r)
-            a2=numpy.arctan(h2/r)
+            a1=numpy.arctan2(h1,r)
+            a2=numpy.arctan2(h2,r)
             da=(a2-a1)*3600*180/numpy.pi
             e=numpy.sqrt(da*da+unelong_width*unelong_width)
             
@@ -183,9 +183,9 @@ def make2(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=No
             
             h1=(beacon_alt-beacon_depth/2.)/numpy.cos(zenith*numpy.pi/180.)
             h2=(beacon_alt+beacon_depth/2.)/numpy.cos(zenith*numpy.pi/180.)
-            a1=numpy.arctan(r/h1)
-            a2=numpy.arctan(r/h2)
-            a=numpy.arctan(r/(beacon_alt/numpy.cos(zenith*numpy.pi/180.)))*180./numpy.pi
+            a1=numpy.arctan2(r,h1)
+            a2=numpy.arctan2(r,h2)
+            a=numpy.arctan2(r,(beacon_alt/numpy.cos(zenith*numpy.pi/180.)))*180./numpy.pi
             da=(a2-a1)*3600*180/numpy.pi
             e=numpy.sqrt(da*da+unelong_width*unelong_width)#elongated width
             
