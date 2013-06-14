@@ -369,9 +369,15 @@ class centroid:
         # else:#not using FPGA, so set up memory without it.
         if 1:
             if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
-                self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
+                if self.atmosPhaseType=="phaseonly":
+                    self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
+                else:
+                    self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
             else:
-                self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
+                if self.atmosPhaseType=="phaseonly":
+                    self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
+                else:
+                    self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
             if type(outputDataMem)==type(None):
                 if self.imageOnly==0:
                     self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
@@ -780,8 +786,11 @@ class centroid:
                             # Note, used to be an error here - should also scale by the number of pixels that receive photons.  Fixed...
                         else:
                             bimg*=self.sig[i,j]/totsig
-                        if self.atmosPhaseType!="phaseonly":
-                            print "Scaling of SH image? Is it needed when have phase an amplitude for atmosphere"
+#                        if self.atmosPhaseType!="phaseonly":
+#                            print "Scaling of SH image? Is it needed when have phase an amplitude for atmosphere"
+# Answer:- at present, yes, because it is assumed by (for example) the spatial filter module that
+# intensity in unknown and so arbitrary.
+# --NAB June/2013
                     #now add sky brightness scaled by the number of phase pixels that are in the aperture:
                     if not calSource:#self.control["cal_source"]:
                         bimg+=self.skybrightness*nphs

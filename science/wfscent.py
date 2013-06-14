@@ -468,6 +468,11 @@ class wfscent(base.aobase.aobase):
         readouttime=None
         for this in self.thisObjList:#find the maximum array size...
             wfs=this.wfscentObj
+            so=["wfscent","globals"]
+            if this.idstr!=None and len(this.idstr)>0:
+                this.config.setSearchOrder(["wfscent_%s"%this.idstr]+so)
+            else:
+                this.config.setSearchOrder(so)
             if wfs.fftsize>fftsizemax:
                 fftsizemax=wfs.fftsize
             if wfs.nsubx>nsubxmax:
@@ -481,7 +486,12 @@ class wfscent(base.aobase.aobase):
             if wfs.nsubx*wfs.phasesize>maxnpup:
                 maxnpup=wfs.nsubx*wfs.phasesize
             if wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize>rpmax:
-                rpmax=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize
+                atmosPhaseType=this.config.getVal("atmosPhaseType",default="phaseonly")
+                print this.config.searchOrder
+                if atmosPhaseType=="phaseonly":
+                    rpmax=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize
+                else:
+                    rpmax=2*wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize
             if wfs.nIntegrations>nIntMax:
                 nIntMax=wfs.nIntegrations
             if readouttime==None:

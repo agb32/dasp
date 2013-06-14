@@ -140,6 +140,7 @@ typedef struct{
   int useBrightest;
   int *useBrightestArr;
   float **sortarr;
+  int phaseStep;
 } centstruct;
 
 
@@ -359,17 +360,28 @@ int doFFT(int fftsize,int phasesize,int forward,float *re,float *im,workstruct *
 }
 */
 int computeHll(float *phs,int phasesize,int niters,int fftsize,int psfsize,float *pup,float *tiltfn,complex float *fftarr,float *hll,centstruct *c){
-  int iter,i,j,rtval=0;
+  int iter,i,j,rtval=0,indx;
   float tmp;
   memset(hll,0,sizeof(float)*psfsize*psfsize);
   for(iter=0; iter<niters; iter++){
     //for each simulation iteration to be binned...
     memset(fftarr,0,fftsize*fftsize*sizeof(complex float));
-    for(i=0; i<phasesize; i++){
-      for(j=0; j<phasesize; j++){
-	tmp=phs[iter*phasesize*phasesize+i*phasesize+j]-tiltfn[i*phasesize+j];
-	fftarr[i*fftsize+j]=pup[i*phasesize+j]*(cos(tmp)+I*sin(tmp));
-	//workbuf->phsIm[i*fftsize+j]=pup[i*phasesize+j]*sin(tmp);
+    if(c->phaseStep==1){
+      for(i=0; i<phasesize; i++){
+	for(j=0; j<phasesize; j++){
+	  tmp=phs[(iter*phasesize*phasesize+i*phasesize+j)]-tiltfn[i*phasesize+j];
+	  fftarr[i*fftsize+j]=pup[i*phasesize+j]*(cos(tmp)+I*sin(tmp));
+	  //workbuf->phsIm[i*fftsize+j]=pup[i*phasesize+j]*sin(tmp);
+	}
+      }
+    }else{
+      for(i=0; i<phasesize; i++){
+	for(j=0; j<phasesize; j++){
+	  indx=(iter*phasesize*phasesize+i*phasesize+j)*c->phaseStep;
+	  tmp=phs[indx]-tiltfn[i*phasesize+j];
+	  fftarr[i*fftsize+j]=pup[i*phasesize+j]*phs[indx+1]*(cos(tmp)+I*sin(tmp));
+	  //workbuf->phsIm[i*fftsize+j]=pup[i*phasesize+j]*sin(tmp);
+	}
       }
     }
     fftwf_execute_dft(c->fftplan,fftarr,fftarr);
@@ -871,7 +883,8 @@ int centroidsFromPhase(centrunstruct *runinfo){
     if(c->subflag[i]==1){//subap is full enough to use.  ie subflag[i]==1...
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
-      error|=computeHll(&(c->phs[i*c->phasepxls*c->nintegrations]),c->phasesize,c->nintegrations,c->fftsize,c->psfsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);
+      //phaseStep==1 for phaseOnly, 2 for phaseamp.
+      error|=computeHll(&(c->phs[i*c->phasepxls*c->nintegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->psfsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);
       //if(testNan(c->fftsize*c->fftsize,c->hll[threadno])){
       //printf("hll got nan %d\n",i);
       //}
@@ -1583,6 +1596,18 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     printf("Error: centmodule - phs must be float and contiguous\n");
     return NULL;
   }
+  j=1;
+  for(i=0;i<phs->nd;i++)
+    j*=phs->dimensions[i];
+  if(j==phasesize*phasesize*nsubaps*nintegrations)
+    c->phaseStep=1;
+  else if(j==phasesize*phasesize*nsubaps*nintegrations*2)
+    c->phaseStep==2;//phaseamp mode.
+  else{
+    printf("Error: centmodule - phs size is wrong\n");
+    return NULL;
+  }
+    
   if(checkFloatContigArr(pupfn)!=0){
     printf("Error: centmodule - pupfn must be float and contiguous\n");
     return NULL;
@@ -1696,7 +1721,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->pxlPower=pxlPower;
   c->nintegrations=nintegrations;
   c->seed=seed;
-  c->phs=(float*)phs->data;
+  c->phs=(float*)phs->data;//can include amplitude data too (interleaved, phase first).
   c->pupfn=(float*)pupfn->data;
   c->cents=(float*)cents->data;
   c->subflag=(int*)subflag->data;
