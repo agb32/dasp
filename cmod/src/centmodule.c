@@ -1602,7 +1602,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   if(j==phasesize*phasesize*nsubaps*nintegrations)
     c->phaseStep=1;
   else if(j==phasesize*phasesize*nsubaps*nintegrations*2)
-    c->phaseStep==2;//phaseamp mode.
+    c->phaseStep=2;//phaseamp mode.
   else{
     printf("Error: centmodule - phs size is wrong\n");
     return NULL;
