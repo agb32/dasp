@@ -2,6 +2,17 @@
 """
 Tel.py : functions and classes to define telescope pupil geometry
 """
+#harr=util.tel.Pupil(1610,805.,805/3.5,hexDiam=1600/26.25,hexAreaInner=0.3,hexAreaOuter=0.65,hexEllipseFact=0.985)
+#plot((harr+util.tel.Pupil(1610,805,805/3.5).fn)[5:-5,5:-5])
+#31 hex down, 35 wide.
+
+#harr=util.tel.Pupil(1600,800*0.97,805/3.5,hexDiam=59.6)
+#Which is 31x36...  This works for the outer...
+
+#And this works for both
+#harr=util.tel.Pupil(1600.,800.*0.97,800/3.5*0.97,hexDiam=59.6)
+#or for a smaller pupil:
+#harr2=util.tel.Pupil(1280.,640.*0.97,640/3.5*0.97,hexDiam=59.6*1280/1600.)
 
 
 #import UserArray
@@ -50,7 +61,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
     
     """
 
-    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None):
+    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0):
         """ Constructor for the Pupil class
 
         Parameters: 
@@ -67,12 +78,23 @@ class Pupil(user_array.container):#UserArray.UserArray):
         @type r2: Int
         @param spider: Definition of spiders.
         @type spider: Tuple of narms, thickness/degrees or "elt"
+        @param hexDiam: If >0, will use hexagons for primary mirror segments.  The diameter (in pixels) of hexagon from point to point (not side to side).
+        @type pupType: float.
+        @param hexAreaInner: Minarea of vignetted hex mirror segments by obscuration
+        @type hexAreaInner: float.
+        @param hexAreaOuter: Minarea of vignetted hex mirror segments by primary mirror diameter
+        @type hexAreaOuter:  float.
+        @param hexEllipseFact: A value to scale the pupil circumscribing circle in the x direction, in case this helps with fitting the hexagons.
+        @type hexEllipseFact: float.
+        @param symmetricHex: If 1, the resulting pupil function will be symmetric in x and y.  If 0, it might not quite be.
+        @type symmetricHex: Int
         """
 ##         print "creating"
 ##         inarr=None
 ##         if type(npup)!=type(1):#assume its an array...
 ##             inarr=npup
 ##             npup=inarr.shape[0]
+
         if nAct!=None:
             raise Exception("nAct in util.tel.Pupil() not used")
         self.npup=npup
@@ -85,23 +107,31 @@ class Pupil(user_array.container):#UserArray.UserArray):
         self.r2=r2
         self.nsubx=nsubx
         self.minarea=minarea
+        self.hexAreaInner=hexAreaInner
+        self.hexAreaOuter=hexAreaOuter
+        self.hexDiam=hexDiam
+        self.hexEllipseFact=hexEllipseFact
+        self.symmetricHex=symmetricHex
         self.apoFunc=apoFunc
         if dmminarea==None:
             self.dmminarea=minarea
         else:
             self.dmminarea=dmminarea
         ## we create a grid of x and y lines (to avoid for loops)
-        grid=makeCircularGrid(npup)
+        if hexDiam==0:
+            grid=makeCircularGrid(npup)
 
-        if type(apoFunc)==types.NoneType:
-            self.fn=na.logical_and((grid<=r1),(grid>=r2))
-            self.area=na.sum(na.sum(self.fn))
-        elif type(apoFunc)==na.ndarray:#ArrayType:
-            self.fn=apoFunc*na.logical_and((grid<=r1),(grid>=r2))
-            self.area=na.sum(na.sum(self.fn))
+            if type(apoFunc)==types.NoneType:
+                self.fn=na.logical_and((grid<=r1),(grid>=r2))
+                self.area=na.sum(na.sum(self.fn))
+            elif type(apoFunc)==na.ndarray:#ArrayType:
+                self.fn=apoFunc*na.logical_and((grid<=r1),(grid>=r2))
+                self.area=na.sum(na.sum(self.fn))
+            else:
+                self.fn=apoFunc(grid)*na.logical_and((grid<=r1),(grid>=r2))
+                self.area=na.sum(na.sum(na.logical_and((grid<=r1),(grid>=r2))))
         else:
-            self.fn=apoFunc(grid)*na.logical_and((grid<=r1),(grid>=r2))
-            self.area=na.sum(na.sum(na.logical_and((grid<=r1),(grid>=r2))))
+            self.fn,self.area=self.makeHexGridSegmented()
 ##         if type(inarr)!=type(None):
 ##             self.fn=inarr
         #UserArray.UserArray.__init__(self,self.fn,copy=0)
@@ -142,6 +172,239 @@ class Pupil(user_array.container):#UserArray.UserArray):
                         self.dmflag[i,j]=self.dmflag[i+1,j]=self.dmflag[i,j+1]=self.dmflag[i+1,j+1]=1
                         self.dmpupil[i*n:(i+1)*n,j*n:(j+1)*n]=1.
         
+
+    def calcHexShape(self,npup,d):               
+        r=d/2.
+        sx=1.5*r
+        sy=r*numpy.sqrt(3)
+        #compute number of hexagons across pupil
+        nhexx=int(numpy.ceil(npup/sx))
+        nhexy=int(numpy.ceil(npup/sy))
+        #make an odd number...
+        if nhexx%2==0:
+            print "Even x"
+        if nhexy%2==0:
+            print "Even y"
+        nhexx+=1-nhexx%2
+        nhexy+=1-nhexy%2
+        print "nhex y,x:",nhexy,nhexx
+        return nhexx,nhexy
+
+
+    def makeHexGridSegmented(self):
+        """Computes a pupil function for a primary made of hexagons.  If these are vignetted by more than hexAreaInner or hexAreaOuter, they are not used.
+        Defined from centre of telescope.
+        Assumes flat bottomed hexagons.
+        Assumes a centred hexagon in the middle.
+        Requires the polygon package...
+        This way, we divide the circle up into 12 segments and use the distance from centre for these.
+
+        """
+        d=self.hexDiam
+        r=d/2.
+        sx=1.5*r
+        sy=r*numpy.sqrt(3)
+        #compute number of hexagons across pupil
+        nhexx=int(numpy.ceil(self.npup/sx))
+        nhexy=int(numpy.ceil(self.npup/sy))
+        #make an odd number...
+        #nhexx+=1-nhexx%2
+        nhexy+=1-nhexy%2
+        print "nhex (for ELT should be 31,36) y,x:",nhexy,nhexx
+        pup=numpy.zeros((self.npup+int(d),self.npup+int(d)),numpy.int32)
+        #Now, for each hexagon, compute its position, and its vignetting 
+        if 1:
+            xarr,yarr=numpy.meshgrid(numpy.arange(nhexx)-nhexx//2,numpy.arange(nhexy)-nhexy//2)
+            cy=sy*yarr
+            cy[:,1::2]+=sy/2.
+            cx=sx*xarr
+            rcentre=numpy.sqrt(cy*cy+cx*cx)
+            theta=numpy.arctan2(cy,cx)
+            theta=numpy.where(theta<0,theta+2*numpy.pi,theta)
+            seg=((theta+15/180.*numpy.pi)/(30*numpy.pi/180.)).astype(numpy.int32)
+            rdist=rcentre*numpy.cos(theta-seg*30*numpy.pi/180.)
+            hexmap=numpy.logical_and(rdist<self.r1, rdist>self.r2)
+            for i in range(nhexy):
+                for j in range(nhexx):
+                    if hexmap[i,j]:
+                        hexplot,offx,offy=self.drawHex(cx[i,j],cy[i,j],d)
+                        offx+=self.npup/2
+                        offy+=self.npup/2
+                        #print hexplot.shape,offx,offy,j,i,cx[i,j],cy[i,j],rdist[i,j],theta[i,j]-seg[i,j]*30*numpy.pi/180.,seg[i,j],theta[i,j]
+                        pup[offy:offy+hexplot.shape[0],offx:offx+hexplot.shape[1]]|=hexplot
+        else:#slower
+            hexmap=numpy.zeros((nhexy,nhexx),numpy.int32)
+            for i in range(nhexy):
+                cyreal=sy*(i-nhexy//2)
+                for j in range(nhexx):
+                    cx=sx*(j-nhexx//2)
+                    if j%2==1:#shift y position by half a hex
+                        cy=cyreal+sy/2.
+                    else:
+                        cy=cyreal
+                    rcentre=numpy.sqrt(cy*cy+cx*cx)
+                    #if rcentre>self.r2*1.3:
+                    #    continue
+                    theta=numpy.arctan2(cy,cx)
+                    if theta<0:
+                        theta+=2*numpy.pi
+                    seg=int((theta+15/180.*numpy.pi)/(30*numpy.pi/180.))
+                    rdist=rcentre*numpy.cos(theta-seg*30*numpy.pi/180.)
+                    if rdist<self.r1 and rdist>self.r2:
+                        hexmap[i,j]=1
+                    if hexmap[i,j]:
+                        hexplot,offx,offy=self.drawHex(cx,cy,d)
+                        offx+=self.npup/2
+                        offy+=self.npup/2
+                        #print hexplot.shape,offx,offy,j,i,cx,cy,rdist,theta-seg*30*numpy.pi/180.,seg,theta
+                        pup[offy:offy+hexplot.shape[0],offx:offx+hexplot.shape[1]]|=hexplot
+                        
+        # Now check for filling in of neighbours.
+        sd=pup[2:,2:]+pup[:-2,2:]+pup[:-2,:-2]+pup[2:,:-2]
+        pup[1:-1,1:-1]|=sd
+        if self.symmetricHex:
+            pup+=pup[::-1]+pup[:,::-1]+pup[::-1,::-1]
+        pup=(pup>0)
+        print nhexy,nhexx
+        pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
+        self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
+        self.puptmp+=pup
+        return pup,hexmap
+
+
+    def makeHexGridGeometric(self):
+        """Computes a pupil function for a primary made of hexagons.  If these are vignetted by more than hexAreaInner or hexAreaOuter, they are not used.
+        Defined from centre of telescope.
+        Assumes flat bottomed hexagons.
+        Assumes a centred hexagon in the middle.
+        Requires the polygon package...
+        Might be useful, but not for the E-ELT... 
+        Not fully finished - data might have some holes in it.
+        """
+        import Polygon
+        import Polygon.Shapes
+        circOuter=Polygon.Shapes.Circle(self.r1,(0,0),points=int(2*numpy.pi*self.r1))
+        circOuter.scale(self.hexEllipseFact,1.)
+        circInner=Polygon.Shapes.Circle(self.r2,(0,0),points=int(2*numpy.pi*self.r2))
+        d=self.hexDiam
+        hexagon=Polygon.Polygon([(d*numpy.cos(i),d*numpy.sin(i)) for i in numpy.arange(6)*60.*numpy.pi/180.])
+        hexarea=hexagon.area()
+        r=d/2.
+        sx=1.5*r
+        sy=r*numpy.sqrt(3)
+        #compute number of hexagons across pupil
+        nhexx=int(numpy.ceil(self.npup/sx))
+        nhexy=int(numpy.ceil(self.npup/sy))
+        #make an odd number...
+        nhexx+=1-nhexx%2
+        nhexy+=1-nhexy%2
+        print "nhex (for ELT should be 31,36) y,x:",nhexy,nhexx
+        pup=numpy.zeros((self.npup+int(d),self.npup+int(d)),numpy.int32)
+        hexmap=numpy.zeros((nhexy,nhexx),numpy.int32)
+        #Now, for each hexagon, compute its position, and its vignetting 
+        for i in range(nhexy):
+            cyreal=sy*(i-nhexy//2)
+            for j in range(nhexx):
+                cx=sx*(j-nhexx//2)
+                if j%2==0:#shift y position by half a hex
+                    cy=cyreal+sy/2.
+                else:
+                    cy=cyreal
+                rcentre=numpy.sqrt(cy*cy+cx*cx)
+                if rcentre<self.r1*.85:
+                    continue
+                if rcentre-r<=self.r1:#within the pupil
+                    if rcentre+r>=self.r2:#and not wholly within the central obscuration
+                        if rcentre-r<self.r2:#partially within central obs
+                            #compute overlap
+                            hexagon.shift(cx,cy)
+                            ol=(hexarea-(hexagon&circInner).area())/hexarea
+                            if ol>=self.hexAreaInner:
+                                hexmap[i,j]=1
+                            hexagon.shift(-cx,-cy)
+                        elif rcentre+r>self.r1:#partially outside pupil
+                            #compute overlay
+                            hexagon.shift(cx,cy)
+                            ol=(hexagon&circOuter).area()/hexarea
+                            if ol>=self.hexAreaOuter:
+                                hexmap[i,j]=1
+                            hexagon.shift(-cx,-cy)
+                        else:
+                            hexmap[i,j]=1
+                        if hexmap[i,j]:
+                            hexplot,offx,offy=self.drawHex(cx,cy,d)
+                            offx+=self.npup/2
+                            offy+=self.npup/2
+                            print hexplot.shape,offx,offy,j,i,cx,cy
+                            pup[offy:offy+hexplot.shape[0],offx:offx+hexplot.shape[1]]+=hexplot
+        pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
+        self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
+        self.puptmp+=pup
+        return pup,hexmap
+    
+    def drawHex(self,xpos,ypos,d):
+        """Draws a hexagon, returns the array, and the offset of this to place is at x,y."""
+        r=d/2.
+        sx=1.5*r
+        sy=d*numpy.sqrt(3)
+        #First, move x,y into the range 0<=x<1.
+        x=xpos-numpy.floor(xpos)
+        y=ypos-numpy.floor(ypos)
+        #how much have we moved?
+        xshift=xpos-x
+        yshift=ypos-y
+        #max size of the hex
+        nx=int(numpy.ceil(d+x))
+        ny=int(numpy.ceil(d+y))
+        #centre of the hex
+        xc=x+nx//2
+        yc=y+ny//2
+        xarr,yarr=numpy.meshgrid(numpy.arange(nx)-xc,numpy.arange(ny)-yc)
+        #xarr=xarr-xc
+        #yarr=yarr-yc
+        theta=numpy.arctan2(yarr,xarr)
+        rr=numpy.sqrt(xarr*xarr+yarr*yarr)
+        arr=(rr<=numpy.sin(60*numpy.pi/180.)*r/numpy.sin(2*numpy.pi/3.-(theta%(numpy.pi*60/180.)))).astype(numpy.int32)
+        #arr=numpy.zeros((ny,nx),numpy.int32)
+        #for i in range(ny):
+        #    for j in range(nx):
+        #        xx=j-xc
+        #        yy=i-yc
+        #        theta=numpy.arctan2(yy,xx)
+        #        rr=numpy.sqrt(xx*xx+yy*yy)
+        #        if rr<=numpy.sin(60*numpy.pi/180.)*r/numpy.sin(2*numpy.pi/3.-(theta%(numpy.pi*60/180.))):
+        #            arr[i,j]=1
+        return arr,xshift,yshift
+
+    
+    def drawHexSlow(self,xpos,ypos,d):
+        """Draws a hexagon, returns the array, and the offset of this to place is at x,y."""
+        r=d/2.
+        sx=1.5*r
+        sy=d*numpy.sqrt(3)
+        #First, move x,y into the range 0<=x<1.
+        x=xpos-numpy.floor(xpos)
+        y=ypos-numpy.floor(ypos)
+        #how much have we moved?
+        xshift=xpos-x
+        yshift=ypos-y
+        #max size of the hex
+        nx=int(numpy.ceil(d+x))
+        ny=int(numpy.ceil(d+y))
+        #centre of the hex
+        xc=x+nx//2
+        yc=y+ny//2
+        arr=numpy.zeros((ny,nx),numpy.int32)
+        for i in range(ny):
+            for j in range(nx):
+                xx=j-xc
+                yy=i-yc
+                theta=numpy.arctan2(yy,xx)
+                rr=numpy.sqrt(xx*xx+yy*yy)
+                if rr<=numpy.sin(60*numpy.pi/180.)*r/numpy.sin(2*numpy.pi/3.-(theta%(numpy.pi*60/180.))):
+                    arr[i,j]=1
+        return arr,xshift,yshift
+
     def getSubapFlag(self,nsubx,minarea=None):
         """Compute the subap flags for a given nsubx"""
         if minarea==None:
