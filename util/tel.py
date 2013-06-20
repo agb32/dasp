@@ -2,17 +2,13 @@
 """
 Tel.py : functions and classes to define telescope pupil geometry
 """
-#harr=util.tel.Pupil(1610,805.,805/3.5,hexDiam=1600/26.25,hexAreaInner=0.3,hexAreaOuter=0.65,hexEllipseFact=0.985)
-#plot((harr+util.tel.Pupil(1610,805,805/3.5).fn)[5:-5,5:-5])
-#31 hex down, 35 wide.
-
-#harr=util.tel.Pupil(1600,800*0.97,805/3.5,hexDiam=59.6)
-#Which is 31x36...  This works for the outer...
-
-#And this works for both
-#harr=util.tel.Pupil(1600.,800.*0.97,800/3.5*0.97,hexDiam=59.6)
+#ELT:
+#pup=util.tel.Pupil(1600.,800.*0.97,800/3.5*0.97,hexDiam=59.6)
 #or for a smaller pupil:
-#harr2=util.tel.Pupil(1280.,640.*0.97,640/3.5*0.97,hexDiam=59.6*1280/1600.)
+#pup=util.tel.Pupil(1280.,640.*0.97,640/3.5*0.97,hexDiam=59.6*1280/1600.)
+
+#ELT with spiders (39m spiders):
+#pup=util.tel.Pupil(1280.,640.*0.97,640/3.5*0.97,hexDiam=59.6*1280/1600.,spider=(6,16.,30.),symmetricHex=0)
 
 
 #import UserArray
@@ -77,7 +73,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         @param r2: Radius of secondary mirror in Pixels
         @type r2: Int
         @param spider: Definition of spiders.
-        @type spider: Tuple of narms, thickness/degrees or "elt"
+        @type spider: Tuple of (narms, thickness/degrees) or (narms, thickness/pixels,offset) or "elt" (not recommended)
         @param hexDiam: If >0, will use hexagons for primary mirror segments.  The diameter (in pixels) of hexagon from point to point (not side to side).
         @type pupType: float.
         @param hexAreaInner: Minarea of vignetted hex mirror segments by obscuration
@@ -139,7 +135,13 @@ class Pupil(user_array.container):#UserArray.UserArray):
         if spider=="elt":
             self.makeELTSpider()
         elif spider!=None:
-            self.makeSpider(spider[0],spider[1])
+            if len(spider)==2:
+                self.makeSpider(spider[0],spider[1])
+            elif len(spider)==3:
+                armoffset=spider[2]
+                narm=spider[0]
+                armlist=[((x+armoffset/360.*narm)*360./narm*numpy.pi/180.) for x in range(narm)]
+                self.makeSpiderPhysical(armlist,spider[1])
         self.calcSubaps()
         user_array.container.__init__(self,self.fn,copy=0)
     # END of __init__
@@ -210,7 +212,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         #make an odd number...
         #nhexx+=1-nhexx%2
         nhexy+=1-nhexy%2
-        print "nhex (for ELT should be 31,36) y,x:",nhexy,nhexx
+        #print "nhex (for ELT should be 31,36) y,x:",nhexy,nhexx
         pup=numpy.zeros((self.npup+int(d),self.npup+int(d)),numpy.int32)
         #Now, for each hexagon, compute its position, and its vignetting 
         if 1:
@@ -265,10 +267,10 @@ class Pupil(user_array.container):#UserArray.UserArray):
         if self.symmetricHex:
             pup+=pup[::-1]+pup[:,::-1]+pup[::-1,::-1]
         pup=(pup>0)
-        print nhexy,nhexx
+        #print nhexy,nhexx
         pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
-        self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
-        self.puptmp+=pup
+        #self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
+        #self.puptmp+=pup
         return pup,hexmap
 
 
@@ -482,7 +484,22 @@ class Pupil(user_array.container):#UserArray.UserArray):
 #                for k in range(narms):
 #                    if na.abs(theta-k*2.*na.pi/narms)<thickness or 2*na.pi-na.abs(theta-k*2.*na.pi/narms)<thickness:
 #                        self.fn[i,j]=0
-            
+    
+    def makeSpiderPhysical(self,armAngleList,thickness):
+        """armAngleList is a list/array of arm angles.  Thickness is in units of npup.
+        """
+        #xarr,yarr=numpy.meshgrid(numpy.arange(self.npup)-self.npup/2.,numpy.arange(self.npup)-self.npup/2.)
+        theta=numpy.fromfunction(lambda y,x:numpy.arctan2(y-self.npup/2+0.5,x-self.npup/2.+0.5),(self.npup,self.npup))
+        theta[:]=na.where(theta<0,theta+2*na.pi,theta)
+        r=numpy.fromfunction(lambda y,x:numpy.sqrt((x-self.npup/2.+0.5)**2+(y-self.npup/2.+0.5)**2),(self.npup,self.npup))
+        arr=numpy.zeros((self.npup,self.npup),numpy.int32)
+        for thetaArm in armAngleList:
+            arr[:]+=numpy.abs(r*numpy.sin(theta-thetaArm))<thickness
+        mask=(arr==0).astype(numpy.int32)
+        self.spiderMask=mask
+        self.fn*=mask
+
+                             
     def makeELTSpider(self,theta=0.):
         """Attempts to make the appropriate spider corresponding to the ELT pupil design document
 
