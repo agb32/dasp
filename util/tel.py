@@ -127,7 +127,8 @@ class Pupil(user_array.container):#UserArray.UserArray):
                 self.fn=apoFunc(grid)*na.logical_and((grid<=r1),(grid>=r2))
                 self.area=na.sum(na.sum(na.logical_and((grid<=r1),(grid>=r2))))
         else:
-            self.fn,self.area=self.makeHexGridSegmented()
+            self.fn=self.makeHexGridSegmented()
+            self.area=self.fn.sum()
 ##         if type(inarr)!=type(None):
 ##             self.fn=inarr
         #UserArray.UserArray.__init__(self,self.fn,copy=0)
@@ -271,7 +272,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
         #self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
         #self.puptmp+=pup
-        return pup,hexmap
+        return pup
 
 
     def makeHexGridGeometric(self):
@@ -342,7 +343,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
         self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
         self.puptmp+=pup
-        return pup,hexmap
+        return pup
     
     def drawHex(self,xpos,ypos,d):
         """Draws a hexagon, returns the array, and the offset of this to place is at x,y."""
