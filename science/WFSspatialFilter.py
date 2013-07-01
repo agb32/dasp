@@ -108,8 +108,6 @@ class spatialFilter(object):
       if not self.foundZeroShift: 
          print("spatialFilter/(WARNING) "+
                "No zero shift found, it is sensible to include this value")
-         print("spatialFilter/sleeping for 5s") # remove this line?
-         time.sleep(5)                           # remove this line?
          # \/ relative (to the zero change focal plane scaling) wavelength
          #  shifts. Typically this zero change is 'wfs_lam' in the params
          #  file.
@@ -262,7 +260,6 @@ class aosimSpatialFilter(base.aobase.aobase):
     def __init__(self,parent,config,args={},forGUISetup=0,passThrough=False,debug=None,idstr=None):
         """ [todo, epydoc compatible documentation]
         """
-        print("spatialFilter/__init")
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.control['close_dm']=0 # assume open-loop to start with
         #  General configuration
@@ -293,7 +290,7 @@ class aosimSpatialFilter(base.aobase.aobase):
            self.filterSize=self.config.getVal('filterSize')
         else:
               # filter out frequencies beyond a sub-aperture
-           minimalSampling=2.*self.config.getVal("wfs_nsubx")*self.npup**-1.0
+           minimalSampling=self.config.getVal("wfs_nsubx")*self.npup**-1.0
            self.filterSize=float(self.config.getVal(
                'filterSize',default=minimalSampling))
            if self.filterSize<0 or self.filterSize>0.5:
@@ -323,7 +320,6 @@ class aosimSpatialFilter(base.aobase.aobase):
                     #self.inputData=self.parent.outputData
                     self.inputInvalid=0
                 else:
-                    print("spatialFilter/waiting valid data...")
                     self.inputInvalid=1
                     self.dataValid=0
             if self.inputInvalid==0: # there was an input, so we can integrate...
@@ -334,7 +330,6 @@ class aosimSpatialFilter(base.aobase.aobase):
                       self.filterAdaptable):
                    # if open loop then do not apply filter
                    passThrough=1
-                   print("spatialFilter/forcing passthrugh")
                 (self.outputData,self.intermediateFocus, self.throughput)=\
                      self.spatialFilter.apply(
                          self.parent.outputData, passThrough)
