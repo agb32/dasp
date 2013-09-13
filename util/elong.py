@@ -98,7 +98,7 @@ def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=Non
     unelong_width in arcsec is the unelongated spot width.
     zenith is in degrees.
     For a scaled model, scale nsubx, telDiam, beacon_alt and beacon_depth.
-    launchDist(m) and launchTheta(deg) specify the position of the launch telescope.  If launchDist==0, this is onaxis launch.
+    launchDist(m) and launchTheta(deg, anti clockwise from 12 oclock(!)) specify the position of the launch telescope.  If launchDist==0, this is onaxis launch.
     """
     if wfs_nfft==None:
         wfs_nfft=wfs_n*2
