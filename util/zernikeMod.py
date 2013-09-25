@@ -733,7 +733,7 @@ class Zernike:
 
         This matrix is required to compute the real expansion of
         an input phase on the ZP stored in the zern array,
-        because they don't define an orthonormal basis (see p170 of Francois Assemat's thesis)
+        because they don't define an orthonormal basis (see p170 of Francois Assemat's thesis)  Actually pg 163 I think.
 
         Fills the invGeoCovMat array
         If removePiston==1, will remove the piston term...

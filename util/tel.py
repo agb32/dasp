@@ -73,7 +73,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         @param r2: Radius of secondary mirror in Pixels
         @type r2: Int
         @param spider: Definition of spiders.
-        @type spider: Tuple of (narms, thickness/degrees) or (narms, thickness/pixels,offset) or "elt" (not recommended)
+        @type spider: Tuple of (narms, thickness/degrees) or (narms, half-thickness/pixels,offset) or "elt" (not recommended)
         @param hexDiam: If >0, will use hexagons for primary mirror segments.  The diameter (in pixels) of hexagon from point to point (not side to side).
         @type pupType: float.
         @param hexAreaInner: Minarea of vignetted hex mirror segments by obscuration

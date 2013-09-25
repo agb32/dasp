@@ -74,7 +74,7 @@ class AOXml:
     @cvar ignoreModule: Flag, whether module should be ignored (batch number mismatch)
     @type ignoreModule: Int
     """ 
-    def __init__(self,file=None,writeSchema=0,batchno=0,ignoreError=0):
+    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0):
         """Initialise a AO XML parser object.
         @param file: Filename
         @type  file: String

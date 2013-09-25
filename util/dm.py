@@ -797,7 +797,7 @@ class dmOverview:
         #    self.hasVirtual=1
         #else:
         #    self.hasVirtual=0
-    def makeNactsList(self,reconID,centObs):
+    def makeNactsList(self,reconID,centObs,cumulative=1):
         dmlist=self.makeDMList(reconID)
         nactsList=[]
         nactsCumList=[0]
@@ -808,7 +808,10 @@ class dmOverview:
             else:#modal.
                 nactsList.append(dm.nact)
             nactsCumList.append(nactsList[-1]+nactsCumList[-1])
-        return nactsCumList
+        if cumulative:
+            return nactsCumList
+        else:
+            return nactsList
         
     def getDM(self,idstr,raiseerror=0):
         """Get the DM which has object with DM ID idstr."""

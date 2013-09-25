@@ -1310,7 +1310,7 @@ class simsetup:
                     l.eraseTmp()
                     self.connectObject=None
         elif self.doing=="group":
-            l=boxObj(self.drawable,self.drawable.new_gc(self.drawable.get_colormap().alloc_color("blue")),[(int(e.x-50),int(e.y-100)),(int(e.x+50),int(e.y-100)),(int(e.x+50),int(e.y+100)),(int(e.x-50),int(e.y+100))])
+            l=boxObj(self.drawable,self.drawable.new_gc(self.drawable.get_colormap().alloc_color("blue")),[(int(e.x-50),int(e.y-50)),(int(e.x+50),int(e.y-50)),(int(e.x+50),int(e.y+50)),(int(e.x-50),int(e.y+50))])
             self.drawlist.append(l)
             self.grouplist.append(l)
             l.draw()
