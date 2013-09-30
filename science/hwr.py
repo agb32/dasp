@@ -69,8 +69,7 @@ class recon(tomoRecon.recon):
             default="hwrWFMM.fits", raiseerror=0 )
       if self.hwrSparse: # only bother if using sparse implementation
          self.hwrCGtol=self.config.getVal( "hwrCGtol",
-               default=1e-7,raiseerror=0)
-
+               default=1e-7,raiseerror=0) 
       self.pokeIgnore=self.config.getVal( "pokeIgnore",
             default=1e-10,raiseerror=0)
       
@@ -113,6 +112,23 @@ class recon(tomoRecon.recon):
                self.hwrOverlap,
                self.hwrSparse
                )
+      
+      if self.hwrWFMMblockReduction:
+         # \/ calculate which indices should be included in the WFIM
+         # first, do it for the wavefront grid
+         self.WFIMbrIndicesWFGrid=[
+            numpy.flatnonzero( (self.gradOp.illuminatedCornersIdx//
+                  (self.gradOp.n_[1]*self.hwrWFMMblockReduction)) ==i)
+               for i in range(
+                    self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
+         # now, do it for for every DM mode
+         dmIdx=numpy.array(self.dmList[0].dmflag).ravel().nonzero()[0]
+         self.WFIMbrIndicesModes=[
+            numpy.flatnonzero( (dmIdx//
+                  (self.gradOp.n_[1]*self.hwrWFMMblockReduction))==i)
+               for i in range(
+                    self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
+
 
    def calcTakeRef(self):
       self.control["takeRef"]=0
@@ -209,8 +225,19 @@ class recon(tomoRecon.recon):
       self.pokingActNoLast+=1
 
       if pokenumber!=None:
+         if self.hwrWFMMblockReduction:
+            thisi=None
+            for i in xrange(int(self.gradOp.n_[0]//self.hwrWFMMblockReduction)):
+               # search through indices to find the right one
+               if pokenumber in self.WFIMbrIndicesWFGrid[i]:
+                  thisi=i
+                  continue
+            if type(thisi)==type(None):
+               print(pokenumber)
+               raise Exception("HWR: Block-reduction index location failed, too few defined blocks?")
+            validModes=self.WFIMbrIndicesModes[thisi]
          this_spmx_data=self.inputData/self.pokeval
-         calc= abbot.hwr.doHWRGeneral( this_spmx_data,
+         HWRcalc= abbot.hwr.doHWRGeneral( this_spmx_data,
                self.smmtnsDef,self.gradOp,self.offsetEstM,
                self.smmtnsDefStrts,self.smmtnsMap,
                doWaffleReduction=0, doPistonReduction=0,
@@ -223,7 +250,9 @@ class recon(tomoRecon.recon):
                   self.spmxIndptr.append( i )
 #??                        cmod.svd.sparseMatrixInsert(
 #??                              self.spmx, pokenumber,i, val )
-            for i,val in enumerate(calc):
+            for i,val in enumerate(HWRcalc):
+               if self.hwrWFMMblockReduction and (i not in validModes):
+                  continue
                self.WFIMData.append( val )
                self.WFIMRowind.append( pokenumber )
                self.WFIMIndptr.append( i )
@@ -231,7 +260,10 @@ class recon(tomoRecon.recon):
 #??                           self.WFIM, pokenumber,i, val )
          else:
             self.spmx[pokenumber]=this_spmx_data
-            self.WFIM[pokenumber]=calc
+            if self.hwrWFMMblockReduction:
+               self.WFIM[pokenumber][validModes]=HWRcalc[validModes]
+            else:
+               self.WFIM[pokenumber]=HWRcalc
 
    def calcCompletePoke(self):
       self.outputData[:,]=0.
@@ -260,41 +292,7 @@ class recon(tomoRecon.recon):
       if not self.computeControl:
          raise Exception("HWR: You must set the computeControl to true")
       print("HWR: Calculating wavefront-interaction matrix")
-      if self.hwrWFMMblockReduction:
-         # \/ create a block reduction mask
-         # algorithm is that the mask is the same shape as WFIM
-         # from the l
-         if self.hwrSparse:
-            raise Exception("HWR: Not supported")
-         else:
-            self.WFIMbr=numpy.zeros(
-                  (self.nmodes,self.gradOp.numberPhases),numpy.int32)
-            # first, do it for the wavefront grid
-            indicesWFGrid=[
-               numpy.flatnonzero( (self.gradOp.illuminatedCornersIdx//
-                     (self.gradOp.n_[1]*self.hwrWFMMblockReduction)) ==i)
-                  for i in range(
-                       self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
-            # now, do it for for every DM mode
-            dmIdx=numpy.array(self.dmList[0].dmflag).ravel().nonzero()[0]
-            indicesModes=[
-               numpy.flatnonzero( (dmIdx//
-                     (self.gradOp.n_[1]*self.hwrWFMMblockReduction))==i)
-                  for i in range(
-                       self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
-            for i in range(self.gradOp.n_[0]//self.hwrWFMMblockReduction):
-               #print(indicesModes[i],indicesWFGrid[i])
-               self.WFIMbr[indicesModes[i][0]:indicesModes[i][-1]+1,
-                           indicesWFGrid[i][0]:indicesWFGrid[i][-1]+1]=1
-               #self.WFIMbr[indicesModes[i]][:,indicesWFGrid[i]]=1
-            # Can assume that the first point on the diagonal (a well defined
-            # point) is 1, but it the last point (also well defined) zero?
-            # If it is, then something has failed and you should warn the user.
-            if self.WFIMbr[-1,-1]!=1:
-               print("HWR: non-fatal-ERROR, "+
-                     "block-reduction has not been well defined")
-            # now modify the wavefront-interaction matrix
-            self.WFIM*=self.WFIMbr
+            
       #
       # NOTA BENE:
       # The order of the WFIM matrix means that the transposes
