@@ -74,7 +74,7 @@ class AOXml:
     @cvar ignoreModule: Flag, whether module should be ignored (batch number mismatch)
     @type ignoreModule: Int
     """ 
-    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0):
+    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0,initDict=None):
         """Initialise a AO XML parser object.
         @param file: Filename
         @type  file: String
@@ -90,6 +90,7 @@ class AOXml:
         self.fileList=file
         self.filename=None
         self.batchno=batchno
+        self.initDict=initDict
         self.reset()
         for f in file:
             self.p = xml.parsers.expat.ParserCreate()
@@ -171,6 +172,10 @@ class AOXml:
         setattr(self.this,"batchno",self.batchno)
         setattr(self.this,"filename",self.filename)#parameter file name
         setattr(self.this,"ncpu",self.getCpus())
+        if self.initDict!=None:
+            setattr(self.this,"globals",This())
+            for key in self.initDict.keys():
+                setattr(self.this.globals,key,self.initDict[key])
         #self.thisBatch=This()
         self.whichElement=0#used if not current batch...
         self.inSchema=0

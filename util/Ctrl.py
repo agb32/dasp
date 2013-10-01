@@ -80,10 +80,11 @@ class Ctrl:
         self.slowMotion=0#whether to pause between each iteration (eg for viewing gfx)...
         nice=19
         self.paramString=None
+        self.initParamString=None
         sys.stdout=myStdout(self.rank)
 
         ## OPTION parsing (options from the command line):
-        optlist,arglist=getopt.gnu_getopt(sys.argv[1:],"hp",["batchno=","start-paused","param-file=","help","iterations=","id=","nonice","param=","nostdin","debug-connections","user="])
+        optlist,arglist=getopt.gnu_getopt(sys.argv[1:],"hp",["batchno=","start-paused","param-file=","help","iterations=","id=","nonice","param=","nostdin","debug-connections","user=","init="])
         for o, a in optlist:
             if o=="--displaythread":
                 sys.stdout.displayThread=1
@@ -123,6 +124,8 @@ class Ctrl:
                 self.simID=a
             if o=="--param":#optional commandline to change parameters.
                 self.paramString=a
+            if o=="--init":
+                self.initParamString=a
             if o in ["-h","--help"]:
                 print 'HELP:\nRun simulation with\n--batchno=xxx\n--start-paused\n--param-file=paramfile\n--iterations=niters\n--id=simulationID (string)\n--param="Text string, e.g. this.globals.nLayers=2, used to alter parameter file on the fly"\n--displaythread (to print thread identity with messages)\n--nostdin to stop listening to stdin\n-p Same as --start-paused\nfile.xml same as --param-file=paramfile\n--debug-connections to print mpiget/send messages\n--user=xxx for user specific options\n'
                 sys.exit(0)
@@ -143,14 +146,24 @@ class Ctrl:
         ## DEFAULT parameter file name?
         if len(self.paramfile)==0:
             self.paramfile=["params.xml"]
-
-        self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno)
+        initDict=None
+        if self.initParamString!=None:
+            d={"numpy":numpy}
+            initDict={}
+            exec self.initParamString in d,initDict
+        self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno,initDict=initDict)
         if self.paramString!=None:
             tmpDict={"this":self.config.this}
             print "Changes to parameter file:\n%s"%self.paramString
             exec self.paramString in tmpDict
             if self.simID=="":
-                self.simID=self.paramString
+                if self.initParamString!=None:
+                    self.simID=self.paramString+";"+self.initParamString
+                else:
+                    self.simID=self.paramString
+        if self.initParamString!=None and self.simID=="":
+            self.simID=self.initParamString
+
         self.config.this.simID=self.simID
         self.sockConn=util.SockConn.SockConn(self.config.getVal("testrunport",default=9000)+self.rank,globals=self.globals,startThread=1,listenSTDIN=self.listenSTDIN)
         os.nice(self.config.getVal("nice",default=nice))
@@ -178,8 +191,13 @@ class Ctrl:
     def __del__(self):
         
         print "Destroying Ctrl object at iteration %d: self.sockConn.endLoop, cmod.shmem.cleanUp"%self.thisiter
+        msg=""
         if self.paramString!=None:
-            print "Commandline parameter changes used for this simulation: %s"%self.paramString
+            msg="Commandline parameter changes used for this simulation: %s"%self.paramString
+        if self.initParamString!=None:
+            msg+=" And %s"%self.initParamString
+        if msg!="":
+            print msg
         try:
             self.sockConn.endLoop()
         except:
