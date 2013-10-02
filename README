@@ -527,9 +527,9 @@ Then do a python setup.py build for scipy.
 
 
 Oct 2012 (ubuntu):
-python-scientific
-mpichpython
-mpich2
+python-scientific 
+mpichpython 
+mpich2 
 purge mpich2
 openmpi-common
 openmpi-bin
@@ -545,8 +545,10 @@ If it doesn't print your python path, you may need to add it to /etc/environment
 
 So, in summary, require:
 sudo apt-get install python-scientific mpichpython mpich-bin
-Also need python-netcdf
-
+python-netcdf python-dev fftw3-dev
+libatlas-dev gsl-bin
+libatlas-base-dev
+python-scipy
 
 On fedora, need ScientificPython.
 Then sudo ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun 
@@ -558,6 +560,8 @@ On some fedora, you might get messages such as: librdmacm: Warning: couldn't rea
 This isn't fatal - just means it doesn't find infiniband interface.  Can suppress using 
 mpirun -np 2 -mca btl ^openib /usr/bin/mpipython -c "import Scientific.MPI,os;print Scientific.MPI.world.duplicate().rank,os.environ.get('PYTHONPATH','pop')"
 
+check have all of:
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/openmpi/lib/:/usr/lib64/atlas/:/opt/acml5.3.0/gfortran64_mp/lib
 
 
 Also:
@@ -565,6 +569,21 @@ gsl-devel
 fftw3-devel
 atlas-devel
 scipy
+
+RHEL6: (atlas-devel not found)
+Also openblas-devel  (for cblas.h - yum provides */cblas.h)
+export C_INCLUDE_PATH=/usr/include/openblas/
+ln -s libcblas.so.3 libcblas.so
+ln -s libatlas.so.3 libatlas.so
+
+
+
+acml-5.3.0.  
+
+ssh keys - so can log into self.
+
+Makesure /usr/local/bin/mpipython exists (not strictly necessary but
+some of my scripts use it).  Soft link from /usr/bin/mpipython.
 
 
 Hamilton:
