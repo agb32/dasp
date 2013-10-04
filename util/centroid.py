@@ -98,7 +98,7 @@ class centroid:
                  tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,
                  opticalBinning=0,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,
                  stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,
-                 corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
+                 corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0,printLinearisationForcing=0):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -214,6 +214,7 @@ class centroid:
         self.noiseFloor=noiseFloor
         self.usecmod=usecmod#should we use the cmodule version?
         self.subtractTipTilt=subtractTipTilt
+        self.printLinearisationForcing=printLinearisationForcing
         self.phasesize_v=self.phasesize#if using cell, this gets increased to a vectorised version (see below).
         if type(self.pupfn)!=type(None) and oversamplefactor!=None:
             self.subarea=numpy.ones((nsubx,nsubx),numpy.float64)
@@ -1555,20 +1556,35 @@ class centroid:
                 self.calibrateBounds[1,i,j,0]=numpy.argmin(self.calibrateData[1,i,j])
                 self.calibrateBounds[1,i,j,1]=numpy.argmax(self.calibrateData[1,i,j])
         #Also need to check that the calibrateData[:,:,:,i] is increasing always - otherwise the interpolation won't work.  What should we do if its not increasing???
+        linearPointsForced=0
+        maxShift=0
         if self.calNCoeff==0:
             for i in range(self.nsubx):
                 for j in range(self.nsubx):
                     for k in range(self.calibrateBounds[0,i,j,0],self.calibrateBounds[0,i,j,1]):
                         if self.calibrateData[0,i,j,k]>self.calibrateData[0,i,j,k+1]:
                             val=(self.calibrateData[0,i,j,k-1]+self.calibrateData[0,i,j,k+1])/2.
-                            print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
+                            if self.printLinearisationForcing:
+                                print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
+                            #and save for a summary at the end.
+                            linearPointsForced+=1
+                            shift=abs(self.calibrateData[0,i,j,k]-val)
+                            if shift>maxShift:
+                                maxShift=shift
                             self.calibrateData[0,i,j,k]=val
                     for k in range(self.calibrateBounds[1,i,j,0],self.calibrateBounds[1,i,j,1]):
                         if self.calibrateData[1,i,j,k]>self.calibrateData[1,i,j,k+1]:
                             val=(self.calibrateData[1,i,j,k-1]+self.calibrateData[1,i,j,k+1])/2.
-                            print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
+                            if self.printLinearisationForcing:
+                                print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
+                            #and save for a summary at the end.
+                            linearPointsForced+=1
+                            shift=abs(self.calibrateData[0,i,j,k]-val)
+                            if shift>maxShift:
+                                maxShift=shift
+
                             self.calibrateData[1,i,j,k]=val
-        print "Finished calibrating centroids"
+        print "Finished calibrating centroids: Forced %d, max shift %g"%(linearPointsForced,maxShift)
 
     def applyCalibrationUnique(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.
