@@ -93,13 +93,16 @@ class MultiGauss:
 
 
 
-def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=None,lam=640e-9,telDiam=42.,telSec=None,beacon_alt=90000.,beacon_depth=10000.,zenith=0.,photons=1e6,unelong_width=1.,fname=None,launchDist=0.,launchTheta=0.,xoff=0.,yoff=0.):
+def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=None,lam=640e-9,telDiam=42.,telSec=None,beacon_alt=90000.,beacon_depth=10000.,zenith=0.,photons=1e6,unelong_width=1.,fname=None,launchDist=0.,launchTheta=0.,xoff=0.,yoff=0.,pup=None):
     """
     unelong_width in arcsec is the unelongated spot width.
     zenith is in degrees.
     For a scaled model, scale nsubx, telDiam, beacon_alt and beacon_depth.
-    launchDist(m) and launchTheta(deg, anti clockwise from 12 oclock(!)) specify the position of the launch telescope.  If launchDist==0, this is onaxis launch.
+    launchDist(m) and launchTheta(deg, anti clockwise from 3 oclock(!)) specify the position of the launch telescope.  If launchDist==0, this is onaxis launch.
+    Was anticlock from 12 oclock - changed 2013/10/11 to standard position (3).
+
     """
+    launchTheta-=90#move from 12 oclock to 3 oclock
     if wfs_nfft==None:
         wfs_nfft=wfs_n*2
     if wfs_nimg==None:
@@ -112,7 +115,12 @@ def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=Non
     pixscale=util.calcPxlScale.pxlScale(lam,float(telDiam)/nsubx,wfs_n,wfs_nfft,clipsize/wfs_nimg)/binfactor#0.05 #.1   #arcsec
     #We want the pixel scale of the spots as generated, not after use.  Hence, the division by binfactor here.
     print "pixscale: %g arcsec/pxl during fft, or %g arcsec/pxl on CCD."%(pixscale,pixscale*binfactor)
-    pup=util.tel.Pupil(nsubx*spotsize,nsubx*spotsize/2,nsubx*spotsize/2*telSec/telDiam).fn
+    if pup==None:
+        print "Generating pupil function for elongated spot intensities"
+        pup=util.tel.Pupil(nsubx*spotsize,nsubx*spotsize/2,nsubx*spotsize/2*telSec/telDiam).fn
+    else:
+        if hasattr(pup,"fn"):
+            pup=pup.fn
     gauss=Gauss(spotsize,xoff=xoff,yoff=yoff)
     # test=gauss.make(unelong_width/pixscale,10.,45.)
     # print test,numpy.isnan(test),numpy.any(numpy.isnan(test))

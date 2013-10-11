@@ -26,6 +26,12 @@ def spotMotionRMS(lam,r0,d,r0IsAt500nm=1):
 http://www.astrosurf.com/cavadore/optique/turbulence/
 
 r0 defines observed seeing:  seeing = 251*lambda/r0 with lambda in um, r0 in mm.
+In arcsecs.
 
-Or, 0.251*lambda/r0 with lambda in nm, r0 in cm.
+
+Or, 0.0251*lambda/r0 with lambda in nm, r0 in cm.
+
+eg:
+0.251 * 500 / 12.9   = .97 arcsec seeing.
+
 """
