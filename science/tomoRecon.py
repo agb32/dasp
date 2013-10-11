@@ -968,6 +968,7 @@ class recon(base.aobase.aobase):
                 if data.shape[0]==self.reconmx.shape[0]:
                     tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
                 else:
+                    print self.reconmx.shape,data.shape
                     tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
             elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or \
             (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and \
