@@ -317,7 +317,7 @@ echo "id:2:initdefault" > /etc/inittab
 rm /etc/rc2.d/S30gdm
 echo "umask 0011" >> /etc/bash.bashrc
 
-Other things:
+Other things:  Also see README.
 on fedora:  yum install atlas-devel
 
 on ubuntu libatlas-dev libatlas-base-dev

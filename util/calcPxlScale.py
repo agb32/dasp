@@ -20,3 +20,18 @@ def spotMotionRMS(lam,r0,d,r0IsAt500nm=1):
         r0*=(lam/500e-9)**(6./5)
         print "Scaling r0 from 500nm to %gnm gives %g"%(lam*1e9,r0)
     return numpy.sqrt(0.162*lam**2*r0**(-5./3)*d**(-1./3)*(3600*180/numpy.pi)**2)
+
+"""Seeing/seeing and turbulence:
+
+http://www.astrosurf.com/cavadore/optique/turbulence/
+
+r0 defines observed seeing:  seeing = 251*lambda/r0 with lambda in um, r0 in mm.
+In arcsecs.
+
+
+Or, 0.0251*lambda/r0 with lambda in nm, r0 in cm.
+
+eg:
+0.251 * 500 / 12.9   = .97 arcsec seeing.
+
+"""

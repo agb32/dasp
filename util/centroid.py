@@ -80,9 +80,15 @@ class centroid:
     (memory and FPGA shared by more than one wfscent algorithm calculator).
 
     To use on the command line, you need:
-    c=util.centroid.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)
+    c=util.centroid.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)#addPoisson=0,sig=1.
     c.easy()
     c.runCalc({"cal_source":0})
+    c.outputData is the slopes
+    c.cmodbimg is the wfs image (divided into subaps).
+    Then, put your data into self.reorderedPhs... 
+    c.reformatImg() can be used to get a displayable image.
+    If you have a 2D phase map, you can put this into reorderdPhs by calling:
+    c.reformatPhs(phs)
 
     """
     #def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
@@ -92,7 +98,7 @@ class centroid:
                  tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,
                  opticalBinning=0,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,
                  stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,
-                 corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
+                 corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0,printLinearisationForcing=0):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -208,6 +214,7 @@ class centroid:
         self.noiseFloor=noiseFloor
         self.usecmod=usecmod#should we use the cmodule version?
         self.subtractTipTilt=subtractTipTilt
+        self.printLinearisationForcing=printLinearisationForcing
         self.phasesize_v=self.phasesize#if using cell, this gets increased to a vectorised version (see below).
         if type(self.pupfn)!=type(None) and oversamplefactor!=None:
             self.subarea=numpy.ones((nsubx,nsubx),numpy.float64)
@@ -268,7 +275,7 @@ class centroid:
         for i in xrange(self.nsubx):        
             for j in xrange(self.nsubx):
                 self.subarea[i,j]=pfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()    # Get pupil fn over subaps
-                if(self.subarea[i,j]>(self.wfs_minarea*n*n)):# Flag vignetted subaps 
+                if(self.subarea[i,j]>=(self.wfs_minarea*n*n)):# Flag vignetted subaps Changed to >= by agb 28th Jun 2013 (to match util.tel).
                     self.subflag[i,j]=1
                     indices.append((i*self.nsubx+j)*2)
                     indices.append((i*self.nsubx+j)*2+1)
@@ -287,6 +294,32 @@ class centroid:
         self.outputData[:]=0
         #Then, put your data into self.reorderedPhs... 
         #Now, can use self.runCalc({'cal_source':0/1})
+
+    def reformatImg(self,indata=None,out=None):
+        if indata==None:
+            indata=self.cmodbimg
+        if out==None:
+            out=numpy.zeros((indata.shape[0]*indata.shape[2],indata.shape[1]*indata.shape[3]),numpy.float32)
+        nsubx=indata.shape[0]
+        nimg=indata.shape[2]
+        for i in xrange(nsubx):
+            for j in xrange(nsubx):
+                out[i*nimg:(i+1)*nimg,j*nimg:(j+1)*nimg]=indata[i,j]
+        return out
+
+    def reformatPhs(self,indata,out=None):
+        if out==None:
+            out=self.reorderedPhs
+        nsubx=out.shape[0]
+        n=out.shape[-1]
+        sh=out.shape
+        out.shape=nsubx,nsubx,n,n
+        for i in range(nsubx):
+            for j in range(nsubx):
+                out[i,j]=indata[i*n:i*n+n,j*n:j*n+n]
+        out.shape=sh
+        return out
+            
 
 #    def initMem(self,useFPGA,fpgaarr=None,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None,useCell=0):
     def initMem(self,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None):
@@ -1523,20 +1556,35 @@ class centroid:
                 self.calibrateBounds[1,i,j,0]=numpy.argmin(self.calibrateData[1,i,j])
                 self.calibrateBounds[1,i,j,1]=numpy.argmax(self.calibrateData[1,i,j])
         #Also need to check that the calibrateData[:,:,:,i] is increasing always - otherwise the interpolation won't work.  What should we do if its not increasing???
+        linearPointsForced=0
+        maxShift=0
         if self.calNCoeff==0:
             for i in range(self.nsubx):
                 for j in range(self.nsubx):
                     for k in range(self.calibrateBounds[0,i,j,0],self.calibrateBounds[0,i,j,1]):
                         if self.calibrateData[0,i,j,k]>self.calibrateData[0,i,j,k+1]:
                             val=(self.calibrateData[0,i,j,k-1]+self.calibrateData[0,i,j,k+1])/2.
-                            print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
+                            if self.printLinearisationForcing:
+                                print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
+                            #and save for a summary at the end.
+                            linearPointsForced+=1
+                            shift=abs(self.calibrateData[0,i,j,k]-val)
+                            if shift>maxShift:
+                                maxShift=shift
                             self.calibrateData[0,i,j,k]=val
                     for k in range(self.calibrateBounds[1,i,j,0],self.calibrateBounds[1,i,j,1]):
                         if self.calibrateData[1,i,j,k]>self.calibrateData[1,i,j,k+1]:
                             val=(self.calibrateData[1,i,j,k-1]+self.calibrateData[1,i,j,k+1])/2.
-                            print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
+                            if self.printLinearisationForcing:
+                                print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
+                            #and save for a summary at the end.
+                            linearPointsForced+=1
+                            shift=abs(self.calibrateData[0,i,j,k]-val)
+                            if shift>maxShift:
+                                maxShift=shift
+
                             self.calibrateData[1,i,j,k]=val
-        print "Finished calibrating centroids"
+        print "Finished calibrating centroids: Forced %d, max shift %g"%(linearPointsForced,maxShift)
 
     def applyCalibrationUnique(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.

@@ -327,7 +327,7 @@ def loadcsc(filename,doByteSwap=1):
         mx=scipy.sparse.csc_matrix((numpy.array(f[1],copy=0),numpy.array(f[3],copy=0).view(numpy.uint32),numpy.array(f[5],copy=0).view(numpy.uint32)),eval(f[0]["parsed"]["SHAPE"]))
     return mx
 
-def saveSparse(sp,filename,hdr=None,doByteSwap=1):
+def saveSparse(sp,filename,writeMode="w",hdr=None,doByteSwap=1):
     """Save a sparse matrix - csc or csr."""
     if type(hdr)==type(""):
         hdr=[hdr]
@@ -335,11 +335,21 @@ def saveSparse(sp,filename,hdr=None,doByteSwap=1):
         hdr=[]
     hdr.append("SHAPE   = %s"%str(sp.shape))
     hdr.append("FORMAT  = '%s'"%sp.format)
-    Write(sp.data[:sp.indptr[-1]],filename,extraHeader=hdr,doByteSwap=doByteSwap)
+    Write(sp.data[:sp.indptr[-1]],filename,writeMode=writeMode,extraHeader=hdr,doByteSwap=doByteSwap)
     if sp.format=="csr":
-        ind=sp.colind[:sp.indptr[-1]]
+      if hasattr(sp,'colind'):
+         hdr.append("MODERN  = 0")
+         ind=sp.colind[:sp.indptr[-1]]
+      else:
+         hdr.append("MODERN  = 1")
+         ind=sp.indices
     elif sp.format=="csc":
-        ind=sp.rowind[:sp.indptr[-1]]
+      if hasattr(sp,'rowind'):
+         hdr.append("MODERN  = 0")
+         ind=sp.rowind[:sp.indptr[-1]]
+      else:
+         hdr.append("MODERN  = 1")
+         ind=sp.indices
     else:
         raise Exception("Sparse matrix type not yet implemented")
     Write(ind.view(numpy.int32),filename,writeMode="a",doByteSwap=doByteSwap)
@@ -351,14 +361,20 @@ def loadSparse(filename,doByteSwap=1):
     if len(f)==2:
         print "WARNING - loadSparse - %s is not a sparse matrix"%filename
         mx=f[1]
-    elif len(f)==6 and len(f[1].shape)==1:
+    elif len(f)==7 and len(f[1].shape)==1:
         import scipy.sparse
         if f[0]["parsed"].has_key("FORMAT"):
             fmt=f[0]["parsed"]["FORMAT"]
         else:
             print "Warning - loadSparse %s - assuming csc"%filename
             fmt="csc"
-        print "Format is %s"%fmt
+        if f[0]["parsed"].has_key("MODERN"):
+            modern=int(f[0]["parsed"]["MODERN"])
+        else:
+            print("Warning - loadSparse %s - assuming not modern type"%filename)
+            modern=0
+        print("Format is %s %s" %
+              (fmt, (modern)*"modern scipy"+(~modern)*"unmodern or old scipy"))
         shape=eval(f[0]["parsed"]["SHAPE"])
         indptr=f[5].view(numpy.uint32)
         if fmt=="csc":

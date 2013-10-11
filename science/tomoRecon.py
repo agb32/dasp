@@ -123,6 +123,8 @@ class recon(base.aobase.aobase):
             self.reconType=self.config.getVal("recontype",default="pcg")
             supportedReconTypes = ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","SVD",
                                    "MAP","pinv","reg","regSmall","regBig","regularised","dicure"]
+            if "newReconType" in dir():
+               supportReconTypes.append( newReconType )
             # check if the recontype given in the parameter file is valid:
             if self.reconType not in supportedReconTypes:
                 raise ValueError("tomoRecon: recontype must be one of:", supportedReconTypes)
@@ -753,10 +755,10 @@ class recon(base.aobase.aobase):
                     for i in range(len(self.dmList)):#find out which DM we're poking now and get the actuators for it.
                         if mode<self.nLowOrderModalModes[i]:
                             #this mode in this DM...
-                            print self.outputData.shape
-                            print self.nactsCumList
-                            print i
-                            print mode
+                            #print self.outputData.shape
+                            #print self.nactsCumList
+                            #print i
+                            #print mode
                             if self.modalActuatorList[i]!=None:
                                 print self.modalActuatorList[i].shape
                                 try:

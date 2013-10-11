@@ -73,7 +73,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         @param r2: Radius of secondary mirror in Pixels
         @type r2: Int
         @param spider: Definition of spiders.
-        @type spider: Tuple of (narms, thickness/degrees) or (narms, thickness/pixels,offset) or "elt" (not recommended)
+        @type spider: Tuple of (narms, thickness/degrees) or (narms, half-thickness/pixels,offset) or "elt" (not recommended)
         @param hexDiam: If >0, will use hexagons for primary mirror segments.  The diameter (in pixels) of hexagon from point to point (not side to side).
         @type pupType: float.
         @param hexAreaInner: Minarea of vignetted hex mirror segments by obscuration
@@ -101,6 +101,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
             r1=npup/2
         self.r1=r1
         self.r2=r2
+        self.spider=spider
         self.nsubx=nsubx
         self.minarea=minarea
         self.hexAreaInner=hexAreaInner
@@ -274,6 +275,117 @@ class Pupil(user_array.container):#UserArray.UserArray):
         #self.puptmp+=pup
         return pup
 
+
+    def writeZemaxPupil(self,telDiam,fout=None,fullSpider=0):
+        """Writes a zemax uda file (user defined aperture)
+        Currently, not general - will only write the E-ELT pupil 39m.
+
+        """
+        #r is computed from E-TRE-ESO-313-1000_2-63709.pdf
+        #using the central obscuration smallest diameter... (and some trig)
+        r=9.417/13.*numpy.cos(numpy.arctan(numpy.sqrt(3)/13))
+        sx=1.5*r
+        sy=r*numpy.sqrt(3)
+        d=r*2
+        coords=[]
+        for i in range(9):
+            #rhs.  Centre of these is at 17 hexes across.
+            coords.append((17*sx+r,(i-4.5)*sy))
+            coords.append((17*sx+r*numpy.sin(30*numpy.pi/180),(i-4)*sy))
+        for i in range(4):
+            #2nd section...Starts at 17*sr+r, 4.5*sy
+            coords.append(((17-i)*sx+r,(4.5+1.5*i)*sy))
+            coords.append(((17-i)*sx+r*numpy.sin(30*numpy.pi/180),(5+1.5*i)*sy))
+            coords.append(((17-i)*sx+r-r-r*numpy.cos(60*numpy.pi/180),(5+1.5*i)*sy))
+            coords.append(((17-i)*sx+r-r-r*numpy.cos(60*numpy.pi/180)-r*numpy.sin(30*numpy.pi/180),(5+1.5*i)*sy+r*numpy.cos(30*numpy.pi/180)))
+        i=4
+        coords.append(((17-i)*sx+r,(4.5+1.5*i)*sy))
+            
+        c1=numpy.array(coords)
+        c2=numpy.zeros((c1.shape[0]*6,2),c1.dtype)
+        rmat=numpy.zeros((2,2),numpy.float64)
+        for i in range(6):
+            rmat[0,0]=numpy.cos(i*60*numpy.pi/180)
+            rmat[0,1]=numpy.sin(i*60*numpy.pi/180)
+            rmat[1,0]=-numpy.sin(i*60*numpy.pi/180)
+            rmat[1,1]=numpy.cos(i*60*numpy.pi/180)
+            c2[i*c1.shape[0]:(i+1)*c1.shape[0]]=numpy.dot(c1,rmat)
+        
+        #and now the central obs.
+        coords=[]
+        for i in range(4):
+            coords.append((4*sx+r,(i-2)*sy))
+            coords.append((4*sx+r*numpy.sin(30*numpy.pi/180),(i-1.5)*sy))
+        i=4
+        coords.append((4*sx+r,(i-2)*sy))
+        c1=numpy.array(coords)
+        c3=numpy.zeros((c1.shape[0]*6,2),c1.dtype)
+        for i in range(6):
+            rmat[0,0]=numpy.cos(i*60*numpy.pi/180)
+            rmat[0,1]=numpy.sin(i*60*numpy.pi/180)
+            rmat[1,0]=-numpy.sin(i*60*numpy.pi/180)
+            rmat[1,1]=numpy.cos(i*60*numpy.pi/180)
+            c3[i*c1.shape[0]:(i+1)*c1.shape[0]]=numpy.dot(c1,rmat)
+        
+        #and the spiders - note, these can't go to zero because of zemax limitations.
+        c4=None
+        if len(self.spider)==3:
+            
+            #narm, thickness, offset.
+            #Need to define it as triangles (or segments).
+            #Do it for one segment, then rotate to get all.
+            #On a unit circle first, then scale later.
+            narm,thickness,offset=self.spider#actually, half thickness.
+            sep=360./narm
+            r=telDiam*0.6
+            thickness*=telDiam/self.npup
+            x0=y0=0.
+            x1=r*numpy.cos(offset*numpy.pi/180)
+            y1=r*numpy.sin(offset*numpy.pi/180)
+            x2=r*numpy.cos((offset+sep)*numpy.pi/180)
+            y2=r*numpy.sin((offset+sep)*numpy.pi/180)
+            #Now reduce by thickness.
+            #Special case for the central one...
+            c=numpy.cos
+            s=numpy.sin
+            a=offset*numpy.pi/180.
+            x0,y0=numpy.dot([[c(a),-s(a)],[s(a),c(a)]],[thickness/numpy.tan(sep/2*numpy.pi/180),thickness])
+            #and the others...
+            x1-=thickness*s(a)
+            y1+=thickness*c(a)
+            x2+=thickness*c(numpy.pi/2-a-sep*numpy.pi/180)
+            y2-=thickness*s(numpy.pi/2-a-sep*numpy.pi/180)
+            c1=numpy.array([[x0,y0],[x1,y1],[x2,y2]])
+            if fullSpider:
+                c1=numpy.concatenate([c1,[[x0,y0]]])
+            c4=numpy.zeros((c1.shape[0]*narm,2),c1.dtype)
+            for i in range(narm):
+                rmat[0,0]=numpy.cos(i*sep*numpy.pi/180)
+                rmat[0,1]=numpy.sin(i*sep*numpy.pi/180)
+                rmat[1,0]=-numpy.sin(i*sep*numpy.pi/180)
+                rmat[1,1]=numpy.cos(i*sep*numpy.pi/180)
+                c4[i*c1.shape[0]:(i+1)*c1.shape[0]]=numpy.dot(c1,rmat)
+        if fout!=None:
+            if fout[-4:]!=".uda":
+                fout+=".uda"
+            fd=open(fout[:-4]+"pupil.uda","w")
+            for i in range(c2.shape[0]):
+                fd.write("LIN %g, %g\n"%(c2[i,0],c2[i,1]))
+            fd.write("BRK\n")
+            for i in range(c3.shape[0]):
+                fd.write("LIN %g, %g\n"%(c3[i,0],c3[i,1]))
+            fd.write("BRK\n")
+            fd.close()
+            if c4!=None:
+                fd=open(fout[:-4]+"spider.uda","w")
+                for i in range(c4.shape[0]):
+                    if fullSpider==0 or i%4!=3:
+                        fd.write("LIN %g, %g\n"%(c4[i,0],c4[i,1]))
+                    if i%(3+fullSpider)==2+fullSpider:
+                        fd.write("BRK\n")
+                fd.close()
+        return c2,c3,c4
+            
 
     def makeHexGridGeometric(self):
         """Computes a pupil function for a primary made of hexagons.  If these are vignetted by more than hexAreaInner or hexAreaOuter, they are not used.

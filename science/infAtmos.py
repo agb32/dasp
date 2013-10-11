@@ -281,7 +281,7 @@ class infAtmos(base.aobase.aobase):
                         self.dataValid=1
                         self.makeLayers()#this is the first of resource sharers
                     elif nvalid>0:
-                        print "ERROR: infAtmos - received wrong number of phase screens"
+                        print "ERROR: infAtmos - received wrong number (%d/%d) of phase screens"%(self.nvalid,self.nLayers)
                         self.dataValid=0
                     else:
                         print "infAtmos: Waiting for data from infScrn, but not valid"
