@@ -101,6 +101,7 @@ class science:
         self.longExpImg=numpy.zeros((nimg,nimg),self.fpDataType)# Long exposure image array (cannot be shared)
         self.luckyImg=None
         self.luckyCnt=0
+        self.luckyHistoryKeys={}
         self.luckyNSampFrames=luckyNSampFrames#Note, every sciPSFSamp (which defaults to 1, not scinsamp) frames, the lucky image will be integrated, until this has been done luckyNSampFrames, at which point results are calculated and the luckyImg zeroed.
         self.luckyDict={}
         self.luckyHistory=None
