@@ -16,23 +16,19 @@
 # where neccessary.
 
 
-import os.path
-import numpy
+import abbot
+import abbot.hwr
 import base.aobase
+import numpy
+import os.path
+import Scientific.MPI
+import scipy.sparse
+import scipy.linalg
+from scipy.sparse.linalg import cg as spcg
+import sys
+import time
 import tomoRecon
 import util.FITS
-import cmod.svd
-#?? import cmod.utils
-#?? import util.dot as quick
-
-import scipy.sparse,scipy.linalg
-from scipy.sparse.linalg import cg as spcg
-#?? import util.spmatrix
-import time,types
-import Scientific.MPI
-
-import util.gradientOperator
-import abbot.hwr
 
 
 class recon(tomoRecon.recon):
@@ -59,6 +55,10 @@ class recon(tomoRecon.recon):
             default=False,raiseerror=0)
       self.hwrArchive=self.config.getVal( "hwrArchive",
             default=False,raiseerror=0)
+      self.hwrLoadPrevious=self.config.getVal( "hwrLoadPrevious",
+            default=0,raiseerror=0)
+      self.hwrRecomputeWFIMandWFMM=self.config.getVal(
+            "hwrRecomputeWFIMandWFMM", default=0,raiseerror=0)
       self.hwrWFIMfname=self.config.getVal( "hwrWFIMfname",
             default="hwrWFIM.fits", raiseerror=0 )
       self.hwrWFMMrcon=self.config.getVal( "hwrWFMMrcon",
@@ -75,15 +75,16 @@ class recon(tomoRecon.recon):
       
          # \/ Run a few checks to make sure we're in a supported configuration
       if len(self.dmList)!=1:
-         raise Exception("HWR: Can only support one DM")
+         raise Exception("ERROR: HWR: Can only support one DM")
       for dm in self.dmList:
-         if not dm.zonalDM: raise Exception("HWR: Can only support zonal DMs")
+         if not dm.zonalDM:
+            raise Exception("ERROR: HWR: Can only support zonal DMs")
       if len(self.ngsList)!=1:
-         raise Exception("HWR: Can only support one NGS")
+         raise Exception("ERROR: HWR: Can only support one NGS")
       if len(self.lgsList)!=0:
-         raise Exception("HWR: Cannot support any LGS")
+         raise Exception("ERROR: HWR: Cannot support any LGS")
       if self.hwrSparse:
-         print("HWR: Forcing sparsePmxType to become csr")
+         print("INFORMATION: HWR: Forcing sparsePmxType to become csr")
          self.sparsePmxType="csr"
          self.ndata=int(
             self.config.getVal("spmxNdata",default=self.nmodes*self.ncents*0.1))
@@ -104,7 +105,8 @@ class recon(tomoRecon.recon):
 #??      self.gradOp=abbot.gradientOperator.gradientOperatorType1(
 #??            pupilMask=DMactMap )
       self.gradM=self.gradOp.returnOp().T # *** DEBUG ***
-      print("HWR: gradM shape is [{0[0]:d},{0[1]:d}]".format(self.gradM.shape))
+      print("INFORMATION: HWR: gradM shape is [{0[0]:d},{0[1]:d}]".format(
+            self.gradM.shape))
       self.smmtnsDef,self.smmtnsDefStrts,self.smmtnsMap,self.offsetEstM=\
             abbot.hwr.prepHWR( self.gradOp,
                self.hwrMaxLen,
@@ -136,6 +138,35 @@ class recon(tomoRecon.recon):
       self.control["close_dm"]=0
       self.takingRef=1
 
+   def calcLoadPreviousData(self):
+      try:
+         if self.hwrSparse:
+            self.spmx=util.FITS.loadSparse(self.pmxFilename)
+            self.WFIM=util.FITS.loadSparse(self.hwrWFIMfname)
+            self.WFMM=( util.FITS.loadSparse(self.hwrWFMMfname,0),
+                        util.FITS.loadSparse(self.hwrWFMMfname,1), )
+            if (self.WFMM[0].shape!=(self.nmodes,self.nmodes) or
+                  self.WFMM[1].shape!=(self.nmodes,self.nmodes)):
+               raise ValueError("Wrong shapes of WFMM (sparse)")
+         else:
+            self.spmx=util.FITS.Read(self.pmxFilename)[1]
+            self.WFIM=util.FITS.Read(self.hwrWFIMfname)[1]
+            self.WFMM=util.FITS.Read(self.hwrWFMMfname)[1]
+            if self.WFMM.shape!=(self.nmodes,self.nmodes):
+               raise ValueError("Wrong shape of WFMM (dense)")
+         # now check other loaded matrices for shape
+         if (self.spmx.shape!=(self.nmodes,self.ncents) or
+               self.WFIM.shape!=(self.nmodes,self.nmodes)):
+            raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
+         return True
+      except:
+         print("WARNING: HWR: Failure to load previous data,")
+         print("WARNING: HWR:  sys.exc_info()[0]={0:s}".format(
+               str(sys.exc_info()[0])) )
+         print("WARNING: HWR:  sys.exc_info()[1]={0:s}".format(
+               str(sys.exc_info()[1])) )
+         return False
+
    def calcPrepareForPoke(self):
       self.control["poke"]=0
       self.pokeStartClock=time.clock()
@@ -150,36 +181,20 @@ class recon(tomoRecon.recon):
       if dm.pokeSpacing!=None:
           self.pokeActMap=numpy.zeros((dm.nact,dm.nact),numpy.int32)
       if not self.hwrSparse:
-          print("HWR: Dense pmx, type={0:s}, [{1:d},{2:d}],[{3:d},{4:d}]".format(
-               str(self.reconDtype),self.nmodes,
-               self.gradOp.numberPhases,self.ncents,
-               self.gradOp.numberSubaps*2))
+          print("INFORMATION: HWR: Dense pmx, type={0:s}, "+
+               "[{1:d},{2:d}],[{3:d},{4:d}]".format(
+                  str(self.reconDtype),self.nmodes,
+                  self.gradOp.numberPhases,self.ncents,
+                  self.gradOp.numberSubaps*2))
           self.spmx=numpy.zeros(
                (self.nmodes,self.ncents),numpy.float64)
-          self.WFIM=numpy.zeros(
-               (self.nmodes,self.gradOp.numberPhases),numpy.float64)
       else: 
-          print("HWR: Sparse poke matrix, forcing csc")
-#??                self.spmxData=numpy.zeros((self.ndata,),numpy.float32)
-#??                self.spmxRowind=numpy.zeros((self.ndata,),numpy.int32)
-#??                self.spmxIndptr=numpy.zeros((self.ncents+1,),numpy.int32)
+          print("INFORMATION: HWR: Sparse poke matrix, forcing csc")
           self.spmxData=[]
           self.spmxRowind=[]
           self.spmxIndptr=[]
-#??                self.spmx=cmod.svd.sparseMatrixCreate(
-#??                     self.ndata,self.nmodes,self.ncents,
-#??                     self.spmxData,self.spmxRowind,self.spmxIndptr)
-#??                self.WFIMData=numpy.zeros((self.ndata,),numpy.float32)
-#??                self.WFIMRowind=numpy.zeros((self.ndata,),numpy.int32)
-#??                self.WFIMIndptr=numpy.zeros((self.gradOp.numberPhases+1,),
-#??                     numpy.int32)
-          self.WFIMData=[]
-          self.WFIMRowind=[]
-          self.WFIMIndptr=[]
-#??                self.WFIM=cmod.svd.sparseMatrixCreate(
-#??                     self.ndata,self.nmodes,self.gradOp.numberPhases,
-#??                     self.WFIMData,self.WFIMRowind,self.WFIMIndptr)
-      print("HWR: Poking for {0:d} iterations".format(self.npokes+1))
+      print("INFORMATION: HWR: Poking for {0:d} iterations".format(
+            self.npokes+1))
 
    def calcSetPoke(self):
       if self.dmModeType=="poke":
@@ -188,7 +203,7 @@ class recon(tomoRecon.recon):
               dm=self.dmList[0]
               if dm.pokeSpacing!=None:
                   # poking several actuators at once
-                  raise Exception("HWR: Not supported")
+                  raise Exception("ERROR: HWR: Not supported")
    #!!!                        self.pokeActMap[:]=0
    #!!!                        for i in range(self.pokingActNo/dm.pokeSpacing,
    #!!!                              dm.nact,dm.pokeSpacing):
@@ -215,7 +230,7 @@ class recon(tomoRecon.recon):
       dm=self.dmList[0]
       if dm.pokeSpacing!=None:
          # poking several actuators at once
-         raise Exception("HWR: Not supported")
+         raise Exception("ERROR: HWR: Not supported")
 #!!!               pokenumber=None
 #!!!               #Decide which actuator has produced which centroid values (if any), and then fill the poke matrix.
 #!!!               self.fillPokemx(dm,self.pokingDMNoLast)
@@ -225,74 +240,121 @@ class recon(tomoRecon.recon):
       self.pokingActNoLast+=1
 
       if pokenumber!=None:
-         if self.hwrWFMMblockReduction:
-            thisi=None
-            for i in xrange(int(self.gradOp.n_[0]//self.hwrWFMMblockReduction)):
-               # search through indices to find the right one
-               if pokenumber in self.WFIMbrIndicesWFGrid[i]:
-                  thisi=i
-                  continue
-            if type(thisi)==type(None):
-               print(pokenumber)
-               raise Exception("HWR: Block-reduction index location failed, too few defined blocks?")
-            validModes=self.WFIMbrIndicesModes[thisi]
          this_spmx_data=self.inputData/self.pokeval
-         HWRcalc= abbot.hwr.doHWRGeneral( this_spmx_data,
-               self.smmtnsDef,self.gradOp,self.offsetEstM,
-               self.smmtnsDefStrts,self.smmtnsMap,
-               doWaffleReduction=0, doPistonReduction=0,
-               sparse=self.hwrSparse )[1]
          if self.hwrSparse:
             for i,val in enumerate(this_spmx_data):
                if numpy.fabs(val)>self.pokeIgnore:
                   self.spmxData.append( val )
                   self.spmxRowind.append( pokenumber )
                   self.spmxIndptr.append( i )
-#??                        cmod.svd.sparseMatrixInsert(
-#??                              self.spmx, pokenumber,i, val )
-            for i,val in enumerate(HWRcalc):
-               if self.hwrWFMMblockReduction and (i not in validModes):
-                  continue
-               self.WFIMData.append( val )
-               self.WFIMRowind.append( pokenumber )
-               self.WFIMIndptr.append( i )
-#??                     cmod.svd.sparseMatrixInsert(
-#??                           self.WFIM, pokenumber,i, val )
          else:
             self.spmx[pokenumber]=this_spmx_data
-            if self.hwrWFMMblockReduction:
-               self.WFIM[pokenumber][validModes]=HWRcalc[validModes]
-            else:
-               self.WFIM[pokenumber]=HWRcalc
 
    def calcCompletePoke(self):
+      if self.hwrVerbose:
+         print("INFORMATION, verbose: HWR: Poking took: "+
+               "{0:g}s/{1:g}s in CPU/wall-clock time".format(
+                  time.clock()-self.pokeStartClock,
+                  time.time()-self.pokeStartTime)
+               )
       self.outputData[:,]=0.
       if self.hwrSparse:
-#??               converted_spmx=scipy.sparse.csc_matrix(
          self.spmx=scipy.sparse.csc_matrix(
             (self.spmxData,
              (self.spmxRowind,
              self.spmxIndptr)
             ),(self.nmodes,self.ncents) )
-#??               cmod.svd.sparseMatrixFree(self.spmx)
-#??               self.spmx=converted_spmx.T # switch to prefered format
-         self.WFIM=scipy.sparse.csc_matrix(
-            (self.WFIMData,
-             (self.WFIMRowind,
-             self.WFIMIndptr)
-            ),(self.nmodes,self.gradOp.numberPhases) )
-      print("HWR: Finished poking")
-      if self.hwrArchive:
-         print("HWR: Writing WFIM to file {0:s}".format(self.hwrWFIMfname))
+      if self.pmxFilename!=None:
+         print("INFORMATION: HWR: Saving poke matrix to '{0:s}'".format(
+               self.pmxFilename))
          if self.hwrSparse:
-            util.FITS.Write(self.WFIM.todense(),self.hwrWFIMfname)
+            util.FITS.saveSparse(self.spmx,self.pmxFilename)
+         else:
+            util.FITS.Write(self.spmx,self.pmxFilename)
+      
+      self.poking=0
+
+
+   def calcComputeWFIMandWFMM(self):
+      '''From spmx, compute the WFIM (wavefront-interaction matrix) and then
+      compute the WFMM (wavefront mapping matrix). This should be quick so can
+      always be done.
+      But you may wish to also change the code to store the WFMM for more
+      speed if block-reduction isn't carried out.'''
+
+         # \/ prep
+      if self.hwrSparse:
+         self.WFIMData=[]
+         self.WFIMRowind=[]
+         self.WFIMIndptr=[]
+      else:
+         self.WFIM=numpy.zeros(
+               (self.nmodes,self.gradOp.numberPhases), numpy.float64 )
+         # \/ do computations
+      self.calcComputeWFIM()
+      self.calcComputeWFMM()
+         # \/ save, if asked to, the WFIM and WFMM  
+      if self.hwrArchive:
+         print("INFORMATION: HWR: Writing WFIM & WFMM to file {0:s}".format(
+               self.hwrWFIMfname))
+         if self.hwrSparse:
+            util.FITS.saveSparse(self.WFIM,self.hwrWFIMfname)
+               # \/ bit more complex here.
+            util.FITS.saveSparse(self.WFMM[0],self.hwrWFMMfname)
+            util.FITS.saveSparse(self.WFMM[1],self.hwrWFMMfname,writeMode="a")
          else:
             util.FITS.Write(self.WFIM,self.hwrWFIMfname)
+            util.FITS.Write(self.WFMM,self.hwrWFMMfname)
+
+   def calcComputeWFIM(self):
+      '''Compute the WFIM based on spmx'''
+      if self.hwrVerbose:
+         print("INFORMATION: HWR: Calculating WFIM, wavefront-interaction matrix")
+
+      # \/ loop over rows and convert
+      for actNo in xrange(self.nmodes):
+         thisIp=self.spmx[actNo]
+         if self.hwrSparse:
+            thisIp=numpy.array(thisIp.todense()).ravel()
+         HWRcalc= abbot.hwr.doHWRGeneral( thisIp,
+               self.smmtnsDef,self.gradOp,self.offsetEstM,
+               self.smmtnsDefStrts,self.smmtnsMap,
+               doWaffleReduction=0, doPistonReduction=0,
+               sparse=self.hwrSparse )[1]
+         if self.hwrWFMMblockReduction:
+            thisi=None
+            for i in xrange(int(self.gradOp.n_[0]//self.hwrWFMMblockReduction)):
+               # search through indices to find the right one
+               if actNo in self.WFIMbrIndicesWFGrid[i]:
+                  thisi=i
+                  continue
+            if type(thisi)==type(None):
+               print(actNo)
+               raise Exception("ERROR: HWR: Block-reduction index location"
+                     " failed, too few defined blocks?")
+            validModes=self.WFIMbrIndicesModes[thisi]
+         if self.hwrSparse:
+            for i,val in enumerate(HWRcalc):
+               if self.hwrWFMMblockReduction and (i not in validModes):
+                  continue
+               self.WFIMData.append( val )
+               self.WFIMRowind.append( actNo )
+               self.WFIMIndptr.append( i )
+         else:
+            if self.hwrWFMMblockReduction:
+               self.WFIM[actNo][validModes]=HWRcalc[validModes]
+            else:
+               self.WFIM[actNo]=HWRcalc
+
+      if self.hwrSparse:
+         self.WFIM=scipy.sparse.csc_matrix(
+               (self.WFIMData, (self.WFIMRowind, self.WFIMIndptr) ),
+               (self.nmodes, self.gradOp.numberPhases) )
           
-      if not self.computeControl:
-         raise Exception("HWR: You must set the computeControl to true")
-      print("HWR: Calculating wavefront-interaction matrix")
-            
+   def calcComputeWFMM(self):
+      '''Compute the WFMM based on WFIM'''
+      if self.hwrVerbose:
+         print("HWR: Calculating WFMM, wavefront-mapping matrix")
       #
       # NOTA BENE:
       # The order of the WFIM matrix means that the transposes
@@ -304,41 +366,12 @@ class recon(tomoRecon.recon):
                numpy.identity( self.nmodes )*self.hwrWFMMrcon ).dot(
                self.WFIM )
          self.reconmx=self.WFMM
-         if self.hwrArchive:
-            print("HWR: Writing WFMM to file '{0:s}'".format(self.hwrWFMMfname))
-            util.FITS.Write(self.WFMM,self.hwrWFMMfname)
-            if self.pmxFilename!=None:
-               print("HWR: Saving poke matrix to '{0:s}'".format(self.pmxFilename))
-               util.FITS.Write(self.spmx,self.pmxFilename)
       else:
          # \/ store the output ready for a CG loop, gets turned into
          # CSR format, because of transposes.
-         self.WFMM=(
-               self.WFIM.dot( self.WFIM.T )
-                  +scipy.sparse.identity(self.nmodes)
-                  *self.hwrWFMMrcon,
+         self.WFMM=( self.WFIM.dot( self.WFIM.T )
+                  +scipy.sparse.identity(self.nmodes)*self.hwrWFMMrcon,
                self.WFIM ) 
-         self.reconmx=None
-         if self.hwrArchive:
-            print("HWR: Writing WFMM to file '{0:s}'".format(self.hwrWFMMfname))
-            util.FITS.Write(self.WFMM[0].todense(),self.hwrWFMMfname)
-            util.FITS.Write(self.WFMM[1].todense(),self.hwrWFMMfname,writeMode="a")
-            if self.pmxFilename!=None:
-               print("HWR: Saving poke matrix to '{0:s}'".format(self.pmxFilename))
-               util.FITS.Write(self.spmx.todense(),self.pmxFilename)
-      if self.hwrVerbose:
-         print("HWR: Poking took: "+
-               "{0:g}s/{1:g}s in CPU/wall-clock time".format(
-                  time.clock()-self.pokeStartClock,
-                  time.time()-self.pokeStartTime)
-               )
-      self.poking=0
-      if self.abortAfterPoke:
-          print("HWR: Finished poking - aborting simulation")
-          if Scientific.MPI.world.size==1:
-              Scientific.MPI.world.abort()
-          else:
-              Scientific.MPI.world.abort(0)
 
    def calcClosedLoop(self):
       """Apply reconstruction, and mapping"""
@@ -355,7 +388,7 @@ class recon(tomoRecon.recon):
          if outputV[1]==0:
             outputV=outputV[0]
          else:
-            raise Exception("HWR: Could not converge on mapping")
+            raise Exception("ERROR: HWR: Could not converge on mapping")
       self.outputData+=self.gains*-outputV
 
    def calc(self):
@@ -365,7 +398,22 @@ class recon(tomoRecon.recon):
       #
       if self.control["takeRef"]:
          self.calcTakeRef()
-      if self.control["poke"]:
+      if self.hwrLoadPrevious:
+         success=self.calcLoadPreviousData()
+         self.control["poke"]=(not success)
+         if not success:
+            print("INFORMATION: HWR: Loading was not successful, must poke")
+         else:
+            if self.hwrRecomputeWFIMandWFMM:
+               # dump the loaded WFIM and WFMM, and re-compute
+               self.calcComputeWFIMandWFMM()
+               print("INFORMATION: HWR: Loaded spmx, recomputed WFIM and WFMM.")
+            else:
+               print("INFORMATION: HWR: Loaded spmx, WFIM, and WFMM.")
+            self.poking=0 # stop poking
+            self.control["close_dm"]=1 # close the loop
+         self.hwrLoadPrevious=0
+      if self.control["poke"]: 
          self.calcPrepareForPoke()
       if self.control["zero_dm"]:
          self.control["zero_dm"]=0
@@ -389,9 +437,16 @@ class recon(tomoRecon.recon):
          self.calcSetPoke()
       if self.poking>1 and self.poking<=self.npokes+1:
          self.calcFillInInteractionMatrix() 
-      if self.poking==self.npokes+1:#finished poking
+      if self.poking==self.npokes+1: # finished poking
          self.calcCompletePoke()
-      if self.poking>0:
+         self.calcComputeWFIMandWFMM()
+         if self.abortAfterPoke:
+             print("HWR: Finished poking - aborting simulation")
+             if Scientific.MPI.world.size==1:
+                 Scientific.MPI.world.abort()
+             else:
+                 Scientific.MPI.world.abort(0)
+      if self.poking>0: # still poking
          self.poking+=1
 
       #
@@ -400,184 +455,6 @@ class recon(tomoRecon.recon):
       if self.control["close_dm"]:
          self.calcClosedLoop()
 
-#!!!    def fillPokemx(self,dm,dmindx):
-#!!!        """Here, when we've been poking multiple actuators at once, we need to decide which centroids \
-#!!!           belong to which actuator, and then place them into the poke matrix.
-#!!!        """
-#!!!        #First compute the poked actuator coords for this DM.
-#!!!        if not hasattr(dm,"coords"):
-#!!!            dm.computeCoords(self.telDiam)
-#!!!        actuators=self.pokeActMapFifo.pop(0)
-#!!!        nonzero=numpy.nonzero(actuators.ravel())[0]
-#!!!        if nonzero.size==0:
-#!!!            print "Got no actuators used for this poke"
-#!!!            return
-#!!!        pokedCoordsx=numpy.take(dm.coords.ravel(),nonzero*2)#coordinates of poked ones only.
-#!!!        pokedCoordsy=numpy.take(dm.coords.ravel(),nonzero*2+1)#coordinates of poked ones only.
-#!!!        cpos=0
-#!!!
-#!!!        cnt=0
-#!!!        gsList=self.ngsList+self.lgsList
-#!!!        for i in range(len(self.wfsIDList)):#for each wfs...
-#!!!            gs=gsList[i]
-#!!!            gs.computeCoords(self.telDiam,dm.height)
-#!!!            key=self.wfsIDList[i]
-#!!!            ns=self.ncentList[i]
-#!!!            for subap in self.centIndex[cnt:cnt+ns]/2:#for each subap of this wfs
-#!!!                x=subap%gs.nsubx
-#!!!                y=subap/gs.nsubx
-#!!!                dist=(pokedCoordsx-gs.coords[y,x,0])**2+(pokedCoordsy-gs.coords[y,x,1])**2
-#!!!                m=numpy.argmin(dist)#this actuator is closest.
-#!!!                # find the coords for this actuator, and then the number that it corresponds to in the poke matrix.
-#!!!                indx=nonzero[m]
-#!!!                pos=dm.dmflag.ravel()[:indx].sum()+self.nactsCumList[dmindx]
-#!!!                #if pos==196+65 and (cpos in [145,146]):
-#!!!                #    print (m,indx,pos,x,y,subap,cpos,dist,nonzero)
-#!!!                #    print self.nactsCumList[dmindx]
-#!!!                #    print dm.dmflag.shape
-#!!!                #    print pokedCoordsx
-#!!!                #    print pokedCoordsy
-#!!!                #    print gs.coords[y,x]
-#!!!                #    #util.FITS.Write(dm.dmflag,"dmflag.fits")
-#!!!                #    if cpos==146:
-#!!!                #        util.FITS.Write(actuators,"acts.fits")
-#!!!                # pos is the actuator number in the outputData for this DM
-#!!!                # This is where the centroid should go in the poke matrix.
-#!!!                if self.reconType in ["svd","pinv","MAP","reg","regularised","regBig","regSmall","pcg"]:
-#!!!                    self.spmx[pos,cpos]=self.inputData[cpos]/self.pokeval
-#!!!                    self.spmx[pos,cpos+self.ncents/2]=self.inputData[cpos+self.ncents/2]/self.pokeval
-#!!!                elif self.reconType in ["spmx","spmxSVD","spmxGI"]:
-#!!!                    if self.sparsePmxType=="lil":
-#!!!                        val=self.inputData[cpos]
-#!!!                        if numpy.fabs(val)>self.pokeIgnore:
-#!!!                            self.spmx[pos,cpos]=val/self.pokeval
-#!!!                        val=self.inputData[cpos+self.ncents/2]
-#!!!                        if numpy.fabs(val)>self.pokeIgnore:
-#!!!                            self.spmx[pos,cpos+self.ncents/2]=val/self.pokeval
-#!!!                    elif self.sparsePmxType=="csc":
-#!!!                        val=self.inputData[cpos]
-#!!!                        if numpy.fabs(val)>self.pokeIgnore:
-#!!!                            cmod.svd.sparseMatrixInsert(self.spmx,pos,cpos,val/self.pokeval)
-#!!!                        val=self.inputData[cpos+self.ncents/2]
-#!!!                        if numpy.fabs(val)>self.pokeIgnore:
-#!!!                            cmod.svd.sparseMatrixInsert(self.spmx,pos,cpos+self.ncents/2,val/self.pokeval)
-#!!!                    else:
-#!!!                        val=self.inputData[cpos]
-#!!!                        val2=self.inputData[cpos+self.ncents/2]
-#!!!                        if numpy.fabs(val)>self.pokeIgnore:
-#!!!                            if self.transposeDensePmx==0:
-#!!!                                self.spmx[pos,cpos]=val/self.pokeval
-#!!!                            else:
-#!!!                                self.spmx[cpos,pos]=val/self.pokeval
-#!!!                            self.spmxValidCnt+=1
-#!!!                        if numpy.fabs(val2)>self.pokeIgnore:
-#!!!                            if self.transposeDensePmx==0:
-#!!!                                self.spmx[pos,cpos+self.ncents/2]=val2/self.pokeval
-#!!!                            else:
-#!!!                                self.spmx[cpos+self.ncents/2,pos]=val2/self.pokeval
-#!!!                            self.spmxValidCnt+=1
-#!!!                cpos+=1
-#!!!            cnt+=ns
-
-#!!!    def doCompressedDot(self,data,rmx=None,bits=None,shape=None,work=None):
-#!!!        """Here, rmx is a 1D array in compressed float format, with bits bits per element.
-#!!!        """
-#!!!        if rmx==None:
-#!!!            rmx=self.reconmx
-#!!!        if bits==None:
-#!!!            bits=self.compressedBits
-#!!!        if shape==None:
-#!!!            shape=self.compressedShape
-#!!!        if work==None:
-#!!!            work=self.compressedWork
-#!!!        expMin=self.compressedExpMin
-#!!!        expMax=self.compressedExpMax
-#!!!        if shape[0]==data.shape[0]:
-#!!!            ncents,nacts=shape
-#!!!            if work==None:
-#!!!                mem=getMem("MemFree:")
-#!!!                nrows=min(mem/4/nacts,ncents)
-#!!!                print "Compressed rmx decompressing to %d rowsa at a time"%nrows
-#!!!                work=numpy.zeros((nrows,nacts),numpy.float32)
-#!!!                self.compressedWork=work
-#!!!            nrows=work.shape[0]
-#!!!            tmp=numpy.zeros((nacts,),numpy.float32)
-#!!!            r=work.ravel()
-#!!!            nsteps=(ncents+nrows-1)/nrows
-#!!!            for i in xrange(nsteps):
-#!!!                #uncompress into work
-#!!!                #if (i+1)*nrows>=ncents:#this is the last one...
-#!!!                if i==nsteps-1:#this is the last one...
-#!!!                    end=nrows-(nsteps*nrows-ncents)
-#!!!                else:
-#!!!                    end=nrows
-#!!!                #print "running %d"%i
-#!!!                cmod.utils.uncompressFloatArrayAllThreaded(rmx,r[:end*nacts],bits,expMin,expMax,i*nrows*nacts,8)
-#!!!                #print "done"
-#!!!                tmp+=quick.dot(data[i*nrows:i*nrows+end],work[:end])
-#!!!        else:
-#!!!            nacts,ncents=shape
-#!!!            if work==None:
-#!!!                mem=getMem("MemFree:")
-#!!!                nrows=min(mem/4/ncents,nacts)
-#!!!                print "Compressed rmx decompressing to %d rowsb at a time"%nrows
-#!!!                work=numpy.zeros((nrows,ncents),numpy.float32)
-#!!!                self.compressedWork=work
-#!!!            nrows=work.shape[0]
-#!!!            tmp=numpy.empty((nacts,),numpy.float32)
-#!!!            r=work.ravel()
-#!!!            nsteps=(nacts+nrows-1)/nrows
-#!!!            for i in xrange(nsteps):
-#!!!                if i==nsteps-1:#last one...
-#!!!                    end=nrows-(nsteps*nrows-nacts)
-#!!!                else:
-#!!!                    end=nrows
-#!!!                #print "running %d"%i
-#!!!                cmod.utils.uncompressFloatArrayAllThreaded(rmx,r[:end*ncents],bits,expMin,expMax,i*nrows*ncents,8)
-#!!!                #print "done"
-#!!!                tmp[i*nrows:i*nrows+end]=quick.dot(work[:end],data)
-#!!!        return tmp
-
-#!!!    def savecsc(self,csc,filename,hdr=None):
-#!!!        if type(hdr)==type(""):
-#!!!            hdr=[hdr]
-#!!!        elif type(hdr)==type(None):
-#!!!            hdr=[]
-#!!!        hdr.append("SHAPE   = %s"%str(csc.shape))
-#!!!        util.FITS.Write(csc.data[:csc.indptr[-1]],filename,extraHeader=hdr)
-#!!!        util.FITS.Write(csc.rowind[:csc.indptr[-1]],filename,writeMode="a")
-#!!!        util.FITS.Write(csc.indptr,filename,writeMode="a")
-#!!!                
-#!!!    def loadReconmx(self,reconmxFilename):
-#!!!        if reconmxFilename==None:
-#!!!            print "Reconmxfilename not specified - using 0."
-#!!!            return 0.
-#!!!        print "tomoRecon: Loading reconstructor from file: %s"%reconmxFilename
-#!!!        if os.path.exists(reconmxFilename):
-#!!!            head=util.FITS.ReadHeader(reconmxFilename)["parsed"]
-#!!!            if head.has_key("COMPBITS"):
-#!!!                print "Reconstructor in compressed FP format"
-#!!!                #its a compressed floating point format rmx...
-#!!!                reconmx=util.FITS.Read(reconmxFilename)[1]
-#!!!                self.compressedBits=int(head["COMPBITS"])
-#!!!                self.compressedExpMin=int(head.get("EXPMIN",1))
-#!!!                self.compressedExpMax=int(head.get("EXPMAX",255))
-#!!!                self.compressedShape=eval(head["SHAPE"])
-#!!!            else:
-#!!!                # f=util.FITS.Read(reconmxFilename,savespace=1)
-#!!!                reconmx=util.FITS.loadSparse(reconmxFilename)
-#!!!        else:
-#!!!            print "Error/warning - unable to load reconmx %s, using 0. instead"%reconmxFilename
-#!!!            reconmx=0.
-#!!!            #f=[0.]
-#!!!        #if len(f)==2:
-#!!!        #    reconmx=f[1].astype("f")
-#!!!        #elif len(f)>2:
-#!!!        #    if len(f[1].shape)==1:
-#!!!        #        reconmx=scipy.sparse.csc_matrix((numpy.array(f[1],copy=0),numpy.array(f[3],copy=0),numpy.array(f[5],copy=0)),eval(f[0]["parsed"]["SHAPE"]))
-#!!!        #    else:#f[3,5,etc] are probably phase covariance/noise cov etc...
-#!!!        #        reconmx=f[1]
-#!!!        return reconmx
 
    def plottable(self,objname="$OBJ"):
       """Return a XML string which contains the commands to be sent
