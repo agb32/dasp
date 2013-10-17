@@ -335,7 +335,6 @@ def saveSparse(sp,filename,writeMode="w",hdr=None,doByteSwap=1):
         hdr=[]
     hdr.append("SHAPE   = %s"%str(sp.shape))
     hdr.append("FORMAT  = '%s'"%sp.format)
-    Write(sp.data[:sp.indptr[-1]],filename,writeMode=writeMode,extraHeader=hdr,doByteSwap=doByteSwap)
     if sp.format=="csr":
       if hasattr(sp,'colind'):
          hdr.append("MODERN  = 0")
@@ -352,41 +351,61 @@ def saveSparse(sp,filename,writeMode="w",hdr=None,doByteSwap=1):
          ind=sp.indices
     else:
         raise Exception("Sparse matrix type not yet implemented")
+    Write(sp.data[:sp.indptr[-1]],filename,writeMode=writeMode,
+          extraHeader=hdr,doByteSwap=doByteSwap)
     Write(ind.view(numpy.int32),filename,writeMode="a",doByteSwap=doByteSwap)
     Write(sp.indptr.view(numpy.int32),filename,writeMode="a",doByteSwap=doByteSwap)
 
-def loadSparse(filename,doByteSwap=1):
+def loadSparse(filename,matrixNum=0,doByteSwap=1):
     """load a scipy.sparse matrix - csc or csr."""
     f=Read(filename,savespace=1,doByteSwap=doByteSwap)
+    knownForms=('csr','csc')
     if len(f)==2:
         print "WARNING - loadSparse - %s is not a sparse matrix"%filename
         mx=f[1]
-    elif len(f)==7 and len(f[1].shape)==1:
+    elif len(f)%6==0 and len(f[1].shape)==1:
+        # presuming 1 or more sparse matrices
+        numMatrices=len(f)//6
+        if matrixNum>=numMatrices:
+           raise Exception("ERROR: loadSparse: Cannot load matrix "+
+                 "number %d, only %d %s in the file" % (
+                    matrixNum,numMatrices,
+                    (numMatrices==1)*"matrix"+(numMatrices>1)*"matrices" ))
+        f_offset=matrixNum*6
         import scipy.sparse
-        if f[0]["parsed"].has_key("FORMAT"):
-            fmt=f[0]["parsed"]["FORMAT"]
+        if f[0+f_offset]["parsed"].has_key("FORMAT"):
+            fmt=f[0+f_offset]["parsed"]["FORMAT"]
+            mxShape=eval(f[0+f_offset]["parsed"]["SHAPE"])
         else:
             print "Warning - loadSparse %s - assuming csc"%filename
             fmt="csc"
-        if f[0]["parsed"].has_key("MODERN"):
-            modern=int(f[0]["parsed"]["MODERN"])
+        if f[0+f_offset]["parsed"].has_key("SHAPE"):
+           mxShape=eval(f[0+f_offset]["parsed"]["SHAPE"])
+        else:
+           raise Exception( "ERROR: loadSparse: No SHAPE header information" )
+        if fmt not in knownForms:
+           raise Exception( "ERROR: loadSparse: Not a known form, %s"%(fmt) )
+        if f[0+f_offset]["parsed"].has_key("MODERN"):
+            modern=int(f[0+f_offset]["parsed"]["MODERN"])
         else:
             print("Warning - loadSparse %s - assuming not modern type"%filename)
             modern=0
-        print("Format is %s %s" %
+        print("Format is %s with %s" %
               (fmt, (modern)*"modern scipy"+(~modern)*"unmodern or old scipy"))
-        shape=eval(f[0]["parsed"]["SHAPE"])
-        indptr=f[5].view(numpy.uint32)
-        if fmt=="csc":
-            if indptr.shape[0]==(shape[1]+1)*2:
-                indptr=indptr.view(numpy.uint64)
-            mx=scipy.sparse.csc_matrix((f[1],f[3].view(numpy.uint32),indptr),eval(f[0]["parsed"]["SHAPE"]))
-        elif fmt=="csr":
-            if indptr.shape[0]==(shape[0]+1)*2:
-                indptr=indptr.view(numpy.uint64)
-            mx=scipy.sparse.csr_matrix((f[1],f[3].view(numpy.uint32),indptr),eval(f[0]["parsed"]["SHAPE"]))
-        else:
-            raise Exception("sparse matrix style not known %s"%filename)
+        # note, at this stage modern does not affect the logic but it may do
+        # in the future hence it is noted.
+        if fmt=="csr":
+           thisOperator=scipy.sparse.csr_matrix
+        elif fmt=="csc":
+           thisOperator=scipy.sparse.csc_matrix
+       
+        # n.b. the following astype's were view's, but they no longer worked,
+        #  perhaps because of a change in the Read function?
+        data=f[1+f_offset] ; indices=f[3+f_offset].astype(numpy.uint32)
+        indptr=f[5+f_offset].astype(numpy.uint32)
+        if indptr.shape[0]==(mxShape[int(fmt=='csc')]+1)*2:
+           indptr=indptr.astype(numpy.uint64)
+        mx=thisOperator( ( data, indices, indptr ), shape=mxShape )
     else:
         mx=f[1]
         print "util.FITS.loadSparse - matrix style not known %s, assuming dense matrix"%filename
