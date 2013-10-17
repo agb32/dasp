@@ -139,33 +139,37 @@ class recon(tomoRecon.recon):
       self.takingRef=1
 
    def calcLoadPreviousData(self):
+      status=0
       try:
          if self.hwrSparse:
             self.spmx=util.FITS.loadSparse(self.pmxFilename)
+            status+=1
             self.WFIM=util.FITS.loadSparse(self.hwrWFIMfname)
             self.WFMM=( util.FITS.loadSparse(self.hwrWFMMfname,0),
                         util.FITS.loadSparse(self.hwrWFMMfname,1), )
             if (self.WFMM[0].shape!=(self.nmodes,self.nmodes) or
                   self.WFMM[1].shape!=(self.nmodes,self.nmodes)):
                raise ValueError("Wrong shapes of WFMM (sparse)")
+            status+=1
          else:
             self.spmx=util.FITS.Read(self.pmxFilename)[1]
+            status+=1
             self.WFIM=util.FITS.Read(self.hwrWFIMfname)[1]
             self.WFMM=util.FITS.Read(self.hwrWFMMfname)[1]
             if self.WFMM.shape!=(self.nmodes,self.nmodes):
                raise ValueError("Wrong shape of WFMM (dense)")
+            status+=1
          # now check other loaded matrices for shape
          if (self.spmx.shape!=(self.nmodes,self.ncents) or
                self.WFIM.shape!=(self.nmodes,self.nmodes)):
             raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
-         return True
       except:
          print("WARNING: HWR: Failure to load previous data,")
          print("WARNING: HWR:  sys.exc_info()[0]={0:s}".format(
                str(sys.exc_info()[0])) )
          print("WARNING: HWR:  sys.exc_info()[1]={0:s}".format(
                str(sys.exc_info()[1])) )
-         return False
+      return status
 
    def calcPrepareForPoke(self):
       self.control["poke"]=0
@@ -400,17 +404,18 @@ class recon(tomoRecon.recon):
          self.calcTakeRef()
       if self.hwrLoadPrevious:
          success=self.calcLoadPreviousData()
-         self.control["poke"]=(not success)
-         if not success:
+         self.control["poke"]=0
+         if success==0:
             print("INFORMATION: HWR: Loading was not successful, must poke")
+            self.control["poke"]=1
          else:
-            if self.hwrRecomputeWFIMandWFMM:
-               # dump the loaded WFIM and WFMM, and re-compute
-               self.calcComputeWFIMandWFMM()
+            self.poking=0 # stop poking
+            if success==1 or self.hwrRecomputeWFIMandWFMM:
                print("INFORMATION: HWR: Loaded spmx, recomputed WFIM and WFMM.")
+               # compute the loaded WFIM and WFMM
+               self.calcComputeWFIMandWFMM()
             else:
                print("INFORMATION: HWR: Loaded spmx, WFIM, and WFMM.")
-            self.poking=0 # stop poking
             self.control["close_dm"]=1 # close the loop
          self.hwrLoadPrevious=0
       if self.control["poke"]: 
