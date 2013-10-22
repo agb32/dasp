@@ -91,7 +91,17 @@ class MultiGauss:
             img+=intensity*numpy.fromfunction(self.fn,(self.n,self.n))
         return img
 
-
+    def plotProfile(self,n,alt,depth,plotDepth):
+        """n is number of points to plot.  plotDepth is the depth (centred on alt) of which to display.
+        alt/depth are the mean alt/depth."""
+        x=(numpy.arange(n)-n/2.)*plotDepth/n+alt
+        res=numpy.zeros((n,),numpy.float32)
+        for i in range(len(self.peakList)):
+            off,d,intensity=self.peakList[i]
+            xx=x-alt-off
+            dd=d*depth
+            res+=intensity*numpy.exp(-(xx**2)/(2*dd**2))
+        return res,x
 
 def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=None,lam=640e-9,telDiam=42.,telSec=None,beacon_alt=90000.,beacon_depth=10000.,zenith=0.,photons=1e6,unelong_width=1.,fname=None,launchDist=0.,launchTheta=0.,xoff=0.,yoff=0.,pup=None):
     """

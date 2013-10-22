@@ -16,6 +16,7 @@ import numpy.lib.user_array as user_array
 import numpy
 na=numpy
 import types
+import util.FITS
 
 def makeCircularGrid(nxpup,nypup=None,natype=na.float64,dosqrt=1,xoff=0,yoff=0):
     """
@@ -57,7 +58,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
     
     """
 
-    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0):
+    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0,pupilMap=None):
         """ Constructor for the Pupil class
 
         Parameters: 
@@ -84,6 +85,8 @@ class Pupil(user_array.container):#UserArray.UserArray):
         @type hexEllipseFact: float.
         @param symmetricHex: If 1, the resulting pupil function will be symmetric in x and y.  If 0, it might not quite be.
         @type symmetricHex: Int
+        @param pupilMap: A filename.fits or 2d array or None.  If not None, will be used to define the pupil function.
+        @type pupilMap: None, string, array
         """
 ##         print "creating"
 ##         inarr=None
@@ -115,7 +118,14 @@ class Pupil(user_array.container):#UserArray.UserArray):
         else:
             self.dmminarea=dmminarea
         ## we create a grid of x and y lines (to avoid for loops)
-        if hexDiam==0:
+        if pupilMap!=None:
+            if type(pupilMap)==type(""):
+                pupilMap=util.FITS.Read(pupilMap)[1]
+                if pupilMap.shape!=(npup,npup):
+                    raise Exception("pupilMap wrong shape (%s) in tel.py - should be %s"%(str(pupilMap.shape),str((npup,npup))))
+                self.fn=pupilMap
+                self.area=self.fn.sum()
+        elif hexDiam==0:
             grid=makeCircularGrid(npup)
 
             if type(apoFunc)==types.NoneType:
