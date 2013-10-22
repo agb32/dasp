@@ -121,8 +121,8 @@ class recon(tomoRecon.recon):
          self.WFIMbrIndicesWFGrid=[
             numpy.flatnonzero( (self.gradOp.illuminatedCornersIdx//
                   (self.gradOp.n_[1]*self.hwrWFMMblockReduction)) ==i)
-               for i in range(
-                    self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
+               for i in range( int(numpy.ceil(
+                    self.gradOp.n_[0]*self.hwrWFMMblockReduction**-1.0)) ) ]
          # now, do it for for every DM mode
          dmIdx=numpy.array(self.dmList[0].dmflag).ravel().nonzero()[0]
          self.WFIMbrIndicesModes=[
@@ -316,8 +316,7 @@ class recon(tomoRecon.recon):
          print("INFORMATION: HWR: Calculating WFIM, wavefront-interaction matrix")
 
       # \/ loop over rows and convert
-      for actNo in xrange(self.nmodes):
-         thisIp=self.spmx[actNo]
+      for actNo,thisIp in enumerate(self.spmx):
          if self.hwrSparse:
             thisIp=numpy.array(thisIp.todense()).ravel()
          HWRcalc= abbot.hwr.doHWRGeneral( thisIp,
@@ -327,9 +326,9 @@ class recon(tomoRecon.recon):
                sparse=self.hwrSparse )[1]
          if self.hwrWFMMblockReduction:
             thisi=None
-            for i in xrange(int(self.gradOp.n_[0]//self.hwrWFMMblockReduction)):
+            for i,tWFIMbrIndicedWFGrid in enumerate(self.WFIMbrIndicesWFGrid):
                # search through indices to find the right one
-               if actNo in self.WFIMbrIndicesWFGrid[i]:
+               if actNo in tWFIMbrIndicesWFGrid:
                   thisi=i
                   continue
             if type(thisi)==type(None):
