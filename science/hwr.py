@@ -49,6 +49,10 @@ class recon(tomoRecon.recon):
          self.hwrBoundary=[self.hwrBoundary]*2
       self.hwrOverlap=self.config.getVal( "hwrOverlap",
             default=0.1,raiseerror=0) 
+         # \/ n.b. Ought this not be supported by the util.dmInfo object
+         #  but then that seems to be redundant code now?
+      self.decayFactor=self.config.getVal( "decayFactor",
+            default=1,raiseerror=0) 
       self.hwrSparse=self.config.getVal( "hwrSparse",
             default=False,raiseerror=0) 
       self.hwrVerbose=self.config.getVal( "hwrVerbose",
@@ -168,7 +172,7 @@ class recon(tomoRecon.recon):
          # now check other loaded matrices for shape
          if (self.spmx.shape!=(self.nmodes,self.ncents) or
                self.WFIM.shape!=(self.nmodes,self.gradOp.numberPhases)):
-	    status=0 # drop back to nowt
+       status=0 # drop back to nowt
             raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
       except:
          print("WARNING: HWR: Failure to load previous data,")
@@ -288,10 +292,7 @@ class recon(tomoRecon.recon):
 
    def calcComputeWFIMandWFMM(self):
       '''From spmx, compute the WFIM (wavefront-interaction matrix) and then
-      compute the WFMM (wavefront mapping matrix). This should be quick so can
-      always be done.
-      But you may wish to also change the code to store the WFMM for more
-      speed if block-reduction isn't carried out.'''
+      compute the WFMM (wavefront mapping matrix).'''
 
          # \/ prep
       if self.hwrSparse:
@@ -310,7 +311,7 @@ class recon(tomoRecon.recon):
                self.hwrWFIMfname))
          if self.hwrSparse:
             util.FITS.saveSparse(self.WFIM,self.hwrWFIMfname)
-               # \/ bit more complex here.
+               # \/ save the 2 matrices separately
             util.FITS.saveSparse(self.WFMM[0],self.hwrWFMMfname)
             util.FITS.saveSparse(self.WFMM[1],self.hwrWFMMfname,writeMode="a")
          else:
@@ -398,7 +399,10 @@ class recon(tomoRecon.recon):
          print("ERROR: HWR:  sys.exc_info()[1]={0:s}".format(
                str(sys.exc_info()[1])) )
          import pickle
-	 print("ERROR: HWR: Will write /tmp/hwrTmp.pickle ...")
+         print("ERROR: HWR: Will write /tmp/hwrTmp.pickle ...")
+         # The following line could over-write the previous dump, perhaps
+         # instead the behaviour should be to throw an exception if it already
+         # exists.
          fhandle=open("/tmp/hwrTmp.pickle","w")
          p=pickle.Pickler(fhandle)
          p.dump({ 'self.hwrMaxLen': self.hwrMaxLen,
@@ -418,7 +422,7 @@ class recon(tomoRecon.recon):
             outputV=outputV[0]
          else:
             raise Exception("ERROR: HWR: Could not converge on mapping")
-      self.outputData+=self.gains*-outputV
+      self.outputData=self.decayFactor*self.outputData+self.gains*-outputV
 
    def calc(self):
       #
