@@ -1,5 +1,5 @@
 # Linux or Windows:
-CC = gcc -Wall -O4# -march=i486
+CC = gcc -Wall -O3# -march=i486
 # CC = icc -w1 -O3 -march=i486
 CFLAGS = -fPIC
 # Macintosh:
