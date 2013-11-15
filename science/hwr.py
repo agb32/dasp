@@ -55,6 +55,8 @@ class recon(tomoRecon.recon):
             default=1,raiseerror=0) 
       self.hwrSparse=self.config.getVal( "hwrSparse",
             default=False,raiseerror=0) 
+      self.hwrGradientMgmnt=self.config.getVal( "hwrGradientMgmnt",
+            default=False,raiseerror=0) 
       self.hwrVerbose=self.config.getVal( "hwrVerbose",
             default=False,raiseerror=0)
       self.hwrArchive=self.config.getVal( "hwrArchive",
@@ -172,7 +174,7 @@ class recon(tomoRecon.recon):
          # now check other loaded matrices for shape
          if (self.spmx.shape!=(self.nmodes,self.ncents) or
                self.WFIM.shape!=(self.nmodes,self.gradOp.numberPhases)):
-       status=0 # drop back to nowt
+            status=0 # drop back to nowt
             raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
       except:
          print("WARNING: HWR: Failure to load previous data,")
@@ -330,7 +332,7 @@ class recon(tomoRecon.recon):
          HWRcalc= abbot.hwr.doHWRGeneral( thisIp,
                self.smmtnsDef,self.gradOp,self.offsetEstM,
                self.smmtnsDefStrts,self.smmtnsMap,
-               doWaffleReduction=0, doPistonReduction=0,
+               doWaffleReduction=0, doPistonReduction=1,
                sparse=self.hwrSparse )[1]
          if self.hwrWFMMblockReduction:
             thisi=None
@@ -391,14 +393,13 @@ class recon(tomoRecon.recon):
                   self.smmtnsDef,self.gradOp,self.offsetEstM,
                   self.smmtnsDefStrts,self.smmtnsMap,
                   doWaffleReduction=0, doPistonReduction=0,
+	          doGradientMgmnt=self.hwrGradientMgmnt,
                   sparse=self.hwrSparse )[1]
       except:
+         import traceback,pickle
          print("ERROR: HWR: failed in HWR integration,")
-         print("ERROR: HWR:  sys.exc_info()[0]={0:s}".format(
-               str(sys.exc_info()[0])) )
-         print("ERROR: HWR:  sys.exc_info()[1]={0:s}".format(
-               str(sys.exc_info()[1])) )
-         import pickle
+         print("ERROR: HWR:  {0:s}".format(
+               traceback.format_exc() ))
          print("ERROR: HWR: Will write /tmp/hwrTmp.pickle ...")
          # The following line could over-write the previous dump, perhaps
          # instead the behaviour should be to throw an exception if it already
