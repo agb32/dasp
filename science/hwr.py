@@ -153,26 +153,36 @@ class recon(tomoRecon.recon):
       try:
          if self.hwrSparse:
             self.spmx=util.FITS.loadSparse(self.pmxFilename)
-            status+=1
+            status=1
             self.WFIM=util.FITS.loadSparse(self.hwrWFIMfname)
             self.WFMM=( util.FITS.loadSparse(self.hwrWFMMfname,0),
                         util.FITS.loadSparse(self.hwrWFMMfname,1), )
+            status=2
             if (self.WFMM[0].shape!=(self.nmodes,self.nmodes) or
                   self.WFMM[1].shape!=(self.nmodes,self.gradOp.numberPhases)):
                raise ValueError("Wrong shapes of WFMM (sparse)")
-            status+=1
+               status=1
          else:
+            errmsg=""
             self.spmx=util.FITS.Read(self.pmxFilename)[1]
-            status+=1
+            status=1
             self.WFIM=util.FITS.Read(self.hwrWFIMfname)[1]
             self.WFMM=util.FITS.Read(self.hwrWFMMfname)[1]
+            status=2
             if self.WFMM.shape!=(self.nmodes,self.gradOp.numberPhases):
-               raise ValueError("Wrong shape of WFMM (dense)")
-            status+=1
+               errmsg+="Wrong shape of WFMM (dense)"
+               status=1
+            if self.spmx.shape!=(self.nmodes,self.ncents):
+               errmsg+="Wrong shape of PMX (dense)---was a sparse one loaded?"
+               status=0
+            if errmsg:
+               raise ValueError(errmsg)
+            else:
+               status=2
          # now check other loaded matrices for shape
          if (self.spmx.shape!=(self.nmodes,self.ncents) or
                self.WFIM.shape!=(self.nmodes,self.gradOp.numberPhases)):
-       status=0 # drop back to nowt
+            status=0 # drop back to nowt
             raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
       except:
          print("WARNING: HWR: Failure to load previous data,")
@@ -387,7 +397,7 @@ class recon(tomoRecon.recon):
    def calcClosedLoop(self):
       """Apply reconstruction, and mapping"""
       try:
-         integratedV=abbot.hwr.doHWRGeneral( self.inputData,
+         self.integratedV=abbot.hwr.doHWRGeneral( self.inputData,
                   self.smmtnsDef,self.gradOp,self.offsetEstM,
                   self.smmtnsDefStrts,self.smmtnsMap,
                   doWaffleReduction=0, doPistonReduction=0,
@@ -414,15 +424,15 @@ class recon(tomoRecon.recon):
                   'self.inputData': self.inputData})
          raise Exception("ERROR: HWR: ... written")
       if not self.hwrSparse:
-         outputV=numpy.dot( self.WFMM, integratedV )
+         self.outputV=numpy.dot( self.WFMM, self.integratedV )
       else:
-         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(integratedV),
+         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(self.integratedV),
                tol=self.hwrCGtol )
          if outputV[1]==0:
-            outputV=outputV[0]
+            self.outputV=outputV[0]
          else:
             raise Exception("ERROR: HWR: Could not converge on mapping")
-      self.outputData=self.decayFactor*self.outputData+self.gains*-outputV
+      self.outputData=self.decayFactor*self.outputData+self.gains*-self.outputV
 
    def calc(self):
       #
@@ -502,6 +512,12 @@ class recon(tomoRecon.recon):
       op+=('<plot title="%s Output data%s" '+
           'cmd="data=%s.outputData" ret="data" type="pylab" '+
           'when="rpt" palette="jet"/>\n')%(self.objID,thisid,objname)
+      op+=('<plot title="%s Integrated vector %s" '+
+          'cmd="data=%s.integratedV" ret="data" type="pylab" '+
+          'when="rpt" palette="jet"/>\n')%(self.objID,thisid,objname)
+      op+=('<plot title="%s Mapped integration %s" '+
+          'cmd="data=%s.outputV" ret="data" type="pylab" '+
+          'when="rpt" palette="jet"/>\n')%(self.objID,thisid,objname)
       op+=('<plot title="%s Use reference centroids%s" '+
           'ret="data" when="cmd" texttype="1" wintype="mainwindow">\n'+
           '<cmd>\ndata=%s.control["subtractRef"]\n'+
@@ -527,6 +543,6 @@ class recon(tomoRecon.recon):
            'when="cmd"/>\n')%(self.objID,thisid,thiscmd)
       op+=('<plot title="%s inputData%s" '+
           'cmd="data=%s.inputData" ret="data" type="pylab" '+
-          'when="cmd"/>\n')%(self.objID,thisid,objname)
+          'when="rpt"/>\n')%(self.objID,thisid,objname)
 
       return op 
