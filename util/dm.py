@@ -1165,17 +1165,20 @@ class dmOverview:
 class MirrorSurface:
     """A class for interpolating actuators onto a mirror surface.
     """
-    def __init__(self,typ,npup,nact,phsOut=None,actoffset="fried",actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,infFunc=None, interpolationNthreads=0):
+    def __init__(self,typ,npup,nact,phsOut=None,actoffset="fried",actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,infFunc=None, interpolationNthreads=0,stuckActs=None):
         """typ can be spline, bicubic, gaussian, linear, influence or pspline.  Others can be added as necessary.
         actCoupling and actFlattening are used for bicubic only.
         actCoupling is also used for spline and pspline
         couplingcoeff, gaussianIndex and gaussianOverlapAccuracy are used for gaussian only.
         infFunc should be used if typ=="influence", and can be an array or a filename.  Shape should be (nact*nact,npup,npup)
+        StuckActs can be None, or a single value (number of stuck acts), or a tuple of (number of stuck,clumpSize=0,maxRadius=None,minRadius=0,actPatternSeed=None).
+
         """
         self.typ=typ
         self.npup=npup
         self.nact=nact
         self.infFunc=infFunc
+        self.stuckActsMask,self.stuckActsValue=self.makeStuckActPattern(stuckActs)
         if phsOut==None:
             self.phsOut=numpy.zeros((self.npup,self.npup),numpy.float32)
         else:
@@ -1209,6 +1212,8 @@ class MirrorSurface:
     def fit(self,actmap,phsOut=None,coords=None):
         """coords here can be a tuple of (ymin,xmin,ymax,xmax) over which the data is fitted.
         """
+        if self.stuckActs!=None:
+            actmap=actmap*self.stuckActsMask+self.stuckActsValue
         if self.typ=="spline":
             return self.interpolateSpline(actmap,phsOut,coords=coords)
         elif self.typ=="bicubic":
@@ -1223,6 +1228,85 @@ class MirrorSurface:
             return self.fitInfluence(actmap,phsOut,coords=coords)
         else:
             print "WARNING: mirror surface unknown type - not fitting"
+
+    def makeStuckActPattern(self,stuckActs):
+        """Makes a pattern for stuck actuators
+        stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value)
+        """
+        if stuckActs==None or stuckActs==0:
+            return None,None
+        seed=None
+        onCircle=0
+        clumpSize=1
+        highVal=1.
+        fracHi=0
+        maxRadius=None
+        minRadius=0
+        if type(stuckActs)==type(0):
+            nstuck=stuckActs
+        else:
+            nstuck=stuckActs[0]
+            if len(stuckActs)>1:
+                clumpSize=stuckActs[1]
+            if len(stuckActs)>2:
+                maxRadius=stuckActs[2]
+            if len(stuckActs)>3:
+                minRadius=stuckActs[3]
+            if len(stuckActs)>4:
+                seed=stuckActs[4]
+            if len(stuckActs)>5:
+                fracHi=stuckActs[5]
+            if len(stuckActs)>6:
+                highVal=stuckActs[6]
+
+        if seed!=None:
+            numpy.random.seed(seed)
+        mask=numpy.zeros((self.nact,self.nact),numpy.float32)
+        hiVals=numpy.zeros((self.nact,self.nact),numpy.float32)
+        ngroups=(nstuck+clumpSize-1)//clumpSize
+        ncx=int(numpy.sqrt(clumpSize))
+        ncy=ncx
+        if ncx*ncy<clumpSize:
+            ncx+=1
+        if ncx*ncy<clumpSize:
+            ncy+=1
+        clump=numpy.zeros((ncx*ncy),numpy.float32)
+        clump[:clumpSize]=1
+        clump.shape=ncy,ncx
+        i=0
+        groupsHi=ngroups*fracHi
+        nHi=groupsHi*clumpSize
+        s=0
+        while s<nstuck:
+            ignore=0
+            pos=numpy.random.randint(self.nact*self.nact)
+            posx=pos%self.nact
+            posy=pos//self.nact
+            if maxRadius!=None and maxRadius>0:
+                if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)>maxRadius:
+                    i-=1
+                    ignore=1
+            if minRadius>0:
+                if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)<minRadius:
+                    i-=1
+                    ignore=1
+
+
+            if ignore==0:
+                if posx+ncx>self.nact:
+                    posx-=posx+ncx-self.nact
+                if posy+ncy>self.nact:
+                    posy-=posy+ncy-self.nact
+                mask[posy:posy+ncy,posx:posx+ncx]=clump
+            if s<nHi:
+                hiVals=mask[posy:posy+ncy,posx:posx+ncx]=highVal
+            s=mask.sum()
+            i+=1
+        mask=1-mask
+        return mask,hiVals
+        
+
+                
 
     def calcCoords(self,npup=None,nact=None,actoffset=None):
         if npup==None:
