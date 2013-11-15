@@ -49,6 +49,10 @@ class recon(tomoRecon.recon):
          self.hwrBoundary=[self.hwrBoundary]*2
       self.hwrOverlap=self.config.getVal( "hwrOverlap",
             default=0.1,raiseerror=0) 
+         # \/ n.b. Ought this not be supported by the util.dmInfo object
+         #  but then that seems to be redundant code now?
+      self.decayFactor=self.config.getVal( "decayFactor",
+            default=1,raiseerror=0) 
       self.hwrSparse=self.config.getVal( "hwrSparse",
             default=False,raiseerror=0) 
       self.hwrVerbose=self.config.getVal( "hwrVerbose",
@@ -104,9 +108,11 @@ class recon(tomoRecon.recon):
 #??      DMactMap=numpy.array( self.dmList[0].dmflag )
 #??      self.gradOp=abbot.gradientOperator.gradientOperatorType1(
 #??            pupilMask=DMactMap )
-      self.gradM=self.gradOp.returnOp().T # *** DEBUG ***
-      print("INFORMATION: HWR: gradM shape is [{0[0]:d},{0[1]:d}]".format(
-            self.gradM.shape))
+# (redundant?) :      self.gradM=self.gradOp.returnOp().T # *** DEBUG ***
+      print(
+"INFORMATION: HWR: gradOp.(numberPhases={0:d},numberSubaps={1:d})".format(
+            self.gradOp.numberPhases, self.gradOp.numberSubaps))
+      t1=time.time()
       self.smmtnsDef,self.smmtnsDefStrts,self.smmtnsMap,self.offsetEstM=\
             abbot.hwr.prepHWR( self.gradOp,
                self.hwrMaxLen,
@@ -114,6 +120,8 @@ class recon(tomoRecon.recon):
                self.hwrOverlap,
                self.hwrSparse
                )
+      print("INFORMATION: HWR: took {0:d}s to setup HWR".format(
+            int(time.time()-t1)) )
       
       if self.hwrWFMMblockReduction:
          # \/ calculate which indices should be included in the WFIM
@@ -121,15 +129,17 @@ class recon(tomoRecon.recon):
          self.WFIMbrIndicesWFGrid=[
             numpy.flatnonzero( (self.gradOp.illuminatedCornersIdx//
                   (self.gradOp.n_[1]*self.hwrWFMMblockReduction)) ==i)
-               for i in range(
-                    self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
+               for i in range( int(numpy.ceil(
+                    self.gradOp.n_[0]*self.hwrWFMMblockReduction**-1.0)) ) ]
          # now, do it for for every DM mode
+         print("INFORMATION: HWR: block sizes, "+str(
+               [ len(x) for x in self.WFIMbrIndicesWFGrid ] ))
          dmIdx=numpy.array(self.dmList[0].dmflag).ravel().nonzero()[0]
          self.WFIMbrIndicesModes=[
             numpy.flatnonzero( (dmIdx//
                   (self.gradOp.n_[1]*self.hwrWFMMblockReduction))==i)
-               for i in range(
-                    self.gradOp.n_[0]//self.hwrWFMMblockReduction)]
+               for i in range( int(numpy.ceil(
+                    self.gradOp.n_[0]*self.hwrWFMMblockReduction**-1.0)) ) ]
 
 
    def calcTakeRef(self):
@@ -143,25 +153,36 @@ class recon(tomoRecon.recon):
       try:
          if self.hwrSparse:
             self.spmx=util.FITS.loadSparse(self.pmxFilename)
-            status+=1
+            status=1
             self.WFIM=util.FITS.loadSparse(self.hwrWFIMfname)
             self.WFMM=( util.FITS.loadSparse(self.hwrWFMMfname,0),
                         util.FITS.loadSparse(self.hwrWFMMfname,1), )
+            status=2
             if (self.WFMM[0].shape!=(self.nmodes,self.nmodes) or
-                  self.WFMM[1].shape!=(self.nmodes,self.nmodes)):
+                  self.WFMM[1].shape!=(self.nmodes,self.gradOp.numberPhases)):
                raise ValueError("Wrong shapes of WFMM (sparse)")
-            status+=1
+               status=1
          else:
+            errmsg=""
             self.spmx=util.FITS.Read(self.pmxFilename)[1]
-            status+=1
+            status=1
             self.WFIM=util.FITS.Read(self.hwrWFIMfname)[1]
             self.WFMM=util.FITS.Read(self.hwrWFMMfname)[1]
-            if self.WFMM.shape!=(self.nmodes,self.nmodes):
-               raise ValueError("Wrong shape of WFMM (dense)")
-            status+=1
+            status=2
+            if self.WFMM.shape!=(self.nmodes,self.gradOp.numberPhases):
+               errmsg+="Wrong shape of WFMM (dense)"
+               status=1
+            if self.spmx.shape!=(self.nmodes,self.ncents):
+               errmsg+="Wrong shape of PMX (dense)---was a sparse one loaded?"
+               status=0
+            if errmsg:
+               raise ValueError(errmsg)
+            else:
+               status=2
          # now check other loaded matrices for shape
          if (self.spmx.shape!=(self.nmodes,self.ncents) or
-               self.WFIM.shape!=(self.nmodes,self.nmodes)):
+               self.WFIM.shape!=(self.nmodes,self.gradOp.numberPhases)):
+            status=0 # drop back to nowt
             raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
       except:
          print("WARNING: HWR: Failure to load previous data,")
@@ -281,10 +302,7 @@ class recon(tomoRecon.recon):
 
    def calcComputeWFIMandWFMM(self):
       '''From spmx, compute the WFIM (wavefront-interaction matrix) and then
-      compute the WFMM (wavefront mapping matrix). This should be quick so can
-      always be done.
-      But you may wish to also change the code to store the WFMM for more
-      speed if block-reduction isn't carried out.'''
+      compute the WFMM (wavefront mapping matrix).'''
 
          # \/ prep
       if self.hwrSparse:
@@ -303,7 +321,7 @@ class recon(tomoRecon.recon):
                self.hwrWFIMfname))
          if self.hwrSparse:
             util.FITS.saveSparse(self.WFIM,self.hwrWFIMfname)
-               # \/ bit more complex here.
+               # \/ save the 2 matrices separately
             util.FITS.saveSparse(self.WFMM[0],self.hwrWFMMfname)
             util.FITS.saveSparse(self.WFMM[1],self.hwrWFMMfname,writeMode="a")
          else:
@@ -316,8 +334,7 @@ class recon(tomoRecon.recon):
          print("INFORMATION: HWR: Calculating WFIM, wavefront-interaction matrix")
 
       # \/ loop over rows and convert
-      for actNo in xrange(self.nmodes):
-         thisIp=self.spmx[actNo]
+      for actNo,thisIp in enumerate(self.spmx):
          if self.hwrSparse:
             thisIp=numpy.array(thisIp.todense()).ravel()
          HWRcalc= abbot.hwr.doHWRGeneral( thisIp,
@@ -327,9 +344,9 @@ class recon(tomoRecon.recon):
                sparse=self.hwrSparse )[1]
          if self.hwrWFMMblockReduction:
             thisi=None
-            for i in xrange(int(self.gradOp.n_[0]//self.hwrWFMMblockReduction)):
+            for i,tWFIMbrIndicesModes in enumerate(self.WFIMbrIndicesModes):
                # search through indices to find the right one
-               if actNo in self.WFIMbrIndicesWFGrid[i]:
+               if actNo in tWFIMbrIndicesModes:
                   thisi=i
                   continue
             if type(thisi)==type(None):
@@ -379,21 +396,43 @@ class recon(tomoRecon.recon):
 
    def calcClosedLoop(self):
       """Apply reconstruction, and mapping"""
-      integratedV=abbot.hwr.doHWRGeneral( self.inputData,
-               self.smmtnsDef,self.gradOp,self.offsetEstM,
-               self.smmtnsDefStrts,self.smmtnsMap,
-               doWaffleReduction=0, doPistonReduction=0,
-               sparse=self.hwrSparse )[1]
+      try:
+         self.integratedV=abbot.hwr.doHWRGeneral( self.inputData,
+                  self.smmtnsDef,self.gradOp,self.offsetEstM,
+                  self.smmtnsDefStrts,self.smmtnsMap,
+                  doWaffleReduction=0, doPistonReduction=0,
+                  sparse=self.hwrSparse )[1]
+      except:
+         print("ERROR: HWR: failed in HWR integration,")
+         print("ERROR: HWR:  sys.exc_info()[0]={0:s}".format(
+               str(sys.exc_info()[0])) )
+         print("ERROR: HWR:  sys.exc_info()[1]={0:s}".format(
+               str(sys.exc_info()[1])) )
+         import pickle
+         print("ERROR: HWR: Will write /tmp/hwrTmp.pickle ...")
+         # The following line could over-write the previous dump, perhaps
+         # instead the behaviour should be to throw an exception if it already
+         # exists.
+         fhandle=open("/tmp/hwrTmp.pickle","w")
+         p=pickle.Pickler(fhandle)
+         p.dump({ 'self.hwrMaxLen': self.hwrMaxLen,
+                  'self.hwrBoundary': self.hwrBoundary,
+                  'self.hwrOverlap': self.hwrOverlap,
+                  'self.hwrSparse': self.hwrSparse,
+                  'self.hwrSparse': self.hwrSparse,
+                  'subapMap': self.gradOp.subapMask,
+                  'self.inputData': self.inputData})
+         raise Exception("ERROR: HWR: ... written")
       if not self.hwrSparse:
-         outputV=numpy.dot( self.WFMM, integratedV )
+         self.outputV=numpy.dot( self.WFMM, self.integratedV )
       else:
-         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(integratedV),
+         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(self.integratedV),
                tol=self.hwrCGtol )
          if outputV[1]==0:
-            outputV=outputV[0]
+            self.outputV=outputV[0]
          else:
             raise Exception("ERROR: HWR: Could not converge on mapping")
-      self.outputData+=self.gains*-outputV
+      self.outputData=self.decayFactor*self.outputData+self.gains*-self.outputV
 
    def calc(self):
       #
@@ -473,15 +512,21 @@ class recon(tomoRecon.recon):
       op+=('<plot title="%s Output data%s" '+
           'cmd="data=%s.outputData" ret="data" type="pylab" '+
           'when="rpt" palette="jet"/>\n')%(self.objID,thisid,objname)
+      op+=('<plot title="%s Integrated vector %s" '+
+          'cmd="data=%s.integratedV" ret="data" type="pylab" '+
+          'when="rpt" palette="jet"/>\n')%(self.objID,thisid,objname)
+      op+=('<plot title="%s Mapped integration %s" '+
+          'cmd="data=%s.outputV" ret="data" type="pylab" '+
+          'when="rpt" palette="jet"/>\n')%(self.objID,thisid,objname)
       op+=('<plot title="%s Use reference centroids%s" '+
           'ret="data" when="cmd" texttype="1" wintype="mainwindow">\n'+
           '<cmd>\ndata=%s.control["subtractRef"]\n'+
           '%s.control["subtractRef"]=1-data\n</cmd>\n'+
           'button=1-data\n</plot>\n')%(self.objID,thisid,objname,objname)
 
-      op+=('<plot title="%s gradM%s" '+
-          'cmd="data=%s.gradM" ret="data" type="pylab" '+
-          'when="cmd"/>\n')%(self.objID,thisid,objname)
+# (redundant?) :      op+=('<plot title="%s gradM%s" '+
+# (redundant?) :          'cmd="data=%s.gradM" ret="data" type="pylab" '+
+# (redundant?) :          'when="cmd"/>\n')%(self.objID,thisid,objname)
       if self.hwrSparse:
          thiscmd='"data=numpy.array(%s.spmx.todense())"'%(objname)
       else:
@@ -498,6 +543,6 @@ class recon(tomoRecon.recon):
            'when="cmd"/>\n')%(self.objID,thisid,thiscmd)
       op+=('<plot title="%s inputData%s" '+
           'cmd="data=%s.inputData" ret="data" type="pylab" '+
-          'when="cmd"/>\n')%(self.objID,thisid,objname)
+          'when="rpt"/>\n')%(self.objID,thisid,objname)
 
       return op 
