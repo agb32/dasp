@@ -21,7 +21,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -59,7 +59,7 @@ class dmInfo:
         integration with openloop, specify !=0.
 
         maxStroke is given in microns, the max Peak-Valley allowed.
-
+        stuckActs - None, or (nstuck,clumpsize,maxRadius,minRadius,seed)
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
@@ -73,6 +73,7 @@ class dmInfo:
         self.gainAdjustment=gainAdjustment
         self.decayFactor=decayFactor
         self.maxStroke=maxStroke
+        self.stuckActs=stuckActs
         self.zonalDM=zonalDM
         self.reconLam=reconLam#the reconstructor wavelength...
         self.subpxlInterp=subpxlInterp
@@ -723,7 +724,7 @@ class dmInfo:
         return MirrorSurface(typ=interpType,npup=self.dmpup,nact=self.nact,phsOut=phsOut,actoffset=self.actoffset,
                              actCoupling=actCoupling,actFlattening=actFlattening,couplingcoeff=couplingcoeff,
                              gaussianIndex=gaussianIndex,gaussianOverlapAccuracy=gaussianOverlapAccuracy,
-                             infFunc=infFunc, interpolationNthreads = interpolationNthreads)
+                             infFunc=infFunc, interpolationNthreads = interpolationNthreads,stuckActs=self.stuckActs)
 
 class dmOverview:
     """DM object to hold info about DMs etc.
