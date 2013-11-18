@@ -1212,7 +1212,7 @@ class MirrorSurface:
     def fit(self,actmap,phsOut=None,coords=None):
         """coords here can be a tuple of (ymin,xmin,ymax,xmax) over which the data is fitted.
         """
-        if self.stuckActs!=None:
+        if self.stuckActsMask!=None:
             actmap=actmap*self.stuckActsMask+self.stuckActsValue
         if self.typ=="spline":
             return self.interpolateSpline(actmap,phsOut,coords=coords)
