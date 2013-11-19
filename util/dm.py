@@ -1179,6 +1179,7 @@ class MirrorSurface:
         self.npup=npup
         self.nact=nact
         self.infFunc=infFunc
+        self.stuckActs=stuckActs
         self.stuckActsMask,self.stuckActsValue=self.makeStuckActPattern(stuckActs)
         if phsOut==None:
             self.phsOut=numpy.zeros((self.npup,self.npup),numpy.float32)
