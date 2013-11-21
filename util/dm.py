@@ -1259,6 +1259,7 @@ class MirrorSurface:
     def makeStuckActPattern(self,stuckActs):
         """Makes a pattern for stuck actuators
         stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value,frac low, low value, fraction coupled)
+        OR, [mask array, value array, coupled list]
         """
         if stuckActs==None or stuckActs==0:
             return None,None,None
@@ -1275,6 +1276,8 @@ class MirrorSurface:
         if type(stuckActs)==type(0):
             nstuck=stuckActs
         else:
+            if type(stuckActs[0])==numpy.ndarray:
+                return stuckActs[0],stuckActs[1],stuckActs[2]
             nstuck=stuckActs[0]
             if len(stuckActs)>1:
                 clumpSize=stuckActs[1]
