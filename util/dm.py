@@ -1172,7 +1172,7 @@ class MirrorSurface:
         actCoupling is also used for spline and pspline
         couplingcoeff, gaussianIndex and gaussianOverlapAccuracy are used for gaussian only.
         infFunc should be used if typ=="influence", and can be an array or a filename.  Shape should be (nact*nact,npup,npup)
-        StuckActs can be None, or a single value (number of stuck acts), or a tuple of (number of stuck,clumpSize=0,maxRadius=None,minRadius=0,actPatternSeed=None).
+        StuckActs can be None, or a single value (number of stuck acts), or a tuple of (number of stuck,clumpSize=0,maxRadius=None,minRadius=0,actPatternSeed=None,fraction high, high value,frac lo, low value,fraction coupled).
 
         """
         self.typ=typ
@@ -1180,7 +1180,7 @@ class MirrorSurface:
         self.nact=nact
         self.infFunc=infFunc
         self.stuckActs=stuckActs
-        self.stuckActsMask,self.stuckActsValue=self.makeStuckActPattern(stuckActs)
+        self.stuckActsMask,self.stuckActsValue,self.coupledActsList=self.makeStuckActPattern(stuckActs)
         if phsOut==None:
             self.phsOut=numpy.zeros((self.npup,self.npup),numpy.float32)
         else:
@@ -1216,6 +1216,31 @@ class MirrorSurface:
         """
         if self.stuckActsMask!=None:
             actmap=actmap*self.stuckActsMask+self.stuckActsValue
+            for c in self.coupledActsList:
+                y,x=c
+                n=0
+                actmap[y,x]=0
+                #txt=""
+                if y>0:#always couple to acts above and left
+                    actmap[y,x]+=actmap[y-1,x]
+                    #txt+="%g "%actmap[y-1,x]
+                    n+=1
+                if y<self.nact-1 and self.stuckActsMask[y+1,x]==1:
+                    #but only couple to below and right if they are active ones, not dead ones.
+                    actmap[y,x]+=actmap[y+1,x]
+                    #txt+="%g "%actmap[y+1,x]
+                    n+=1
+                if x>0:
+                    actmap[y,x]+=actmap[y,x-1]
+                    #txt+="%g "%actmap[y,x-1]
+                    n+=1
+                if x<self.nact-1 and self.stuckActsMask[y,x+1]==1:
+                    actmap[y,x]+=actmap[y,x+1]
+                    #txt+="%g "%actmap[y,x+1]
+                    n+=1
+                if n>0:
+                    actmap[y,x]/=n
+                    #print "coupling %d,%d %d %g %s"%(x,y,n,actmap[y,x],txt)
         if self.typ=="spline":
             return self.interpolateSpline(actmap,phsOut,coords=coords)
         elif self.typ=="bicubic":
@@ -1233,15 +1258,18 @@ class MirrorSurface:
 
     def makeStuckActPattern(self,stuckActs):
         """Makes a pattern for stuck actuators
-        stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value)
+        stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value,frac low, low value, fraction coupled)
         """
         if stuckActs==None or stuckActs==0:
-            return None,None
+            return None,None,None
         seed=None
         onCircle=0
         clumpSize=1
         highVal=1.
         fracHi=0
+        lowVal=-1.
+        fracLo=0
+        fracCoupled=0
         maxRadius=None
         minRadius=0
         if type(stuckActs)==type(0):
@@ -1260,6 +1288,12 @@ class MirrorSurface:
                 fracHi=stuckActs[5]
             if len(stuckActs)>6:
                 highVal=stuckActs[6]
+            if len(stuckActs)>7:
+                fracLo=stuckActs[7]
+            if len(stuckActs)>8:
+                lowVal=stuckActs[8]
+            if len(stuckActs)>9:
+                fracCoupled=stuckActs[9]
 
         if seed!=None:
             numpy.random.seed(seed)
@@ -1277,8 +1311,13 @@ class MirrorSurface:
         clump.shape=ncy,ncx
         i=0
         groupsHi=ngroups*fracHi
+        groupsLo=ngroups*fracLo
+        groupsCoupled=ngroups*fracCoupled
         nHi=groupsHi*clumpSize
+        nLo=groupsLo*clumpSize
+        nCo=groupsCoupled*clumpSize
         s=0
+        coupledList=[]
         while s<nstuck:
             ignore=0
             pos=numpy.random.randint(self.nact*self.nact)
@@ -1286,11 +1325,9 @@ class MirrorSurface:
             posy=pos//self.nact
             if maxRadius!=None and maxRadius>0:
                 if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)>maxRadius:
-                    i-=1
                     ignore=1
             if minRadius>0:
                 if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)<minRadius:
-                    i-=1
                     ignore=1
 
 
@@ -1300,12 +1337,19 @@ class MirrorSurface:
                 if posy+ncy>self.nact:
                     posy-=posy+ncy-self.nact
                 mask[posy:posy+ncy,posx:posx+ncx]=clump
-            if s<nHi:
-                hiVals=mask[posy:posy+ncy,posx:posx+ncx]=highVal
+                if s<nHi:#acts stuck high
+                    hiVals[posy:posy+ncy,posx:posx+ncx]=highVal
+                elif s<nHi+nLo:#acts stuck low
+                    hiVals[posy:posy+ncy,posx:posx+ncx]=lowVal
+                elif s<nHi+nLo+nCo:#acts coupled (nearest 4 neighbours)
+                    for y in range(ncy):
+                        for x in range(ncx):
+                            coupledList.append((posy+y,posx+x))
+                else:#acts stuck at midrange (nowt to do)
+                    pass
             s=mask.sum()
-            i+=1
         mask=1-mask
-        return mask,hiVals
+        return mask,hiVals,coupledList
         
 
                 
