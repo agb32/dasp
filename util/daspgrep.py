@@ -14,11 +14,12 @@ def getArgs(args):
     printall=0
     printfile=0
     printindex=0
+    space=0
     for a in args:
         if a[:7]=="--grep=":
             glist.append(a[7:])
         elif a[:6]=="--help":
-            print "Usage: --grep=STRING --file=FILENAME --param=PARAMETER [--printid --printall --printdict --printall --printfile --printindex]"
+            print "Usage: --grep=STRING --file=FILENAME --param=PARAMETER [--printid --printall --printdict --printall --printfile --printindex --space]"
             print "Or:  grep string filename parameter"
             print "Note, strehl and inbox can be prefixed with % to return in percentage, eg %strehl %inbox0.1"
             sys.exit(0)
@@ -46,6 +47,10 @@ def getArgs(args):
             printindex=1
             if a[:14]=="--printindex=0":
                 printindex=0
+        elif a[:7]=="--space":
+            space=1
+            if a=="--space=0":
+                space=0
         else:
             if os.path.exists(a):#is it a filename?
                 flist.append(a)
@@ -57,12 +62,15 @@ def getArgs(args):
                         got=1
                 if got==0:#its a grep string
                     glist.append(a)
-    return glist,flist,ilist,printid,printdict,printall,printfile,printindex
+    return glist,flist,ilist,printid,printdict,printall,printfile,printindex,space
 
 
-def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0):
+def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0):
     outtxt=""
     cnt=0
+    fillchr="\t"
+    if space:
+        fillchr=" "
     for f in flist:
         lines=open(f).readlines()
         for line in lines:
@@ -98,12 +106,12 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                     ilist=sciDict.keys()
                 txt=""
                 if printindex:
-                    txt+="\t%d"%cnt
+                    txt+="%s%d"%(fillchr,cnt)
                 cnt+=1
                 if printfile:
-                    txt+="\t%s"%f
+                    txt+="%s%s"%(fillchr,f)
                 if printid:
-                    txt+="\t%s"%line[:indx]
+                    txt+="%s%s"%(fillchr,line[:indx])
                 for param in ilist:
                     if param[0]=="%":
                         m=100.
@@ -117,17 +125,17 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                     #    m=1.
                     if sciDict.has_key(key):
                         if printdict:
-                            txt+="\t%s"%key
+                            txt+="%s%s"%(fillchr,key)
                         try:
-                            txt+="\t%.3g"%(sciDict[key]*m)
+                            txt+="%s%.3g"%(fillchr,sciDict[key]*m)
                         except:
-                            txt+="\t%s"%(str(sciDict[key]))
+                            txt+="%s%s"%(fillchr,str(sciDict[key]))
 
-                outtxt+="%s\n"%txt[1:]
+                outtxt+="%s\n"%txt[len(fillchr):]
     return outtxt
 
 
 if __name__=="__main__":
-    glist,flist,ilist,printid,printdict,printall,printfile,printindex=getArgs(sys.argv[1:])
-    txt=grep(glist,flist,ilist,printid,printdict,printall,printfile,printindex)
+    glist,flist,ilist,printid,printdict,printall,printfile,printindex,space=getArgs(sys.argv[1:])
+    txt=grep(glist,flist,ilist,printid,printdict,printall,printfile,printindex,space)
     print txt
