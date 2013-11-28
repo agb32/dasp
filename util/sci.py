@@ -299,7 +299,7 @@ class science:
         #self.dlPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
         self.diffn_core_en=float(self.diffPSF[self.nimg/2,self.nimg/2])
         self.diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(self.diffPSF),s=(self.diffPSF.shape[0]*2,self.diffPSF.shape[1]*2)).sum()
-        print "Diffraction OTF sum: %s"%str(self.diffOTFSum)
+        #print "Diffraction OTF sum: %s"%str(self.diffOTFSum)
         print "todo - return from computeEnsquaredEnergy - allocate once"
         self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         #perform an acml FFT initialisation.
