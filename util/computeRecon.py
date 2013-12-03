@@ -357,7 +357,7 @@ class makeRecon:
         #    veut=veut.copy()
         if resname==None:
             resname=self.rmxdensename
-        mem=self.getMem()#get available memory
+        mem=self.getMem()*0.9#get available memory - problems when required is just less then available - swapping - so reduce total by x0.9... 
         ansmem=pmxshape[0]*veutshape[1]*bytepix#memory to store the result
         memleft=mem-ansmem
         if memleft>0:
@@ -365,7 +365,7 @@ class makeRecon:
         else:
             print "Warning - the multiply result will fill entire memory plus - this could take a while... (%d,%d)"%(pmxshape[0],veutshape[1])
             nblock=4
-        print "Doing gemm in %d quadrants"%(nblock*nblock)
+        print "Doing gemm in %d quadrants.  Total shape %s x %s"%(nblock*nblock,str(pmxshape),str(veutshape))
         asize=pmxshape[0]/nblock
         bsize=veutshape[1]/nblock
         res=None
