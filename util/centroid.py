@@ -1683,6 +1683,8 @@ class centroid:
         #self.calibrateDataOrig=self.calibrateData.copy()
         #Now compute the bounds for which this is single valued (since, when cent gets too close to edge, it starts wrapping round).
         self.calibrateBounds=numpy.zeros((2,self.nsubx,self.nsubx,2),numpy.int32)
+        linearPointsForced=0
+        maxShift=0.
         for i in range(self.nsubx):
             for j in range(self.nsubx):
                 if self.subflag[i,j]:
@@ -1714,7 +1716,10 @@ class centroid:
 #                                         val*=0.99999
 #                                     else:
 #                                         val*=1.00001
-                                print "Forcing SHS x calibration for point (%d,%d) step %g from %g to %g"%(i,j,cd.xr[k],cd.xc[k],val)
+                                #print "Forcing SHS x calibration for point (%d,%d) step %g from %g to %g"%(i,j,cd.xr[k],cd.xc[k],val)
+                                linearPointsForced+=1
+                                if abs(val-cd.xc[k])>maxShift:
+                                    maxShift=abs(val-cd.xc[k])
                                 cd.xc[k]=val
                         notsame=numpy.nonzero(cd.xc[1:]!=cd.xc[:-1])[0]
                         cd.xc=cd.xc[notsame]
@@ -1730,7 +1735,10 @@ class centroid:
 #                                         val*=0.99999
 #                                     else:
 #                                         val*=1.00001
-                                print "Forcing SHS y calibration for point (%d,%d) step %g from %g to %g"%(i,j,cd.yr[k],cd.yc[k],val)
+                                #print "Forcing SHS y calibration for point (%d,%d) step %g from %g to %g"%(i,j,cd.yr[k],cd.yc[k],val)
+                                linearPointsForced+=1
+                                if abs(val-cd.yc[k])>maxShift:
+                                    maxShift=abs(val-cd.yc[k])
                                 cd.yc[k]=val
                         notsame=numpy.nonzero(cd.yc[1:]!=cd.yc[:-1])[0]
                         cd.yc=cd.yc[notsame]
@@ -1744,7 +1752,7 @@ class centroid:
             cd=self.calDataDict[k]
             cd.xindx=numpy.array(cd.indx).astype(numpy.int32)*2
             cd.yindx=cd.xindx+1
-        print "Finished calibrating centroids"
+        print "Finished calibrating centroids, shifted %d, maxShift %g"%(linearPointsForced,maxShift)
 
     def applyCalibrationIdentical(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.

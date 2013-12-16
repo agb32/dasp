@@ -193,7 +193,7 @@ class dmInfo:
                             l=1./len(l1)
                             self.slaving[y*self.nact+x]=[[xx,l] for xx in l1]
         return self.slaving
-    def computeDMPupil(self,atmosGeom,centObscuration=0.,retPupil=1,reconstructList=None):
+    def computeDMPupil(self,atmosGeom,centObscuration=0.,retPupil=1,reconstructList=None,fixToGradientOperator=0):
         """Computes the DM flag and pupil.
         centObscuration is the size of the central obscuration in pixels.  This is reduced here depending 
              on the conjugate height.  Typically, it will equal pupil.r2
@@ -283,6 +283,10 @@ class dmInfo:
         if self.maxActDist==None:
             subflag=(subarea>=self.minarea).astype(numpy.int32)
             self.dmflag=subflag
+        if fixToGradientOperator:
+            import util.gradientOperator
+            g=util.gradientOperator.gradientOperatorType1(pupilMask=self.dmflag.astype("f"),sparse=1)
+            self.dmflag=(g.illuminatedCorners!=0)
         self.subarea=subarea
         self.dmpupil=dmpupil
         self.nacts=int(self.dmflag.sum())

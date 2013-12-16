@@ -1482,6 +1482,7 @@ static PyObject* dot(PyObject* self, PyObject* args)
     }
   if(ArrayM->dimensions[1] != ArrayV->dimensions[0]) // matrix and input vector sizes must agree
     {
+      printf("N cols should equal length of second, but %d != %d\n",ArrayM->dimensions[1],ArrayV->dimensions[0]);
       PyErr_SetString(PyExc_ValueError, "Number of columns of 1st argument must agree with length of 2nd argument.");
       return NULL;
     }
