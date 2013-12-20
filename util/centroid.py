@@ -1778,8 +1778,10 @@ class centroid:
                 if cd.yc.size==0:
                     print "because there are no calibration bounds..."
             #now put the calibrated values back (using numpy fancy indexing)
-            rdata[cd.xindx]=numpy.interp(x,cd.xc,cd.xr).astype(numpy.float32)
-            rdata[cd.yindx]=numpy.interp(y,cd.yc,cd.yr).astype(numpy.float32)
+            if cd.xc.size!=0:
+                rdata[cd.xindx]=numpy.interp(x,cd.xc,cd.xr).astype(numpy.float32)
+            if cd.yc.size!=0:
+                rdata[cd.yindx]=numpy.interp(y,cd.yc,cd.yr).astype(numpy.float32)
             indx=numpy.nonzero(numpy.isnan(rdata[cd.xindx]))[0]
             if indx.size>0:
                 print "indx",indx,numpy.take(rdata[cd.xindx],indx),numpy.take(x,indx)
