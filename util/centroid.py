@@ -1769,10 +1769,14 @@ class centroid:
             x=numpy.take(rdata,cd.xindx)
             y=numpy.take(rdata,cd.yindx)
             #print "x,y",x,y
-            if numpy.any(x>cd.xc[-1]) or numpy.any(x<cd.xc[0]):
+            if cd.xc.size==0 or numpy.any(x>cd.xc[-1]) or numpy.any(x<cd.xc[0]):
                 print "Warning: x centroid is outside calibrated bounds"
-            if numpy.any(y>cd.yc[-1]) or numpy.any(y<cd.yc[0]):
+                if cd.xc.size==0:
+                    print "because there are no calibration bounds..."
+            if cd.yc.size==0 or numpy.any(y>cd.yc[-1]) or numpy.any(y<cd.yc[0]):
                 print "Warning: y centroid is outside calibrated bounds"
+                if cd.yc.size==0:
+                    print "because there are no calibration bounds..."
             #now put the calibrated values back (using numpy fancy indexing)
             rdata[cd.xindx]=numpy.interp(x,cd.xc,cd.xr).astype(numpy.float32)
             rdata[cd.yindx]=numpy.interp(y,cd.yc,cd.yr).astype(numpy.float32)
