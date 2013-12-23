@@ -21,7 +21,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -76,6 +76,7 @@ class dmInfo:
         self.stuckActs=stuckActs
         self.zonalDM=zonalDM
         self.reconLam=reconLam#the reconstructor wavelength...
+        self.fixToGradientOperator=fixToGradientOperator
         self.subpxlInterp=subpxlInterp
         self.dmpup=None
         self.dmpupil=None
@@ -193,13 +194,14 @@ class dmInfo:
                             l=1./len(l1)
                             self.slaving[y*self.nact+x]=[[xx,l] for xx in l1]
         return self.slaving
-    def computeDMPupil(self,atmosGeom,centObscuration=0.,retPupil=1,reconstructList=None,fixToGradientOperator=0):
+    def computeDMPupil(self,atmosGeom,centObscuration=0.,retPupil=1,reconstructList=None):
         """Computes the DM flag and pupil.
         centObscuration is the size of the central obscuration in pixels.  This is reduced here depending 
              on the conjugate height.  Typically, it will equal pupil.r2
         reconstructList is either "all" or a list of sources for which actuators should be computed.  If 
              None, the default is used.
         """
+        fixToGradientOperator=self.fixToGradientOperator
         if reconstructList==None:
             reconstructList=self.reconstructList
         if self.reconstructList==reconstructList:
