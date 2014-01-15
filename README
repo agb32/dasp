@@ -21,6 +21,13 @@ Linux
    -------------
    Type 'make -s' in the top-level directory.
 
+Mac OS X 10.5 or greater
+-------------
+
+see the wiki,
+
+   https://sharepoint.cfai.dur.ac.uk/Wiki/DASPOnMacOSX.aspx
+
 Mac OS X 10.4
 ~~~~~~~~~~~~~
    Installation notes - note, these are old instructions, and may or may not work.  Installing everything from source (See below) is more likely to work.
