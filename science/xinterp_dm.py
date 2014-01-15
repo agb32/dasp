@@ -72,10 +72,11 @@ class dm(base.aobase.aobase):
                 self.actCoupling=config.getVal("actCoupling")#coupling of actuators to neighbours, eg, 0.1. depreciated
                 self.interpType=self.config.getVal("dmInterpType",default="spline")
                 self.actSlaves=None
+                self.stuckActs=config.getVal("stuckActs",default=None,raiseerror=0)
                 self.actFlattening=config.getVal("actFlattening",default=1.)#flattening of gradients, default 1., should be between 0-1.
                 self.mirrorSurface=MirrorSurface(self.interpType,self.dmpup,self.nact,1,
                                                  self.actoffset,self.actCoupling,self.actFlattening,
-                                                 interpolationNthreads = self.interpolationNthreads)
+                                                 interpolationNthreads = self.interpolationNthreads,stuckActs=self.stuckActs)
                 self.maxStroke=0#depreciated mode dones't have max stroke.
 
             else:

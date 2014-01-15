@@ -4,9 +4,9 @@ import sys
 #uptime=subprocess.Popen("uptime",stdout=subprocess.PIPE).stdout.read()
 def run(ignoremem=0):
     if ignoremem==0:
-        print "Waiting for load to be less than 0.02, and more than half of memory free"
+        print "Waiting for load to be less than 0.1, and more than half of memory free"
     else:
-        print "Waiting for load to be less than 0.02"
+        print "Waiting for load to be less than 0.1"
     okay=0
     while okay==0:
         okay=1
@@ -20,7 +20,7 @@ def run(ignoremem=0):
             while l[i] in ["0","1","2","3","4","5","6","7","8","9","."]:
                 i+=1
             loadlist.append(float(l[:i]))
-            if loadlist[-1]>0.02:
+            if loadlist[-1]>0.1:
                 okay=0
             txt+="%.2f, "%loadlist[-1]
         mem=top[3].split()[2::2]#total, used, free, buffers

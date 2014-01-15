@@ -526,10 +526,10 @@ Set up your BLAS and LAPACK environment variables.
 Then do a python setup.py build for scipy.
 
 
-Oct 2012 (ubuntu):
-python-scientific 
-mpichpython 
-mpich2 
+Oct 2012 (ubuntu 12.04) (see below for a line to copy/paste):
+python-scientific
+mpichpython
+mpich2
 purge mpich2
 openmpi-common
 openmpi-bin
@@ -544,11 +544,8 @@ Should then print out:
 If it doesn't print your python path, you may need to add it to /etc/environment
 
 So, in summary, require:
-sudo apt-get install python-scientific mpichpython mpich-bin
-python-netcdf python-dev fftw3-dev
-libatlas-dev gsl-bin
-libatlas-base-dev
-python-scipy
+sudo apt-get install python-scientific mpichpython mpich-bin python-netcdf python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib
+
 
 On fedora, need ScientificPython.
 Then sudo ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun 
@@ -584,6 +581,12 @@ ssh keys - so can log into self.
 
 Makesure /usr/local/bin/mpipython exists (not strictly necessary but
 some of my scripts use it).  Soft link from /usr/bin/mpipython.
+
+sudo mkdir /var/ali
+sudo chown ali:ali /var/ali
+
+alias mnt='sudo mount -t nfs gig44:/home/ali/aosim /home/ali/mnt'
+
 
 
 Hamilton:

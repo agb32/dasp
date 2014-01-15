@@ -58,13 +58,26 @@ class makeRecon:
         f=open(self.timename,"a")
         f.write(txt)
         f.close()
-    def dotdot(self,csc=None):
-        """Do the sparse dot product with self transposed..."""
+    def dotdot(self,csc=None,diagScaling=None):
+        """Do the sparse dot product with self transposed...
+        If have a diagonal scaling, want to multiply each col by the sqrt of this value in the pmx, before dotting..., i.e. if A is the diagonal scaling mx, and B is sqrt(A)
+
+        PAP^T = PB BP^T
+
+        """
+        pmxfname=None
         if csc==None:
             pmxfname=self.pmxfname
             csc=util.FITS.loadSparse(pmxfname,doByteSwap=1)
         if isinstance(csc,numpy.ndarray):
             shape=csc.shape
+            if diagScaling!=None:
+                if type(diagScaling)==numpy.ndarray:#can also be None or float.
+                    if diagScaling.shape[0]!=shape[1] or len(diagScaling.shape)!=1:
+                        raise Exception("Wrong diagonal scaling, expected shape %d (pmx=%s)"%(shape[1],str(shape)))
+                    diagScaling=numpy.sqrt(diagScaling)
+                else:
+                    diagScaling=numpy.ones((shape[1],),numpy.float32)*numpy.sqrt(diagScaling)
             if atlas:
                 res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="C")
             else:
@@ -99,6 +112,10 @@ class makeRecon:
                     uend=(j+1)*size
                     if j==nblock-1:
                         uend=shape[0]
+                    if diagScaling!=None and i==0:
+                        #scale the elements. - we do it in blocks to avoid potential swapping if csc is large.
+                        for si in xrange(csc.shape[1]):
+                            csc[ustart:uend,si]*=diagScaling[si]
                     b=csc[ustart:uend].transpose()#f contig
                     print "Starting gemm %d %d"%(i,j)
                     t1=time.time()
@@ -106,6 +123,10 @@ class makeRecon:
                     t2=time.time()
                     print "GEMM time %gs"%(t2-t1)
                     del(b)
+                    if pmxfname!=None and diagScaling!=None and i==nblock-1:#scale back so as not the alter csc.
+                        for si in xrange(csc.shape[1]):
+                            csc[ustart:uend,si]/=diagScaling[si]
+                        
                 del(a)
             t2=time.time()
             print "Total GEMM time %gs"%(t2-t0)
@@ -120,6 +141,8 @@ class makeRecon:
             util.FITS.Write(res,self.dottedname,doByteSwap=0,extraHeader=extraHeader)
             del(csc)
         else:
+            if diagScaling!=None:
+                raise Exception("Not yet implemented:  diagScaling in dotdot() in util/computeRecon.py")
             csr=csc.tocsr()
             csc=csr.transpose()
             #resindptr=numpy.zeros((csr.shape[0]+1,),numpy.int32)
@@ -317,10 +340,12 @@ class makeRecon:
         return a
 
 
-    def denseDotDense(self,a=None,b=None,transA=0,transB=0,resname=None):
+    def denseDotDense(self,a=None,b=None,transA=0,transB=0,resname=None,diagScaling=None):
         """Dot product of the poke matrix with the gen inv of pmx dot pmxT to give the reconstructor, assuming inputs and output all dense.
         a and b must be the filenames
         Can be used instead of finalDot() giving a dense result...
+        
+        DiagScaling can be used for introducing noise covariance (also required in dotdot).  
         """
         if a==None:
             pmxfname=self.pmxfname
@@ -341,6 +366,15 @@ class makeRecon:
         #if not pmx.flags.c_contiguous:
         #    pmx=pmx.copy()
 
+        if diagScaling!=None:
+            if type(diagScaling)==numpy.ndarray:#can also be None or float.
+                if diagScaling.shape[0]!=int(pmxh["NAXIS1"]) or len(diagScaling.shape)!=1:
+                    raise Exception("Wrong diagonal scaling, expected shape %d (pmx=%s)"%(shape[1],str(shape)))
+                #diagScaling=numpy.sqrt(diagScaling)
+            else:
+                diagScaling=numpy.ones((shape[1],),numpy.float32)*diagScaling
+
+
         if b==None:
             invname=self.invname
         else:
@@ -357,7 +391,7 @@ class makeRecon:
         #    veut=veut.copy()
         if resname==None:
             resname=self.rmxdensename
-        mem=self.getMem()#get available memory
+        mem=self.getMem()*0.9#get available memory - problems when required is just less then available - swapping - so reduce total by x0.9... 
         ansmem=pmxshape[0]*veutshape[1]*bytepix#memory to store the result
         memleft=mem-ansmem
         if memleft>0:
@@ -365,7 +399,7 @@ class makeRecon:
         else:
             print "Warning - the multiply result will fill entire memory plus - this could take a while... (%d,%d)"%(pmxshape[0],veutshape[1])
             nblock=4
-        print "Doing gemm in %d quadrants"%(nblock*nblock)
+        print "Doing gemm in %d quadrants.  Total shape %s x %s"%(nblock*nblock,str(pmxshape),str(veutshape))
         asize=pmxshape[0]/nblock
         bsize=veutshape[1]/nblock
         res=None
@@ -380,7 +414,6 @@ class makeRecon:
             except:
                 print "Unable to memmap %s, reading..."%pmxfname
                 a=util.FITS.Read(pmxfname,savespace=1,doByteSwap=1)[1]
-
             if transA:
                 a2=a[:,astart:aend].transpose()#not contig
                 a2=a2.copy()#c contig
@@ -389,6 +422,13 @@ class makeRecon:
             del(a)
             a=a2
             del(a2)
+            if diagScaling!=None:
+                #shape is nslopesPartial,nacts.
+                for si in xrange(a.shape[0]):
+                    a[si]*=diagScaling[si+astart]
+                
+                
+
             for j in range(nblock):
                 bstart=j*bsize
                 bend=(j+1)*bsize

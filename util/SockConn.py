@@ -1,5 +1,6 @@
 #$Id: SockConn.py,v 1.36 2011/01/20 08:08:15 ali Exp $
 import socket,serialise,types,os,select,cPickle,thread,time
+import traceback
 import util.ConnObj as ConnObj
 import Scientific.MPI,sys
 class SockConn:
@@ -132,7 +133,15 @@ class SockConn:
             if self.fsock==-1:
                 break
             selOut=[]
-            rtr,rtw,err=select.select(self.selIn,selOut,self.selIn)
+            try:
+                rtr,rtw,err=select.select(self.selIn,selOut,self.selIn)
+            except:
+                traceback.print_exc()
+                print "Error in select - continuing..."
+                time.sleep(1)
+                rtr=[]
+                rtw=[]
+                err=[]
             for s in err:
                 #remove from dict, and act on it...
                 self.close(s)

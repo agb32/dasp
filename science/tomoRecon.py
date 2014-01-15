@@ -1192,7 +1192,7 @@ class recon(base.aobase.aobase):
         if reconmxFilename==None:
             print "Reconmxfilename not specified - using 0."
             return 0.
-        print "tomoRecon: Loading reconstructor from file: %s"%reconmxFilename
+        print "tomoRecon: Loading reconstructor (%d,%d) from file: %s"%(self.nmodes,self.ncents,reconmxFilename)
         if os.path.exists(reconmxFilename):
             head=util.FITS.ReadHeader(reconmxFilename)["parsed"]
             if head.has_key("COMPBITS"):

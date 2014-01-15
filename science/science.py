@@ -258,23 +258,23 @@ class science(aobase.aobase):
         
         #now allocate memory at the max size needed.  These memory arrays will then be shared between all the sciObj objects.
 
-        self.pupilAmplitudeMem=numpy.zeros((nfft,nfft),self.cpDataType) ##Complex amplitude in the pupil - was complex64
-        self.focusAmplitudeMem=numpy.zeros((nfft,nfft),self.cpDataType) ##Complex amplitude in the pupil after FFT - was complex64
-        self.tempImgMem=numpy.zeros((nfft,nfft),self.fpDataType)# Square modulus of the FFT of pupilAmplitude - was float64
+        self.pupilAmplitudeMem=numpy.zeros((nfft,nfft),numpy.complex64)#self.cpDataType) ##Complex amplitude in the pupil - was complex64
+        self.focusAmplitudeMem=numpy.zeros((nfft,nfft),numpy.complex64)#self.cpDataType) ##Complex amplitude in the pupil after FFT - was complex64
+        self.tempImgMem=numpy.zeros((nfft,nfft),numpy.float32)#self.fpDataType)# Square modulus of the FFT of pupilAmplitude - was float64
         self.binimgMem=None
         if self.nimgNotNfft:
-            self.binimgMem=numpy.zeros((nimg,nimg),self.fpDataType)#binned image
+            self.binimgMem=numpy.zeros((nimg,nimg),numpy.float32)#self.fpDataType)#binned image
         ##Allocation of the memory for the short exposure PSF
         ##Array storing the input phase
         if type(fpgaarr)==type(None):
-            self.instImgMem=numpy.zeros((nimg,nimg),self.fpDataType)# Instantaneous image - dummy size since copied later - was float64
-            self.phsMem=numpy.zeros((npup*npup*pupmult,),self.fpDataType)#was float64
+            self.instImgMem=numpy.zeros((nimg,nimg),numpy.float32)#self.fpDataType)# Instantaneous image - dummy size since copied later - was float64
+            self.phsMem=numpy.zeros((npup*npup*pupmult,),numpy.float32)#self.fpDataType)#was float64
             
         else:
             self.phsMem=fpgaarr
             self.instImgMem=fpgaarr
         #self.longExpPSFMem=Numeric.zeros((nfft,nfft),Numeric.Float64)# Long exposure image array
-        self.fftTmpMem=numpy.zeros((nfft**2+10*nfft,),self.cpDataType)#was complex64
+        self.fftTmpMem=numpy.zeros((nfft**2+10*nfft,),numpy.complex64)#self.cpDataType)#was complex64
         #now initialise the science objects with this memory.
         for this in self.thisObjList:
             sciObj=this.sciObj

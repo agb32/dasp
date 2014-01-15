@@ -34,4 +34,5 @@ Or, 0.0251*lambda/r0 with lambda in nm, r0 in cm.
 eg:
 0.251 * 500 / 12.9   = .97 arcsec seeing.
 
+According to Eric, this factor should be 0.2057
 """
