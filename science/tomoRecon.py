@@ -12,7 +12,6 @@ import util.regularisation
 import cmod.svd
 import cmod.utils
 import util.dot as quick
-import util.dicure
 
 try:
     import scipy.linsolve
@@ -150,6 +149,7 @@ class recon(base.aobase.aobase):
             if self.reconType=="SVD":
                 self.reconType="svd"
             if self.reconType=="dicure": # UB, 2012 Aug 3rd
+                import util.dicure
                 nsubx_tmp = self.config.getVal("wfs_nsubx")
                 #print "MINAREA:", self.minarea
                 subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
