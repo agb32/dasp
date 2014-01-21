@@ -15,12 +15,11 @@
 # This code based on science/WFSspatialFilter.py
 
 import base.aobase
-import collections
 import numpy
 import time
 
 
-class aosimZZZ(base.aobase.aobase):
+class aosimNessuno(base.aobase.aobase):
     """aosim ???
     [todo, epydoc compatible documentation]
     """
@@ -29,15 +28,20 @@ class aosimZZZ(base.aobase.aobase):
         """
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
 
+        self.active=self.config.getVal( "active", default=0, raiseerror=0 ) 
            # \/ load configuration variables
         self.YYY=self.config.getVal(
-              "YYY",
-              default=someValue,
+              "nessuno",
+              default=None,
               raiseerror=0 ) 
+           # \/ sparse or not?
         self.sparse=self.config.getVal( "sparse", default=0, raiseerror=0 )
 
            # \/ do initialisation calculations
-        self.obj=doInitialisationCode()
+        self.obj=self._doInitializationCode()
+
+    def _doInitializationCode(self):
+        pass
    
     def generateNext(self,msg=None):
         """[todo, epydoc compatible documentation]
@@ -55,22 +59,25 @@ class aosimZZZ(base.aobase.aobase):
                    self.outputData=self.parent.outputData
                 else:
                    # apply the relevant code
-                   self.outputData=self.doSomeProcessing(
+                   self.outputData=self._doSomeProcessing(
                           self.parent.outputData )
+    
+    def _doSomeProcessing(self,ip):
+        return ip
 
     def plottable(self,objname="$OBJ"):
         """[todo] write epydoc compatible description"""
         op=""
-        if not self.sparse:
-           cmd="%s.varName"%(objname)
-        else:
-           cmd="%s.varName.todense()"%(objname)
-        op+=('<plot title="some var" '+
-             'cmd="data=%s ret="data" type="pylab" '+
-             'when="once" palette="jet"/>\n')%(cmd)
-             # /\ options other than once include: rpt
-
-        op+=('<plot title="On/off" when="cmd" ret="feedback" texttype="1" '+
-             'wintype="mainwindow">'+
-             '<cmd>%s.active=1-self.active</cmd></plot>')%(objname)
+#        if not self.sparse:
+#           cmd="%s.outputData"%(objname)
+#        else:
+#           cmd="%s.outputData.todense()"%(objname)
+#        op+=('<plot title="ip or op" '+
+#             'cmd="data=%s ret="data" type="pylab" '+
+#             'when="rpt" palette="jet"/>\n')%(cmd)
+#             # /\ options other than once include: once
+#
+#        op+=('<plot title="On/off" when="cmd" ret="feedback" texttype="1" '+
+#             'wintype="mainwindow">'+
+#             '<cmd>%s.active=1-self.active</cmd></plot>')%(objname)
         return(op)
