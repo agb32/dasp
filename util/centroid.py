@@ -241,7 +241,7 @@ class centroid:
         #     self.symtype=0
         #     npxls=(self.nsubx*self.phasesize)**2
         #     if npxls>4*1024*1024*8*4:
-        #         print "Warning: can't fit pupil function into FPGA.  Assuming all pixels needed."
+        #         print "WARNING: can't fit pupil function into FPGA.  Assuming all pixels needed."
         #         self.usePupil=0
         #     elif npxls>4*1024*1024*8*2:
         #         print "Using 2 fold symmetry for pupil function"
@@ -503,7 +503,7 @@ class centroid:
     #                 if ignoreFailure:
     #                     self.fpgaBinaryLoaded=0
     #                     self.fpid=None
-    #                     print "Warning: wfscent - failed to initialise FPGA"
+    #                     print "WARNING: wfscent - failed to initialise FPGA"
     #                 else:
     #                     raise
     #             if self.fpgaBinaryLoaded:
@@ -543,7 +543,7 @@ class centroid:
     #     if fpgaarrsize<4*1024*1024:
     #         fpgaarrsize=4*1024*1024#needs 4MB array for loading QDR memory.
     #     if fpgaarrsize>1024*1024*1024:
-    #         print "Warning: Pupil pixel size is too large for single FPGA array - will use multiple arrays, but speed will be reduced (FPGA can access only a 1GB buffer)."
+    #         print "WARNING: Pupil pixel size is too large for single FPGA array - will use multiple arrays, but speed will be reduced (FPGA can access only a 1GB buffer)."
     #         fpgaarrsize=1024*1024*1024#might not all be used, but then we don't know that!  However, it is likely that a whole number of subaps will fit exactly since they are usually powers of two.
         
     #     fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.int8)
@@ -1565,7 +1565,7 @@ class centroid:
                         if self.calibrateData[0,i,j,k]>self.calibrateData[0,i,j,k+1]:
                             val=(self.calibrateData[0,i,j,k-1]+self.calibrateData[0,i,j,k+1])/2.
                             if self.printLinearisationForcing:
-                                print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
+                                print "INFORMATION Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
                             #and save for a summary at the end.
                             linearPointsForced+=1
                             shift=abs(self.calibrateData[0,i,j,k]-val)
@@ -1576,7 +1576,7 @@ class centroid:
                         if self.calibrateData[1,i,j,k]>self.calibrateData[1,i,j,k+1]:
                             val=(self.calibrateData[1,i,j,k-1]+self.calibrateData[1,i,j,k+1])/2.
                             if self.printLinearisationForcing:
-                                print "Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
+                                print "INFORMATION Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
                             #and save for a summary at the end.
                             linearPointsForced+=1
                             shift=abs(self.calibrateData[0,i,j,k]-val)
@@ -1599,9 +1599,9 @@ class centroid:
                     if self.subflag[i,j]:
                         cx,cy=data[i,j]#the x,y centroids.
                         if cx>self.calibrateData[0,i,j,self.calibrateBounds[0,i,j,1]] or cx<self.calibrateData[0,i,j,self.calibrateBounds[0,i,j,0]]:
-                            print "Warning: x centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cx)
+                            print "WARNING: x centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cx)
                         if cy>self.calibrateData[1,i,j,self.calibrateBounds[1,i,j,1]] or cy<self.calibrateData[1,i,j,self.calibrateBounds[1,i,j,0]]:
-                            print "Warning: y centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cy)
+                            print "WARNING: y centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cy)
                         data[i,j,0]=numpy.interp([cx],self.calibrateData[0,i,j,self.calibrateBounds[0,i,j,0]:self.calibrateBounds[0,i,j,1]+1],self.calibrateSteps[self.calibrateBounds[0,i,j,0]:self.calibrateBounds[0,i,j,1]+1])[0]
                         #print "applyCalibration error %d %d 0 %g %d %d"%(i,j,cx,self.calibrateBounds[0,i,j,0],self.calibrateBounds[0,i,j,1]+1)
                         data[i,j,1]=numpy.interp([cy],self.calibrateData[1,i,j,self.calibrateBounds[1,i,j,0]:self.calibrateBounds[1,i,j,1]+1],self.calibrateSteps[self.calibrateBounds[1,i,j,0]:self.calibrateBounds[1,i,j,1]+1])[0]
@@ -1762,7 +1762,7 @@ class centroid:
         if data==None:
             data=self.outputData
         if numpy.any(numpy.isnan(data)):
-            print "Warning -nan prior to applyCalibrationIdentical"
+            print "WARNING -nan prior to applyCalibrationIdentical"
         rdata=data.ravel()
         for k in self.calDataDict.keys():
             cd=self.calDataDict[k]
@@ -1770,11 +1770,11 @@ class centroid:
             y=numpy.take(rdata,cd.yindx)
             #print "x,y",x,y
             if cd.xc.size==0 or numpy.any(x>cd.xc[-1]) or numpy.any(x<cd.xc[0]):
-                print "Warning: x centroid is outside calibrated bounds"
+                print "WARNING: x centroid is outside calibrated bounds"
                 if cd.xc.size==0:
                     print "because there are no calibration bounds..."
             if cd.yc.size==0 or numpy.any(y>cd.yc[-1]) or numpy.any(y<cd.yc[0]):
-                print "Warning: y centroid is outside calibrated bounds"
+                print "WARNING: y centroid is outside calibrated bounds"
                 if cd.yc.size==0:
                     print "because there are no calibration bounds..."
             #now put the calibrated values back (using numpy fancy indexing)
@@ -1789,11 +1789,11 @@ class centroid:
             #print "rdata",rdata[cd.xindx],rdata[cd.yindx]
         if not data.flags.c_contiguous:
             #need to copy the data back in.
-            print "Warning - flattening non-contiguous centroid data"
+            print "WARNING - flattening non-contiguous centroid data"
             rdata.shape=data.shape
             data[:]=rdata
         if numpy.any(numpy.isnan(data)):
-            print "Warning -nan after applyCalibrationIdentical"
+            print "WARNING -nan after applyCalibrationIdentical"
 
     def makeCalibrationCoeffs(self):
         self.calCoeff=numpy.zeros((self.nsubx,self.nsubx,2,self.calNCoeff),numpy.float32)

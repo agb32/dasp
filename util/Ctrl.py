@@ -90,12 +90,12 @@ class Ctrl:
                 sys.stdout.displayThread=1
             if o=="--batchno":
                 self.batchno=int(a)
-                print "Batch number:",self.batchno
+                print "INFORMATION: Batch number:",self.batchno
             if o in ["-p","--start-paused"]:
                 self.paused=1
             if o=="--param-file":
                 self.paramfile+=a.split(",")
-                print "Using %s"%self.paramfile
+                print "INFORMATION: Using %s"%self.paramfile
             if o=="--nonice":
                 nice=0
             if o=="--nostdin":
@@ -111,11 +111,11 @@ class Ctrl:
             if o=="--iterations":
                 self.niter=eval(a)
                 if type(self.niter)!=types.IntType and type(self.niter)!=types.ListType:
-                    print "Warning, must use integer or list for number of iterations"
+                    print "WARNING, must use integer or list for number of iterations"
                     self.niter=-1
                 if type(self.niter)==types.ListType:
                     if len(self.niter)!=self.mpiComm.size:
-                        print "Warning, list length must be equal to number of MPI processes"
+                        print "WARNING, list length must be equal to number of MPI processes"
                     if self.rank>=len(self.niter):
                         self.niter=-1
                     else:
@@ -134,14 +134,14 @@ class Ctrl:
         for a in arglist:#could be a param file, or ?
             if a[-4:]==".xml":
                 self.paramfile+=a.split(",")
-                print "Using %s"%self.paramfile
+                print "INFORMATION: Using %s"%self.paramfile
             else:
                 try:
                     i=int(a)
                     self.patchno=i
-                    print "Batch number: %d"%self.batchno
+                    print "INFORMATION: Batch number: %d"%self.batchno
                 except:
-                    print "Unrecognised option %s"%a
+                    print "ERROR: Unrecognised option %s"%a
 
         ## DEFAULT parameter file name?
         if len(self.paramfile)==0:
@@ -154,7 +154,7 @@ class Ctrl:
         self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno,initDict=initDict)
         if self.paramString!=None:
             tmpDict={"this":self.config.this}
-            print "Changes to parameter file:\n%s"%self.paramString
+            print "INFORMATION Changes to parameter file:\n%s"%self.paramString
             exec self.paramString in tmpDict
             if self.simID=="":
                 if self.initParamString!=None:
@@ -174,7 +174,7 @@ class Ctrl:
                 t.start()
                 #self.connectPortDict()
             except:
-                print "Unable to connect to portdict.py"
+                print "INFORMATION Unable to connect to portdict.py"
         if self.niter==-1:
             try:
                 exptime=self.config.getVal("AOExpTime")
@@ -190,7 +190,7 @@ class Ctrl:
 
     def __del__(self):
         
-        print "Destroying Ctrl object at iteration %d: self.sockConn.endLoop, cmod.shmem.cleanUp"%self.thisiter
+        print "INFORMATION Destroying Ctrl object at iteration %d: self.sockConn.endLoop, cmod.shmem.cleanUp"%self.thisiter
         msg=""
         if self.paramString!=None:
             msg="Commandline parameter changes used for this simulation: %s"%self.paramString
@@ -215,21 +215,21 @@ class Ctrl:
         try:
             conn.connect(("129.234.187.10",8999))
         except:
-            print "Couldn't connect to portdict daemon - trying again"
+            print "INFORMATION Couldn't connect to portdict daemon - trying again"
             conn=None
         if conn==None:
             conn=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 conn.connect(("192.168.3.30",8999))
             except:
-                print "Couldn't connect to portdict daemon on gbit network"
+                print "INFORMATION Couldn't connect to portdict daemon on gbit network"
                 conn=None
         if conn is not None:
-            print "Connected to portdict"
+            print "INFORMATION Connected to portdict"
             try:
                 util.serialise.Send(data,conn)
             except:
-                print "Couldn't send info to portdict.py"
+                print "INFORMATION Couldn't send info to portdict.py"
         self.portdictsock=conn#keep it in scope!
 
     def setGlobals(self,globals):
@@ -408,7 +408,7 @@ class Ctrl:
             self.compListNames.append(module.objID)
             module.finalInitialisation()
         self.simStartTime=time.time()
-        print "Took %g seconds to initialise"%(self.simStartTime-self.simInitTime)
+        print "INFORMATION Took %g seconds to initialise"%(self.simStartTime-self.simInitTime)
         self.thisIterTiming=numpy.zeros((len(compList),),numpy.float64)
         self.meanTiming=numpy.zeros((len(compList),),numpy.float64)
         self.meanTiming2=numpy.zeros((len(compList),),numpy.float64)
@@ -416,12 +416,12 @@ class Ctrl:
         rangeLenCompList=range(len(self.compList))
         self.simctrlXML=self.createQueryObjs()
         self.simctrlXMLRestricted=self.createQueryObjs(addDir=0)
-        print "Waiting at MPI barrier..."
+        print "INFORMATION Waiting at MPI barrier..."
         self.mpiComm.barrier()#wait til they're all ready to start - not essential, but nice...
         if sockConn==None:
             sockConn=self.sockConn
         #and now share the connection settings...
-        print "Sharing connection setting"
+        print "INFORMATION Sharing connection setting"
         connParamsDict={}
         for i in range(self.mpiComm.size):
             connParamsDict[i]=numpy.zeros((5,),numpy.int32)
@@ -435,7 +435,7 @@ class Ctrl:
         self.config.connectionParamsDict=connParamsDict
         
         mem=self.checkMem()
-        print "Using approximately %gGB"%(mem/1024./1024./1024.)
+        print "INFORMATION Using approximately %gGB"%(mem/1024./1024./1024.)
         # if mem>4*1024*1024*1024:
         #     print "Warning: Using more than 4GB memory - inefficient on the cray (%gGB)"%(mem/1024./1024/1024)
         pausedMsg=0
@@ -444,12 +444,12 @@ class Ctrl:
         try:
             sockConn.doCmdList(self.thisiter)
         except:
-            print "\n\n\n\nError in sockConn.doCmdList\n\n\n\n"
-        print "Entering main loop"
+            print "\n\n\n\nERROR in sockConn.doCmdList\n\n\n\n"
+        print "INFORMATION Entering main loop"
         while self.running():
             if not self.paused:
                 if self.debug!=None:
-                    print "Ctrl: rank %d (debug=%s) doing iteration %d"%(self.rank,str(self.debug),self.thisiter)
+                    print "INFORMATION Ctrl: rank %d (debug=%s) doing iteration %d"%(self.rank,str(self.debug),self.thisiter)
                 pausedMsg=0
                 t=time.time()
                 for i in rangeLenCompList:
@@ -457,13 +457,13 @@ class Ctrl:
                     module=compList[i]
                     if self.running():
                         if self.debug!=None:
-                            print "Ctrl: starting %s"%module.objID
+                            print "INFORMATION Ctrl: starting %s"%module.objID
                         t1=time.time()
                         c1=time.clock()
                         try:
                             module.doNextIter()#generateNext()
                         except:
-                            print "Error in generate next for %dth module (iter %d)"%(self.compListPos,self.thisiter)
+                            print "ERROR in generate next for %dth module (iter %d)"%(self.compListPos,self.thisiter)
                             raise
                         c2=time.clock()-c1#get the CPU time... (resolution typically 0.01s).
                         t2=time.time()-t1
@@ -472,7 +472,7 @@ class Ctrl:
                         self.meanTiming2[i]+=t2*t2
                         self.meanClock[i]+=c2
                         if self.debug!=None:
-                            print "Ctrl: Time taken for %s was %g seconds"%(module.objID,t2)
+                            print "INFORMATION Ctrl: Time taken for %s was %g seconds"%(module.objID,t2)
                     else:
                         break
                 #data=parent.next("stickman")
@@ -488,10 +488,10 @@ class Ctrl:
                     time.sleep(self.slowMotion)
             else:
                 if self.debug!=None:
-                    print "Ctrl: rank %d (debug=%s) paused at iteration %d"%(self.rank,str(self.debug),self.thisiter)
+                    print "INFORMATION Ctrl: rank %d (debug=%s) paused at iteration %d"%(self.rank,str(self.debug),self.thisiter)
                 #print "Paused..."
                 if pausedMsg==0:
-                    print "Paused at iteration %d"%self.thisiter
+                    print "INFORMATION Paused at iteration %d"%self.thisiter
                     pausedMsg=1
                 #time.sleep(1)
                 select.select(sockConn.selIn,[],sockConn.selIn,1.)
@@ -499,13 +499,13 @@ class Ctrl:
             try:
                 sockConn.doCmdList(self.thisiter)
             except:
-                print "\n\n\n\nError in sockConn.doCmdList\n\n\n\n"
+                print "\n\n\n\nERROR in sockConn.doCmdList\n\n\n\n"
 ##         tlist=threading.enumerate()
 ##         print "Threads left: %s"%str(tlist)
 ##         for t in tlist:
 ##             if t.getName()!="MainThread":
 ##                 t._Thread__stop()
-        print "Finished - calling endSim for each module"
+        print "INFORMATION Finished - calling endSim for each module"
         #Sum = sum(self.meanTiming) # UB: to sum up the time spent at modules
         for i in rangeLenCompList:
             self.compListPos=i
@@ -514,12 +514,12 @@ class Ctrl:
            #                               self.meanTiming[i]/Sum*100) # UB 2012Jul23
             module.endSim()
         #print "Sum over modules: {0} s".format(Sum) # UB
-        print "waiting at mpi barrier for all other processes to finish"
+        print "INFORMATION waiting at mpi barrier for all other processes to finish"
         self.mpiComm.barrier()#wait til they're all ready to finish - not essential, but nice...
         if cleanShmem:
             cmod.shmem.cleanUp()
         t=time.time()
-        print "Total time %gs, running time %gs"%(t-self.simInitTime,t-self.simStartTime)
+        print "INFORMATION Total time %gs, running time %gs"%(t-self.simInitTime,t-self.simStartTime)
         time.sleep(1)#allow a bit of time before abort is called - to allow all semaphores to be cleaned up.
 
     def createQueryObjs(self,addHeader=1,addDir=1):
@@ -553,8 +553,8 @@ class Ctrl:
                         if (type(obj)==numpy.ndarray and obj.dtype not in [numpy.complex64,numpy.complex128]):
                             s+='<plot title="Plot: %s.%s" cmd="data=%s.%s" ret="data" type="gist" window="1" palette="gray.gp" when="rpt"/>\n'%(objname,a,objname,a)
             s+='</simobj>\n'
-        s+='<plot title="Poke all" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "Starting poking"\ndata="Starting poking"</cmd>\n</plot>\n'
-        s+='<plot title="Get ref cents" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("takeRef"):\n  obj.control["takeRef"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "Starting reference centroids"\ndata="Starting reference centroids"</cmd>\n</plot>\n'
+        s+='<plot title="Poke all" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "INFORMATION Starting poking"\ndata="Starting poking"</cmd>\n</plot>\n'
+        s+='<plot title="Get ref cents" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("takeRef"):\n  obj.control["takeRef"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "INFORMATION Starting reference centroids"\ndata="Starting reference centroids"</cmd>\n</plot>\n'
         s+='<plot title="Close loop, zero science" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("zero_science"):\n  obj.control["zero_science"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("close_dm"):\n  obj.control["close_dm"]=1\n print obj.control\ndata="Zeroing science, closing loop etc"\nprint data</cmd>\n</plot>\n'
         s+='<plot title="Open loop, zero science" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("zero_science"):\n  obj.control["zero_science"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("close_dm"):\n  obj.control["close_dm"]=0\n print obj.control\ndata="Zeroing science, opening loop etc"\nprint data</cmd>\n</plot>\n'
         s+='<plot title="Reset science" ret="data" when="cmd" texttype="1" wintype="mainwindow">\n<cmd>\nfor obj in ctrl.compList:\n if obj.control.has_key("zero_science"):\n  obj.control["zero_science"]=1\n print obj.control\ndata="Zeroing science"\nprint data</cmd>\n</plot>\n'
@@ -576,26 +576,26 @@ class Ctrl:
         """This is a function that can be called during simulation setup to make the simulation perform a poke at the start of iteration zero.
         """
         if reconNumber==None:
-            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "Starting poking"\n"""
+            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "INFORMATION Starting poking"\n"""
         elif type(reconNumber)==type(0):
-            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\nreconList[%s].control["poke"]=1\nreconList[%s].control["zero_dm"]=1\nprint "Starting poking DM %s"\n"""%(reconNumber,reconNumber,reconNumber)
+            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\nreconList[%s].control["poke"]=1\nreconList[%s].control["zero_dm"]=1\nprint "INFORMATION Starting poking DM %s"\n"""%(reconNumber,reconNumber,reconNumber)
         elif type(reconNumber)==type(""):
             #its an idstr...
-            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\nfor r in reconList:\n if r.idstr[0]=='%s':\n  r.control["poke"]=1\n  r.control["zero_dm"]=1\nprint "Starting poking DM %s"\n"""%(reconNumber,reconNumber)
+            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\nfor r in reconList:\n if r.idstr[0]=='%s':\n  r.control["poke"]=1\n  r.control["zero_dm"]=1\nprint "INFORMATION Starting poking DM %s"\n"""%(reconNumber,reconNumber)
         self.initialCommand(cmd,freq=-1,startiter=startiter)
     def doInitialReferenceCentroids(self,startiter=0):
         """This function can be called during simulation setup to make the simulation take reference centroids.  Useful for cases with LGS spot elongation.
         """
-        cmd="""for obj in ctrl.compList:\n if obj.control.has_key("takeRef"):\n  obj.control["takeRef"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\nprint "Taking reference centroids"\n"""
+        cmd="""for obj in ctrl.compList:\n if obj.control.has_key("takeRef"):\n  obj.control["takeRef"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\nprint "INFORMATION Taking reference centroids"\n"""
         self.initialCommand(cmd,freq=-1,startiter=startiter)
         
     def doInitialPokeThenRun(self,startiter=0):
         """This function can be called during sim setup to make the simulation perform a poke from iteration zero, followed by computation of the reconstructor, and then run using this.
         """
-        cmd="""for obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "Starting poking"\n"""
+        cmd="""for obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "INFORMATION Starting poking"\n"""
         self.initialCommand(cmd,freq=-1,startiter=startiter)
 
-        cmd="""maxmodes=0\nfor obj in ctrl.compList:\n if hasattr(obj,"nmodes") and obj.nmodes>maxmodes:\n  maxmodes=obj.nmodes\nctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)\nprint "Will close loop after %d iterations"%(maxmodes+10)\n"""
+        cmd="""maxmodes=0\nfor obj in ctrl.compList:\n if hasattr(obj,"nmodes") and obj.nmodes>maxmodes:\n  maxmodes=obj.nmodes\nctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)\nprint "INFORMATION Will close loop after %d iterations"%(maxmodes+10)\n"""
         self.initCmdList.append(cmd)
     def doInitialSciRun(self,startiter=0):
         cmd="ctrl.doSciRun()"
@@ -617,7 +617,7 @@ class Ctrl:
             if obj.control.has_key("close_dm"):
                 obj.control["close_dm"]=1
             print obj.control
-        print "Zeroing science,closing loop etc"
+        print "INFORMATION Zeroing science,closing loop etc"
         
         
 class myStdout:
@@ -626,6 +626,13 @@ class myStdout:
         self.rank=rank
         self.displayRank=1
         self.displayThread=0
+        self.colourized=False
+        if hasattr(sys.stdout,'isatty') and sys.stdout.isatty(): 
+            # assume that if stdout is connected to a terminal, it can support
+            # colour.
+            import curses
+            curses.setupterm()
+            self.colourized=(curses.tigetnum("colors")>=0)
     def write(self,txt):
         if len(txt.strip())>0:
             if self.displayRank:
@@ -636,6 +643,14 @@ class myStdout:
                 t=" (%012d)"%thread.get_ident()
             else:
                 t=""
+            if self.colourized:
+               # colourize, if we can
+               if "WARNING" in txt:
+                  txt=txt.replace("WARNING","\x1b[1;33mWARNING\x1b[0m")
+               if "ERROR" in txt:
+                  txt=txt.replace("ERROR","\x1b[1;31mERROR\x1b[0m")
+               if "INFORMATION" in txt:
+                  txt=txt.replace("INFORMATION","\x1b[1;32mINFORMATION\x1b[0m")
             sys.__stdout__.write(">>>%s%s: %s\n"%(r,t,txt))
             sys.__stdout__.flush()
     def flush(self):

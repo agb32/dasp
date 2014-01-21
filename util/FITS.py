@@ -36,7 +36,7 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
                 print buffer[:80]
                 raise Exception(error+ 'Not a simple fits file')
             else:
-                print "WARNING - non compliant FITS file"
+                print "ERROR - non compliant FITS file"
                 return returnVal
         while(1) :
             for char in range(0,2880,80) :
@@ -141,7 +141,7 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     elif typ=='d': bitpix =-64 # Float64
     elif typ=="h": bitpix = 16
     else :
-        print "FITS: Converting type %s to float32"%typ
+        print "INFORMATION FITS: Converting type %s to float32"%typ
 	data = data.astype('f') # Float32
 	bitpix = -32
     shape = list(data.shape)
