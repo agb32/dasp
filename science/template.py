@@ -30,12 +30,13 @@ class aosimNessuno(base.aobase.aobase):
 
         self.active=self.config.getVal( "active", default=0, raiseerror=0 ) 
            # \/ load configuration variables
-        self.YYY=self.config.getVal(
-              "nessuno",
-              default=None,
-              raiseerror=0 ) 
+#(example)        self.yyy=self.config.getval(
+#(example)              "nessuno",
+#(example)              default=none,
+#(example)              raiseerror=0 ) 
            # \/ sparse or not?
         self.sparse=self.config.getVal( "sparse", default=0, raiseerror=0 )
+        self.nValid=0
 
            # \/ do initialisation calculations
         self.obj=self._doInitializationCode()
@@ -55,6 +56,7 @@ class aosimNessuno(base.aobase.aobase):
                     self.dataValid=0
             if self.inputInvalid==0: # there was an input => do stuff!
                 self.dataValid=1
+                self.nValid+=1
                 if not self.active:
                    self.outputData=self.parent.outputData
                 else:
@@ -68,16 +70,16 @@ class aosimNessuno(base.aobase.aobase):
     def plottable(self,objname="$OBJ"):
         """[todo] write epydoc compatible description"""
         op=""
-#        if not self.sparse:
-#           cmd="%s.outputData"%(objname)
-#        else:
-#           cmd="%s.outputData.todense()"%(objname)
-#        op+=('<plot title="ip or op" '+
-#             'cmd="data=%s ret="data" type="pylab" '+
-#             'when="rpt" palette="jet"/>\n')%(cmd)
-#             # /\ options other than once include: once
-#
-#        op+=('<plot title="On/off" when="cmd" ret="feedback" texttype="1" '+
-#             'wintype="mainwindow">'+
-#             '<cmd>%s.active=1-self.active</cmd></plot>')%(objname)
+        if not self.sparse:
+           cmd="%s.outputData"%(objname)
+        else:
+           cmd="%s.outputData.todense()"%(objname)
+        op+=('<plot title="ip or op" '+
+             'cmd="data=%s" ret="data" type="pylab" '+
+             'when="rpt" palette="jet"/>\n')%(cmd)
+             # /\ options other than once include: once
+
+        op+=('<plot title="On/off" when="cmd" ret="feedback" texttype="1" '+
+             'wintype="mainwindow">'+
+             '<cmd>%s.active=1-self.active</cmd></plot>')%(objname)
         return(op)
