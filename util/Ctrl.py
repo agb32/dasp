@@ -630,9 +630,16 @@ class myStdout:
         if hasattr(sys.stdout,'isatty') and sys.stdout.isatty(): 
             # assume that if stdout is connected to a terminal, it can support
             # colour.
-            import curses
+            import curses,re
             curses.setupterm()
             self.colourized=(curses.tigetnum("colors")>=0)
+            self.triggerTags={
+               'ERROR':      '\x1b[1;31m\\1\x1b[0m',
+               'INFORMATION':'\x1b[1;32m\\1\x1b[0m',
+               'WARNING':    '\x1b[1;33m\\1\x1b[0m',
+               }
+            self.markup={'**':('\x1b[1m','\x1b[0m'),} # ** == bold
+        
     def write(self,txt):
         if len(txt.strip())>0:
             if self.displayRank:
@@ -645,12 +652,18 @@ class myStdout:
                 t=""
             if self.colourized:
                # colourize, if we can
-               if "WARNING" in txt:
-                  txt=txt.replace("WARNING","\x1b[1;33mWARNING\x1b[0m")
-               if "ERROR" in txt:
-                  txt=txt.replace("ERROR","\x1b[1;31mERROR\x1b[0m")
-               if "INFORMATION" in txt:
-                  txt=txt.replace("INFORMATION","\x1b[1;32mINFORMATION\x1b[0m")
+               for k in self.triggerTags:
+                  txt=re.sub(r"("+k+")",self.triggerTags[k],txt)
+               for mu in self.markup.keys():
+                  for i,tF in enumerate(txt.split(mu)):
+                     if i==0: txt=tF
+                     elif i%2==1:
+                        if tF=="": # multiple markups
+                           txt+=mu*2+tF
+                        else:
+                           txt+=self.markup[mu][0]+tF+self.markup[mu][1]
+                     elif i%2==0: txt+=tF
+               
             sys.__stdout__.write(">>>%s%s: %s\n"%(r,t,txt))
             sys.__stdout__.flush()
     def flush(self):
