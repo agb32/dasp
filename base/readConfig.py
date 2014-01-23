@@ -549,7 +549,7 @@ class AOXml:
                 print "ERROR: value not found %s"%str(varname)
                 raise Exception("ERROR: value not found: %s %s"%(str(varname),str(searchOrder)))
             else:
-                print "INFORMATION: using default value of %s for %s %s"%(str(val),str(varname),str(searchOrder))
+                print "INFORMATION: using default value of **%s** for **%s**, not found in: %s"%(str(val),str(varname),str(searchOrder))
         return val
 
     def setVal(self,varname,value,searchOrder=None,raiseerror=1):
