@@ -28,18 +28,18 @@ class aosimRecorder(template.aosimNessuno):
         self.separate=self.config.getVal(
               "recordSeparated",
               default=0, raiseerror=0 ) # write separated or a combined file(s)
-        self.startnValid=self.config.getVal(
+        self.startnValid=int(self.config.getVal(
               "recordStartNiter",
-              default=1, raiseerror=0 ) # when to start recording (inclusive)
-        self.endnValid=self.config.getVal(
+              default=1, raiseerror=0 )) # when to start recording (inclusive)
+        self.endnValid=int(self.config.getVal(
               "recordEndNiter",
-              default=1, raiseerror=0 ) # when to end recording (exclusive)
+              default=1, raiseerror=0 )) # when to end recording (exclusive)
         if self.startnValid>=self.endnValid:
               errMsg="Require EndNiter>StartNiter"
               if self.active:
                   raise ValueError( "recorder: "+errMsg )
               else:
-                  print "WARNING:(**recorder**/**disabled**):"+errMsg
+                  print "WARNING:(**recorder_"+str(self.idstr)+"**):"+errMsg
         self.fnameStem=self.config.getVal(
               "recordFilenameStem",
               default="aosim_recorder_{0:s}-".format(str(self.parent.idstr)), 
@@ -51,6 +51,9 @@ class aosimRecorder(template.aosimNessuno):
             self._formFileName=lambda self,n :\
                "{0:s}.fits".format(self.fnameStem)
         self._checkFilesExistence()
+        if self.active:
+           print("INFORMATION(**recorder_"+str(self.idstr)+"**):"+
+               "from %s upto %s"%( str(self.startnValid),str(self.endnValid)) )
   
 
     def _checkFilesExistence(self):
@@ -58,7 +61,7 @@ class aosimRecorder(template.aosimNessuno):
         def __test4path(self,i):
            fn=self._formFileName(self,i)
            if os.path.exists( fn ):
-               print("WARNING(**recorder**): file '"+fn
+               print("WARNING(**recorder_"+str(self.idstr)+"**): file '"+fn
                         +"' exists, will be appended to.")
         if self.separate:
            for i in range(self.startnValid,self.endnValid):
@@ -68,12 +71,20 @@ class aosimRecorder(template.aosimNessuno):
    
     def _doSomeProcessing(self,ip):
         if self.nValid>=self.startnValid and self.nValid<self.endnValid:
-            print("INFORMATION:(**recorder**) recording ("
-               +str(int((100*self.nValid)/(self.endnValid-self.startnValid)))
-               +"%)")
+               # \/ thisFrac will equal zero when reaching (approximately)
+               #  every 10% of the total number
+            thisFrac=( (self.nValid-self.startnValid)
+                        %int(0.1*(self.endnValid-self.startnValid)) )
+            if thisFrac==0: 
+               print("INFORMATION:(**recorder_"+str(self.idstr)
+                  +"**) recording ("
+                  +str(int(
+                      (100*(self.nValid-self.startnValid))
+                     /(self.endnValid-self.startnValid) ))
+                  +"%)")
             if not self.sparse:
                util.FITS.Write( ip, self._formFileName(self,self.nValid), 
-                    "RECORDER="+str(self.nValid), "a" )
+                    "RECORDER= "+str(self.nValid), "a" )
             else:
                util.FITS.saveSparse( ip, self._formFileName(self,self.nValid),
-                     "a", "RECORDER="+str(self.nValid) )
+                     "a", "RECORDER= "+str(self.nValid) )
