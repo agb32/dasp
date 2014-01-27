@@ -355,7 +355,7 @@ class recon(tomoRecon.recon):
                print(actNo)
                raise Exception("ERROR: HWR: Block-reduction index location"
                      " failed, too few defined blocks?")
-            validModes=self.WFIMbrIndicesModes[thisi]
+            validModes=self.WFIMbrIndicesWFGrid[thisi]
          if self.hwrSparse:
             for i,val in enumerate(HWRcalc):
                if self.hwrWFMMblockReduction and (i not in validModes):
