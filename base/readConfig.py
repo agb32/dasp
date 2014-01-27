@@ -440,7 +440,7 @@ class AOXml:
             elif t=="string" or t=="s":
                 pass
             else:
-                print "WARNING:  Unrecognised type for",attrs["name"],t,"Assuming string"
+                print "ERROR:  Unrecognised type for",attrs["name"],t,"Assuming string"
         return v
 
     def doexec(self,strng,name,glob):
@@ -549,7 +549,7 @@ class AOXml:
                 print "ERROR: value not found %s"%str(varname)
                 raise Exception("ERROR: value not found: %s %s"%(str(varname),str(searchOrder)))
             else:
-                print "WARNING: using default value of %s for %s %s"%(str(val),str(varname),str(searchOrder))
+                print "INFORMATION: using default value of **%s** for **%s**, not found in: %s"%(str(val),str(varname),str(searchOrder))
         return val
 
     def setVal(self,varname,value,searchOrder=None,raiseerror=1):

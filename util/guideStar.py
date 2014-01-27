@@ -311,10 +311,10 @@ class wfs:
         self.nsubx=nsubx
         self.LGS_alt=LGS_alt
         if LGS_alt>75000.:
-            print "Assuming Sodium laser"
+            print "INFORMATION Assuming Sodium laser"
             self.laserType="sodium"
         else:
-            print "Assuming Rayleigh laser"
+            print "INFORMATION Assuming Rayleigh laser"
             self.laserType="rayleigh"
         npup=subap_pix*nsubx
         if type(pup)==type(None):
@@ -325,7 +325,7 @@ class wfs:
             if type(pup)==numpy.ndarray:
                 raise Exception("Pupil function for util.guidestar is wrong shape (%s), should be %s"%(str(pup.shape),str((npup,npup))))
             else:#create a scaled up pupil...
-                print "util.guideStar - scaling up pupil function for LGS spots"
+                print "INFORMATION util.guideStar - scaling up pupil function for LGS spots"
                 pup=util.tel.Pupil(npup,pup.r1*npup/pup.npup,pup.r2*npup/pup.npup).fn
         self.pup=pup
         self.max_vignette=max_vignette

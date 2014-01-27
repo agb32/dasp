@@ -90,7 +90,7 @@ class recon(tomoRecon.recon):
       if len(self.lgsList)!=0:
          raise Exception("ERROR: HWR: Cannot support any LGS")
       if self.hwrSparse:
-         print("INFORMATION: HWR: Forcing sparsePmxType to become csr")
+         print("INFORMATION(**HWR**): Forcing sparsePmxType to become csr")
          self.sparsePmxType="csr"
          self.ndata=int(
             self.config.getVal("spmxNdata",default=self.nmodes*self.ncents*0.1))
@@ -112,7 +112,7 @@ class recon(tomoRecon.recon):
 #??            pupilMask=DMactMap )
 # (redundant?) :      self.gradM=self.gradOp.returnOp().T # *** DEBUG ***
       print(
-"INFORMATION: HWR: gradOp.(numberPhases={0:d},numberSubaps={1:d})".format(
+"INFORMATION(**HWR**): gradOp.(numberPhases={0:d},numberSubaps={1:d})".format(
             self.gradOp.numberPhases, self.gradOp.numberSubaps))
       t1=time.time()
       self.smmtnsDef,self.smmtnsDefStrts,self.smmtnsMap,self.offsetEstM=\
@@ -122,7 +122,7 @@ class recon(tomoRecon.recon):
                self.hwrOverlap,
                self.hwrSparse
                )
-      print("INFORMATION: HWR: took {0:d}s to setup HWR".format(
+      print("INFORMATION(**HWR**): took {0:d}s to setup HWR".format(
             int(time.time()-t1)) )
       
       if self.hwrWFMMblockReduction:
@@ -134,7 +134,7 @@ class recon(tomoRecon.recon):
                for i in range( int(numpy.ceil(
                     self.gradOp.n_[0]*self.hwrWFMMblockReduction**-1.0)) ) ]
          # now, do it for for every DM mode
-         print("INFORMATION: HWR: block sizes, "+str(
+         print("INFORMATION(**HWR**): block sizes, "+str(
                [ len(x) for x in self.WFIMbrIndicesWFGrid ] ))
          dmIdx=numpy.array(self.dmList[0].dmflag).ravel().nonzero()[0]
          self.WFIMbrIndicesModes=[
@@ -187,10 +187,10 @@ class recon(tomoRecon.recon):
             status=0 # drop back to nowt
             raise ValueError("Wrong shapes of spmx, WFIM, or WFMM")
       except:
-         print("WARNING: HWR: Failure to load previous data,")
-         print("WARNING: HWR:  sys.exc_info()[0]={0:s}".format(
+         print("WARNING:(**HWR**): Failure to load previous data,")
+         print("WARNING:(**HWR**):  sys.exc_info()[0]={0:s}".format(
                str(sys.exc_info()[0])) )
-         print("WARNING: HWR:  sys.exc_info()[1]={0:s}".format(
+         print("WARNING:(**HWR**):  sys.exc_info()[1]={0:s}".format(
                str(sys.exc_info()[1])) )
       return status
 
@@ -208,7 +208,7 @@ class recon(tomoRecon.recon):
       if dm.pokeSpacing!=None:
           self.pokeActMap=numpy.zeros((dm.nact,dm.nact),numpy.int32)
       if not self.hwrSparse:
-          print("INFORMATION: HWR: Dense pmx, type={0:s}, "+
+          print("INFORMATION:(**HWR**): Dense pmx, type={0:s}, "+
                "[{1:d},{2:d}],[{3:d},{4:d}]".format(
                   str(self.reconDtype),self.nmodes,
                   self.gradOp.numberPhases,self.ncents,
@@ -216,11 +216,11 @@ class recon(tomoRecon.recon):
           self.spmx=numpy.zeros(
                (self.nmodes,self.ncents),numpy.float64)
       else: 
-          print("INFORMATION: HWR: Sparse poke matrix, forcing csc")
+          print("INFORMATION:(**HWR**): Sparse poke matrix, forcing csc")
           self.spmxData=[]
           self.spmxRowind=[]
           self.spmxIndptr=[]
-      print("INFORMATION: HWR: Poking for {0:d} iterations".format(
+      print("INFORMATION:(**HWR**): Poking for {0:d} iterations".format(
             self.npokes+1))
 
    def calcSetPoke(self):
@@ -230,7 +230,7 @@ class recon(tomoRecon.recon):
               dm=self.dmList[0]
               if dm.pokeSpacing!=None:
                   # poking several actuators at once
-                  raise Exception("ERROR: HWR: Not supported")
+                  raise Exception("ERROR:(**HWR**): Not supported")
    #!!!                        self.pokeActMap[:]=0
    #!!!                        for i in range(self.pokingActNo/dm.pokeSpacing,
    #!!!                              dm.nact,dm.pokeSpacing):
@@ -257,7 +257,7 @@ class recon(tomoRecon.recon):
       dm=self.dmList[0]
       if dm.pokeSpacing!=None:
          # poking several actuators at once
-         raise Exception("ERROR: HWR: Not supported")
+         raise Exception("ERROR:(**HWR**): Not supported")
 #!!!               pokenumber=None
 #!!!               #Decide which actuator has produced which centroid values (if any), and then fill the poke matrix.
 #!!!               self.fillPokemx(dm,self.pokingDMNoLast)
@@ -279,7 +279,7 @@ class recon(tomoRecon.recon):
 
    def calcCompletePoke(self):
       if self.hwrVerbose:
-         print("INFORMATION, verbose: HWR: Poking took: "+
+         print("INFORMATION(**HWR**)(verbose): Poking took: "+
                "{0:g}s/{1:g}s in CPU/wall-clock time".format(
                   time.clock()-self.pokeStartClock,
                   time.time()-self.pokeStartTime)
@@ -292,7 +292,7 @@ class recon(tomoRecon.recon):
              self.spmxIndptr)
             ),(self.nmodes,self.ncents) )
       if self.pmxFilename!=None:
-         print("INFORMATION: HWR: Saving poke matrix to '{0:s}'".format(
+         print("INFORMATION:(**HWR**): Saving poke matrix to '{0:s}'".format(
                self.pmxFilename))
          if self.hwrSparse:
             util.FITS.saveSparse(self.spmx,self.pmxFilename)
@@ -304,7 +304,8 @@ class recon(tomoRecon.recon):
 
    def calcComputeWFIMandWFMM(self):
       '''From spmx, compute the WFIM (wavefront-interaction matrix) and then
-      compute the WFMM (wavefront mapping matrix).'''
+      compute the WFMM (wavefront mapping matrix).
+      '''
 
          # \/ prep
       if self.hwrSparse:
@@ -319,7 +320,8 @@ class recon(tomoRecon.recon):
       self.calcComputeWFMM()
          # \/ save, if asked to, the WFIM and WFMM  
       if self.hwrArchive:
-         print("INFORMATION: HWR: Writing WFIM & WFMM to file {0:s}".format(
+         print(
+              "INFORMATION:(**HWR**): Writing WFIM & WFMM to file {0:s}".format(
                self.hwrWFIMfname))
          if self.hwrSparse:
             util.FITS.saveSparse(self.WFIM,self.hwrWFIMfname)
@@ -333,7 +335,7 @@ class recon(tomoRecon.recon):
    def calcComputeWFIM(self):
       '''Compute the WFIM based on spmx'''
       if self.hwrVerbose:
-         print("INFORMATION: HWR: Calculating WFIM, wavefront-interaction matrix")
+         print("INFORMATION:(**HWR**): Calculating WFIM, wavefront-interaction matrix")
 
       # \/ loop over rows and convert
       for actNo,thisIp in enumerate(self.spmx):
@@ -353,7 +355,7 @@ class recon(tomoRecon.recon):
                   continue
             if type(thisi)==type(None):
                print(actNo)
-               raise Exception("ERROR: HWR: Block-reduction index location"
+               raise Exception("ERROR:(**HWR**): Block-reduction index location"
                      " failed, too few defined blocks?")
             validModes=self.WFIMbrIndicesWFGrid[thisi]
          if self.hwrSparse:
@@ -377,7 +379,7 @@ class recon(tomoRecon.recon):
    def calcComputeWFMM(self):
       '''Compute the WFMM based on WFIM'''
       if self.hwrVerbose:
-         print("HWR: Calculating WFMM, wavefront-mapping matrix")
+         print("INFORMATION(**HWR**)(verbose): Calculating WFMM, wavefront-mapping matrix")
       #
       # NOTA BENE:
       # The order of the WFIM matrix means that the transposes
@@ -407,10 +409,10 @@ class recon(tomoRecon.recon):
                   sparse=self.hwrSparse )[1]
       except:
          import traceback,pickle
-         print("ERROR: HWR: failed in HWR integration,")
-         print("ERROR: HWR:  {0:s}".format(
+         print("ERROR:(**HWR**): failed in HWR integration,")
+         print("ERROR:(**HWR**):  {0:s}".format(
                traceback.format_exc() ))
-         print("ERROR: HWR: Will write /tmp/hwrTmp.pickle ...")
+         print("ERROR:(**HWR**): Will write /tmp/hwrTmp.pickle ...")
          # The following line could over-write the previous dump, perhaps
          # instead the behaviour should be to throw an exception if it already
          # exists.
@@ -446,16 +448,16 @@ class recon(tomoRecon.recon):
          success=self.calcLoadPreviousData()
          self.control["poke"]=0
          if success==0:
-            print("INFORMATION: HWR: Loading was not successful, must poke")
+            print("WARNING:(**HWR**): Loading was not successful, must poke")
             self.control["poke"]=1
          else:
             self.poking=0 # stop poking
             if success==1 or self.hwrRecomputeWFIMandWFMM:
-               print("INFORMATION: HWR: Loaded spmx, recomputed WFIM and WFMM.")
+               print("INFORMATION:(**HWR**): Loaded spmx, recomputed WFIM and WFMM.")
                # compute the loaded WFIM and WFMM
                self.calcComputeWFIMandWFMM()
             else:
-               print("INFORMATION: HWR: Loaded spmx, WFIM, and WFMM.")
+               print("INFORMATION:(**HWR**): Loaded spmx, WFIM, and WFMM.")
             self.control["close_dm"]=1 # close the loop
          self.hwrLoadPrevious=0
       if self.control["poke"]: 
@@ -471,11 +473,11 @@ class recon(tomoRecon.recon):
          if type(self.saveRefCentroids)==type(""):
              util.FITS.Write(self.refCentroids,self.saveRefCentroids)
              if self.hwrVerbose:
-                print("HWR: Saving reference centroids, {0:s}".format(
+                print("INFORMATION(**HWR**): Saving reference centroids, {0:s}".format(
                      self.saveRefCentroids))
          else:
              if self.hwrVerbose:
-                print("HWR: Not saving reference centroids")
+                print("INFORMATION(**HWR**): Not saving reference centroids")
       if self.control["subtractRef"] and type(self.refCentroids)!=type(None):
          self.inputData-=self.refCentroids
       if self.poking>0 and self.poking<=self.npokes:
@@ -486,7 +488,7 @@ class recon(tomoRecon.recon):
          self.calcCompletePoke()
          self.calcComputeWFIMandWFMM()
          if self.abortAfterPoke:
-             print("HWR: Finished poking - aborting simulation")
+             print("INFORMATION(**HWR**): Finished poking - aborting simulation")
              if Scientific.MPI.world.size==1:
                  Scientific.MPI.world.abort()
              else:

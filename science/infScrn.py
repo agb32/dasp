@@ -223,6 +223,9 @@ def computeInitialScreen(config,idstr=None):
     config.setSearchOrder(so)
     return phaseArray
 
+def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0):
+    scrn=makeInitialScreen(dpix=npup+1,Dtel=telDiam,L0=l0,globR0=r0,seed=seed)[1:-1,1:-1]
+    return scrn
 def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.):
     """dpix is the telescope aperture diameter, and dtel is tel diameter.
     The actual number of pixels used is scrnXPxls x scrnYPxls.

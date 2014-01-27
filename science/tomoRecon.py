@@ -12,7 +12,6 @@ import util.regularisation
 import cmod.svd
 import cmod.utils
 import util.dot as quick
-import util.dicure
 
 try:
     import scipy.linsolve
@@ -150,6 +149,7 @@ class recon(base.aobase.aobase):
             if self.reconType=="SVD":
                 self.reconType="svd"
             if self.reconType=="dicure": # UB, 2012 Aug 3rd
+                import util.dicure
                 nsubx_tmp = self.config.getVal("wfs_nsubx")
                 #print "MINAREA:", self.minarea
                 subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
@@ -1192,7 +1192,7 @@ class recon(base.aobase.aobase):
         if reconmxFilename==None:
             print "Reconmxfilename not specified - using 0."
             return 0.
-        print "tomoRecon: Loading reconstructor from file: %s"%reconmxFilename
+        print "tomoRecon: Loading reconstructor (%d,%d) from file: %s"%(self.nmodes,self.ncents,reconmxFilename)
         if os.path.exists(reconmxFilename):
             head=util.FITS.ReadHeader(reconmxFilename)["parsed"]
             if head.has_key("COMPBITS"):

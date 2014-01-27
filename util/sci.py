@@ -69,8 +69,9 @@ class science:
         self.waitFPGA=waitFPGA
         self.waitFPGATime=waitFPGATime
         self.fpgaWaitCycles=0#number of cycles waited for FPGA for - check occasionalyl to make sure we;re not waiting too long...
-        self.fpDataType=fpDataType#floating point type
-        self.cpDataType=fpDataType.upper()#complex type
+        self.fpDataType="f"#always float32 now (cmod.fft requires it).
+        self.integratedImgDataType=fpDataType#floating point type
+        self.cpDataType='F'#fpDataType.upper()#complex type
         if (self.nfft/self.nimg)%2==0 and self.nfft!=self.nimg:#even binning
             self.computePhaseTilt()
 
@@ -97,8 +98,8 @@ class science:
         self.psfSamp=0
         self.PSFTime=0.
         self.phaseMultiplier=phaseMultiplier
-        self.longExpPSF=numpy.zeros((nimg,nimg),self.fpDataType)#was float64
-        self.longExpImg=numpy.zeros((nimg,nimg),self.fpDataType)# Long exposure image array (cannot be shared)
+        self.longExpPSF=numpy.zeros((nimg,nimg),self.integratedImgDataType)#was float64
+        self.longExpImg=numpy.zeros((nimg,nimg),self.integratedImgDataType)# Long exposure image array (cannot be shared)
         self.luckyImg=None
         self.luckyCnt=0
         self.luckyHistoryKeys={}
@@ -298,7 +299,7 @@ class science:
         #self.dlPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
         self.diffn_core_en=float(self.diffPSF[self.nimg/2,self.nimg/2])
         self.diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(self.diffPSF),s=(self.diffPSF.shape[0]*2,self.diffPSF.shape[1]*2)).sum()
-        print "Diffraction OTF sum: %s"%str(self.diffOTFSum)
+        #print "Diffraction OTF sum: %s"%str(self.diffOTFSum)
         print "todo - return from computeEnsquaredEnergy - allocate once"
         self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         #perform an acml FFT initialisation.

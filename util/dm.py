@@ -21,7 +21,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -76,6 +76,7 @@ class dmInfo:
         self.stuckActs=stuckActs
         self.zonalDM=zonalDM
         self.reconLam=reconLam#the reconstructor wavelength...
+        self.fixToGradientOperator=fixToGradientOperator
         self.subpxlInterp=subpxlInterp
         self.dmpup=None
         self.dmpupil=None
@@ -200,6 +201,7 @@ class dmInfo:
         reconstructList is either "all" or a list of sources for which actuators should be computed.  If 
              None, the default is used.
         """
+        fixToGradientOperator=self.fixToGradientOperator
         if reconstructList==None:
             reconstructList=self.reconstructList
         if self.reconstructList==reconstructList:
@@ -283,6 +285,10 @@ class dmInfo:
         if self.maxActDist==None:
             subflag=(subarea>=self.minarea).astype(numpy.int32)
             self.dmflag=subflag
+        if fixToGradientOperator:
+            import util.gradientOperator
+            g=util.gradientOperator.gradientOperatorType1(pupilMask=self.dmflag.astype("f"),sparse=1)
+            self.dmflag=(g.illuminatedCorners!=0)
         self.subarea=subarea
         self.dmpupil=dmpupil
         self.nacts=int(self.dmflag.sum())
@@ -495,7 +501,7 @@ class dmInfo:
                     area=(x11-x1)*(y2-y1)-(x2-x11)*y1+self.circIntegrate(x11,x2,r)
             totArea+=area*sign
         if totArea<0:
-            print "Warning: Got area<0: %g - setting to zero."%totArea
+            print "WARNING: Got area<0: %g - setting to zero."%totArea
             totArea=0
         return totArea
 
@@ -549,7 +555,7 @@ class dmInfo:
         else:
             nmode=self.nact
             mirrorModes=util.zernikeMod.Zernike(pupil,nmode,computeInv=0).zern
-            print "todo - util.dm.computePhaseCovariance - do we need to scale the zernikes?"
+            print "WARNING todo - util.dm.computePhaseCovariance - do we need to scale the zernikes?"
         self.mirrorModes=mirrorModes
         return mirrorModes
 
@@ -743,7 +749,7 @@ class dmOverview:
 
         for dm in dmInfoList:
             if atmosGeom!=None and atmosGeom.zenith!=0:
-                print "Reconjugating dm to take zenith into account"
+                print "INFORMATION Reconjugating dm to take zenith into account"
                 dm.height/=numpy.cos(atmosGeom.zenith*numpy.pi/180.)
             if dm.fov==None:#atmosGeom must be specified in this case...
                 dm.fov=0.
@@ -781,7 +787,7 @@ class dmOverview:
                 dm.actSpacing=dmDiam/(dm.nact+2*dm.actoffset-1.)
             if dm.reconLam==None:#use the wavelength at which the phase is at.
                 dm.reconLam=atmosGeom.sourceLambda(dm.idlist[0][1])
-                print "Assuming reconstructor wavelength of %s for DM %s"%(dm.reconLam,dm.label)
+                print "INFORMATION Assuming reconstructor wavelength of %s for DM %s"%(dm.reconLam,dm.label)
             dm.dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
             dm.calcdmpup(atmosGeom)
         #self.dmDict={}
@@ -827,7 +833,7 @@ class dmOverview:
                 return dm
         
         if raiseerror:
-            print "DM idstr %s not found in getDM"%idstr
+            print "ERROR DM idstr %s not found in getDM"%idstr
             dm=None
             raise Exception("DM idstr %s not found"%idstr)
         else:
@@ -843,15 +849,15 @@ class dmOverview:
         for dm in self.dmInfoList:
             if dm.label==label:
                 return dm
-        print "Warning: util.dm - DM with label %s not found, returning None"%str(label)
+        print "WARNING: util.dm - DM with label %s not found, returning None"%str(label)
         return None
     def getHeight(self,idstr):
         dm=self.getDM(idstr)
         if dm==None:
-            print "dm idstr %s not found"%idstr
+            print "ERROR dm idstr %s not found"%idstr
             idstr=self.dmInfoList[0].idlist[0][0]
             dm=self.getDM(idstr)
-            print "using %s for idstr"%idstr
+            print "WARNING using %s for idstr"%idstr
         return dm.height
     def getSourceID(self,idstr,raiseerror=0):
         dm=self.getDM(idstr)
@@ -862,7 +868,7 @@ class dmOverview:
             raise Exception("Source ID for DM id %s not found"%str(idstr))
         else:
             ret=dm.idlist[0][1]
-            print "Warning - source ID for DM id %s not found.  Using %s"%(str(idstr),ret)
+            print "ERROR - source ID for DM id %s not found.  Using %s"%(str(idstr),ret)
             return ret
     
     def getnAct(self,idstr):
@@ -1126,7 +1132,7 @@ class dmOverview:
                     area=(x11-x1)*(y2-y1)-(x2-x11)*y1+self.circIntegrate(x11,x2,r)
             totArea+=area*sign
         if totArea<0:
-            print "Warning: Got area<0: %g - setting to zero."%totArea
+            print "WARNING: Got area<0: %g - setting to zero."%totArea
             totArea=0
         return totArea
 
@@ -1172,7 +1178,7 @@ class MirrorSurface:
         actCoupling is also used for spline and pspline
         couplingcoeff, gaussianIndex and gaussianOverlapAccuracy are used for gaussian only.
         infFunc should be used if typ=="influence", and can be an array or a filename.  Shape should be (nact*nact,npup,npup)
-        StuckActs can be None, or a single value (number of stuck acts), or a tuple of (number of stuck,clumpSize=0,maxRadius=None,minRadius=0,actPatternSeed=None).
+        StuckActs can be None, or a single value (number of stuck acts), or a tuple of (number of stuck,clumpSize=0,maxRadius=None,minRadius=0,actPatternSeed=None,fraction high, high value,frac lo, low value,fraction coupled).
 
         """
         self.typ=typ
@@ -1180,7 +1186,7 @@ class MirrorSurface:
         self.nact=nact
         self.infFunc=infFunc
         self.stuckActs=stuckActs
-        self.stuckActsMask,self.stuckActsValue=self.makeStuckActPattern(stuckActs)
+        self.stuckActsMask,self.stuckActsValue,self.coupledActsList=self.makeStuckActPattern(stuckActs)
         if phsOut==None:
             self.phsOut=numpy.zeros((self.npup,self.npup),numpy.float32)
         else:
@@ -1216,6 +1222,31 @@ class MirrorSurface:
         """
         if self.stuckActsMask!=None:
             actmap=actmap*self.stuckActsMask+self.stuckActsValue
+            for c in self.coupledActsList:
+                y,x=c
+                n=0
+                actmap[y,x]=0
+                #txt=""
+                if y>0:#always couple to acts above and left
+                    actmap[y,x]+=actmap[y-1,x]
+                    #txt+="%g "%actmap[y-1,x]
+                    n+=1
+                if y<self.nact-1 and self.stuckActsMask[y+1,x]==1:
+                    #but only couple to below and right if they are active ones, not dead ones.
+                    actmap[y,x]+=actmap[y+1,x]
+                    #txt+="%g "%actmap[y+1,x]
+                    n+=1
+                if x>0:
+                    actmap[y,x]+=actmap[y,x-1]
+                    #txt+="%g "%actmap[y,x-1]
+                    n+=1
+                if x<self.nact-1 and self.stuckActsMask[y,x+1]==1:
+                    actmap[y,x]+=actmap[y,x+1]
+                    #txt+="%g "%actmap[y,x+1]
+                    n+=1
+                if n>0:
+                    actmap[y,x]/=n
+                    #print "coupling %d,%d %d %g %s"%(x,y,n,actmap[y,x],txt)
         if self.typ=="spline":
             return self.interpolateSpline(actmap,phsOut,coords=coords)
         elif self.typ=="bicubic":
@@ -1233,20 +1264,26 @@ class MirrorSurface:
 
     def makeStuckActPattern(self,stuckActs):
         """Makes a pattern for stuck actuators
-        stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value)
+        stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value,frac low, low value, fraction coupled)
+        OR, [mask array, value array, coupled list]
         """
         if stuckActs==None or stuckActs==0:
-            return None,None
+            return None,None,None
         seed=None
         onCircle=0
         clumpSize=1
         highVal=1.
         fracHi=0
+        lowVal=-1.
+        fracLo=0
+        fracCoupled=0
         maxRadius=None
         minRadius=0
         if type(stuckActs)==type(0):
             nstuck=stuckActs
         else:
+            if type(stuckActs[0])==numpy.ndarray:
+                return stuckActs[0],stuckActs[1],stuckActs[2]
             nstuck=stuckActs[0]
             if len(stuckActs)>1:
                 clumpSize=stuckActs[1]
@@ -1260,6 +1297,12 @@ class MirrorSurface:
                 fracHi=stuckActs[5]
             if len(stuckActs)>6:
                 highVal=stuckActs[6]
+            if len(stuckActs)>7:
+                fracLo=stuckActs[7]
+            if len(stuckActs)>8:
+                lowVal=stuckActs[8]
+            if len(stuckActs)>9:
+                fracCoupled=stuckActs[9]
 
         if seed!=None:
             numpy.random.seed(seed)
@@ -1277,8 +1320,13 @@ class MirrorSurface:
         clump.shape=ncy,ncx
         i=0
         groupsHi=ngroups*fracHi
+        groupsLo=ngroups*fracLo
+        groupsCoupled=ngroups*fracCoupled
         nHi=groupsHi*clumpSize
+        nLo=groupsLo*clumpSize
+        nCo=groupsCoupled*clumpSize
         s=0
+        coupledList=[]
         while s<nstuck:
             ignore=0
             pos=numpy.random.randint(self.nact*self.nact)
@@ -1286,11 +1334,9 @@ class MirrorSurface:
             posy=pos//self.nact
             if maxRadius!=None and maxRadius>0:
                 if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)>maxRadius:
-                    i-=1
                     ignore=1
             if minRadius>0:
                 if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)<minRadius:
-                    i-=1
                     ignore=1
 
 
@@ -1300,12 +1346,19 @@ class MirrorSurface:
                 if posy+ncy>self.nact:
                     posy-=posy+ncy-self.nact
                 mask[posy:posy+ncy,posx:posx+ncx]=clump
-            if s<nHi:
-                hiVals=mask[posy:posy+ncy,posx:posx+ncx]=highVal
+                if s<nHi:#acts stuck high
+                    hiVals[posy:posy+ncy,posx:posx+ncx]=highVal
+                elif s<nHi+nLo:#acts stuck low
+                    hiVals[posy:posy+ncy,posx:posx+ncx]=lowVal
+                elif s<nHi+nLo+nCo:#acts coupled (nearest 4 neighbours)
+                    for y in range(ncy):
+                        for x in range(ncx):
+                            coupledList.append((posy+y,posx+x))
+                else:#acts stuck at midrange (nowt to do)
+                    pass
             s=mask.sum()
-            i+=1
         mask=1-mask
-        return mask,hiVals
+        return mask,hiVals,coupledList
         
 
                 
@@ -1757,7 +1810,7 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         try:
             import cmod.mkl
         except:
-            print "Unable to import cmod.mkl - using quick.dot instead"
+            print "ERROR Unable to import cmod.mkl - using quick.dot instead"
             res=quick.dot(rmx,v.projmx.T)
         else:
             res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')

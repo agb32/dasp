@@ -36,7 +36,7 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
                 print buffer[:80]
                 raise Exception(error+ 'Not a simple fits file')
             else:
-                print "WARNING - non compliant FITS file"
+                print "ERROR - non compliant FITS file"
                 return returnVal
         while(1) :
             for char in range(0,2880,80) :
@@ -141,9 +141,9 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     elif typ=='d': bitpix =-64 # Float64
     elif typ=="h": bitpix = 16
     else :
-        print "FITS: Converting type %s to float32"%typ
-	data = data.astype('f') # Float32
-	bitpix = -32
+        print "INFORMATION FITS: Converting type %s to float32"%typ
+        data = data.astype('f') # Float32
+        bitpix = -32
     shape = list(data.shape)
     shape.reverse()
     naxis = len(shape)
@@ -154,33 +154,33 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
         header=  [ "XTENSION= 'IMAGE'"]
     header+=['BITPIX  = %d' % bitpix, 'NAXIS   = %d' % naxis ]
     for i in range(naxis) :
-	keyword = 'NAXIS%d' % (i + 1)
-	keyword = string.ljust(keyword, 8)
-	header.append('%s= %d' % (keyword, shape[i]))
+        keyword = 'NAXIS%d' % (i + 1)
+        keyword = string.ljust(keyword, 8)
+        header.append('%s= %d' % (keyword, shape[i]))
     header.append('EXTEND  = T')
     if doByteSwap==0 and numpy.little_endian:
         header.append('UNORDERD= T')
     if extraHeader != None :
         if type(extraHeader)==type(""):
             extraHeader=[extraHeader]
-	for rec in extraHeader :
-	    try :
+        for rec in extraHeader :
+            try :
                 if "=" in rec:
                     key=rec.split("=")[0]
                 else:
                     key = string.split(rec)[0]
-	    except IndexError :
-		pass
-	    else :
-		if key != 'SIMPLE' and \
-		   key != 'BITPIX' and \
-		   key[:5] != 'NAXIS' and \
-		   key != 'END' :
+            except IndexError :
+                pass
+            else :
+                if key != 'SIMPLE' and \
+                   key != 'BITPIX' and \
+                   key[:5] != 'NAXIS' and \
+                   key != 'END' :
                     if splitExtraHeader:
                         while len(rec)>80:
                             header.append(rec[:80])
                             rec=string.ljust(key,8)+"= "+rec[80:]
-		    header.append(rec)
+                    header.append(rec)
     header.append('END')
     header = map(lambda x: string.ljust(x,80)[:80], header)
     header = string.join(header,'')
@@ -205,26 +205,26 @@ def ReadHeader(filename, asFloat = 1) :
     rawHeader = []
     buffer = file.read(2880)
     if buffer[:6] != 'SIMPLE' :
-	raise Exception(error+ 'Not a simple fits file')
+        raise Exception(error+ 'Not a simple fits file')
     while(1) :
-	for char in range(0,2880,80) :
-	    line = buffer[char:char+80]
-	    rawHeader.append(line)
-	    key = string.strip(line[:8])
-	    if key :
-		val = line[9:]
-		val = string.strip(val)
-		if val :
-		    if val[0] == "'" :
-			pos = string.index(val,"'",1)
-			val = val[1:pos]
-		    else :
-			pos = string.find(val, '/')
-			if pos != -1 :
-			    val = val[:pos]
-		header[key] = val
-	if header.has_key('END') : break
-	buffer = file.read(2880)
+        for char in range(0,2880,80) :
+            line = buffer[char:char+80]
+            rawHeader.append(line)
+            key = string.strip(line[:8])
+            if key :
+                val = line[9:]
+                val = string.strip(val)
+                if val :
+                    if val[0] == "'" :
+                        pos = string.index(val,"'",1)
+                        val = val[1:pos]
+                    else :
+                        pos = string.find(val, '/')
+                        if pos != -1 :
+                            val = val[:pos]
+                header[key] = val
+        if header.has_key('END') : break
+        buffer = file.read(2880)
     return( { 'raw' : rawHeader, 'parsed' : header} )
 
 def MakeHeader(shape,dtype,extraHeader=None,doByteSwap=1,extension=0):
@@ -246,26 +246,26 @@ def MakeHeader(shape,dtype,extraHeader=None,doByteSwap=1,extension=0):
         header=["SIMPLE  = T"]
     header+=["BITPIX  = %d"%bitpix,"NAXIS   = %d"%naxis]
     for i in range(naxis):
-	keyword = 'NAXIS%d' % (i + 1)
-	keyword = string.ljust(keyword, 8)
-	header.append('%s= %d' % (keyword, shape[i]))
+        keyword = 'NAXIS%d' % (i + 1)
+        keyword = string.ljust(keyword, 8)
+        header.append('%s= %d' % (keyword, shape[i]))
     header.append('EXTEND  = T')
     if doByteSwap==0 and numpy.little_endian:
         header.append('UNORDERD= T')
     if extraHeader != None :
         if type(extraHeader)==type(""):
             extraHeader=[extraHeader]
-	for rec in extraHeader :
-	    try :
-		key = string.split(rec)[0]
-	    except IndexError :
-		pass
-	    else :
-		if key != 'SIMPLE' and \
-		   key != 'BITPIX' and \
-		   key[:5] != 'NAXIS' and \
-		   key != 'END' :
-		    header.append(rec)
+        for rec in extraHeader :
+            try :
+                key = string.split(rec)[0]
+            except IndexError :
+                pass
+            else :
+                if key != 'SIMPLE' and \
+                   key != 'BITPIX' and \
+                   key[:5] != 'NAXIS' and \
+                   key != 'END' :
+                    header.append(rec)
     header.append('END')
     header = map(lambda x: string.ljust(x,80)[:80], header)
     header = string.join(header,'')
