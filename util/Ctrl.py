@@ -445,7 +445,7 @@ class Ctrl:
             sockConn.doCmdList(self.thisiter)
         except:
             print "\n\n\n\nERROR in sockConn.doCmdList\n\n\n\n"
-        print "INFORMATION Entering main loop"
+        print "INFORMATION ^^Entering main loop^^"
         while self.running():
             if not self.paused:
                 if self.debug!=None:
@@ -505,7 +505,7 @@ class Ctrl:
 ##         for t in tlist:
 ##             if t.getName()!="MainThread":
 ##                 t._Thread__stop()
-        print "INFORMATION Finished - calling endSim for each module"
+        print "INFORMATION ^^Finished^^ - calling endSim for each module"
         #Sum = sum(self.meanTiming) # UB: to sum up the time spent at modules
         for i in rangeLenCompList:
             self.compListPos=i
@@ -638,7 +638,12 @@ class myStdout:
                'INFORMATION':'\x1b[1;32m\\1\x1b[0m',
                'WARNING':    '\x1b[1;33m\\1\x1b[0m',
                }
-            self.markup={'**':('\x1b[1m','\x1b[0m'),} # ** == bold
+         # ** == bold
+         # __ == blink
+         # ^^ == inverse
+            self.markup={'**':('\x1b[1m','\x1b[0m'),  
+                         '__':('\x1b[5m','\x1b[0m'),
+                         '^^':('\x1b[7m','\x1b[0m'),} 
         
     def write(self,txt):
         if len(txt.strip())>0:
