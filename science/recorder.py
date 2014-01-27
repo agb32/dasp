@@ -10,7 +10,9 @@
 # Numpy:    1.5.1
 
 # The basic concept is to open a new file upon reaching the StartNiter,
-# and then append until reaching the EndNiter
+# and then append until reaching the EndNiter.
+# The ability to process the output is also available via optional code
+# strings.
 
 import template
 numpy=template.numpy
@@ -54,7 +56,21 @@ class aosimRecorder(template.aosimNessuno):
         if self.active:
            print("INFORMATION(**recorder_"+str(self.idstr)+"**):"+
                "from %s upto %s"%( str(self.startnValid),str(self.endnValid)) )
-  
+        
+           # \/ Customized statement that can access the input data, named as 
+           # 'inputData', otherwise the following statement is used: "inputData"
+           # i.e. assign the inputData to that being recorded
+        self.code=str(self.config.getVal(
+               "recorderCode",
+               default="inputData",
+               raiseerror=0 ))
+        self.compiledCode=compile(self.code,"<string>","eval")
+
+    def _FITS_wrapper( self, data,fname,niter):
+        if self.sparse:  
+            util.FITS.saveSparse( data, fname, "a", "RECORDER= "+str(niter) )
+        else:
+            util.FITS.Write( data, fname, "RECORDER= "+str(niter), "a" )
 
     def _checkFilesExistence(self):
         import os
@@ -69,12 +85,22 @@ class aosimRecorder(template.aosimNessuno):
         else:
            __test4path(self,None)
    
-    def _doSomeProcessing(self,ip):
+    def _doSomeProcessing(self,inputData):
+           # \/ thisFrac will equal zero when reaching (approximately)
+           #  every 10% of the total number
+        thisFrac=( (self.nValid-self.startnValid)
+                    %int(0.1*(self.endnValid-self.startnValid)) )
+        inputData=eval(self.compiledCode)
+        if type(inputData)==type(None):
+            if thisFrac==0: 
+               print("INFORMATION:(**recorder_"+str(self.idstr)
+                  +"**) **wasn't** recording ("
+                  +str(int(
+                      (100*(self.nValid-self.startnValid))
+                     /(self.endnValid-self.startnValid) ))
+                  +"%)")
+            return # don't do anything
         if self.nValid>=self.startnValid and self.nValid<self.endnValid:
-               # \/ thisFrac will equal zero when reaching (approximately)
-               #  every 10% of the total number
-            thisFrac=( (self.nValid-self.startnValid)
-                        %int(0.1*(self.endnValid-self.startnValid)) )
             if thisFrac==0: 
                print("INFORMATION:(**recorder_"+str(self.idstr)
                   +"**) recording ("
@@ -82,9 +108,5 @@ class aosimRecorder(template.aosimNessuno):
                       (100*(self.nValid-self.startnValid))
                      /(self.endnValid-self.startnValid) ))
                   +"%)")
-            if not self.sparse:
-               util.FITS.Write( ip, self._formFileName(self,self.nValid), 
-                    "RECORDER= "+str(self.nValid), "a" )
-            else:
-               util.FITS.saveSparse( ip, self._formFileName(self,self.nValid),
-                     "a", "RECORDER= "+str(self.nValid) )
+            self._FITS_wrapper( inputData, self._formFileName(self,self.nValid),
+                  self.nValid )
