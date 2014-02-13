@@ -349,6 +349,7 @@ class AOXml:
                     print sys.exc_value
                     v=None
                     self.error=1
+                    raise
                 if hasattr(self.this,self.curmodule):
                     if hasattr(getattr(self.this,self.curmodule),attrs["name"]):
                         if bInfo==1:#overwrite prev value
@@ -510,7 +511,7 @@ class AOXml:
         @type searchOrder: List
         """
         self.searchOrder=searchOrder
-    def getVal(self,varname,default=None,searchOrder=None,raiseerror=1):
+    def getVal(self,varname,default=None,searchOrder=None,raiseerror=1,warn=1):
         """Return the value of a variable stored in the XML file.
         This would be used e.g. myvar=x.getVal("myvar") where x is the
         instance of AOXml (self).  A default value can be given.  If no default
@@ -549,7 +550,8 @@ class AOXml:
                 print "ERROR: value not found %s"%str(varname)
                 raise Exception("ERROR: value not found: %s %s"%(str(varname),str(searchOrder)))
             else:
-                print "WARNING: using default value of %s for %s %s"%(str(val),str(varname),str(searchOrder))
+                if warn:
+                    print "WARNING: using default value of %s for %s %s"%(str(val),str(varname),str(searchOrder))
         return val
 
     def setVal(self,varname,value,searchOrder=None,raiseerror=1):

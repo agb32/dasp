@@ -7,6 +7,7 @@ Saving files - we by default save them not byteswapped - to they would look like
 """
 import util.FITS,numpy
 import sys,time,os
+import util.gradientOperator
 #import util.dot as quick
 #sys.path.insert(0,"/home/ali/c/lapack")
 #import svd
@@ -29,6 +30,24 @@ except:
 
         
 import cmod.svd,scipy.sparse
+
+def keyboard(banner=None):
+    """A class that allows us to break to python console on exception."""
+    import code, sys
+
+    # use exception trick to pick up the current frame
+    try:
+        raise None
+    except:
+        frame = sys.exc_info()[2].tb_frame.f_back
+
+    # evaluate commands in current namespace
+    namespace = frame.f_globals.copy()
+    namespace.update(frame.f_locals)
+
+    code.interact(banner=banner, local=namespace)
+
+
 
 class sparseHolder:
     def __init__(self):
@@ -54,6 +73,12 @@ class makeRecon:
         self.timename=pmxfname[:-5]+"_timing.txt"
         self.cntname=pmxfname[:-5]+"_cnt.txt"
         self.regularisation=regularisation
+
+    def initFromParams(paramList=["params.xml"],batchno=0):
+        import base.readConfig
+        self.c=base.readConfig.AOXml(paramList,batchno=batchno)
+        c=self.c
+
     def log(self,txt):
         f=open(self.timename,"a")
         f.write(txt)

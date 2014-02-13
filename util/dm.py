@@ -8,6 +8,25 @@ import cmod.utils
 import util.dot as quick
 import time
 
+
+def calcNactList(config,batchno,reconidstr):
+    if type(config) in [type([]),type("")]:
+        import base.readConfig
+        config=base.readConfig.AOXml(config,batchno=batchno)
+    config.setSearchOrder(["tomoRecon_%s"%reconidstr,"tomoRecon","globals"])
+    dmObj=config.getVal("dmObj")
+    pupil=config.getVal("pupil")
+    atmosGeom=config.getVal("atmosGeom")
+    dmList=dmObj.makeDMList(reconidstr)
+    nacts=0
+    nactsList=[]
+    for dm in dmList:
+        if dm.zonalDM:
+            tmp=dm.computeDMPupil(atmosGeom,centObscuration=pupil.r2,retPupil=0)
+            nactsList.append(int(tmp[0].sum()))
+        else:#modal DM
+            nactsList.append(dm.nact)
+    return nactsList
 """Contains:
 dmInfo class - info about a given DM
 dmOverview class - overview of all DMs in a system

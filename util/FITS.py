@@ -227,7 +227,7 @@ def ReadHeader(filename, asFloat = 1) :
 	buffer = file.read(2880)
     return( { 'raw' : rawHeader, 'parsed' : header} )
 
-def MakeHeader(shape,dtype,extraHeader=None,doByteSwap=1,extension=0):
+def MakeHeader(shape,dtype,extraHeader=None,doByteSwap=1,extension=0,splitExtraHeader=0):
     """Return a text string which can be used as a header"""
     if dtype=="b": bitpix=8
     elif dtype=="B": bitpix=8
@@ -265,6 +265,10 @@ def MakeHeader(shape,dtype,extraHeader=None,doByteSwap=1,extension=0):
 		   key != 'BITPIX' and \
 		   key[:5] != 'NAXIS' and \
 		   key != 'END' :
+                    if splitExtraHeader:
+                        while len(rec)>80:
+                            header.append(rec[:80])
+                            rec=string.ljust(key,8)+"= "+rec[80:]
 		    header.append(rec)
     header.append('END')
     header = map(lambda x: string.ljust(x,80)[:80], header)

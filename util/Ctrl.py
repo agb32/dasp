@@ -167,7 +167,7 @@ class Ctrl:
         self.config.this.simID=self.simID
         self.sockConn=util.SockConn.SockConn(self.config.getVal("testrunport",default=9000)+self.rank,globals=self.globals,startThread=1,listenSTDIN=self.listenSTDIN)
         os.nice(self.config.getVal("nice",default=nice))
-        if self.config.getVal("connectPortDict",default=1):
+        if self.config.getVal("connectPortDict",default=0,warn=0):
             try:
                 t=threading.Thread(target=self.connectPortDict)
                 t.daemon=True

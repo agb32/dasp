@@ -992,9 +992,10 @@ class science:
                         if self.luckyCnt==0:
                             if self.luckyImg==None:
                                 self.luckyImg=numpy.empty((self.nimg,self.nimg),self.fpDataType)
-
+                            self.luckyRms=self.phaseRMS
                             self.luckyImg[:]=self.instImg
                         else:
+                            self.luckyRms+=self.phaseRMS
                             self.luckyImg+=self.instImg
                         self.luckyCnt+=1
                         if self.luckyCnt>=self.luckyNSampFrames:
@@ -1002,6 +1003,7 @@ class science:
                             #Now do the lucky calculations.
                             self.luckyImg/=self.luckyImg.sum()#normalise it
                             self.computeScientificParameters(self.luckyImg,self.luckyDict)
+                            self.luckyDict["rms"]=self.luckyRms/self.luckyNSampFrames#the mean RMS phase that went into this image.
                             if self.luckyHistory==None:
                                 self.luckyHistoryKeys=self.luckyDict.keys()
                                 self.luckyHistory=numpy.zeros((len(self.luckyHistoryKeys),self.luckyHistorySize),numpy.float32)

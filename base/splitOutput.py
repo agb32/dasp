@@ -2,7 +2,7 @@
 import types
 import base.fwdMsg
 #import Numeric
-#import numpy
+import numpy
 import cmod.utils
 import base.aobase
 class splitOutput(base.aobase.aobase):
@@ -43,7 +43,7 @@ class splitOutput(base.aobase.aobase):
         #Code must be python code that extracts part of an array from parentData, and writes it to outputData, e.g. "outputData=parentData[0:10]".  This can be as complex as you like.
         self.outputData=None
         self.compiledCode=compile(self.code,"<string>","exec")
-        self.shape=None
+        self.shape=config.getVal("splitOutputShape",raiseerror=0)
         self.dtype=None
         self.feedback=0#not a feedback object by default...
         self.forGUISetup=forGUISetup
@@ -86,7 +86,7 @@ class splitOutput(base.aobase.aobase):
         if self.initialised==0:
             dtype=None
             if self.shape=="fromparent":#attempt to get shape from parent (could be dangerous if parent not yet created properly).
-                d={"parentData":self.parent.outputData,"outputData":self.outputData,"parent":self.parent}
+                d={"parentData":self.parent.outputData,"outputData":self.outputData,"parent":self.parent,"numpy":numpy,"config":self.config}
                 exec self.compiledCode in d
                 self.shape=d["outputData"].shape
                 print "splitOutput got shape of %s from parent (code=%s)"%(self.shape,self.code)
@@ -138,7 +138,7 @@ class splitOutput(base.aobase.aobase):
             if self.newDataWaiting:
                 if self.parent.dataValid==1:
                     self.dataValid=1
-                    d={"parentData":self.parent.outputData,"outputData":self.outputData,"parent":self.parent}
+                    d={"parentData":self.parent.outputData,"outputData":self.outputData,"parent":self.parent,"config":self.config,"numpy":numpy}
                     exec self.compiledCode in d
                     outputData=d["outputData"]
                     if outputData.shape!=self.shape:
@@ -160,7 +160,7 @@ class splitOutput(base.aobase.aobase):
                                                              
 ##                     self.outputData=cmod.utils.arrayFromArray(self.parent.outputData[self.startOffset:self.endOffset],self.shape,self.dtype)
                 else:
-                    print "splitOutput: waiting for data but not valid (debug=%s)"%debug
+                    print "splitOutput: waiting for data but not valid (debug=%s)"%self.debug
                     self.dataValid=0
         else:
             self.dataValid=0
