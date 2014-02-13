@@ -54,12 +54,12 @@ class analyse:
         #can use conn.getpeername() to get the IP/port.
         conn=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            print "Connecting..."
+            print "INFORMATION Connecting..."
             conn.connect((host,port))
             print "Connected..."
             self.connList.append(conn)
         except:
-            print "Couldn't connect"
+            print "ERROR Couldn't connect"
             conn=None
         return conn
     def closeConnection(self,conn=None):
@@ -203,9 +203,9 @@ class analyse:
         """
         if action not in ["cmd","del","now"]:
             if action[0:3]!="rpt":
-                print "Action %s not recognised"%action
+                print "ERROR Action %s not recognised"%action
                 if action=="add":
-                    print "Note - action add not allowed in util.analyse..."
+                    print "INFORMATION Note - action add not allowed in util.analyse..."
                 return
         connList=self.parseConnList(connList)
         if tag=="NOTAG":
@@ -357,7 +357,7 @@ class analyse:
             try:
                 data=serialise.ReadMessage(conn.fileno())
             except:
-                print "util.analyse: Error in serialise.ReadMessage"
+                print "ERROR util.analyse: Error in serialise.ReadMessage"
                 data=None
             if type(data)==types.NoneType:
                 #print "analyse: closing connection"
@@ -398,7 +398,7 @@ if __name__=="__main__":
         a.readSockets(connList=[conn],block=1)
         for data in a.recDataList:
             if len(data)>3:
-                print "port %d:"%port
+                print "INFORMATION port %d:"%port
                 print data[3]["data"]
         a.recDataList=[]
         a.closeConnection(conn)

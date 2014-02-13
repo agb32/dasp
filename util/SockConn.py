@@ -90,14 +90,14 @@ class SockConn:
             try:
                 self.lsock.bind((host,port))
             except:
-                print "Couldn't bind to port %d.  "%port,
+                print "WARNING Couldn't bind to port %d.  "%port,
                 port+=Scientific.MPI.world.size#inc by number of processes in this mpi run
-                print "Trying port %d"%port
+                print "INFORMATION Trying port %d"%port
                 cnt+=1
                 self.port=port
             else:
                 bound=1
-                print "Bound to port %d"%port
+                print "INFORMATION Bound to port %d"%port
         self.lsock.listen(1)
         self.listenSTDIN=listenSTDIN
         if Scientific.MPI.world.size>1:
@@ -137,7 +137,7 @@ class SockConn:
                 rtr,rtw,err=select.select(self.selIn,selOut,self.selIn)
             except:
                 traceback.print_exc()
-                print "Error in select - continuing..."
+                print "WARNING in select - continuing..."
                 time.sleep(1)
                 rtr=[]
                 rtw=[]
@@ -147,7 +147,7 @@ class SockConn:
                 self.close(s)
             for s in rtr:#ready to read the socket
                 if s==self.lsock:#listening socket - new client...
-                    print 'Accepting new client...'
+                    print 'INFORMATION Accepting new client...'
                     conn,raddr=s.accept()
                     print "from %s"%str(raddr)
                     self.selIn.append(conn)
@@ -166,7 +166,7 @@ class SockConn:
                         ft=1.
                     if ft==0:
                         ft=1.
-                    print "At iteration %d, taking %gs per frame (%g fps) on port %d"%(ti,ft,1./ft,self.port)
+                    print "INFORMATION At iteration %d, taking %gs per frame (%g fps) on port %d"%(ti,ft,1./ft,self.port)
                     #print data,len(data)
                 elif s==self.fsock:#forward data... (return to client)
                     data=s.recv(1024)
@@ -194,9 +194,9 @@ class SockConn:
                         #print 'Reading socket...'
                         if self.readsock(s)==-1:#connection closed
                             try:
-                                print 'Closing socket %s'%str(s.getpeername())
+                                print 'INFORMATION Closing socket %s'%str(s.getpeername())
                             except:
-                                print "Closing socket"
+                                print "INFORMATION Closing socket"
                             self.close(s)
             
     def close(self,sock):
@@ -228,7 +228,7 @@ class SockConn:
         try:
             tmp=serialise.ReadMessage(sock.fileno())
         except:
-            print "Connection reset by peer."
+            print "WARNING Connection reset by peer."
             return -1
         if not tmp:
             return -1 #connection closed.
@@ -238,7 +238,7 @@ class SockConn:
         #data=cPickle.loads(data[0])#unpickle a ConnMsg object.
         action=data.action
         tag=data.tag
-        print "got data: %s %s %s %s"%(str(data.action),str(data.command),str(data.tag),str(data.ret))
+        print "INFORMATION got data: %s %s %s %s"%(str(data.action),str(data.command),str(data.tag),str(data.ret))
         #cmd=data.pop(0)
         if action=="now":
             if self.globals==None:
@@ -264,26 +264,26 @@ class SockConn:
                         #if cmd[:2]==[data,sock]:
                         remlist.append(cmd)
                 except:
-                    print "error deleting",data,sock,cmd
+                    print "ERROR deleting",data,sock,cmd
                     print data.command
             for cmd in remlist:
-                print "Deleting action",cmd
+                print "INFORMATION Deleting action",cmd
                 self.rptCmdList.remove(cmd)
             while [data,sock] in self.cmdList:
                 print "Deleting action:",[data,sock]
                 self.cmdList.remove([data,sock])
         elif action=="add":
             #prepend data.command to config.postList...
-            print "SockConn - got data action add"
+            print "INFORMATION SockConn - got data action add"
             if type(data.command)==type(()) and len(data.command)==2 and type(data.command[0])==type(""):
                 if type(self.globals)!=type(None):
-                    print "Adding to config.postList - %s"%data.command[0]
+                    print "INFORMATION Adding to config.postList - %s"%data.command[0]
                     self.globals["ctrl"].config.postAdd(data.command)
                     print "Added post variable %s to config.postList"%data.command[0]
                 else:
-                    print "Cannot add post variable %s to config, SockConn has no globals"%data.command[0]
+                    print "ERROR Cannot add post variable %s to config, SockConn has no globals"%data.command[0]
             else:
-                print "SockConn - action add not received with non-valid data, should be tuple of (str,data)."
+                print "ERROR SockConn - action add not received with non-valid data, should be tuple of (str,data)."
         else:
             print action,data
             serialise.Send(["warning",tag,"data not understood"],sock)
@@ -310,7 +310,7 @@ class SockConn:
         rtObjects=data.ret
         d={}#newly created variables go in here...
         if self.printmsg:
-            print "Executing",command
+            print "INFORMATION Executing",command
         try:
             exec command in self.globals,d
         except Exception,msg:
@@ -319,26 +319,26 @@ class SockConn:
             if data.retryCnt>data.maxRetry:
                 rtval=1
                 txt="Cancelling"
-            print "Command Exec failed1:",command,msg
+            print "ERROR Command Exec failed1:",command,msg
             #print str(sys.exc_info()),str(sys.exc_info()[1].args)
             #print self.globals
             if sock!=None:
                 try:
                     serialise.Send(["error",tag,"Command execution failed (%s): %s %s"%(txt,command,msg)],sock)
                 except:
-                    print "Serialise failed in SockConn.execCmd - couldn't send error message"
+                    print "ERROR Serialise failed in SockConn.execCmd - couldn't send error message"
         except:
             data.retryCnt+=1
             txt="Will retry"
             if data.retryCnt>data.maxRetry:
                 rtval=1
                 txt="Cancelling"
-            print "Command exec failed2:",command
+            print "ERROR Command exec failed2:",command
             if sock!=None:
                 try:
                     serialise.Send(["error",tag,"Command execution failed (%s): %s"%(txt,command)],sock)
                 except:
-                    print "Serialise failed in SockConn.execCmd - couldn't send error message"
+                    print "ERROR Serialise failed in SockConn.execCmd - couldn't send error message"
         else:
             rt={}#will return rt to the user.
             l=0
@@ -351,17 +351,17 @@ class SockConn:
                     rt[key]=d[key]
                     l+=1
                 elif key not in [""," "]:
-                    print "key",key,"not found"
+                    print "ERROR key",key,"not found"
             #sock.send(serialise.Serialise(["data",rt]))
             if l>0:#don't reply if nothing to reply with!
                 if sock!=None:
                     if self.printmsg:
-                        print "Sending data over socket"
+                        print "INFORMATION Sending data over socket"
                     try:
                         serialise.Send(["data",tag,rt],sock)
                     except:
                         rtval=1
-                        print "Serialise failed in SockConn.execCmd for tag %s with keys %s (error: %s %s)"%(str(tag),str(rt.keys()),str(sys.exc_info()),str(sys.exc_info()[1].args))
+                        print "ERROR Serialise failed in SockConn.execCmd for tag %s with keys %s (error: %s %s)"%(str(tag),str(rt.keys()),str(sys.exc_info()),str(sys.exc_info()[1].args))
 
         return rtval
     def doCmdList(self,thisiter):
@@ -397,7 +397,7 @@ class SockConn:
                     pass
     def printList(self):
         """Prints the command list"""
-        print "rpt command list:"
+        print "INFORMATION rpt command list:"
         for r in self.rptCmdList:
             print r
 if __name__=="__main__":

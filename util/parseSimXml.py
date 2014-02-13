@@ -70,7 +70,7 @@ class parseSimXml:
     def endElement(self,name):
         n=self.intagList.pop()
         if n!=name:
-            print "Parse error - muddled up somehow %s %s"%(n,name)
+            print "ERROR Parse error - muddled up somehow %s %s"%(n,name)
             raise Exception("XML parse error")
         if name=="simulationObject":
             o=self.objList[-1]
@@ -146,7 +146,7 @@ class parseSimXml:
             try:
                 cpulist=eval(g.cpuList)
             except:
-                print "Cannot evaluate group CPU list %s"%str(g.cpuList)
+                print "ERROR Cannot evaluate group CPU list %s"%str(g.cpuList)
                 cpulist=[]
             if type(cpulist)!=type([]):
                 cpulist=[cpulist]

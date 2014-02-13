@@ -97,7 +97,7 @@ class geom:
         self.sourceOrder=[]
         for s in self.sourceList:
             if self.zenith!=0 and s.alt>0:
-                print "Changing source height to take zenith into account"
+                print "WARNING Changing source height to take zenith into account"
                 s.alt/=numpy.cos(self.zenith*numpy.pi/180.)
             if self.sourceDict.has_key(s.idstr):
                 print s.idstr,self.sourceDict.keys()

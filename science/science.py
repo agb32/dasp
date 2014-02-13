@@ -355,14 +355,20 @@ class science(aobase.aobase):
             idtxt=""
             if self.config.this.simID!="":
                 idtxt=" (%s)"%self.config.this.simID
-            print "Science results for %s%s:"%(self.moduleName,idtxt)
+            print "INFORMATION: Science results for %s%s:"%(self.moduleName,idtxt)
             for this in self.thisObjList:
                 # compute the OTF, if not already done.
                 if this.sciObj.computeOTF==0:
                     sl=numpy.fft.fftshift(this.sciObj.longExpPSF)
                     this.sciObj.dictScience['strehlOTF']=numpy.fft.fft2(sl,s=(sl.shape[0]*2,sl.shape[1]*2)).sum()/this.sciObj.diffOTFSum
 
-                print "%s: %s"%(str(this.objID),str(this.sciObj.dictScience))
+                print "**%s**:"%(str(this.objID))
+                maxLen=0
+                for k in this.sciObj.dictScience:
+                  if len(k)>maxLen: maxLen=len(k)
+                for k in this.sciObj.dictScience:
+                  print "  %s**%s** =%s"%(
+                     " "*(maxLen-len(k)),k,str(this.sciObj.dictScience[k]) )
                 rmstxt=""
                 if this.sciObj.phaseRMScnt>0:
                     m=this.sciObj.phaseRMSsum/this.sciObj.phaseRMScnt
@@ -596,7 +602,7 @@ class science(aobase.aobase):
                     self.inputData=self.parent.outputData
                     self.dataValid=1
                 else:
-                    print "Science: waiting for data from DM, but not valid"
+                    print "INFORMATION: Science: waiting for data from DM, but not valid"
                     self.dataValid=0
             if self.dataValid:
                 self.sciObj.doScienceCalc(self.inputData,self.control,self.thisiter)

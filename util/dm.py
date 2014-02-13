@@ -520,7 +520,7 @@ class dmInfo:
                     area=(x11-x1)*(y2-y1)-(x2-x11)*y1+self.circIntegrate(x11,x2,r)
             totArea+=area*sign
         if totArea<0:
-            print "Warning: Got area<0: %g - setting to zero."%totArea
+            print "WARNING: Got area<0: %g - setting to zero."%totArea
             totArea=0
         return totArea
 
@@ -574,7 +574,7 @@ class dmInfo:
         else:
             nmode=self.nact
             mirrorModes=util.zernikeMod.Zernike(pupil,nmode,computeInv=0).zern
-            print "todo - util.dm.computePhaseCovariance - do we need to scale the zernikes?"
+            print "WARNING todo - util.dm.computePhaseCovariance - do we need to scale the zernikes?"
         self.mirrorModes=mirrorModes
         return mirrorModes
 
@@ -768,7 +768,7 @@ class dmOverview:
 
         for dm in dmInfoList:
             if atmosGeom!=None and atmosGeom.zenith!=0:
-                print "Reconjugating dm to take zenith into account"
+                print "INFORMATION Reconjugating dm to take zenith into account"
                 dm.height/=numpy.cos(atmosGeom.zenith*numpy.pi/180.)
             if dm.fov==None:#atmosGeom must be specified in this case...
                 dm.fov=0.
@@ -806,7 +806,7 @@ class dmOverview:
                 dm.actSpacing=dmDiam/(dm.nact+2*dm.actoffset-1.)
             if dm.reconLam==None:#use the wavelength at which the phase is at.
                 dm.reconLam=atmosGeom.sourceLambda(dm.idlist[0][1])
-                print "Assuming reconstructor wavelength of %s for DM %s"%(dm.reconLam,dm.label)
+                print "INFORMATION Assuming reconstructor wavelength of %s for DM %s"%(dm.reconLam,dm.label)
             dm.dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
             dm.calcdmpup(atmosGeom)
         #self.dmDict={}
@@ -852,7 +852,7 @@ class dmOverview:
                 return dm
         
         if raiseerror:
-            print "DM idstr %s not found in getDM"%idstr
+            print "ERROR DM idstr %s not found in getDM"%idstr
             dm=None
             raise Exception("DM idstr %s not found"%idstr)
         else:
@@ -868,15 +868,15 @@ class dmOverview:
         for dm in self.dmInfoList:
             if dm.label==label:
                 return dm
-        print "Warning: util.dm - DM with label %s not found, returning None"%str(label)
+        print "WARNING: util.dm - DM with label %s not found, returning None"%str(label)
         return None
     def getHeight(self,idstr):
         dm=self.getDM(idstr)
         if dm==None:
-            print "dm idstr %s not found"%idstr
+            print "ERROR dm idstr %s not found"%idstr
             idstr=self.dmInfoList[0].idlist[0][0]
             dm=self.getDM(idstr)
-            print "using %s for idstr"%idstr
+            print "WARNING using %s for idstr"%idstr
         return dm.height
     def getSourceID(self,idstr,raiseerror=0):
         dm=self.getDM(idstr)
@@ -887,7 +887,7 @@ class dmOverview:
             raise Exception("Source ID for DM id %s not found"%str(idstr))
         else:
             ret=dm.idlist[0][1]
-            print "Warning - source ID for DM id %s not found.  Using %s"%(str(idstr),ret)
+            print "ERROR - source ID for DM id %s not found.  Using %s"%(str(idstr),ret)
             return ret
     
     def getnAct(self,idstr):
@@ -1151,7 +1151,7 @@ class dmOverview:
                     area=(x11-x1)*(y2-y1)-(x2-x11)*y1+self.circIntegrate(x11,x2,r)
             totArea+=area*sign
         if totArea<0:
-            print "Warning: Got area<0: %g - setting to zero."%totArea
+            print "WARNING: Got area<0: %g - setting to zero."%totArea
             totArea=0
         return totArea
 
@@ -1829,7 +1829,7 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         try:
             import cmod.mkl
         except:
-            print "Unable to import cmod.mkl - using quick.dot instead"
+            print "ERROR Unable to import cmod.mkl - using quick.dot instead"
             res=quick.dot(rmx,v.projmx.T)
         else:
             res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
