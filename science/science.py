@@ -356,6 +356,7 @@ class science(aobase.aobase):
             if self.config.this.simID!="":
                 idtxt=" (%s)"%self.config.this.simID
             print "INFORMATION: Science results for %s%s:"%(self.moduleName,idtxt)
+            timestamp=time.strftime("%y%m%d_%H%M%S")
             for this in self.thisObjList:
                 # compute the OTF, if not already done.
                 if this.sciObj.computeOTF==0:
@@ -365,10 +366,10 @@ class science(aobase.aobase):
                 print "**%s**:"%(str(this.objID))
                 maxLen=0
                 for k in this.sciObj.dictScience:
-                  if len(k)>maxLen: maxLen=len(k)
+                    if len(k)>maxLen: maxLen=len(k)
                 for k in this.sciObj.dictScience:
-                  print "  %s**%s** =%s"%(
-                     " "*(maxLen-len(k)),k,str(this.sciObj.dictScience[k]) )
+                    print "  %s**%s** =%s"%(
+                        " "*(maxLen-len(k)),k,str(this.sciObj.dictScience[k]) )
                 rmstxt=""
                 if this.sciObj.phaseRMScnt>0:
                     m=this.sciObj.phaseRMSsum/this.sciObj.phaseRMScnt
@@ -385,6 +386,7 @@ class science(aobase.aobase):
                     head.append("SIMID   = '%s'"%self.config.this.simID)
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
+                    head.append("TIMSTAMP= '%s'"%timestamp)
                     for key in this.sciObj.dictScience.keys():
                         head.append("%-8s= %s"%(key[:8],str(this.sciObj.dictScience[key])))
                     if rmstxt!="":
@@ -395,7 +397,7 @@ class science(aobase.aobase):
                 if this.sciObj.sciFilename!=None:
                     self.mkdirForFile(this.sciObj.sciFilename)
                     f=open(this.sciObj.sciFilename,"a")
-                    f.write("%s%s%s (%dx%d iters, batchno %d): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,str(this.sciObj.dictScience),rmstxt))
+                    f.write("%s%s%s (%dx%d iters, batchno %d %s): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,timestamp,str(this.sciObj.dictScience),rmstxt))
                     f.close()
                 if this.sciObj.histFilename!=None:
                     self.mkdirForFile(this.sciObj.histFilename)
@@ -407,6 +409,7 @@ class science(aobase.aobase):
                     head.append("SIMID   = '%s'"%self.config.this.simID)
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
+                    head.append("TIMSTAMP= '%s'"%timestamp)
                     k=str(this.sciObj.dictScience.keys())
                     k=k.replace("'",'').replace("[","").replace("]","")
 
@@ -424,6 +427,7 @@ class science(aobase.aobase):
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
+                    head.append("TIMSTAMP= '%s'"%timestamp)
                     k=str(this.sciObj.luckyHistoryKeys)
                     k=k.replace("'",'').replace("[","").replace("]","")
 
@@ -445,6 +449,7 @@ class science(aobase.aobase):
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
+                    head.append("TIMSTAMP= '%s'"%timestamp)
                     txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=1,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
                     f=open(this.sciObj.luckyImgFilename,"a")
                     f.write(txt)
