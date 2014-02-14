@@ -24,7 +24,7 @@ class science:
     phaseMultiplier is used for cases where phase wavelength is different from the wavelength that this science object is at.
 
     """
-    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,useFPGA=0,waitFPGA=0,waitFPGATime=0,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10):
+    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,useFPGA=0,waitFPGA=0,waitFPGATime=0,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0):
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
@@ -54,6 +54,7 @@ class science:
         self.computeOTF=0#compute OTF for strehl calcs
         self.historyListsSize=scienceListsSize
         self.luckyHistorySize=luckyHistorySize
+        self.luckyByteswap=luckyByteswap
         self.inboxDiamList=inboxDiamList
         self.saveFileString=saveFileString
         if type(self.saveFileString)!=type(""):
@@ -576,83 +577,6 @@ class science:
         #print numpy.sum(numpy.sum(self.instImg))
         return self.instImg
                 
-##     def computeShortExposurePSF(self,phs,useFPGA=0):
-##         """computeShortExposurePSF function : computes short exposure AO corrected PSF
-##         Modifications made by FA"""
-
-## ##        ##We copy the arrays to have contigous arrays and convert it into Float64
-## ##        phs2=phs.copy()
-## ##        phs2=phs2.astype("d")
-## ##        self.phs2=phs2
-## ##        pup2=self.pup.copy()
-## ##        pup2=pup2.astype("d")
-## ##        self.pup2=pup2
-##         t1=time.time()
-##         npup=self.npup ##to have the dimensions of the input phase array
-##         if useFPGA and self.useFPGA:#mask the unused parts of the pupil.
-##             if phs is not self.phs:# check that the phase is in fpga array
-##                 print "copying phase array"
-##                 self.phs[:,]=phs
-##             # now mask out the pupil 
-##             self.phsInt|=self.fpgaPupilMask#phsInt points to same memory as phs
-##             fpga.writeReg(self.fpid,2,6)#stop pipe
-##             fpga.writeReg(self.fpid,64,6)#reset fifos
-##             if self.npup!=self.fpgaInfo.npup or self.nfft!=self.fpgaInfo.nfft or self.fpgaUserPrecision!=self.fpgaInfo.userPrecision:
-##                 self.fpgaLoadRegs()
-##             fpga.writeReg(self.fpid,1,6)#set it going.
-##             if self.waitFPGA:
-##                 self.fpgaWaitCycles=0
-##                 time.sleep(self.waitFPGATime)
-##                 v=fpga.readReg(self.fpid,5)
-##                 while v!=7:
-##                     v=fpga.readReg(self.fpid,5)
-##                     #print hex(v)
-##                     self.fpgaWaitCycles+=1
-##                 if fpga.readReg(self.fpid,515)==1:#overflow error... try again.
-##                     print "FPGA overflow error, reducing precision (science)"
-##                     self.fpgaUserPrecision-=1
-##                     if self.fpgaUserPrecision<0:
-##                         self.fpgaUserPrecision=0
-##                         raise Exception("FPGA science FFT precision overflow")
-##                     fpga.reset(self.fpid)#clear the overflow bit.
-##                     fpga.start(self.fpid)
-##                     self.fpgaLoadRegs()
-##                     self.computeShortExposurePSF(self.phs,useFPGA)#re run the calc.
-##         else:
-##             # print self.pupilAmplitude.shape,self.phs.shape,self.pup.shape
-##             # We fill the complex amplitude
-##             if self.atmosPhaseType=="phaseonly":
-##                 self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-##                 self.pupilAmplitude[:npup,npup:,]=0.
-##                 self.pupilAmplitude.real[:npup,:npup]=self.pup*Numeric.cos(phs)
-##                 self.pupilAmplitude.imag[:npup,:npup]=self.pup*Numeric.sin(phs)
-##             elif self.atmosPhaseType=="phaseamp":#phs[1] is amplitude, phs[0] is phase
-##                 self.pupilAmplitude[
-## npup:,]=0.#clear array (may get changed by fft)
-##                 self.pupilAmplitude[:npup,npup:,]=0.
-##                 self.pupilAmplitude.real[:npup,:npup]=self.pup*Numeric.cos(phs[0])*phs[1]
-##                 self.pupilAmplitude.imag[:npup,:npup]=self.pup*Numeric.sin(phs[0])*phs[1]
-##             elif self.atmosPhaseType=="realimag":#phs in real/imag already.
-##                 self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-##                 self.pupilAmplitude[:npup,npup:,]=0.
-##                 self.pupilAmplitude[:npup,:npup]=self.pup*phs
-
-
-##             ##We call the FFTW function
-##             util.acmlfft.inplace_fft2d(self.pupilAmplitude,self.fftTmp)
-##             #nrfft.fftw_execute(self.fftPlan)
-##             ##We compute the intensity in the focal plane
-##             self.tempImg[:,]=(Numeric.absolute(self.focusAmplitude))**2
-##             ##print phs2.shape,phs2.typecode(),self.tempImg.shape,self.tempImg.typecode(),pup2.shape,pup2.typecode()
-##             ##We compute the PSF by using fliparray2
-##             #self.instImg=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
-##             fliparray2(self.tempImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
-##             self.instImg/=Numeric.sum(Numeric.sum(self.instImg)) ##We normalise the instantaneous PSF to 1
-##         t2=time.time()
-##         self.PSFTime=t2-t1
-##         #print Numeric.sum(Numeric.sum(self.instImg))
-##         return self.instImg
-
 
     def computeScientificParameters(self,longExpPSF=None,dictScience=None):
         """computeScientificParameters function : computes FWHM, 
@@ -785,113 +709,6 @@ class science:
 
         return dictScience
 
-##     def computeScientificParameters(self):
-##         """computeScientificParameters function : computes FWHM, 
-##            Modifications made by FA"""
-##         ## We do the average of the PSF and normalise it to 1
-##         self.longExpPSF[:,]=self.longExpImg/Numeric.sum(Numeric.sum(self.longExpImg))##We normalise the instantaneous PSF to 1
-##         #window(2,wait=1)
-##         #fma()
-##         #pli(self.longExpPSF)
-                
-##         ## We calculate PSF parameters ###
-##         ## We start by the Strehl Ratio
-##         nfft=self.nfft
-##         strehl=self.longExpPSF[nfft/2,nfft/2]/self.diffn_core_en
-##         self.dictScience['strehl']=strehl
-##         ##print "Strehl=%g"%(strehl)
-##         self.dictScience['strehlPeak']=max(self.longExpPSF.flat)/self.diffn_core_en
-##         ## We now compute the FWHM
-##         ## First we compute the radial profile
-##         ##Pbs with interp function : we have to compute it manually :-((
-##         profiles=self.computeRadialProfileAndEncircledEnergy(self.longExpPSF)
-##         x=self.rad[:,]
-##         y=profiles[0,:,]
-##         ##we look for the index of x just before and after y[0]/2
-##         t=Numeric.greater(y,y[0]/2)
-##         try:
-##             i1=Numeric.nonzero(t)[-1]
-##         except:
-##             print "ERROR in util/science.py - no non-zero elements... Oh well!"
-##             i1=0
-##         x1=x[i1]
-##         t=Numeric.less(y,y[0]/2)
-##         try:
-##             i2=Numeric.nonzero(t)[0]
-##         except:
-##             print "ERROR2 in util/science.py - no non-zero elements... Oh well! "
-##             i2=0
-##         x2=x[i2]
-##         ##we compute the equation of the line between those two points
-##         if x2==x1:
-##             x2+=1
-##         a=(y[i2]-y[i1])/(x2-x1)
-##         b=y[i2]-a*x2
-##         ##we then compute the FWHM
-##         fwhm=2*(y[0]/2-b)/a
-##         ##print "FWHM=%g"%(fwhm)
-##         self.dictScience['FWHM']=fwhm
-                
-##         ## We now compute the diameter of the aperture with 50% of the energy
-##         x=(2*self.rRad+1)*self.pix_scale
-##         y=profiles[1,]
-##         t=Numeric.greater(y,0.5)
-##         try:
-##             i1=Numeric.nonzero(t)[0]
-##         except:
-##             print "ERROR3 in science.py - no non-zero elements... Oh well!"
-##             i1=0
-            
-##         x1=x[i1]
-##         t=Numeric.less(y,0.5)
-##         try:
-##             i2=Numeric.nonzero(t)[-1]
-##         except:
-##             print "ERROR4 in science.py - no non-zero elements... Oh well!"
-##             i2=0
-            
-##         x2=x[i2]
-##         if x2==x1:
-##             x2+=1
-##         ##we compute the equation of the line between those two points
-##         a=(y[i2]-y[i1])/(x2-x1)
-##         b=y[i2]-a*x2
-##         ##we then compute the diameter
-##         d50=(0.5-b)/a
-##         ##print "d50=%g"%(d50)
-##         self.dictScience['d50']=d50
-        
-##         ## We now compute the energy into a square aperture of 0.2 arcsec
-##         ## We compute the ensquared energy profile
-##         self.inbox=self.computeEnsquaredEnergy(self.longExpPSF)
-##         y=self.inbox
-##         x=self.wid
-##         #apSize=0.2
-##         for apSize in self.inboxDiamList:
-##             t=Numeric.greater(x,apSize)
-##             try:
-##                 i1=Numeric.nonzero(t)[0]
-##             except:
-##                 print "ERROR5 in science.py - no non-zero elements... Oh well!"
-##                 i1=0
-##             x1=x[i1]
-##             t=Numeric.less(x,apSize)
-##             try:
-##                 i2=Numeric.nonzero(t)[-1]
-##             except:
-##                 print "ERROR6 in science.py - no non-zero elements... Oh well!"
-##                 i1=0            
-##             x2=x[i2]
-##             if x2==x1:
-##                 x2+=1
-##             ##we compute the equation of the line between those two points
-##             a=(y[i2]-y[i1])/(x2-x1)
-##             b=y[i2]-a*x2
-##             ##we then compute the energy
-##             inbox=a*apSize+b
-##             ##print "E(0.2 arcsec)=%g"%(inbox)
-##             self.dictScience['inbox%g'%apSize]=inbox
-##         return self.dictScience
 
 
     def conv(self,img):
@@ -902,15 +719,6 @@ class science:
         convimg=numpy.fft.irfft2(temp*self.sci_psf_fft)
         return convimg
         
-
-##     def conv(self,img):
-##         """Convolve image with a PSF
-##         Convolution by an instrumental PSF. Requires to set img
-##         """
-##         temp=FFT.real_fft2d(img)
-##         convimg=FFT.inverse_real_fft2d(temp*self.sci_psf_fft)
-##         return convimg
-
 
 
     def doScienceCalc(self,inputData,control,curtime=0):
@@ -1017,97 +825,18 @@ class science:
                                     self.luckyFile=tempfile.TemporaryFile()
                                     self.luckyLastImg=numpy.zeros((self.luckyImgSize,self.luckyImgSize),self.luckyImg.dtype)
                                 self.luckyLastImg[:]=self.luckyImg[self.nimg/2-self.luckyImgSize/2:self.nimg/2+self.luckyImgSize/2,self.nimg/2-self.luckyImgSize/2:self.nimg/2+self.luckyImgSize/2]
-                                self.luckyFile.write(self.luckyLastImg.byteswap().tostring())
+                                if self.luckyByteswap:
+                                    self.luckyLastImg.byteswap(True)
+                                self.luckyFile.write(self.luckyLastImg.tostring())
+                                if self.luckyByteswap:
+                                    self.luckyLastImg.byteswap(True)
 
-                        #if (len(self.strehl_hist)==self.scienceListsSize):
-                        #    vout=self.strehl_hist.pop(0)#remove from start of list
-                        #    vout=self.fwhm_hist.pop(0)
-                        #    vout=self.d50_hist.pop(0)
-                        #    vout=self.inbox_hist.pop(0)
-                        #self.strehl_hist.append(self.dictScience['strehl'])
-                        #self.fwhm_hist.append(self.dictScience['FWHM'])
-                        #self.d50_hist.append(self.dictScience['d50'])
-                        #if len(self.inboxDiamList)>0:
-                        #    self.inbox_hist.append(self.dictScience['inbox%g'%self.inboxDiamList[0]])
-##                     if self.fitsFilename!=None:
-##                         if os.path.exists(self.fitsFilename):
-##                             os.remove(self.fitsFilename);
-##                         head=[]
-##                         head.append("SCALE   = %g"%self.pix_scale)
-##                         head.append("STREHL  = %g"%self.dictScience["strehl"])
-##                         head.append("FWHM    = %g"%self.dictScience["FWHM"])
-##                         head.append("D50     = %g"%self.dictScience["d50"])
-##                         util.FITS.Write(self.longExpImg/self.n_integn,self.fitsFilename,extraHeader=head)
+
         if(self.timing):print "science",time.time()-t1
         if self.debug!=None:
             print "science: generateNext done (debug=%s)"%str(self.debug)
         return None
-##     def doScienceCalc(self,inputData,control,curtime=0):
-##         """compute the science calculation.  Here, inputData is the phase, control is a dictionary of control commands, such as useFPGA, calcRMSFile, zero_science and science_integrate."""
-##         useFPGA=control["useFPGA"] and self.canUseFPGA
-##         ##we compute the piston and remove it into the pupil
-##         if self.atmosPhaseType=="phaseonly":
-##             if inputData.shape!=(self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
-##                 #This assumes that the inputData size is a power of 2 larger than phs, ie 2, 4, 8 etc times larger.
-##                 #print "Binning pupil for science calculation %d %s "%(self.npup,str(inputData.shape))
-##                 cmod.binimg.binimg(inputData,self.phs)
-##                 self.phs/=self.realPupBinned
-##                 inputData=self.phs#now the binned version.
-##             inputData=Numeric.array(inputData)
-##             pist=Numeric.sum(Numeric.sum(inputData*self.pup))/self.pupsum ##computation of the piston
 
-##             Numeric.put(self.phs.flat,self.idxPup,Numeric.take(inputData.flat,self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
-##         else:
-##             raise Exception("science: todo: don't know how to remove piston")
-##         nfft=self.nfft
-##         t1=time.time()
-##         if control["calcRMS"]:
-##             self.phaseRMS=self.calcRMS(self.phs,self.pup)
-##             if self.calcRMSFile!=None:
-##                 f=open(self.calcRMSFile,"a")
-##                 f.write("%g\t%g\n"%(curtime,self.phaseRMS))
-##                 f.close()
-##         if control["zero_science"]>0:
-##             self.dictScience['FWHM']=0.
-##             self.dictScience['d50']=0.
-##             self.dictScience['inbox']=0.
-##             self.dictScience['strehl']=0.
-##             self.isamp=0
-##             self.longExpImg[:,]=0.
-##             self.n_integn=0
-##         if control["science_integrate"]:# Integrate if shutter is open
-##             if control["zero_science"]==0:# Not zeroing science image
-##                 self.computeShortExposurePSF(self.phs,useFPGA)#calc short exposure PSF
-##                 self.longExpImg+=self.instImg# Integrate img
-##                 self.n_integn+=1 ##We increment the number of integrations used to compute long exposure PSF
-##                 self.isamp+=1##we increment the isamp counter
-##                 if (self.isamp>=self.scinSamp): #compute scientific parameters
-##                     self.isamp=0#we reset isamp to 0
-##                     self.computeScientificParameters()
-##                     # we update the history lists
-##                     if (len(self.strehl_hist)==self.scienceListsSize):
-##                         vout=self.strehl_hist.pop(0)#remove from start of list
-##                         vout=self.fwhm_hist.pop(0)
-##                         vout=self.d50_hist.pop(0)
-##                         vout=self.inbox_hist.pop(0)
-##                     self.strehl_hist.append(self.dictScience['strehl'])
-##                     self.fwhm_hist.append(self.dictScience['FWHM'])
-##                     self.d50_hist.append(self.dictScience['d50'])
-##                     if len(self.inboxDiamList)>0:
-##                         self.inbox_hist.append(self.dictScience['inbox%g'%self.inboxDiamList[0]])
-## ##                     if self.fitsFilename!=None:
-## ##                         if os.path.exists(self.fitsFilename):
-## ##                             os.remove(self.fitsFilename);
-## ##                         head=[]
-## ##                         head.append("SCALE   = %g"%self.pix_scale)
-## ##                         head.append("STREHL  = %g"%self.dictScience["strehl"])
-## ##                         head.append("FWHM    = %g"%self.dictScience["FWHM"])
-## ##                         head.append("D50     = %g"%self.dictScience["d50"])
-## ##                         util.FITS.Write(self.longExpImg/self.n_integn,self.fitsFilename,extraHeader=head)
-##         if(self.timing):print "science",time.time()-t1
-##         if self.debug!=None:
-##             print "science: generateNext done (debug=%s)"%str(self.debug)
-##         return None
 class fpgaSciStateInformation:
     def __init__(self):
         self.npup=None
@@ -1142,3 +871,231 @@ def difYorick (x, i = 0) :
    elif i == 4 :
       newx = x [:, :, :, :, 1:dims [4]] - x [:, :, :, :, 0:dims [4] - 1]
    return newx
+
+
+
+def computeScientificParameters(img,nfft=None,nimg=None,npup=None,pupil=None,inboxDiamList=[0.075],lam=1650.,telDiam=4.2,telSec=0.):
+    """computeScientificParameters function : computes FWHM, 
+       Modifications made by FA
+       """
+    dictScience={}
+    #normalise image...
+    img=img/img.sum()
+
+
+    ## We calculate PSF parameters ###
+    ## We start by the Strehl Ratio
+    if nfft==None:
+        nfft=img.shape[0]
+    if nimg==None:
+        nimg=img.shape[0]
+    if npup==None:
+        npup=nfft/2
+    if pupil==None:
+        pupil=util.tel.Pupil(npup,npup/2,npup/2.*telSec/telDiam)
+
+    #compute pixel scale.
+    pix_scale=util.calcPxlScale.pxlScale(lam,telDiam,npup,nfft,nfft/nimg)
+
+    diffPSF=computeShortExposurePSF(0,pupil)
+    if diffPSF.shape[0]!=nimg:
+        raise Exception("Diffraction limited shape unexpected")
+    strehl=img[nimg/2,nimg/2]/diffPSF[nimg/2,nimg/2]
+    dictScience['strehl']=strehl
+    ##print "Strehl=%g"%(strehl)
+    dictScience['strehlPeak']=numpy.max(img)/diffPSF[nimg/2,nimg/2]
+    sl=numpy.fft.fftshift(img)
+    diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(diffPSF),s=(diffPSF.shape[0]*2,diffPSF.shape[1]*2)).sum()
+    dictScience['strehlOTF']=numpy.fft.fft2(sl,s=(sl.shape[0]*2,sl.shape[1]*2)).sum()/diffOTFSum
+
+    ## We now compute the FWHM
+    ## First we compute the radial profile
+    ##Pbs with interp function : we have to compute it manually :-((
+    rad,rRad,tabNbPointsRad,xRad,nnRad=initRadialProfile(nimg,pix_scale)
+    profiles=computeRadialProfileAndEncircledEnergy(img,nnRad,xRad,tabNbPointsRad)
+    x=rad
+    y=profiles[0,:,]
+    ##we look for the index of x just before and after y[0]/2
+    t=numpy.greater(y,y[0]/2)
+    try:
+        i1=numpy.nonzero(t)[0][-1]
+    except:
+        print "ERROR in util/science.py - no non-zero elements... Oh well!"
+        i1=0
+    x1=x[i1]
+    t=numpy.less(y,y[0]/2)
+    try:
+        i2=numpy.nonzero(t)[0][0]
+    except:
+        print "ERROR2 in util/science.py - no non-zero elements... Oh well! "
+        i2=0
+    x2=x[i2]
+    ##we compute the equation of the line between those two points
+    if x2==x1:
+        x2+=1
+    #print y[i2].shape,y[i1].shape,type(y),y.shape,i2,i1
+    a=(y[i2]-y[i1])/(x2-x1)
+    b=y[i2]-a*x2
+    ##we then compute the FWHM
+    fwhm=2*(y[0]/2-b)/a
+    ##print "FWHM=%g"%(fwhm)
+    dictScience['FWHM']=fwhm
+
+    ## We now compute the diameter of the aperture with 50% of the energy
+    x=(2*rRad+1)*pix_scale
+    y=profiles[1,]
+    t=numpy.greater(y,0.5)
+    try:
+        i1=numpy.nonzero(t)[0][0]
+    except:
+        print "ERROR3 in science.py - no non-zero elements... Oh well!"
+        i1=0
+
+    x1=x[i1]
+    t=numpy.less(y,0.5)
+    try:
+        i2=numpy.nonzero(t)[0][-1]
+    except:
+        print "ERROR4 in science.py - no non-zero elements... Oh well!"
+        i2=0
+
+    x2=x[i2]
+    if x2==x1:
+        x2+=1
+    ##we compute the equation of the line between those two points
+    a=(y[i2]-y[i1])/(x2-x1)
+    b=y[i2]-a*x2
+    ##we then compute the diameter
+    d50=(0.5-b)/a
+    ##print "d50=%g"%(d50)
+    dictScience['d50']=d50
+
+    ## We now compute the energy into a square aperture of 0.2 arcsec
+    ## We compute the ensquared energy profile
+    rSquare,xSquare,nnSquare=initEnsquaredEnergyProfile(nimg)
+    wid=rSquare*pix_scale #Square aperture size in arcsec. X Axis of inbox array, used for plotting		
+    inbox=computeEnsquaredEnergy(img,nnSquare,xSquare)
+    y=inbox
+
+    x=wid
+    #apSize=0.2
+    for apSize in inboxDiamList:
+        t=numpy.greater(x,apSize)
+        try:
+            i1=numpy.nonzero(t)[0][0]
+        except:
+            print "ERROR5 in science.py - no non-zero elements... Oh well!"
+            i1=0
+        x1=x[i1]
+        t=numpy.less(x,apSize)
+        try:
+            i2=numpy.nonzero(t)[0][-1]
+        except:
+            print "ERROR6 in science.py - no non-zero elements... Oh well! inbox %g"%apSize
+            i1=0            
+        x2=x[i2]
+        if x2==x1:
+            x2+=1
+        ##we compute the equation of the line between those two points
+        a=(y[i2]-y[i1])/(x2-x1)
+        b=y[i2]-a*x2
+        ##we then compute the energy
+        inbox=a*apSize+b
+        ##print "E(0.2 arcsec)=%g"%(inbox)
+        dictScience['inbox%g'%apSize]=inbox
+
+
+    return dictScience
+
+def computeShortExposurePSF(phs,pup):
+    """computeShortExposurePSF function : computes short exposure AO corrected PSF
+    Modifications made by FA"""
+
+    npup=pup.shape[0] ##to have the dimensions of the input phase array
+    pupilAmplitude=numpy.zeros((pup.shape[0]*2,pup.shape[1]*2),numpy.complex64)
+    pupilAmplitude.real[:npup,:npup]=pup*numpy.cos(phs)
+    pupilAmplitude.imag[:npup,:npup]=pup*numpy.sin(phs)
+    focAmp=numpy.fft.fft2(pupilAmplitude)
+    img=numpy.absolute(focAmp)
+    img*=img
+    img=fliparray2(img)
+    img/=img.sum()
+    return img
+
+def initRadialProfile(nimg,pix_scale):
+    """Creates and initialises arrays to compute the radial
+    profile and the encircled energy profile of the PSF Must be
+    first called before calling
+    computeRadialProfileAndEncircledEnergy
+    """	
+    ####  We first create a map of the square of the distances to the center of the PSF image
+    ####  The map of distances is computed with the dist function (see aosim/utils/dist.py for help)
+    ####  We use the square because we have then integer indexes
+    r2=dist(nimg,natype=numpy.float32,sqrt=0).ravel()
+    #r2*=r2 ##no longer sqrts in dist... square : we have integer numbers
+    nnRad=numpy.argsort(r2) ##we flatten the grid of distances and sort the values
+    r2r=numpy.take(r2,nnRad) ## we sort the grid of distances
+    xRad=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+    #print self.xRad,type(self.xRad),type(self.xRad[0])
+    tabNbPointsRad=difYorick(xRad) ## number of points per bin
+    rRad=numpy.take(numpy.sqrt(r2r),xRad) ##radius (in pixels) giving the horizontal axis for radial and encircled energy profiles
+    rad=rRad*pix_scale
+    return rad,rRad,tabNbPointsRad,xRad,nnRad
+
+def initEnsquaredEnergyProfile(nimg):
+    """Creates and initialises arrays to fastly compute the ensquared energy profile
+    Must be called before calling computeEnsquaredEnergy
+    """	
+    ####  We first create a pixel map of concentric square apertures
+    tabx=numpy.arange(nimg)-nimg/2;
+    r2=numpy.maximum(numpy.absolute(tabx[:,numpy.newaxis]),numpy.absolute(tabx[numpy.newaxis,:,]))
+
+    ##we flatten the grid of distances and sort the values
+    nnSquare=numpy.argsort(r2.ravel())
+    r2r=numpy.take(r2.ravel(),nnSquare) ## we sort the grid of distances
+    xSquare=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+    rSquare=numpy.take(r2r,xSquare)*2+1 ##aperture size (in pixels) giving the horizontal axis for the ensquared energy profile
+    return rSquare,xSquare,nnSquare
+
+def computeEnsquaredEnergy(psf,nnSquare,xSquare):
+    """Computes ensquared energy profile
+    """
+    #### We flatten the diffraction limited PSF and sort the values
+    psfSort=numpy.take(psf.ravel(),nnSquare)
+    #### We compute the encircled energy of the diffraction limited PSF 
+    tabEnsquaredEnergy=numpy.take(numpy.cumsum(psfSort),xSquare)
+    #### We convert the profile into psf type and return the array
+    result=tabEnsquaredEnergy.astype(psf.dtype)
+    return result
+
+def computeRadialProfileAndEncircledEnergy(psf,nnRad,xRad,tabNbPointsRad):
+    """Computes radial end encircled energy profiles
+        Inputs :
+         - psf : the input whose profiles are wanted
+
+        Outputs :
+          - result : the array storing profiles
+            the first line, ie result[0,] stores the radial profile
+            the second line, ie result[1,] stores the encircled energy profile
+    """
+    #### We flatten the PSF and sort the values
+    #psf=numpy.array(psf)
+    #print type(psf)
+    psfSort=numpy.take(psf.ravel(),nnRad)
+    #### We compute the encircled energy of the PSF
+    tabEncircledEnergy=numpy.take(numpy.cumsum(psfSort),xRad)
+    #### We compute the radial profile
+    tabEnergyPerPixBin=difYorick(tabEncircledEnergy) ##to have the energy per pixel bin
+    #tabEnergyPerPixBin.savespace(1)#prevent conversion to double.
+    profil=tabEnergyPerPixBin/tabNbPointsRad
+
+    #### Allocation of the return result
+    result=numpy.zeros((2,len(tabEncircledEnergy)),dtype=psf.dtype)#savespace=1)
+
+    #### We first store the radial profile in line 1 of the returned array
+    result[0,0]=psfSort[0]
+    result[0,1:,]=profil[:,] ##radial profile of PSF
+
+    #### We  store the encircled energy profile in line 2 of the returned array
+    result[1,:,]=tabEncircledEnergy[:,]
+    return result

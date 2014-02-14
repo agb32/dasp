@@ -200,6 +200,7 @@ class science(aobase.aobase):
         luckyHistorySize=this.config.getVal("luckyHistorySize",default=None,raiseerror=0)
         if luckyHistorySize==None:
             luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+        luckyByteswap=this.config.getVal("luckyByteswap",default=0)
         saveFileString=this.config.getVal("scisaveFileString",raiseerror=0)#an optional string that can be used to identify a given simulation in the saved results... 
         diffPsfFilename=this.config.getVal("sciDiffPsfFilename",default=None,raiseerror=0)
         keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
@@ -215,7 +216,7 @@ class science(aobase.aobase):
             waitFPGATime=1e-6
         histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
         #now create the science object that will do most of the work...
-        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize)
+        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap)
 
         
 
@@ -450,7 +451,7 @@ class science(aobase.aobase):
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
                     head.append("TIMSTAMP= '%s'"%timestamp)
-                    txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=1,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
+                    txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=this.sciObj.luckyByteswap,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
                     f=open(this.sciObj.luckyImgFilename,"a")
                     f.write(txt)
                     this.sciObj.luckyFile.seek(0)
