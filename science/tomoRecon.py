@@ -1000,16 +1000,23 @@ class recon(base.aobase.aobase):
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
             else:
+                dorecon=1
                 if type(self.reconmx)!=numpy.ndarray or \
                         self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
+                    dorecon=0
                     if type(self.reconmx)==numpy.ndarray:
                         print "But current shape is %s"%str(self.reconmx.shape)
-                        if self.reconmx.size<1e6 and self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
-                            print "Transposing (for small matrices only)"
-                            self.reconmx=self.reconmx.T.copy()
+                        if self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
+                            dorecon=1
+                            if self.reconmx.size<1e6:#small
+                                print "Transposing (for small matrices only)"
+                                self.reconmx=self.reconmx.T.copy()
+                            else:
+                                print "WARNING: Transposing, but no longer c-contiguous - performance may be reduced"
+                                self.reconmx=self.reconmx.T
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
-                else:
+                if dorecon:
                     tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)
