@@ -34,7 +34,7 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
         if buffer[:6] != 'SIMPLE' and buffer[:8]!="XTENSION":
             if compliant:
                 print buffer[:80]
-                raise Exception(error+ 'Not a simple fits file')
+                raise Exception(error+ 'Not a simple fits file: %s'%filename)
             else:
                 print "ERROR - non compliant FITS file"
                 return returnVal
