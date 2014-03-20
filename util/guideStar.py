@@ -29,7 +29,7 @@ def makeDoughnut(outer,inner,xoff,yoff):
     path=mpath.Path(vert,codes)
     return path
 
-def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
+def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None):
     """
     Shows a plot of guide star overlaps.
     gsList is a list of either LGS objects, NGS objects or tuples of (alt,theta,phi).
@@ -61,13 +61,12 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
     for l in layerList:
         plotno+=1
         ax=pylab.subplot(nx,ny,plotno)
-        ax.add_patch(mpatches.PathPatch(makeDoughnut(telDiam/2.,telSec,0,0),fill=False,ec="red"))
+        ax.add_patch(mpatches.PathPatch(makeDoughnut(telDiam/2.,telSec,0,0),fill=False,ec=telCol,ls=tells))
         #ax.add_patch(pylab.Circle((0,0),telDiam/2.,fill=False,ec="red"))
         #if telSec!=None:
         #    ax.add_patch(pylab.Circle((0,0),telSec/2.,fill=False,ec="red"))
         obs=[]
         for g in gsList:
-            col="green"
             if type(g) in [type(()),type([])]:
                 alt,theta,phi=g[:3]
                 if len(g)>3:col=g[3]
@@ -112,7 +111,13 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False):
         #    ax.add_patch(pylab.Circle((o[0],o[1]),telSec/telDiam*o[2]/2.,fill=fill,fc="white",alpha=0.25))
         pylab.ylim([-lim,lim])
         pylab.xlim([-lim,lim])
-    pylab.show()
+        if title:
+            pylab.title("%gm"%l)
+    if outfile!=None:
+        pylab.savefig(outfile)
+        pylab.close()
+    else:
+        pylab.show()
 
 def simple(paramfile=None,batchno=0,lgsAlt=15000.,gateDepth=400.,sig=None,fname=None,lgs_nsubx=None,lgs_clipsize=None,telDiam=None,telSec=None,wfs_int=None,wfs_lat=None,r0=None):
     if fname==None or fname=="None":

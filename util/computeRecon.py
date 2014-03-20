@@ -150,7 +150,8 @@ class makeRecon:
                     del(b)
                     if pmxfname!=None and diagScaling!=None and i==nblock-1:#scale back so as not the alter csc.
                         for si in xrange(csc.shape[1]):
-                            csc[ustart:uend,si]/=diagScaling[si]
+                            if diagScaling[si]!=0:
+                                csc[ustart:uend,si]/=diagScaling[si]
                         
                 del(a)
             t2=time.time()

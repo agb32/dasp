@@ -920,14 +920,14 @@ def computeScientificParameters(img,nfft=None,nimg=None,npup=None,pupil=None,inb
     try:
         i1=numpy.nonzero(t)[0][-1]
     except:
-        print "ERROR in util/science.py - no non-zero elements... Oh well!"
+        print "ERROR in util/science.py - no non-zero elements... Oh well! (fwhm invalid)"
         i1=0
     x1=x[i1]
     t=numpy.less(y,y[0]/2)
     try:
         i2=numpy.nonzero(t)[0][0]
     except:
-        print "ERROR2 in util/science.py - no non-zero elements... Oh well! "
+        print "ERROR2 in util/science.py - no non-zero elements... Oh well! (fwhm invalid)"
         i2=0
     x2=x[i2]
     ##we compute the equation of the line between those two points
