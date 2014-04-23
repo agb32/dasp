@@ -1556,9 +1556,9 @@ class MirrorSurface:
                     dists=util.dist.dist(actrange+1,dy=y%1,dx=x%1)/actspacing
                     self.influenceDict[key]=numpy.exp(lnw*dists**gaussianIndex)
                     actvaltmp=self.influenceDict[key]
-                ys=int(y)-actrange/2
+                ys=int(numpy.floor(y))-actrange/2
                 ye=ys+actrange+1
-                xs=int(x)-actrange/2
+                xs=int(numpy.floor(x))-actrange/2
                 xe=xs+actrange+1
                 if ys<0:
                     self.infCoords[i,j,0]=-ys

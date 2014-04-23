@@ -788,10 +788,10 @@ def compress(rmx,mbits=15,outfile=None):
     return r
 
 
-def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=0,idstr=None,power=-2,coneScale=1,actSpacingScale=-5./3,noiseScale=1.,noisePower=1.,hlist=None,strList=None):
+def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=0,idstr=None,power=-2,coneScale=1,actSpacingScale=-5./3,noiseScale=1.,noisePower=1.,hlist=None,strList=None,initDict=None):
     if type(config) in [type(""),type([])]:
         import base.readConfig
-        config=base.readConfig.AOXml(config,batchno=batchno)
+        config=base.readConfig.AOXml(config,batchno=batchno,initDict=initDict)
     c=config
     if idstr!=None and len(idstr)>0:
         c.setSearchOrder(["tomoRecon_%s"%idstr,"tomoRecon","globals"])
@@ -892,10 +892,14 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     for i in range(len(ngsList)):
         gs=ngsList[i]
         end=start+ncentNgsList[i]
-        invNoiseCov[start:end]=(wfsSigList[i]/1e6*noiseScale)**noisePower
-        invNoiseCovNgs[start:end]=(wfsSigList[i]/1e6*noiseScale)**noisePower
-        invNoiseCov[start+ncents/2:end+ncents/2]=(wfsSigList[i]/1e6*noiseScale)**noisePower
-        invNoiseCovNgs[start+ncentsNgs/2:end+ncentsNgs/2]=(wfsSigList[i]/1e6*noiseScale)**noisePower
+        if wfsSigList[i]==0:
+            inc=0
+        else:
+            inc=(wfsSigList[i]/1e6*noiseScale)**noisePower
+        invNoiseCov[start:end]=inc
+        invNoiseCovNgs[start:end]=inc
+        invNoiseCov[start+ncents/2:end+ncents/2]=inc
+        invNoiseCovNgs[start+ncentsNgs/2:end+ncentsNgs/2]=inc
         start=end
     for i in range(len(lgsList)):
         gs=lgsList[i]
@@ -921,9 +925,26 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     ngsarr=numpy.empty((nactsCumList[-1],ncentsNgs),data.dtype)
     ngsarr[:,:ncentsNgs/2]=data[:,:ncentsNgs/2]
     ngsarr[:,ncentsNgs/2:]=data[:,ncents/2:ncents/2+ncentsNgs/2]
-    util.FITS.Write(ngsarr,"/var/ali/tmpngs.fits")
+    #Now, if sig for any is zero, set to zero.
+    start=0
+    resavepmx=0
+    for i in range(len(ngsList)):
+        gs=ngsList[i]
+        end=start+ncentNgsList[i]
+        if wfsSigList[i]==0:#this wfs isn't used...
+            ngsarr[:,start:end]=0
+            ngsarr[:,ncentsNgs/2+start:ncentsNgs/2+end]=0
+            resavepmx=1
+            data[:,start:end]=0
+            data[:,ncents/2+start:ncents/2+end]=0
+        start=end
+
+    util.FITS.Write(ngsarr,"/var/ali/tmpngs.fits",doByteSwap=0)
     print "ngsarr shape %s"%str(ngsarr.shape)
     del(ngsarr)
+    if resavepmx:
+        print "Overwriting pmx with some zeros... for sig==0 wfss"
+        util.FITS.Write(data,pmx,doByteSwap=0)
     del(data)
     
 
@@ -964,7 +985,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
             pos+=nx
             #rmx[i*nx:(i+1)*nx]=numpy.dot(rmtt,rmx[i*nx:(i+1)*nx])
         print "Writing TT-subtracted rmx to %s"%mr.rmxdensename
-        util.FITS.Write(rmx,mr.rmxdensename)
+        util.FITS.Write(rmx,mr.rmxdensename,doByteSwap=0)
     t2=time.time()
     open(mr.timename,"a").write("Total time %gs\n"%(t2-t1))
 
@@ -1030,7 +1051,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
         mr=util.computeRecon.makeRecon(pmxOrig,rcond)#,regularisation=regparam)
             
         print "Writing TT-ngs/lgs rmx to %s"%mr.rmxdensename
-        util.FITS.Write(rmxAll,mr.rmxdensename)
+        util.FITS.Write(rmxAll,mr.rmxdensename,doByteSwap=0)
     print "Removing more temporary files"
     try:
         os.unlink(pmx[:-5]+"_dotted.fits")
