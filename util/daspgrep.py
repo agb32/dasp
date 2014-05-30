@@ -20,7 +20,7 @@ def getArgs(args):
         if a[:7]=="--grep=":
             glist.append(a[7:])
         elif a[:6]=="--help":
-            print "Usage: --grep=STRING --file=FILENAME --param=PARAMETER [--printid --printall --printdict --printall --printfile --printindex --space --precision"
+            print "Usage: --grep=STRING --file=FILENAME --param=PARAMETER [--printid --printidBefore --printall --printdict --printall --printfile --printindex --space --precision"
             print "Or:  grep string filename parameter"
             print "Note, strehl and inbox can be prefixed with % to return in percentage, eg %strehl %inbox0.1"
             sys.exit(0)
@@ -29,7 +29,10 @@ def getArgs(args):
         elif a[:8]=="--param=":
             ilist.append(a[8:])
         elif a[:9]=="--printid":
-            printid=1
+            if a[:15]=="--printidBefore":
+                printid=-1
+            else:
+                printid=1
             if a[:11]=="--printid=0":
                 printid=0
         elif a[:11]=="--printdict":
@@ -70,6 +73,7 @@ def getArgs(args):
 
 def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0,precision=0):
     outtxt=""
+    pretxt=""
     cnt=0
     fillchr="\t"
     if space:
@@ -113,8 +117,10 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                 cnt+=1
                 if printfile:
                     txt+="%s%s"%(fillchr,f)
-                if printid:
+                if printid==1:
                     txt+="%s%s"%(fillchr,line[:indx])
+                elif printid==-1:
+                    pretxt+="%s%s\n"%(fillchr,line[:indx])
                 for param in ilist:
                     if param[0]=="%":
                         m=100.
@@ -138,7 +144,7 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                             txt+="%s%s"%(fillchr,str(sciDict[key]))
 
                 outtxt+="%s\n"%txt[len(fillchr):]
-    return outtxt
+    return pretxt+outtxt
 
 
 if __name__=="__main__":

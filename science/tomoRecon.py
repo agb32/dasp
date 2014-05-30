@@ -225,6 +225,7 @@ class recon(base.aobase.aobase):
                 self.nmodes+=n
                 self.npokes+=n
                 self.modalGain=self.config.getVal("modalGain",default=numpy.ones((n,),numpy.float32))
+                self.modeScale=self.config.getVal("modeScale",default=10.)
                 self.modalActuatorList=[]
                 if n!=0:#modal modes required...
                     #first compute the coords for the actuators within the DMs.
@@ -234,13 +235,16 @@ class recon(base.aobase.aobase):
                             dm.computeCoords(2.)
                             coords=dm.coords.copy()
                             coords.shape=(reduce(lambda x,y:x*y,dm.coords.shape[:-1]),dm.coords.shape[-1])
-                            coords=numpy.take(coords,numpy.nonzero(self.dmPupList[i].ravel())[0])
+                            coordsx=numpy.take(coords[:,1],numpy.nonzero(self.dmPupList[i].ravel())[0])
+                            coordsy=numpy.take(coords[:,0],numpy.nonzero(self.dmPupList[i].ravel())[0])
+                            coords=numpy.array((coordsx,coordsy)).T
                             nacts=self.nactsList[i]
                             tmp=numpy.zeros((self.nLowOrderModalModes[i],nacts),numpy.float32)
                             self.modalActuatorList.append(tmp)
                             import util.zernikeMod
                             for j in range(0,self.nLowOrderModalModes[i]):#for each zernike...
                                 util.zernikeMod.calcZern(j+2,coords,tmp[j])#start at tip/tilt (j+2).
+                                tmp[j]*=self.modeScale/numpy.max(numpy.abs(tmp[j]))#so that not too large
                         else:
                             self.modalActuatorList.append(None)
             elif self.dmModeType=="file":
@@ -751,8 +755,10 @@ class recon(base.aobase.aobase):
                             self.pokeActMap=None
                 else:
                     print "Now poking mirror modes"
-                    mode=self.totalLowOrderModalModes-1
+                    mode=self.poking-(self.npokes-self.totalLowOrderModalModes)-1#starts at 0 for the first mode to be poked.
+                    #mode=self.totalLowOrderModalModes-1
                     for i in range(len(self.dmList)):#find out which DM we're poking now and get the actuators for it.
+                        #print "Mode: %d, nlomm: %d, dm: %d"%(mode,self.nLowOrderModalModes[i],i)
                         if mode<self.nLowOrderModalModes[i]:
                             #this mode in this DM...
                             #print self.outputData.shape
@@ -760,10 +766,8 @@ class recon(base.aobase.aobase):
                             #print i
                             #print mode
                             if self.modalActuatorList[i]!=None:
-                                print self.modalActuatorList[i].shape
                                 try:
-                                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=\
-                                        self.modalActuatorList[i][mode]
+                                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=self.modalActuatorList[i][mode]
                                 except:
                                     print "ERROR in tomoRecon"
                             break
@@ -784,13 +788,17 @@ class recon(base.aobase.aobase):
                     self.fillPokemx(dm,self.pokingDMNoLast)
                 else:#poked 1 at once so all centroids belong to this actuator
                     pokenumber=self.nactsCumList[self.pokingDMNoLast]+self.pokingActNoLast#poking-2
-            else:#it was a modal poke...
-                pokenumber=self.poking-2+self.nacts-(self.npokes-self.totalLowOrderModalModes)#I think this is right!
-            self.pokingActNoLast+=1
-            if self.pokingActNoLast==self.npokesList[self.pokingDMNoLast]:
-                self.pokingDMNoLast+=1
-                self.pokingActNoLast=0
+                self.pokingActNoLast+=1
+                if self.pokingActNoLast==self.npokesList[self.pokingDMNoLast]:
+                    self.pokingDMNoLast+=1
+                    self.pokingActNoLast=0
 
+            else:#it was a modal poke...
+                #pokenumber=self.poking-2+self.nacts-(self.npokes-self.totalLowOrderModalModes)#I think this is right!
+
+                mode=self.poking-2-(self.npokes-self.totalLowOrderModalModes)
+                pokenumber=mode+self.nacts
+                print "poke number %d"%pokenumber
             if pokenumber!=None:
                 if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                     if self.sparsePmxType in ["lil","csc"]:

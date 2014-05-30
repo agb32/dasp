@@ -57,7 +57,10 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
                             pos = string.find(val, '/')
                             if pos != -1 :
                                 val = val[:pos]
-                    header[key] = val
+                    if header.has_key(key):
+                        header[key]+=val
+                    else:
+                        header[key] = val
             if header.has_key('END') : break
             buffer = file.read(2880)
         naxis = string.atoi(header['NAXIS'])
@@ -200,11 +203,17 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
         data.byteswap(True)
 
 def ReadHeader(filename, asFloat = 1) :
-    file = open(filename, "r")
+    """Reads the Header.  If filename is an open file, will seek to the end of the data unit before returning"""
+    if type(filename)==type(""):
+        file = open(filename, "r")
+        doseek=0
+    else:
+        file=filename
+        doseek=1
     header = {}
     rawHeader = []
     buffer = file.read(2880)
-    if buffer[:6] != 'SIMPLE' :
+    if buffer[:6] != 'SIMPLE' and buffer[:8]!="XTENSION":
         raise Exception(error+ 'Not a simple fits file')
     while(1) :
         for char in range(0,2880,80) :
@@ -216,15 +225,30 @@ def ReadHeader(filename, asFloat = 1) :
                 val = string.strip(val)
                 if val :
                     if val[0] == "'" :
-                        pos = string.index(val,"'",1)
-                        val = val[1:pos]
+                        try:
+                            pos = string.index(val,"'",1)
+                            val = val[1:pos]
+                        except:
+                            val=val[1:]
                     else :
                         pos = string.find(val, '/')
                         if pos != -1 :
                             val = val[:pos]
-                header[key] = val
+                if header.has_key(key):
+                    header[key]+=val
+                else:
+                    header[key] = val
         if header.has_key('END') : break
         buffer = file.read(2880)
+    if doseek:
+        elsize=abs(int(header["BITPIX"]))/8
+        nax=int(header["NAXIS"])
+        size=1
+        for i in range(nax):
+            size*=int(header["NAXIS%d"%(i+1)])
+        datasize=((size*elsize+2880-1)//2880)*2880
+        #move to end of data unit (to start of next header)
+        file.seek(datasize,1)
     return( { 'raw' : rawHeader, 'parsed' : header} )
 
 def MakeHeader(shape,dtype,extraHeader=None,doByteSwap=1,extension=0,splitExtraHeader=0):
@@ -430,3 +454,40 @@ def saveBlockMatrix(mx,filename,extraHeader=None,doByteSwap=1):
         Write(b,filename,writeMode=wm,extraHeader=extraHeader,doByteSwap=doByteSwap)
         wm="a"
     
+def extractHDU(filename,hduno,outname,overwrite=0):
+    """Extracts a given HDU from a fits file, writing it to a new fits file.
+    Numbering from 0 - so first HDU is 0."""
+    if os.path.exists(outname) and overwrite==0:
+        raise Exception("Output file %s already exists"%outname)
+    f = open(filename, "r")
+    for i in range(hduno+1):
+        pos=f.tell()
+        hdr=ReadHeader(f)["parsed"]
+        #get the data size:
+        # elsize=abs(int(hdr["BITPIX"]))/8
+        # nax=int(hdr["NAXIS"])
+        # size=1
+        # for i in range(nax):
+        #     size*=int(hdr["NAXIS%d"%(i+1)])
+        # datasize=((size*elsize+2880-1)//2880)*2880
+        # #move to end of data unit (to start of next header)
+        # f.seek(datasize,1)
+        endpos=f.tell()
+    #now we've got to correct position - so read into the new file.
+    out=open(outname,"w")
+    #write first line...
+    out.write("SIMPLE  = T"+" "*68+"\n")
+    pos+=80#don't copy first line.
+    f.seek(pos)
+    left=endpos-pos
+    while left>0:
+        toread=1024*1024
+        if left>toread:
+            left-=toread
+        else:
+            toread=left
+            left=0
+        data=f.read(toread)
+        out.write(data)
+    f.close()
+    out.close()

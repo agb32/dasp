@@ -508,7 +508,7 @@ def calcZern(nz,coords,output=None):
             Z*=na.cos(m*thetaGrid)
             #na.put(self.zern[jmax.index(j-1),:,:,].ravel(),idxPup,Z*na.cos(m*thetaGridFlat))
             
-    output[:,]=Z.astype(output.typecode())
+    output[:,]=Z.astype(output.dtype)
     return output
 
 
