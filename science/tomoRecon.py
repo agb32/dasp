@@ -798,7 +798,7 @@ class recon(base.aobase.aobase):
 
                 mode=self.poking-2-(self.npokes-self.totalLowOrderModalModes)
                 pokenumber=mode+self.nacts
-                print "poke number %d"%pokenumber
+                #print "poke number %d"%pokenumber
             if pokenumber!=None:
                 if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                     if self.sparsePmxType in ["lil","csc"]:
@@ -911,7 +911,7 @@ class recon(base.aobase.aobase):
                         
                 elif self.reconType in ["pcg","svd","MAP","pinv","reg","regularised","regBig","regSmall"]:
                     print "Saving poke matrix to file %s (shape %s)"%(self.pmxFilename,str(self.spmx.shape))
-                    util.FITS.Write(self.spmx,self.pmxFilename)
+                    util.FITS.Write(self.spmx,self.pmxFilename,extraHeader="NACTLIST= '%s'"%str(self.nactsList))
                 #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE = %s"%str(self.spmx.shape))
                 #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
                 #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
