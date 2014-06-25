@@ -626,24 +626,26 @@ class myStdout:
         self.rank=rank
         self.displayRank=1
         self.displayThread=0
-        self.colourized=False
-        if hasattr(sys.stdout,'isatty') and sys.stdout.isatty(): 
+        self.colourized=-1 # -1 means force OFF
+        if self.colourized!=-1 and (
+               hasattr(sys.stdout,'isatty') and sys.stdout.isatty()): 
             # assume that if stdout is connected to a terminal, it can support
             # colour.
             import curses,re
             curses.setupterm()
             self.colourized=(curses.tigetnum("colors")>=0)
-            self.triggerTags={
-               'ERROR':      '\x1b[1;31m\\1\x1b[0m',
-               'INFORMATION':'\x1b[1;32m\\1\x1b[0m',
-               'WARNING':    '\x1b[1;33m\\1\x1b[0m',
-               }
-         # ** == bold
-         # __ == blink
-         # ^^ == inverse
-            self.markup={'**':('\x1b[1m','\x1b[0m'),  
-                         '__':('\x1b[5m','\x1b[0m'),
-                         '^^':('\x1b[7m','\x1b[0m'),} 
+        # ** == bold
+        # __ == blink
+        # ^^ == inverse
+        self.markup={'**':('\x1b[1m','\x1b[0m'),  
+                     '__':('\x1b[5m','\x1b[0m'),
+                     '^^':('\x1b[7m','\x1b[0m'),} 
+        # 1;31=Bold+Red, 1;32=Bold+Yellow, 1;33=Bold+Green (0=reset)
+        self.triggerTags={
+            'ERROR':      '\x1b[1;31m\\1\x1b[0m',
+            'INFORMATION':'\x1b[1;32m\\1\x1b[0m',
+            'WARNING':    '\x1b[1;33m\\1\x1b[0m',
+           }
         
     def write(self,txt):
         if len(txt.strip())>0:
@@ -655,19 +657,32 @@ class myStdout:
                 t=" (%012d)"%thread.get_ident()
             else:
                 t=""
-            if self.colourized:
+            if self.colourized==True:
                # colourize, if we can
                for k in self.triggerTags:
                   txt=re.sub(r"("+k+")",self.triggerTags[k],txt)
-               for mu in self.markup.keys():
-                  for i,tF in enumerate(txt.split(mu)):
-                     if i==0: txt=tF
-                     elif i%2==1:
-                        if tF=="": # multiple markups
-                           txt+=mu*2+tF
-                        else:
+            for mu in self.markup.keys():
+               splitTxt=txt.split(mu)
+               txt=""
+               for i,tF in enumerate(splitTxt):
+                  # 3 scenarios:
+                  # (A) every even part is outside markup
+                  # (B) in markup you can have multiple within the text
+                  #  ->so ignore markup
+                  # (C) an odd # of markups -> ignore the last (probably
+                  #   only one) which can't then be part of a markup
+                  if i%2==0: # (A)
+                     txt+=tF
+                  elif i%2==1:
+                     if tF=="" and i<(len(splitTxt)-1): # (B)
+                        txt+=mu*2
+                     elif i==len(splitTxt)-1: # (C)
+                        txt+=mu+tF
+                     else:
+                        if self.colourized==True:
                            txt+=self.markup[mu][0]+tF+self.markup[mu][1]
-                     elif i%2==0: txt+=tF
+                        else:
+                           txt+=tF
                
             sys.__stdout__.write(">>>%s%s: %s\n"%(r,t,txt))
             sys.__stdout__.flush()
