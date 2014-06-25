@@ -229,12 +229,14 @@ class recon(base.aobase.aobase):
                 if n!=0:#modal modes required...
                     #first compute the coords for the actuators within the DMs.
                     for i in range(len(self.dmList)):#for each dm...
+                        thisDMnLowOMModes=self.nLowOrderModalModes[i]
+                        self.npokesList[i]+=thisDMnLowOMModes # + NAB June/2014
                         dm=self.dmList[i]
                         if dm.zonalDM:
                             dm.computeCoords(2.)
                             coords=dm.coords.copy()
                             coords.shape=(reduce(lambda x,y:x*y,dm.coords.shape[:-1]),dm.coords.shape[-1])
-                            coords=numpy.take(coords,numpy.nonzero(self.dmPupList[i].ravel())[0])
+                            coords=numpy.take(coords,numpy.nonzero(self.dmPupList[i].ravel())[0],axis=0) # mod, axis parameter added NAB June/2014
                             nacts=self.nactsList[i]
                             tmp=numpy.zeros((self.nLowOrderModalModes[i],nacts),numpy.float32)
                             self.modalActuatorList.append(tmp)
@@ -735,6 +737,11 @@ class recon(base.aobase.aobase):
                                 self.nactsCumList[self.pokingDMNo]:self.nactsCumList[self.pokingDMNo+1]]
                     else:#poking individually.
                         self.outputData[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]=self.pokeval
+                        # variance of output should be:-
+                        #  1/len(outputData)-1/len(outputData)**2.0
+                        opvar=self.outputData.var()/(len(self.outputData)**-1.0-len(self.outputData)**-2.0)
+                        if abs(opvar-1.0)>1e-8:
+                           print("WARNING [{1:3d}:{2:3d}] output data var={0:12.10f}".format(opvar,self.pokingDMNo,self.pokingActNo))
                         #self.outputData[self.poking-1]=self.pokeval
                         if self.reconType=="MAP":#reconstructor assumes modes scaled to orthonormal. but DM may not be
                             self.outputData[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]/=\
@@ -742,6 +749,7 @@ class recon(base.aobase.aobase):
                     self.pokingActNo+=1
                     if self.pokingActNo==self.npokesList[self.pokingDMNo]:
                         self.pokingDMNo+=1
+                        print("INFORMATION: switching to DM no.="+str(self.pokingDMNo))
                         self.pokingActNo=0
                         if self.pokingDMNo<len(self.dmList):
                             dm=self.dmList[self.pokingDMNo]
