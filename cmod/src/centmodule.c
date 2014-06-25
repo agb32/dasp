@@ -580,7 +580,7 @@ void readCCD(int datasize,float *data,float noiseMean,float readNoise,float floo
       printf("Unknown threshold type - not adding read noise\n");
     }
   }else{
-    if(threshType==0){
+    if(threshType==0){//this one is probably best.  With floor being at least twice readNoise.
       for(i=0; i<datasize; i++){
 	data[i]+=(float)gsl_ran_gaussian(r,(double)readNoise)+noiseMean;
 	data[i]=data[i]<floor?0.:data[i]-floor;

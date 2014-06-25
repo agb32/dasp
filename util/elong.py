@@ -125,12 +125,17 @@ def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=Non
     pixscale=util.calcPxlScale.pxlScale(lam,float(telDiam)/nsubx,wfs_n,wfs_nfft,clipsize/wfs_nimg)/binfactor#0.05 #.1   #arcsec
     #We want the pixel scale of the spots as generated, not after use.  Hence, the division by binfactor here.
     print "pixscale: %g arcsec/pxl during fft, or %g arcsec/pxl on CCD."%(pixscale,pixscale*binfactor)
-    if pup==None:
+    if pup is None:
         print "Generating pupil function for elongated spot intensities"
         pup=util.tel.Pupil(nsubx*spotsize,nsubx*spotsize/2,nsubx*spotsize/2*telSec/telDiam).fn
     else:
         if hasattr(pup,"fn"):
+            if pup.fn.shape[0]!=nsubx*spotsize or pup.shape[1]!=nsubx*spotsize:
+                print "Rescaling pupil function for LGS elongation pattern"
+                pup=pup.rescale(nsubx*spotsize)
             pup=pup.fn
+    if pup.shape[0]!=nsubx*spotsize or pup.shape[1]!=nsubx*spotsize:
+        raise Exception("Error in elong - pup shape should be equal to the lgs psf shape, %d,%d"%(nsubx*spotsize,nsubx*spotsize))
     gauss=Gauss(spotsize,xoff=xoff,yoff=yoff)
     # test=gauss.make(unelong_width/pixscale,10.,45.)
     # print test,numpy.isnan(test),numpy.any(numpy.isnan(test))

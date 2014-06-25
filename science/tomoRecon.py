@@ -225,6 +225,7 @@ class recon(base.aobase.aobase):
                 self.nmodes+=n
                 self.npokes+=n
                 self.modalGain=self.config.getVal("modalGain",default=numpy.ones((n,),numpy.float32))
+                self.modeScale=self.config.getVal("modeScale",default=10.)
                 self.modalActuatorList=[]
                 if n!=0:#modal modes required...
                     #first compute the coords for the actuators within the DMs.
@@ -243,6 +244,7 @@ class recon(base.aobase.aobase):
                             import util.zernikeMod
                             for j in range(0,self.nLowOrderModalModes[i]):#for each zernike...
                                 util.zernikeMod.calcZern(j+2,coords,tmp[j])#start at tip/tilt (j+2).
+                                tmp[j]*=self.modeScale/numpy.max(numpy.abs(tmp[j]))#so that not too large
                         else:
                             self.modalActuatorList.append(None)
             elif self.dmModeType=="file":
@@ -759,8 +761,10 @@ class recon(base.aobase.aobase):
                             self.pokeActMap=None
                 else:
                     print "Now poking mirror modes"
-                    mode=self.totalLowOrderModalModes-1
+                    mode=self.poking-(self.npokes-self.totalLowOrderModalModes)-1#starts at 0 for the first mode to be poked.
+                    #mode=self.totalLowOrderModalModes-1
                     for i in range(len(self.dmList)):#find out which DM we're poking now and get the actuators for it.
+                        #print "Mode: %d, nlomm: %d, dm: %d"%(mode,self.nLowOrderModalModes[i],i)
                         if mode<self.nLowOrderModalModes[i]:
                             #this mode in this DM...
                             #print self.outputData.shape
@@ -768,10 +772,8 @@ class recon(base.aobase.aobase):
                             #print i
                             #print mode
                             if self.modalActuatorList[i]!=None:
-                                print self.modalActuatorList[i].shape
                                 try:
-                                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=\
-                                        self.modalActuatorList[i][mode]
+                                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=self.modalActuatorList[i][mode]
                                 except:
                                     print "ERROR in tomoRecon"
                             break
@@ -792,13 +794,17 @@ class recon(base.aobase.aobase):
                     self.fillPokemx(dm,self.pokingDMNoLast)
                 else:#poked 1 at once so all centroids belong to this actuator
                     pokenumber=self.nactsCumList[self.pokingDMNoLast]+self.pokingActNoLast#poking-2
-            else:#it was a modal poke...
-                pokenumber=self.poking-2+self.nacts-(self.npokes-self.totalLowOrderModalModes)#I think this is right!
-            self.pokingActNoLast+=1
-            if self.pokingActNoLast==self.npokesList[self.pokingDMNoLast]:
-                self.pokingDMNoLast+=1
-                self.pokingActNoLast=0
+                self.pokingActNoLast+=1
+                if self.pokingActNoLast==self.npokesList[self.pokingDMNoLast]:
+                    self.pokingDMNoLast+=1
+                    self.pokingActNoLast=0
 
+            else:#it was a modal poke...
+                #pokenumber=self.poking-2+self.nacts-(self.npokes-self.totalLowOrderModalModes)#I think this is right!
+
+                mode=self.poking-2-(self.npokes-self.totalLowOrderModalModes)
+                pokenumber=mode+self.nacts
+                #print "poke number %d"%pokenumber
             if pokenumber!=None:
                 if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                     if self.sparsePmxType in ["lil","csc"]:
@@ -911,7 +917,7 @@ class recon(base.aobase.aobase):
                         
                 elif self.reconType in ["pcg","svd","MAP","pinv","reg","regularised","regBig","regSmall"]:
                     print "Saving poke matrix to file %s (shape %s)"%(self.pmxFilename,str(self.spmx.shape))
-                    util.FITS.Write(self.spmx,self.pmxFilename)
+                    util.FITS.Write(self.spmx,self.pmxFilename,extraHeader="NACTLIST= '%s'"%str(self.nactsList))
                 #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE = %s"%str(self.spmx.shape))
                 #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
                 #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
@@ -1008,16 +1014,23 @@ class recon(base.aobase.aobase):
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
             else:
+                dorecon=1
                 if type(self.reconmx)!=numpy.ndarray or \
                         self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
                     print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
+                    dorecon=0
                     if type(self.reconmx)==numpy.ndarray:
                         print "But current shape is %s"%str(self.reconmx.shape)
-                        if self.reconmx.size<1e6 and self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
-                            print "Transposing (for small matrices only)"
-                            self.reconmx=self.reconmx.T.copy()
+                        if self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
+                            dorecon=1
+                            if self.reconmx.size<1e6:#small
+                                print "Transposing (for small matrices only)"
+                                self.reconmx=self.reconmx.T.copy()
+                            else:
+                                print "WARNING: Transposing, but no longer c-contiguous - performance may be reduced"
+                                self.reconmx=self.reconmx.T
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
-                else:
+                if dorecon:
                     tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)
             if tmp.dtype!=self.outputData.dtype:
                 tmp=tmp.astype(self.outputData.dtype)

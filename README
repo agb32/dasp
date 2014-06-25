@@ -583,6 +583,7 @@ ln -s libatlas.so.3 libatlas.so
 
 
 acml-5.3.0.  
+/etc/hosts (add gig44)
 
 ssh keys - so can log into self.
 
@@ -604,3 +605,9 @@ will show you the paths.
 
 export C_INCLUDE_PATH=/usr/local/Cluster-Apps/fftw/include/:/usr/local/Cluster-Apps/gsl/gcc/64/1.15/include
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Cluster-Apps/fftw/lib/
+
+
+Supermicro gpu:  /etc/modprobe.d/blacklist.conf:  add blacklist mei
+nongraphical boot:  Change GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+to "text" in /etc/default/grub and then do sudo update-grub
+Then all should be well!

@@ -121,10 +121,10 @@ class Pupil(user_array.container):#UserArray.UserArray):
         if pupilMap!=None:
             if type(pupilMap)==type(""):
                 pupilMap=util.FITS.Read(pupilMap)[1]
-                if pupilMap.shape!=(npup,npup):
-                    raise Exception("pupilMap wrong shape (%s) in tel.py - should be %s"%(str(pupilMap.shape),str((npup,npup))))
-                self.fn=pupilMap
-                self.area=self.fn.sum()
+            if pupilMap.shape!=(npup,npup):
+                raise Exception("pupilMap wrong shape (%s) in tel.py - should be %s"%(str(pupilMap.shape),str((npup,npup))))
+            self.fn=pupilMap
+            self.area=self.fn.sum()
         elif hexDiam==0:
             grid=makeCircularGrid(npup)
 
@@ -775,7 +775,19 @@ class Pupil(user_array.container):#UserArray.UserArray):
 
         self.checkerboard=arr
         return arr
-                    
+    def rescale(self,npupNew):
+        """Rescales by spline interpolation to new size."""
+        import scipy.interpolate
+        x=numpy.arange(self.fn.shape[1])/(self.fn.shape[1]-1.)
+        y=numpy.arange(self.fn.shape[0])/(self.fn.shape[0]-1.)
+        interpfn=scipy.interpolate.RectBivariateSpline(x,y,self.fn)
+        nx=numpy.arange(npupNew)/(npupNew-1.)
+        ny=numpy.arange(npupNew)/(npupNew-1.)
+        newpup=numpy.array(interpfn(nx,ny)>=0.5).astype(numpy.int32)
+        sf=float(npupNew)/self.npup
+        pfnNew=Pupil(npupNew,self.r1*sf,self.r2*sf,self.nsubx,self.minarea,pupilMap=newpup)
+        return pfnNew
+        
 
 class RectangularPupil:
     """Defines telescope pupil geometry, can allow for oval pupil shape.  Note, the pupil is still circular, but the array on which it belongs is rectangular.

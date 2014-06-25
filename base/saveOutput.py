@@ -166,7 +166,7 @@ class saveOutput(base.aobase.aobase):
                     newdim=int(key[10:])+1
                     util.FITS.WriteKey(self.ff,"NAXIS%d"%self.nd,str(newdim))
                 else:
-                    print "saveOutput: waiting for data but not valid (debug=%s)"%debug
+                    print "saveOutput: waiting for data but not valid (debug=%s)"%self.debug
                     self.dataValid=0
         else:
             self.dataValid=0
