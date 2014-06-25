@@ -1,0 +1,122 @@
+Instructions for installing DASP (the Durham AO Simulation Platform) onto Mac OS X using MacPorts
+
+
+Date: 2013/11/05 (NAB), 2013/12/09 (NAB,ZG,DH)
+
+Tested: 10.5.8 and 10.7.5 and 10.9.??
+
+Authors: Angela Cortés, Nazim Bharmal, and Alastair Basden
+
+
+There are three options for using DASP on a computer that runs the Mac OS X OS.
+
+
+    The easiest approach is to run DASP from a virtual machine using VirtualBox---see NAB for a copy of the VDI.
+    It is possible (and has been done) to install all packages by hand into an existing Python installation. In some ways this can be better, but it took ~12 hours and required editing packages to ensure correct installation.
+    Install all the pre-requisites that DASP requires for installation using MacPorts as a package manager. Note that this will install a version of DASP that isn't MPI-compatible as well as potentially another copy of Python and all its associated packages.
+
+All commands to be entered at the command line are indented. Their output is also indented but only if it is important. Below are the commands for using MacPorts. First install that piece of software and ensure it can compile. Then update the packages and install Python, Numpy, and Scipy:
+
+
+sudo port selfupdate
+
+  sudo port install py27-numpy py27-scipy
+
+
+Check that the Python interpreter,
+
+
+python -c 'import sys ; print(sys.executable)'
+
+/opt/local/bin/python
+
+
+is installed in a different directory from the system Python interpreter. This does mean you are installing another copy of Python onto your computer but the package dependencies are handled by MacPorts.
+
+
+If the line above doesn't begin with '/opt/local' then it is probable you have called the system Python interpreter. Try using 'python2.7' instead for all commands below. This would also imply changing the Makefiles in DASP.
+
+
+Now continue by installing ATLAS (optional)
+
+
+sudo port install atlas
+
+
+which if it fails is OK. Then install FFTW,
+
+
+sudo port install fftw-3-long fftw-3-single
+
+
+and then PyScientific and GNU Scientific Library plus the Python bindings,
+
+
+        sudo port install py-scientific py27-gsl
+
+
+Finally we add GTK2, and the Python bindings together with the correct back-end for Matplotlib,
+
+        sudo port install gtk2 py-pygtk
+
+        sudo port install py27-matplotlib +gtk2
+
+
+Note that most installs were using the 'py' prefix but for GSL and matplotlib, it was necessary to use 'py27'.
+
+(The software installed can also be summarized as: Python, ATLAS (LAPACK and BLAS), complete FFTW3, GTK and PyGTK, scipy, Scientific Python, GNU Scientific Library and the Python binding, matplotlib with the GTK backend.)
+
+
+mkdir DASP
+
+cd DASP
+
+git clone gitaosim@elise.cfai.dur.ac.uk:/home/gitaosim/aosim.git
+
+
+Note to access the GIT repository on elise, you will have to ask Alastair Basden for the password to the gitaosim user account.
+
+
+cd aosim
+
+
+Now you will attempt a compilation which will succeed iff the include directories in the makefiles include,
+
+
+/opt/local/include
+
+
+so if the following command fails,
+
+
+make -s
+
+
+then I would suggest checking the include directories first. A key file that could need adjusting is,
+
+
+aosim/cmod/src/Makefile.Darwin
+
+
+Once compilation is complete, follow the final instruction which will be similar to
+
+
+Remember to export PYTHONPATH=$PYTHONPATH:/Users/nab/sauce/aosim/working and add gui/bin to your path (export PATH=$PATH:/Users/nab/sauce/aosim/working/gui/bin ).
+
+
+where '/Users/nab/sauce/aosim/working' is replaced by the directory where aosim is installed. To test correct installation, type
+
+
+simctrl.py &
+
+
+to bring up the DASP control GUI. For further instructions and simulation examples, contact anyone using DASP. Obvious contacts are,
+
+
+Ali Bharmal	for Mac OS X/Darwin questions
+
+n.a.bharmal@dur.ac.uk
+
+Alastair Basden	for DASP questions
+
+a.g.basden@dur.ac.uk

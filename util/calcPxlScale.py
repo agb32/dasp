@@ -32,7 +32,9 @@ In arcsecs.
 Or, 0.0251*lambda/r0 with lambda in nm, r0 in cm.
 
 eg:
-0.251 * 500 / 12.9   = .97 arcsec seeing.
+0.0251 * 500 / 12.9   = .97 arcsec seeing.
 
-According to Eric, this factor should be 0.2057
+According to Eric, this factor should be 0.2057, ~180*3600/numpy.pi/1e6
+According to Tim, this factor should be 0.2166 (180*3600/numpy.pi*1.05/1e6)
+
 """

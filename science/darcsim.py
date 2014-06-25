@@ -26,6 +26,8 @@ thresholdValue, thresholdType
 E (need to modify darc to allow this to be None).
 decayFactor.
 
+Also an option to allow an existing darc to connect/disconnect/reconnect to the simulation.  To allow swapping between physical/simulation.  The swapping should be done by darc commands, outside of the simulation.  e.g. setting the mirror library and camera library to socket versions, etc.
+
     """
     def __init__(self,parent,config,args={},forGUISetup=0,debug=None,idstr=None):
         if type(parent)!=type({}):
@@ -35,6 +37,7 @@ decayFactor.
         self.atmosGeom=self.config.getVal("atmosGeom")
         self.dmObj=self.config.getVal("dmObj")
         self.dmList=self.dmObj.makeDMList(self.idstr[0])
+        self.useExistingDarc=self.config.getVal("useExistingDarc",default=0)
         if len(self.dmList)==0:
             raise Exception("No DMs found - do you need to specify actuatorsFrom='%s' in your config file?"%str(self.idstr))
         self.nacts=0
@@ -64,11 +67,12 @@ decayFactor.
             self.nactsCumList.append(self.nactsList[-1]+self.nactsCumList[-1])
             self.closedLoopList.append(dm.closedLoop)
             
-        self.nacts=sum(self.nactsList)
+        self.nacts=self.config.getVal("nactsDarc",default=sum(self.nactsList))
+        
         if forGUISetup==1:
             self.outputData=[(self.nacts,),numpy.float32]
         else:
-            self.outputDataBuffer=numpy.zeros((self.nacts*4+8,),numpy.uint8)
+            self.outputDataBuffer=numpy.zeros((self.nacts*4+8,),numpy.uint8)#8 byte header.
             self.outputData=self.outputDataBuffer[8:].view(numpy.float32)
             self.minarea=self.config.getVal("wfs_minarea")
             self.pokeActMapFifo=[]
@@ -96,6 +100,7 @@ decayFactor.
             self.wfsIDList=[]
             wfsIDList=self.atmosGeom.getWFSOrder(self.idstr[0])#self.config.getVal("wfsIDList",default=self.parent.keys())#the list of parent objects (specifies the order in which the centroids are placed - if that makes a difference?)...
             #print wfsIDList
+            #Note:  If the parent is a single module that has already combined all the WFS information, this is fine.  It should have a wfscent_X value for npxlx of the number of pixels, and npxly of 1.  Everything else won't be used.
             for key in wfsIDList:
                 if key not in self.parent.keys():
                     #if get this error, could try specifying a dummy parent that has outputData an array of zeros.
@@ -132,6 +137,10 @@ decayFactor.
                             sl.append((i*nimg,(i+1)*nimg,1,j*nimg,(j+1)*nimg,1))
                             nsub+=1
                 nsubList.append(nsub)
+            if len(self.wfsIDList)==0:#parent is probably something that combines wfs images.
+                npxlx=self.config.getVal("npxlx")
+                npxly=self.config.getVal("npxly")
+            self.config.setSearchOrder(so)
             #Open a listening socket, for the darc camera and mirror to connect to.
             self.lsock=socket.socket()
             self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -151,36 +160,44 @@ decayFactor.
             self.lsock.listen(2)
             self.frameno=0
 
-            self.config.setSearchOrder(so)
-            fname=self.config.getVal("darcConfigFileName",default=None,raiseerror=0)
-            if fname==None or not os.path.exists(fname) or self.config.getVal("overwriteDarcConfig",default=1):
-                #need to create a new config...
-                subapLocation=numpy.array(sl).astype(numpy.int32)
-                nslopes=subapLocation.shape[0]*2
-                bg=self.config.getVal("darcBG",default=0.)
-                rmx=self.config.getVal("darcRmx",default=0.)
-                gain=self.config.getVal("darcGain",default=0.2)
-                decay=self.config.getVal("darcDecay",default=0.99)
-                E=self.config.getVal("darcEmx",default=None,raiseerror=0)
-                nthreads=self.config.getVal("darcThreads",default=1)
-                thrVal=self.config.getVal("darcThresholdValue",default=0.)
-                thrType=self.config.getVal("darcThresholdType",default=1)
-                self.darcArgs=self.config.getVal("darcArgs",default="")
-                self.prefix=self.config.getVal("darcPrefix",default="sim%s"%self.idstr[0])
-                self.prefix+="b%d"%self.config.batchno
+            if self.useExistingDarc:
+                
                 npxls=(numpy.array(npxlx)*numpy.array(npxly)).sum()
+                npxls=self.config.getVal("npxlsDarc",npxls)
                 self.npxls=npxls
+                print "Expecting to deliver %d pixels to darc"%npxls
                 self.inputData=numpy.zeros((npxls+2,),numpy.float32)
                 self.inputHdr=self.inputData[:2].view(numpy.uint32)
-                # now make the darc config file...
-                sltxt=arrToDarcTxt(subapLocation)
-                bgtxt=self.valToDarcArrTxt(bg,npxls)
-                rmxtxt=self.valToDarcArrTxt(rmx,(self.nacts,nslopes))
-                gaintxt=self.valToDarcArrTxt(gain,self.nacts)
-                decaytxt=self.valToDarcArrTxt(decay,self.nacts)
-                nthreadstxt=self.valToDarcArrTxt(nthreads,len(self.wfsIDList))
-                darcUserTxt=self.config.getVal("darcUserTxt",default="")
-                txt="""
+            else:#start darc for this simulation.
+                fname=self.config.getVal("darcConfigFileName",default=None,raiseerror=0)
+                if fname==None or not os.path.exists(fname) or self.config.getVal("overwriteDarcConfig",default=1):
+                    #need to create a new config...
+                    subapLocation=numpy.array(sl).astype(numpy.int32)
+                    nslopes=subapLocation.shape[0]*2
+                    bg=self.config.getVal("darcBG",default=0.)
+                    rmx=self.config.getVal("darcRmx",default=0.)
+                    gain=self.config.getVal("darcGain",default=0.2)
+                    decay=self.config.getVal("darcDecay",default=0.99)
+                    E=self.config.getVal("darcEmx",default=None,raiseerror=0)
+                    nthreads=self.config.getVal("darcThreads",default=1)
+                    thrVal=self.config.getVal("darcThresholdValue",default=0.)
+                    thrType=self.config.getVal("darcThresholdType",default=1)
+                    self.darcArgs=self.config.getVal("darcArgs",default="")
+                    self.prefix=self.config.getVal("darcPrefix",default="sim%s"%self.idstr[0])
+                    self.prefix+="b%d"%self.config.batchno
+                    npxls=(numpy.array(npxlx)*numpy.array(npxly)).sum()
+                    self.npxls=npxls
+                    self.inputData=numpy.zeros((npxls+2,),numpy.float32)
+                    self.inputHdr=self.inputData[:2].view(numpy.uint32)
+                    # now make the darc config file...
+                    sltxt=arrToDarcTxt(subapLocation)
+                    bgtxt=self.valToDarcArrTxt(bg,npxls)
+                    rmxtxt=self.valToDarcArrTxt(rmx,(self.nacts,nslopes))
+                    gaintxt=self.valToDarcArrTxt(gain,self.nacts)
+                    decaytxt=self.valToDarcArrTxt(decay,self.nacts)
+                    nthreadstxt=self.valToDarcArrTxt(nthreads,len(self.wfsIDList))
+                    darcUserTxt=self.config.getVal("darcUserTxt",default="")
+                    txt="""
 import numpy
 cameraParams=numpy.zeros((5,),numpy.int32)
 cameraParams[0]=1#asfloat
@@ -224,27 +241,28 @@ control={"ncam":%d,
 }
 %s
 """%(self.port,self.port,ncam,str(nsubList),str(npxlx),str(npxly),self.nacts,nthreadstxt,sltxt,bgtxt,rmxtxt,gaintxt,decaytxt,thrVal,thrType,0.01/self.nacts,self.nacts,self.nacts,self.nacts,darcUserTxt)
-                if self.config.getVal("printDarcConfigFile",default=1):
-                    print txt
-                if fname==None:
-                    fd=tempfile.NamedTemporaryFile(mode="w",prefix="config",suffix=".py")
-                    fname=fd.name
+                    if self.config.getVal("printDarcConfigFile",default=1):
+                        print txt
+                    if fname==None:
+                        fd=tempfile.NamedTemporaryFile(mode="w",prefix="config",suffix=".py")
+                        fname=fd.name
+                    else:
+                        fd=open(fname,"w")
+                    fd.write(txt)
+                    fd.close()
+                    print "Written config to %s"%fname
                 else:
-                    fd=open(fname,"w")
-                fd.write(txt)
-                fd.close()
-                print "Written config to %s"%fname
-            else:
-                print "Using darc config file %s"%fname
-            self.fname=fname
+                    print "Using darc config file %s"%fname
+                self.fname=fname
             #now start darc, and wait for it to connect.
-            self.startDarc()
+            if not self.useExistingDarc:
+                self.startDarc()
             print "Waiting for darc to connect"
             self.camsock,addr=self.lsock.accept()
             print "Accepted camera connection from %s"%str(addr)
             self.mirsock,addr=self.lsock.accept()
             print "Accepted mirror connection from %s"%str(addr)
-            self.ctrl=darc.Control(self.prefix)
+            #self.ctrl=darc.Control(self.prefix)
 
     def arrStrEvalable(self,arr):
         """Converts arr to a string that will return arr if evaled"""
@@ -301,17 +319,27 @@ control={"ncam":%d,
         print "Running: %s"%cmd
         os.system(cmd)
 
+    def reopenSockets(self):
+        """Reopens the listening sockets and waits for darc to connect"""
+        print "Waiting for darc to reconnect cameras and mirrors... "
+        self.camsock,addr=self.lsock.accept()
+        print "Accepted camera connection from %s"%str(addr)
+        self.mirsock,addr=self.lsock.accept()
+        print "Accepted mirror connection from %s"%str(addr)
+
     def __del__(self):
         self.endSim()
     def endSim(self):
-        print "Stopping darc %s"%self.prefix
-        try:
-            if self.ctrl!=None:
-                self.ctrl.ControlHalt()
-                self.ctrl=None
-        except:
-            print "Unable to halt darc %s"%self.prefix
-            traceback.print_exc()
+        if not self.useExistingDarc:
+            print "Stopping darc %s"%self.prefix
+            try:
+                self.ctrl=darc.Control(self.prefix)
+                if self.ctrl!=None:
+                    self.ctrl.ControlHalt()
+                    self.ctrl=None
+            except:
+                print "Unable to halt darc %s"%self.prefix
+                traceback.print_exc()
     def getInputData(self):
         pos=2
         for key in self.wfsIDList:
@@ -322,7 +350,18 @@ control={"ncam":%d,
     def sendToDarc(self):
         self.inputHdr[0]=0xa<<28|self.npxls
         self.inputHdr[1]=self.frameno
-        self.camsock.sendall(self.inputData)
+        try:
+            self.camsock.sendall(self.inputData)
+        except:
+            if self.useExistingDarc:
+                #darc has swapped to a different camera library - so here, just listen again.
+                print "Socket error in darcsim - reopening"
+                self.reopenSockets()#including the mirror socket.  
+                #and send again.
+                print "darcsim:  Resending data"
+                self.camsock.sendall(self.inputData)
+            else:#something went wrong.
+                raise
 
     def getDarcOutput(self):
         nrec=0
@@ -331,7 +370,11 @@ control={"ncam":%d,
             if r>0:
                 nrec+=r
             else:
-                raise Exception("Error receiving... %d (received %d)"%(r,nrec))
+                if self.useExistingDarc:
+                    print "Socket error receiving DM demands - reopening sockets"
+                    self.reopenSockets()
+                else:
+                    raise Exception("Error receiving... %d (received %d)"%(r,nrec))
     
     def plottable(self,objname="$OBJ"):
         """Return a XML string which contains the commands to be sent

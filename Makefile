@@ -10,7 +10,7 @@ install:
 	chmod +x gui/simctrl/simctrl.py
 	chmod +x gui/simsetup/simsetup.py
 	chmod +x gui/paramgui/paramgui.py
-	(cd gui/bin && ln -fs ../simctrl/simctrl.py && ln -fs ../paramgui/paramgui.py && ln -fs ../simsetup/simsetup.py)
+	(cd gui/bin && ln -fs ../simctrl/simctrl.py && ln -fs ../paramgui/paramgui.py && ln -fs ../simsetup/simsetup.py && ln -fs ../../util/analyse.py && ln -fs ../../util/daspgrep.py)
 	chmod +x util/portdict.py
 	(cd gui/bin && ln -fs ../../util/portdict.py)
 #echo "Compiling"

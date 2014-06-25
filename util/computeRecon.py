@@ -7,6 +7,7 @@ Saving files - we by default save them not byteswapped - to they would look like
 """
 import util.FITS,numpy
 import sys,time,os
+import util.gradientOperator
 #import util.dot as quick
 #sys.path.insert(0,"/home/ali/c/lapack")
 #import svd
@@ -29,6 +30,24 @@ except:
 
         
 import cmod.svd,scipy.sparse
+
+def keyboard(banner=None):
+    """A class that allows us to break to python console on exception."""
+    import code, sys
+
+    # use exception trick to pick up the current frame
+    try:
+        raise None
+    except:
+        frame = sys.exc_info()[2].tb_frame.f_back
+
+    # evaluate commands in current namespace
+    namespace = frame.f_globals.copy()
+    namespace.update(frame.f_locals)
+
+    code.interact(banner=banner, local=namespace)
+
+
 
 class sparseHolder:
     def __init__(self):
@@ -54,6 +73,12 @@ class makeRecon:
         self.timename=pmxfname[:-5]+"_timing.txt"
         self.cntname=pmxfname[:-5]+"_cnt.txt"
         self.regularisation=regularisation
+
+    def initFromParams(paramList=["params.xml"],batchno=0):
+        import base.readConfig
+        self.c=base.readConfig.AOXml(paramList,batchno=batchno)
+        c=self.c
+
     def log(self,txt):
         f=open(self.timename,"a")
         f.write(txt)
@@ -125,7 +150,8 @@ class makeRecon:
                     del(b)
                     if pmxfname!=None and diagScaling!=None and i==nblock-1:#scale back so as not the alter csc.
                         for si in xrange(csc.shape[1]):
-                            csc[ustart:uend,si]/=diagScaling[si]
+                            if diagScaling[si]!=0:
+                                csc[ustart:uend,si]/=diagScaling[si]
                         
                 del(a)
             t2=time.time()
@@ -760,6 +786,287 @@ def compress(rmx,mbits=15,outfile=None):
         #don't bother byteswapping because this data isn't in a standard format anyway (eg 24 bit float???)
         util.FITS.Write(r,outfile,extraHeader=["COMPBITS= %d"%mbits,"SHAPE   = %s"%str(rmx.shape),"EXPMIN  = %d"%mn,"EXPMAX  = %d"%mx],doByteSwap=0)
     return r
+
+
+def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=0,idstr=None,power=-2,coneScale=1,actSpacingScale=-5./3,noiseScale=1.,noisePower=1.,hlist=None,strList=None,initDict=None):
+    if type(config) in [type(""),type([])]:
+        import base.readConfig
+        config=base.readConfig.AOXml(config,batchno=batchno,initDict=initDict)
+    c=config
+    if idstr!=None and len(idstr)>0:
+        c.setSearchOrder(["tomoRecon_%s"%idstr,"tomoRecon","globals"])
+    else:
+        c.setSearchOrder(["tomoRecon","globals"])
+    if pmx==None:
+        pmx=c.getVal("pmxFilename")
+
+    dmObj=c.getVal("dmObj")
+    dmList=dmObj.makeDMList(idstr)
+    nactsCumList=[0]
+    atmosGeom=c.getVal("atmosGeom")
+    pup=c.getVal("pupil")
+    
+    if hlist==None:
+        hlist=c.getVal("hListdm")
+    hlistOrig=hlist
+    if strList==None:
+        cn2Orig=numpy.array(c.getVal("strListdm"))
+    else:
+        cn2Orig=strList
+    cn2=numpy.array(c.getVal("strReconList",default=cn2Orig))
+    cn2/=cn2Orig.sum()#same scaling
+    print "cn2: %s"%str(cn2)
+    if coneScale:
+        #Scale strenghts because of cone effect...
+        hlist=numpy.array(hlist)
+        alt=c.getVal("lgsAlt")
+        if alt>0:
+            if numpy.any(hlist>alt):
+                raise Exception("Unhandled - layer above LGS")
+            cn2*=((alt-hlist)/alt)**(5./3)
+
+    cn2=cn2**power*rcond
+    cn2=numpy.where(numpy.isinf(cn2),0,cn2)
+    if actSpacingScale!=0:
+        #Scale regularisation due to actuator spacing.  So, scale proportional to spacing^(5/3).  I think. But -5/3 worked best for EAGLE!
+        cn2*=numpy.array([x.actSpacing for x in dmList])**actSpacingScale
+    print "Modified cn2: %s"%str(cn2)
+    hlist=hlistOrig#c.getVal("hListdm")
+    laplist=[]
+    for dm in dmList:
+        if dm.zonalDM:
+            tmp=dm.computeDMPupil(atmosGeom,centObscuration=pup.r2,retPupil=0)
+            nacts=int(tmp[0].sum())
+        else:
+            nacts=dm.nact
+        print nacts
+        nactsCumList.append(nactsCumList[-1]+nacts)
+        g=util.gradientOperator.gradientOperatorType1(pupilMask=tmp[0].astype("f"),sparse=1)
+        util.gradientOperator.genericLaplacianCalcOp_NumpyArray(g)
+        laplacian2=numpy.dot(g.op,g.op)
+        indx=list(hlist).index(dm.height)
+        laplacian2*=cn2[indx]
+        print "laplist shape %s"%str(laplacian2.shape)
+        laplist.append(laplacian2)
+    ll=[x.shape[0] for x in laplist]
+    print "lapList %s"%str(ll)
+    lapCumList=numpy.concatenate([[0],numpy.array(ll).cumsum()])
+    print "lapCumList %s"%str(lapCumList)
+    print "nactsCumList %s"%str(nactsCumList)
+    for i in range(len(nactsCumList)):
+        if lapCumList[i]!=nactsCumList[i]:
+            print "Actuator counts don't agree (maxActDist may need changing)"
+            keyboard()
+            raise Exception("Actuator counts don't agree - change maxActDist or something.  Or force to gradientOperator pupil.")
+
+    #First separate out lgs, ngs.
+    minarea=c.getVal("wfs_minarea")
+    ngsList=atmosGeom.makeNGSList(idstr,minarea=minarea)#self.nsubxDict,None)
+    lgsList=atmosGeom.makeLGSList(idstr,minarea=minarea)
+    #Note, in reconmx and pmx, ngsList comes first.
+    ncents=0
+    ncentNgsList=[]
+    ncentLgsList=[]
+    indiceNgsList=[]
+    indiceLgsList=[]
+    for gs in ngsList:
+        subflag=pup.getSubapFlag(gs.nsubx,gs.minarea)
+        indiceNgsList.append(numpy.nonzero(subflag.ravel())[0])
+        ncentNgsList.append(numpy.sum(subflag.ravel()))
+    for gs in lgsList:
+        subflag=pup.getSubapFlag(gs.nsubx,gs.minarea)
+        indiceLgsList.append(numpy.nonzero(subflag.ravel())[0])
+        ncentLgsList.append(numpy.sum(subflag.ravel()))
+    ncentList=ncentNgsList+ncentLgsList
+    ncentsNgs=sum(ncentNgsList)*2
+    ncentsLgs=sum(ncentLgsList)*2
+    ncents=ncentsNgs+ncentsLgs
+
+    #compute the noise covariance...
+    invNoiseCov=numpy.zeros((ncents,),numpy.float32)
+    invNoiseCovNgs=numpy.zeros((ncentsNgs,),numpy.float32)
+    lgssig=c.getVal("wfs_sig")
+    wfsSigList=c.getVal("wfsSigList")
+    print "Noise covariance scaling by %s for ngs, %g for lgs"%(str((numpy.array(wfsSigList)/1e6*noiseScale)**noisePower),(lgssig/1e6*noiseScale)**noisePower)
+    start=0
+    for i in range(len(ngsList)):
+        gs=ngsList[i]
+        end=start+ncentNgsList[i]
+        if wfsSigList[i]==0:
+            inc=0
+        else:
+            inc=(wfsSigList[i]/1e6*noiseScale)**noisePower
+        invNoiseCov[start:end]=inc
+        invNoiseCovNgs[start:end]=inc
+        invNoiseCov[start+ncents/2:end+ncents/2]=inc
+        invNoiseCovNgs[start+ncentsNgs/2:end+ncentsNgs/2]=inc
+        start=end
+    for i in range(len(lgsList)):
+        gs=lgsList[i]
+        end=start+ncentLgsList[i]
+        invNoiseCov[start:end]=(lgssig/1e6*noiseScale)**noisePower
+        invNoiseCov[start+ncents/2:end+ncents/2]=(lgssig/1e6*noiseScale)**noisePower
+        start=end
+    #Now separate out ngs and lgs for split tomo.
+    #First, use both lgs and ngs, for high order...
+    data=util.FITS.Read(pmx)[1]
+    print "%g slopes ngs, %g slopes lgs, pmx shape: %s"%(ncentsNgs,ncentsLgs,str(data.shape))
+    if data.shape[0]!=nactsCumList[-1]:
+        raise Exception("Not expected...")
+    #lgsngsarr=numpy.empty((nactsCumList[-1],ncentsLgs),data.dtype)
+    ##copy in data - x, then y.
+    #lgsarr[:,:ncentsLgs/2]=data[:,ncentsNgs/2:ncents/2]
+    #lgsarr[:,ncentsLgs/2:]=data[:,ncents/2+ncentsNgs/2:]
+    pmxOrig=pmx
+    #pmx="/var/ali/tmplgs.fits"
+    #util.FITS.Write(lgsarr,pmx)
+    #del(lgsarr)
+    #Now take just the ngs part...
+    ngsarr=numpy.empty((nactsCumList[-1],ncentsNgs),data.dtype)
+    ngsarr[:,:ncentsNgs/2]=data[:,:ncentsNgs/2]
+    ngsarr[:,ncentsNgs/2:]=data[:,ncents/2:ncents/2+ncentsNgs/2]
+    #Now, if sig for any is zero, set to zero.
+    start=0
+    resavepmx=0
+    for i in range(len(ngsList)):
+        gs=ngsList[i]
+        end=start+ncentNgsList[i]
+        if wfsSigList[i]==0:#this wfs isn't used...
+            ngsarr[:,start:end]=0
+            ngsarr[:,ncentsNgs/2+start:ncentsNgs/2+end]=0
+            resavepmx=1
+            data[:,start:end]=0
+            data[:,ncents/2+start:ncents/2+end]=0
+        start=end
+
+    util.FITS.Write(ngsarr,"/var/ali/tmpngs.fits",doByteSwap=0)
+    print "ngsarr shape %s"%str(ngsarr.shape)
+    del(ngsarr)
+    if resavepmx:
+        print "Overwriting pmx with some zeros... for sig==0 wfss"
+        util.FITS.Write(data,pmx,doByteSwap=0)
+    del(data)
+    
+
+    t1=time.time()
+    mr=util.computeRecon.makeRecon(pmx,rcond)#,regularisation=regparam)
+    if startStage==0:
+        res=mr.dotdot(diagScaling=invNoiseCov)
+        print "Doing fancy regularisation"
+        if res.shape[0]!=nactsCumList[-1]:
+            raise Exception("Wrong number of acts: %s, %s"%(str(res.shape),str(nactsCumList)))
+
+        for i in range(len(nactsCumList)-1):#add the laplacian...
+            res[nactsCumList[i]:nactsCumList[i+1],nactsCumList[i]:nactsCumList[i+1]]+=laplist[i]#If this is wrong, try changing maxActDist.
+        print "Saving laplacian..."
+        util.FITS.Write(res,mr.dottedname,doByteSwap=0,extraHeader="REGPARAM= %s"%str(cn2))
+        del(res)
+        startStage=1
+    print "Using LU decomposition"
+    if startStage==1:
+        inva=mr.makeLUInv()
+        startStage=3
+        del(inva)
+
+    if startStage==3:
+        rmx=mr.denseDotDense(transA=1,diagScaling=invNoiseCov)#finalDot(rmxtype=1,valmin=0.02,maxelements=0.1,minelements=0.05)
+        startStage=4
+        # Now subtract TT.  Here, subtract from the NGS too...
+        nxOld=0
+        pos=0#ncentsNgs/2
+        print "ncentLgsList: %s, rmx shape %s"%(str(ncentLgsList),str(rmx.shape))
+        for i in range(len(ncentList)):
+            nx=ncentList[i]
+            if nx!=nxOld:
+                rmtt=numpy.identity(nx)-1./nx
+                nxOld=nx
+            rmx[pos:pos+nx]=numpy.dot(rmtt,rmx[pos:pos+nx])
+            rmx[pos+ncents/2:pos+ncents/2+nx]=numpy.dot(rmtt,rmx[pos+ncents/2:pos+ncents/2+nx])
+            pos+=nx
+            #rmx[i*nx:(i+1)*nx]=numpy.dot(rmtt,rmx[i*nx:(i+1)*nx])
+        print "Writing TT-subtracted rmx to %s"%mr.rmxdensename
+        util.FITS.Write(rmx,mr.rmxdensename,doByteSwap=0)
+    t2=time.time()
+    open(mr.timename,"a").write("Total time %gs\n"%(t2-t1))
+
+
+
+
+    #rmx shaoe ncents,nacts.
+    print "Removing temporary files"
+    try:
+        os.unlink(pmx[:-5]+"_dotted.fits")
+    #os.unlink(pmx[:-5]+".fits")
+        os.unlink(pmx[:-5]+"_inv%g.fits"%rcond)
+        os.unlink(pmx[:-5]+"_timing.txt")
+    except:
+        pass
+    print "Doing ngs",rmx.shape,nactsCumList[-1],ncents
+    #And write rmx into the correct parts of a larger matrix...
+    #rmxAll=numpy.empty((ncents,rmx.shape[1]),rmx.dtype)
+    #rmxAll[ncentsNgs/2:ncents/2]=rmx[:ncentsLgs/2]
+    #rmxAll[ncents/2+ncentsNgs/2:ncents]=rmx[ncentsLgs/2:]
+    rmxAll=rmx
+
+    #Now do the ngs part too.
+    pmx="/var/ali/tmpngs.fits"
+    startStage=0
+    t1=time.time()
+    mr=util.computeRecon.makeRecon(pmx,rcond)#,regularisation=regparam)
+    if startStage==0 and len(ngsList)>0:
+        res=mr.dotdot(diagScaling=invNoiseCovNgs)
+        print "Doing fancy regularisation"
+        if res.shape[0]!=nactsCumList[-1]:
+            raise Exception("Wrong number of acts: %s, %s"%(str(res.shape),str(nactsCumList)))
+
+        for i in range(len(nactsCumList)-1):#add the laplacian...
+            res[nactsCumList[i]:nactsCumList[i+1],nactsCumList[i]:nactsCumList[i+1]]+=laplist[i]#If this is wrong, try changing maxActDist.
+        print "Saving laplacian..."
+        util.FITS.Write(res,mr.dottedname,doByteSwap=0,extraHeader="REGPARAM= %s"%str(cn2))
+        del(res)
+        startStage=1
+    print "Using LU decomposition"
+    if startStage==1 and len(ngsList)>0:
+        inva=mr.makeLUInv()
+        startStage=3
+        del(inva)
+
+    if startStage==3:
+        if len(ngsList)>0:
+            rmx=mr.denseDotDense(transA=1,diagScaling=invNoiseCovNgs)#finalDot(rmxtype=1,valmin=0.02,maxelements=0.1,minelements=0.05)
+            startStage=4
+            # Now average TT (since its ngs).
+            nxOld=0
+            pos=0
+            for i in range(len(ncentNgsList)):
+                nx=ncentNgsList[i]
+                if nx!=nxOld:
+                    avtt=numpy.ones((nx,nx),numpy.float32)/nx
+                    nxOld=nx
+                rmxAll[pos:pos+nx]+=numpy.dot(avtt,rmx[pos:pos+nx])
+                rmxAll[pos+ncents/2:pos+ncents/2+nx]+=numpy.dot(avtt,rmx[pos+ncentsNgs/2:pos+ncentsNgs/2+nx])
+                pos+=nx
+        
+        #Get the expected output filename...
+        mr=util.computeRecon.makeRecon(pmxOrig,rcond)#,regularisation=regparam)
+            
+        print "Writing TT-ngs/lgs rmx to %s"%mr.rmxdensename
+        util.FITS.Write(rmxAll,mr.rmxdensename,doByteSwap=0)
+    print "Removing more temporary files"
+    try:
+        os.unlink(pmx[:-5]+"_dotted.fits")
+        os.unlink(pmx[:-5]+".fits")
+        os.unlink(pmx[:-5]+"_inv%g.fits"%rcond)
+        os.unlink(pmx[:-5]+"_timing.txt")
+    except:
+        print "Unable to remove some non-existant files"
+
+    t2=time.time()
+    open(mr.timename,"a").write("Total time %gs\n"%(t2-t1))
+    return rmxAll
+
+
+
 
 if __name__=="__main__":
     if len(sys.argv)>=2:
