@@ -67,6 +67,8 @@ class recon(tomoRecon.recon):
             "hwrRecomputeWFIMandWFMM", default=0,raiseerror=0)
       self.hwrWFIMfname=self.config.getVal( "hwrWFIMfname",
             default="hwrWFIM.fits", raiseerror=0 )
+      self.hwrSVErcon=self.config.getVal( "hwrStartValueEstrcon",
+            default=0.01,raiseerror=0)
       self.hwrWFMMrcon=self.config.getVal( "hwrWFMMrcon",
             default=0.1,raiseerror=0)
       self.hwrWFMMblockReduction=self.config.getVal( "hwrWFMMblockReduction",
@@ -120,7 +122,9 @@ class recon(tomoRecon.recon):
                self.hwrMaxLen,
                self.hwrBoundary,
                self.hwrOverlap,
-               self.hwrSparse
+               self.hwrSparse,
+               False,
+               self.hwrSVErcon
                )
       print("INFORMATION(**HWR**): took {0:d}s to setup HWR".format(
             int(time.time()-t1)) )
