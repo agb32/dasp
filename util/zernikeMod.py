@@ -507,8 +507,12 @@ def calcZern(nz,coords,output=None):
             #print "j=%d" % j
             Z*=na.cos(m*thetaGrid)
             #na.put(self.zern[jmax.index(j-1),:,:,].ravel(),idxPup,Z*na.cos(m*thetaGridFlat))
-            
-    output[:,]=Z.astype(output.dtype)
+    if 'typecode' in dir(output):
+       output[:,]=Z.astype(output.typecode())
+    elif 'dtype' in dir(output):
+       output[:,]=Z.astype(output.dtype)
+    else:
+       raise ValueError("Cannot parse the output dtype")
     return output
 
 
