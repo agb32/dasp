@@ -228,6 +228,8 @@ class recon(base.aobase.aobase):
                 self.modeScale=self.config.getVal("modeScale",default=10.)
                 self.modalActuatorList=[]
                 if n!=0:#modal modes required...
+                    modeFile=self.config.getVal("modalFilename",raiseerror=0)
+                    writemode="w"
                     #first compute the coords for the actuators within the DMs.
                     for i in range(len(self.dmList)):#for each dm...
                         dm=self.dmList[i]
@@ -245,6 +247,9 @@ class recon(base.aobase.aobase):
                             for j in range(0,self.nLowOrderModalModes[i]):#for each zernike...
                                 util.zernikeMod.calcZern(j+2,coords,tmp[j])#start at tip/tilt (j+2).
                                 tmp[j]*=self.modeScale/numpy.max(numpy.abs(tmp[j]))#so that not too large
+                            if modeFile!=None:
+                                util.FITS.Write(tmp,modeFile,writeMode=writemode,extraHeader="DMLABEL = %s"%str(dm.label))
+                                writemode="a"
                         else:
                             self.modalActuatorList.append(None)
             elif self.dmModeType=="file":
