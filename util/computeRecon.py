@@ -912,7 +912,11 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     data=util.FITS.Read(pmx)[1]
     print "%g slopes ngs, %g slopes lgs, pmx shape: %s"%(ncentsNgs,ncentsLgs,str(data.shape))
     if data.shape[0]!=nactsCumList[-1]:
-        raise Exception("Not expected...")
+        if data.shape[1]==nactsCumList[-1]:
+            print "Transposing matrix... this could lead to slowness later on."
+            data=data.T
+        else:
+            raise Exception("Not expected...")
     #lgsngsarr=numpy.empty((nactsCumList[-1],ncentsLgs),data.dtype)
     ##copy in data - x, then y.
     #lgsarr[:,:ncentsLgs/2]=data[:,ncentsNgs/2:ncents/2]
