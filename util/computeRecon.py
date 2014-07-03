@@ -916,7 +916,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
             print "Transposing matrix... this could lead to slowness later on."
             data=data.T
         else:
-            raise Exception("Not expected...")
+            raise Exception("Not expected... %d %d"%(data.shape[0],nactsCumList[-1]))
     #lgsngsarr=numpy.empty((nactsCumList[-1],ncentsLgs),data.dtype)
     ##copy in data - x, then y.
     #lgsarr[:,:ncentsLgs/2]=data[:,ncentsNgs/2:ncents/2]
