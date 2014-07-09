@@ -37,4 +37,5 @@ eg:
 According to Eric, this factor should be 0.2057, ~180*3600/numpy.pi/1e6
 According to Tim, this factor should be 0.2166 (180*3600/numpy.pi*1.05/1e6)
 
+Maybe it should be 0.21204022082201507 (180*3600/numpy.pi*1.028/1e6) since 1.028 is the fwhm diameter of an airy disk (not 1.22 which is to first dark ring).
 """
