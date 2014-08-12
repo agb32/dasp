@@ -70,6 +70,7 @@ class geom:
         """
         self.zenith=zenith
         self.zenithAz=zenithAz
+        self.rotateDirections=0#Used in getScrnXPxls etc, whether to rotate the phase screens when considering max width to use.
         self.r0=r0*numpy.cos(self.zenith*numpy.pi/180.)**0.6#adjust r0 for zenith.
         self.l0=l0
         self.zenithOld=0.#this was used when making eliptical pupils.  However, that idea is no longer in vogue.  So, this is always set at zero.
@@ -170,8 +171,9 @@ class geom:
             print "WARNING util.atmos.getLayerWidth - do not use if zenith!=0"
         fov=max(self.sourceThetas().values())/60./60./180*numpy.pi
         return numpy.tan(fov)*height*2/numpy.cos(self.zenith*numpy.pi/180.)+self.telDiam
-    def getScrnSize(self):
+    def getScrnSize(self,rotateDirections=0):
         """Compute the screen sizes"""
+        self.rotateDirections=rotateDirections
         thetas={}#source direction
         phis={}#source direction
         ntel=self.ntel
@@ -180,15 +182,19 @@ class geom:
         arcsecrad=2*numpy.pi/360./3600.
         degrad=2*numpy.pi/360.
         scrnSize={}
+        rotangle=0.
         for altkey in self.layerDict.keys():
             xposlist=[]
             yposlist=[]
             layerAlt=self.layerHeight(altkey)
+            if rotateDirections:#this comes from the new phase screen method (generated along 1 axis and then rotated in iatmos).  To work out the max size of this screen, we consider the rotation here.  
+                wd=self.layerWind(altkey)
+                rotangle=(wd+90)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
             for key in self.sourceDict.keys():
                 #xposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.cos(self.sourcePhi(key)*degrad)))
                 #yposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.sin(self.sourcePhi(key)*degrad)))
-                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad))
-                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad))
+                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
+                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
             maxx=max(xposlist)
             minx=min(xposlist)
             maxy=max(yposlist)
@@ -203,15 +209,15 @@ class geom:
         self.scrnSize=scrnSize
         return scrnSize
 
-    def getScrnXPxls(self,id):
+    def getScrnXPxls(self,id,rotateDirections=0):
         """return screen x size"""
-        if self.scrnSize==None:
-            self.getScrnSize()
+        if self.scrnSize==None or self.rotateDirections!=rotateDirections:
+            self.getScrnSize(rotateDirections)
         return self.scrnSize[id][0]
-    def getScrnYPxls(self,id):
+    def getScrnYPxls(self,id,rotateDirections=0):
         """return screen y size"""
-        if self.scrnSize==None:
-            self.getScrnSize()
+        if self.scrnSize==None or self.rotateDirections!=rotateDirections:
+            self.getScrnSize(rotateDirections)
         return self.scrnSize[id][1]
     def getLayerOffset(self):
         """compute the layer offsets"""
