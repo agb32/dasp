@@ -114,10 +114,27 @@ typedef struct{
 }ScrnStruct;
 
 
+
+
+
 int checkContigDoubleSize(PyArrayObject *a,int s){
   if(PyArray_SIZE(a)!=s)
     return 1;
   if(a->descr->type_num!=NPY_DOUBLE)
+    return 1;
+  if(!PyArray_IS_C_CONTIGUOUS(a))
+    return 1;
+  return 0;
+}
+int checkContigDouble(PyArrayObject *a){
+  if(a->descr->type_num!=NPY_DOUBLE)
+    return 1;
+  if(!PyArray_IS_C_CONTIGUOUS(a))
+    return 1;
+  return 0;
+}
+int checkContigFloat(PyArrayObject *a){
+  if(a->descr->type_num!=NPY_FLOAT)
     return 1;
   if(!PyArray_IS_C_CONTIGUOUS(a))
     return 1;
@@ -197,12 +214,14 @@ void addNewRows(ScrnStruct *ss,int nadd){
 	indx+=nY;
       //Now dot Ax[:,pos:pos+nX] with oldPhi (screen[indx*nX], placing into screen[ip*nx].
       AZ=&screen[ip*nX];
+      //printf("addNewRow %d %g %g %g ",ip,ss->Ax[i*nX],screen[indx*nX],AZ[ip*nX]);
       mvm(nX,nX,1.,&ss->Ax[i*nX],1,nX*nbCol,&screen[indx*nX],1,(double)(i!=0),AZ,1);
     }
     coeffTurb=powf(ss->L0/r0,5./6);
     //Now create a random array of standard normal distribution.
     for(i=0;i<nX;i++)
       ss->randn[i]=gsl_ran_ugaussian(ss->rng);//randn();
+    //printf("l0 %g r0 %g cT %g %g %g %g %g ",ss->L0,r0,coeffTurb,ss->randn[0],ss->randn[1],ss->Bx[0],AZ[0]);
     mvm(nX,nX,coeffTurb,ss->Bx,1,nX,ss->randn,1,1.,AZ,1);//Dot By with random normal values, multiply by coeffTurb, and add result into AZ.
     //Add xstep...
     if(ss->YstepArr!=NULL){
@@ -217,6 +236,7 @@ void addNewRows(ScrnStruct *ss,int nadd){
     if(ss->insertPos>=nY)//wrap
       ss->insertPos=0;
   }
+  //printf("\n");
 }
 
 
@@ -446,6 +466,324 @@ PyObject *py_run(PyObject *self,PyObject *args){
   return Py_BuildValue("i",ss->insertPos);//Py_None;
 }
     
+typedef struct{
+  double *img;
+  double *dimg;
+  float *out;
+  float r;
+  float s;
+  float c;
+  int dim[2];
+  int imgdim[2];
+  int nthreads;
+  int nblockx;
+  int nblocky;
+} interpStruct;
+
+PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
+  npy_intp *dim;
+  npy_intp *imgdim;
+  float ang;
+  int nthreads,nblockx,nblocky;
+  float deg,r;
+  PyArrayObject *imgObj, *dimgObj, *outObj;
+  interpStruct *s;
+  npy_intp dimsize;
+  if(!PyArg_ParseTuple(args,"O!O!fO!fiii",&PyArray_Type,&imgObj,&PyArray_Type,&dimgObj,&deg,&PyArray_Type,&outObj,&r,&nthreads,&nblockx,&nblocky)){
+    printf("Args for setupInterpolate should be:\n");
+    printf("img,dimg,deg,out,r,nthread,nblockx,nblocky\n");
+    return NULL;
+  }
+  if(PyArray_NDIM(imgObj)!=2 || PyArray_NDIM(outObj)!=2){
+    printf("Arrays should be 2D\n");
+    return NULL;
+  }
+
+
+  dim=PyArray_DIMS(outObj);
+  imgdim=PyArray_DIMS(imgObj);
+
+  if(checkContigDoubleSize(dimgObj,imgdim[0]*imgdim[1])!=0){
+    printf("Error, dimg must have shape same as img (%ld, %ld), be contiguous and float64\n",imgdim[0],imgdim[1]);
+    return NULL;
+  }
+  if(checkContigDouble(imgObj)!=0){
+    printf("img should be contiguous and float64\n");
+    return NULL;
+  }
+  if(checkContigFloat(outObj)!=0){
+    printf("out should be contiguous and float32\n");
+    return NULL;
+  }
+  if((s=calloc(sizeof(interpStruct),1))==NULL){
+    printf("Unable to alloc interpStruct memory\n");
+    return NULL;
+  }
+  dimsize=sizeof(interpStruct);
+  s->img=(double*)PyArray_DATA(imgObj);
+  s->dimg=(double*)PyArray_DATA(dimgObj);
+  s->out=(float*)PyArray_DATA(outObj);
+  ang=(float)(deg*M_PI/180.);
+  s->r=r;
+  s->s=(float)(r*sin(ang));
+  s->c=(float)(r*cos(ang));
+  s->dim[0]=(int)dim[0];
+  s->dim[1]=(int)dim[1];
+  s->imgdim[0]=(int)imgdim[0];
+  s->imgdim[1]=(int)imgdim[1];
+  s->nthreads=nthreads;
+  s->nblockx=nblockx;
+  s->nblocky=nblocky;
+  return PyArray_SimpleNewFromData(1,&dimsize,NPY_UBYTE,s);  
+}
+
+
+PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
+  interpStruct *ss;
+  int outofrange[4];
+  float points[4];
+  //float ang;
+  float sx,sy;
+  int wrappoint,nthreads,nblockx,nblocky;
+  //PyArrayObject *imgObj, *dimgObj, *outObj;
+  PyArrayObject *structObj;
+  float s;
+  float c;
+  int *dim;
+  int *imgdim;
+  double *img;
+  double *dimg;
+  float *out;
+  int i,yy,xx;
+  float x,y,xold,yold;
+  int x1;
+  int y1,y2,y1x1,y2x1;
+  float xm,ym;
+  float k1,k2,Y1,Y2,a,b,val;
+  float const0,const1,const2,const3;
+  if(!PyArg_ParseTuple(args,"O!ffi",&PyArray_Type,&structObj,&sx,&sy,&wrappoint)){
+    printf("Args for rotShiftWrapSplineImage should be:\n");
+    printf("struct returned from initialiseInterp,shiftx,shifty,wrappoint\n");
+    return NULL;
+  }
+  if(checkContigSize(structObj,sizeof(interpStruct))!=0){
+    printf("interpStruct should be initialised with the initialiseInterp method of iscrn module\n");
+    return NULL;
+  }
+  ss=(interpStruct*)(structObj->data);
+
+  dim=ss->dim;
+  imgdim=ss->imgdim;
+  img=ss->img;
+  dimg=ss->dimg;
+  out=ss->out;
+
+  if(wrappoint>imgdim[0] || wrappoint<0){
+    printf("Illegal wrappoint in iscrnmodule %d\n",wrappoint);
+    return NULL;
+  }
+  const0=-dim[0]/2.+0.5;
+  const1=-dim[1]/2.+0.5;
+  const2=imgdim[0]/2.-.5-sy+wrappoint;
+  const3=imgdim[1]/2.-.5-sx;
+  //ang=ss->ang;//(float)(deg*M_PI/180.);
+  s=ss->s;//(float)(r*sin(ang));
+  c=ss->c;//(float)(r*cos(ang));
+  for(yy=0;yy<dim[0];yy++){
+    y=yy+const0;//-dim[0]/2.+0.5;
+    for(xx=0;xx<dim[1];xx++){
+      x=xx+const1;//-dim[1]/2.+0.5;
+      yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+      xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+      x1=(int)floorf(xold);
+      //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+      y1=(int)floorf(yold);
+      if(y1>=imgdim[0]){//wrap it
+	y1-=imgdim[0];
+	yold-=imgdim[0];
+      }
+      y2=y1+1;
+      xm=xold-x1;
+      ym=yold-y1;
+      if(y2==imgdim[0])
+	y2=0;
+      x1--;
+      y1x1=y1*imgdim[1]+x1;
+      y2x1=y2*imgdim[1]+x1;
+      //4 interpolations in Y direction using precomputed gradients.
+      for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	if(x1+i>=0 && x1+i<imgdim[1]){
+	  k1=(float)dimg[y1x1+i];
+	  k2=(float)dimg[y2x1+i];
+	  Y1=(float)img[y1x1+i];
+	  Y2=(float)img[y2x1+i];
+	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	  points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	  outofrange[i]=0;
+	}else{
+	  outofrange[i]=1;
+	}
+      }
+      //and now interpolate in X direction (using points).
+      if(outofrange[0])
+	k1=points[2]-points[1];
+      else
+	k1=(points[2]-points[0])*.5;
+      if(outofrange[3])
+	k2=points[2]-points[1];
+      else
+	k2=(points[3]-points[1])*.5;
+      if(outofrange[1] || outofrange[2]){
+	printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+      }else{
+	Y1=points[1];
+	Y2=points[2];
+	a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	out[yy*dim[1]+xx]+=val;
+      }
+    }
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
+
+
+PyObject *py_rotShiftWrapSplineImageNoInit(PyObject *self,PyObject *args){
+  int outofrange[4];
+  float points[4];
+  float ang,deg,r;
+  float sx,sy;
+  int wrappoint,nthreads,nblockx,nblocky;
+  PyArrayObject *imgObj, *dimgObj, *outObj;
+  float s;
+  float c;
+  npy_intp *dim;
+  npy_intp *imgdim;
+  double *img;
+  double *dimg;
+  float *out;
+  int i,yy,xx;
+  float x,y,xold,yold;
+  int x1;
+  int y1,y2,y1x1,y2x1;
+  float xm,ym;
+  float k1,k2,Y1,Y2,a,b,val;
+  float const0,const1,const2,const3;
+
+  if(!PyArg_ParseTuple(args,"O!O!fffiO!fiii",&PyArray_Type,&imgObj,&PyArray_Type,&dimgObj,&deg,&sx,&sy,&wrappoint,&PyArray_Type,&outObj,&r,&nthreads,&nblockx,&nblocky)){
+    printf("Args for rotShiftWrapSplineImageNoInit should be:\n");
+    printf("img,gradients,angle,shiftx,shifty,wrappoint,outputarray,nthreads,nblockx,nblocky\n");
+    return NULL;
+  }
+
+  if(PyArray_NDIM(imgObj)!=2 || PyArray_NDIM(outObj)!=2){
+    printf("Arrays should be 2D\n");
+    return NULL;
+  }
+
+
+  dim=PyArray_DIMS(outObj);
+  imgdim=PyArray_DIMS(imgObj);
+
+  if(checkContigDoubleSize(dimgObj,imgdim[0]*imgdim[1])!=0){
+    printf("Error, dimg must have shape same as img (%ld, %ld), be contiguous and float64\n",imgdim[0],imgdim[1]);
+    return NULL;
+  }
+  if(checkContigDouble(imgObj)!=0){
+    printf("img should be contiguous and float64\n");
+    return NULL;
+  }
+  if(checkContigFloat(outObj)!=0){
+    printf("out should be contiguous and float32\n");
+    return NULL;
+  }
+
+  img=(double*)PyArray_DATA(imgObj);
+  dimg=(double*)PyArray_DATA(dimgObj);
+  out=(float*)PyArray_DATA(outObj);
+  ang=(float)(deg*M_PI/180.);
+  s=(float)(r*sin(ang));
+  c=(float)(r*cos(ang));
+
+  if(wrappoint>imgdim[0] || wrappoint<0){
+    printf("Illegal wrappoint in iscrnmodule %d\n",wrappoint);
+    return NULL;
+  }
+  const0=-dim[0]/2.+0.5;
+  const1=-dim[1]/2.+0.5;
+  const2=imgdim[0]/2.-.5-sy+wrappoint;
+  const3=imgdim[1]/2.-.5-sx;
+  for(yy=0;yy<dim[0];yy++){
+    y=yy+const0;//-dim[0]/2.+0.5;
+    for(xx=0;xx<dim[1];xx++){
+      x=xx+const1;//-dim[1]/2.+0.5;
+      yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+      xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+      x1=(int)floorf(xold);
+      //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+      y1=(int)floorf(yold);
+      if(y1>=imgdim[0]){//wrap it
+	y1-=imgdim[0];
+	yold-=imgdim[0];
+      }
+      y2=y1+1;
+      xm=xold-x1;
+      ym=yold-y1;
+      if(y2==imgdim[0])
+	y2=0;
+      x1--;
+      y1x1=y1*imgdim[1]+x1;
+      y2x1=y2*imgdim[1]+x1;
+      //4 interpolations in Y direction using precomputed gradients.
+      for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	if(x1+i>=0 && x1+i<imgdim[1]){
+	  k1=(float)dimg[y1x1+i];
+	  k2=(float)dimg[y2x1+i];
+	  Y1=(float)img[y1x1+i];
+	  Y2=(float)img[y2x1+i];
+	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	  points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	  outofrange[i]=0;
+	}else{
+	  outofrange[i]=1;
+	}
+      }
+      //and now interpolate in X direction (using points).
+      if(outofrange[0])
+	k1=points[2]-points[1];
+      else
+	k1=(points[2]-points[0])*.5;
+      if(outofrange[3])
+	k2=points[2]-points[1];
+      else
+	k2=(points[3]-points[1])*.5;
+      if(outofrange[1] || outofrange[2]){
+	printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,(int)dim[0],(int)dim[1],(int)imgdim[0],(int)imgdim[1],x1+1);
+      }else{
+	Y1=points[1];
+	Y2=points[2];
+	a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	out[yy*dim[1]+xx]+=val;
+      }
+    }
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
+
+
+
+
 /* define a methods table for this module */
 
 static PyMethodDef iscrn_methods[] = 	{
@@ -453,6 +791,9 @@ static PyMethodDef iscrn_methods[] = 	{
   {"initialise", py_initialise, METH_VARARGS}, 
   {"update", py_update, METH_VARARGS}, 
   {"free", py_free, METH_VARARGS}, 
+  {"initialiseInterp",py_initialiseInterp,METH_VARARGS},
+  {"rotShiftWrapSplineImage", py_rotShiftWrapSplineImage, METH_VARARGS},
+  {"rotShiftWrapSplineImageNoInit", py_rotShiftWrapSplineImageNoInit, METH_VARARGS},
   {NULL, NULL} };
 
 
