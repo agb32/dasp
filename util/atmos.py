@@ -897,8 +897,8 @@ class iatmos:
 
         self.positionDict={}
         #compute centre of the source.
-        xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos((self.sourcePhi-90)*degRad)#xxx 90?
-        ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin((self.sourcePhi-90)*degRad)#xxx 90?
+        xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos((self.sourcePhi-0)*degRad)#xxx 90?
+        ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin((self.sourcePhi-0)*degRad)#xxx 90?
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
                 #use the layer...
