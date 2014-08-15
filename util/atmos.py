@@ -897,8 +897,8 @@ class iatmos:
 
         self.positionDict={}
         #compute centre of the source.
-        xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad)
-        ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad)
+        xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos((self.sourcePhi-90)*degRad)
+        ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin((self.sourcePhi-90)*degRad)
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
                 #use the layer...
@@ -1023,9 +1023,9 @@ class iatmos:
                 if not self.interpStruct.has_key(key):
                     #print "Initialising atmos interpolation"
                     if self.ygradients==None:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                     else:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
 
                 cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
                 #print hex(self.interpStruct[key].view(numpy.uint64)[0]),hex(self.phaseScreens[key].__array_interface__["data"][0])
