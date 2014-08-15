@@ -1026,7 +1026,7 @@ class iatmos:
                         self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                     else:
                         self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
-
+                print "%s %g %g %g"%(key,x,y,shift)
                 cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
                 #print hex(self.interpStruct[key].view(numpy.uint64)[0]),hex(self.phaseScreens[key].__array_interface__["data"][0])
                 #cmod.iscrn.rotShiftWrapSplineImageNoInit(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale,1,1,1)
