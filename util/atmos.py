@@ -206,10 +206,10 @@ class geom:
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             scrnXPxls=int(numpy.ceil(npup*extra/numpy.cos(self.zenithOld*degrad)))+1+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
             scrnYPxls=int(numpy.ceil(npup*extra))+1+int(numpy.ceil((maxy-miny)*ntel/telDiam))
-            if rotateDirections:
-                scrnSize[altkey]=(scrnYPxls,scrnXPxls)
-            else:
-                scrnSize[altkey]=(scrnXPxls,scrnYPxls)
+            #if rotateDirections:
+            #    scrnSize[altkey]=(scrnYPxls,scrnXPxls)
+            #else:
+            scrnSize[altkey]=(scrnXPxls,scrnYPxls)
         print "scrnSize: %s"%str(scrnSize)
         self.scrnSize=scrnSize
         return scrnSize
@@ -256,10 +256,10 @@ class geom:
                 layerYOffset[altKey]=int(numpy.ceil(numpy.fabs(miny)))
             else:
                 layerYOffset[altKey]=-int(numpy.floor(miny))
-        if rotateDirections:
-            self.layerOffset=(layerYOffset,layerXOffset)
-        else:
-            self.layerOffset=(layerXOffset,layerYOffset)
+        #if rotateDirections:
+        #    self.layerOffset=(layerYOffset,layerXOffset)
+        #else:
+        self.layerOffset=(layerXOffset,layerYOffset)
         #print self.layerOffset
         return self.layerOffset
 
@@ -1023,9 +1023,9 @@ class iatmos:
                 if not self.interpStruct.has_key(key):
                     #print "Initialising atmos interpolation"
                     if self.ygradients==None:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                     else:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
 
                 cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
                 #print hex(self.interpStruct[key].view(numpy.uint64)[0]),hex(self.phaseScreens[key].__array_interface__["data"][0])
