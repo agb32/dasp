@@ -73,7 +73,7 @@ class iatmos(base.aobase.aobase):
             self.outputData=[(self.npup,self.npup),self.outDataType]
         else:#setup for real
             self.timing=self.config.getVal("timing",default=0)
-            self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)
+            self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)#a tuple of (nthreads,nblockx,nblocky)
             self.parentSendWholeScreen=0
             self.doneFinalInit=0
             self.sentPlotsCnt=0
@@ -114,7 +114,10 @@ class iatmos(base.aobase.aobase):
             self.coeffsZernike=None
             self.coeffsZernike2=None
             self.zernikeIters=0
-            self.ygradient={}
+            if self.config.getVal("precomputeYGradient",default=0):#set to 1 for faster operation with larger memory comsumption
+                self.ygradient={}
+            else:
+                self.ygradient=None
             for pkey in self.parent.keys():
                 #each parent can have 1 or many layers.  So, get this into a dictionary.
                 self.layerListDict[pkey]=self.config.getVal("layerList",{},searchOrder=["iscrn_%s","iscrn","globals"]).get(pkey,[pkey])
@@ -132,10 +135,11 @@ class iatmos(base.aobase.aobase):
                     if self.phaseScreens[key].dtype.char!=self.scrnDataType:
                         raise Exception("iatmos and iscrn should use the same dataType value %s %s"%(self.phaseScreens[key].dtype.char,self.scrnDataType))
                     ps=self.phaseScreens[key]
-                    self.ygradient[key]=numpy.empty(ps.shape,self.scrnDataType)
-                    self.ygradient[key][1:-1]=(ps[2:]-ps[:-2])*0.5
-                    self.ygradient[key][0]=ps[1]-ps[0]
-                    self.ygradient[key][-1]=ps[-1]-ps[-2]
+                    if self.ygradient!=None:
+                        self.ygradient[key]=numpy.empty(ps.shape,self.scrnDataType)
+                        self.ygradient[key][1:-1]=(ps[2:]-ps[:-2])*0.5
+                        self.ygradient[key][0]=ps[1]-ps[0]
+                        self.ygradient[key][-1]=ps[-1]-ps[-2]
 
             #Now get the layer offsets which are used to determine where in a layer to start looking for this source.  Basically, you can use sourceTheta and sourcePhi and sourceAlt to determine the distance in m from the on axis location.  Convert this into pixels, and you may get a negative number (ie if it is to the left of the onaxis position) depending on which source and which layer.  The maximum possible negative number is then equal to this layerOffset, which makes sure that all indexes into the array are positive.  This is best computed in the parameter file, as it requires knowledge of all sources, and of the size of each phase screen.   
             self.layerXOffset=self.atmosGeom.getLayerXOffset(rotateDirections=1)
@@ -299,9 +303,11 @@ class iatmos(base.aobase.aobase):
                             ggpos+=self.scrnYPxls[key]#wrap
                         #ps[pos]=self.rowInput[key][i]
                         #and the gradient
-                        self.ygradient[key][gpos]=(ps[pos]-ps[ggpos])*0.5
+                        if self.ygradient!=None:
+                            self.ygradient[key][gpos]=(ps[pos]-ps[ggpos])*0.5
                     #and the last (partial) one...
-                    self.ygradient[key][pos]=ps[pos]-ps[gpos]
+                    if self.ygradient!=None:
+                        self.ygradient[key][pos]=ps[pos]-ps[gpos]
             else:#construct the layer.
                 for key in self.layerListDict[pkey]:
                     self.makeLayer(key)
@@ -335,9 +341,11 @@ class iatmos(base.aobase.aobase):
                     ggpos+=self.scrnYPxls[key]#wrap
                 ps[pos]=self.rowInput[key][i]
                 #and the gradient
-                self.ygradient[key][gpos]=(ps[pos]-ps[ggpos])*0.5
+                if self.ygradient!=None:
+                    self.ygradient[key][gpos]=(ps[pos]-ps[ggpos])*0.5
             #and the last (partial) one...
-            self.ygradient[key][pos]=ps[pos]-ps[gpos]
+            if self.ygradient!=None:
+                self.ygradient[key][pos]=ps[pos]-ps[gpos]
 
 
 

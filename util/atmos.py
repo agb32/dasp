@@ -807,7 +807,7 @@ class iatmos:
     """A class to carry out computation of a pupil phase screen
     for a given source direction.  This can (possibly) be used stand-alone
     and is used as part of the AO simulation (iatmos module)."""
-    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=0,outputData=None):
+    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=None,outputData=None):
         """Source altitude, wavelength and position are given, and info about all the phase screen layers.
         storePupilLayers - if 1, a dictionary of layers along this line of sight will be created - unexpanded in the case of LGS - i.e. full pupil.
         computeUplinkTT - if 1 then uplink tip/tilt will be computed.
@@ -821,7 +821,12 @@ class iatmos:
             ntel=npup
         self.ntel=ntel
         self.telDiam=telDiam
-        self.interpolationNthreads=interpolationNthreads
+        if interpolationNthreads==None:
+            self.interpolationNthreads=(0,1,1)#number of threads will be computed as half number of (hyperthreaded) cores (if npup sufficiently large)
+        elif type(interpolationNthreads) in [type(0),type(0.)]:
+            self.interpolationNthreads=(interpolationNthreads,interpolationNthreads,1)
+        else:
+            self.interpolationNthreads=interpolationNthreads#a tuple of (nthreads, nblockx, nblocky)
         self.pupil=pupil
         self.rowAdd=rowAdd
         self.sourceAlt=sourceAlt
@@ -836,6 +841,7 @@ class iatmos:
             raise Exception("LayerList shouldn't be None")
         self.zenith=zenith
         self.zenithOld=0.#used to be used when stretching screens - now no longer.
+
         self.windDirection=windDirection#dictionary
         self.layerAltitude=layerAltitude#these are pre-scaled by zenith.
         self.sortedLayerList=[]
@@ -1009,8 +1015,11 @@ class iatmos:
                 shift=interpPosRowDict[key]#layer should be interpolshifted by this amount.  Which corresponds to an x and y shift when rotated.
                 #Now, rotate the correct part of the phase screen into the outputData.   Add 90 because of the way the phase layers are defined (moving up).
                 if not self.interpStruct.has_key(key):
-                    print "Initialising atmos interpolation"
-                    self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,1,1,1)
+                    #print "Initialising atmos interpolation"
+                    if self.ygradients==None:
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+90.,self.outputData,scale,self.nthreadBlocks[0],self.nthreadBlocks[1],self.nthreadBlocks[2])
+                    else:
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,self.nthreadBlocks[0],self.nthreadBlocks[1],self.nthreadBlocks[2])
 
                 cmod.iscrn.rotShiftWrapSplineImage(self.interpStruct[key],x,y-shift,insertPosDict[key])
                 #print hex(self.interpStruct[key].view(numpy.uint64)[0]),hex(self.phaseScreens[key].__array_interface__["data"][0])
@@ -1177,7 +1186,7 @@ class iatmos:
         self.outputData[:]=0
         #Now, rotate the correct part of the phase screen into the outputData.   Add 90 because of the way the phase layers are defined (moving up).
         #This writes it into outputData.
-        cmod.iscrn.rotShiftWrapSplineImage(self.interpStruct[key],x,y-shift,insertPosDict[key])
+        cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
         #cmod.iscrn.rotShiftWrapSplineImageNoInit(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale)
 
         #rotateShiftWrapSplineImage(phaseScreens[key],ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],phs,scale)

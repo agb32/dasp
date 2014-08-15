@@ -3,9 +3,10 @@ Used by science/iscrn.py
 */
 
 #include "Python.h"
+#include <unistd.h>
 #include <stdio.h>
 #include <math.h>
-
+#include <pthread.h>
 #include "numpy/arrayobject.h"
 
 /*#include <gsl/gsl_cblas.h>*/
@@ -473,6 +474,9 @@ typedef struct{
   float r;
   float s;
   float c;
+  float sx;//used in threaded only
+  float sy;//used in threaded only
+  int wrappoint;//used in threaded only
   int dim[2];
   int imgdim[2];
   int nthreads;
@@ -480,16 +484,23 @@ typedef struct{
   int nblocky;
 } interpStruct;
 
+
+typedef struct{
+  interpStruct *s;
+  int threadno;
+}threadStruct;
+
 PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
   npy_intp *dim;
   npy_intp *imgdim;
   float ang;
   int nthreads,nblockx,nblocky;
   float deg,r;
-  PyArrayObject *imgObj, *dimgObj, *outObj;
+  PyArrayObject *imgObj, *dimgObj=NULL, *outObj;
+  PyObject *dimgOrNoneObj;
   interpStruct *s;
   npy_intp dimsize;
-  if(!PyArg_ParseTuple(args,"O!O!fO!fiii",&PyArray_Type,&imgObj,&PyArray_Type,&dimgObj,&deg,&PyArray_Type,&outObj,&r,&nthreads,&nblockx,&nblocky)){
+  if(!PyArg_ParseTuple(args,"O!OfO!fiii",&PyArray_Type,&imgObj,&dimgOrNoneObj,&deg,&PyArray_Type,&outObj,&r,&nthreads,&nblockx,&nblocky)){
     printf("Args for setupInterpolate should be:\n");
     printf("img,dimg,deg,out,r,nthread,nblockx,nblocky\n");
     return NULL;
@@ -498,15 +509,16 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
     printf("Arrays should be 2D\n");
     return NULL;
   }
-
-
   dim=PyArray_DIMS(outObj);
   imgdim=PyArray_DIMS(imgObj);
-
-  if(checkContigDoubleSize(dimgObj,imgdim[0]*imgdim[1])!=0){
-    printf("Error, dimg must have shape same as img (%ld, %ld), be contiguous and float64\n",imgdim[0],imgdim[1]);
-    return NULL;
-  }
+  if(dimgOrNoneObj->ob_type==&PyArray_Type){//it is an array
+    dimgObj=(PyArrayObject*)dimgOrNoneObj;
+    if(checkContigDoubleSize(dimgObj,imgdim[0]*imgdim[1])!=0){
+      printf("Error, dimg must have shape same as img (%ld, %ld), be contiguous and float64\n",imgdim[0],imgdim[1]);
+      return NULL;
+    }
+  }//else
+  //printf("No ygradients specified - will compute on-the-fly (in threaded version)\n");
   if(checkContigDouble(imgObj)!=0){
     printf("img should be contiguous and float64\n");
     return NULL;
@@ -521,7 +533,10 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
   }
   dimsize=sizeof(interpStruct);
   s->img=(double*)PyArray_DATA(imgObj);
-  s->dimg=(double*)PyArray_DATA(dimgObj);
+  if(dimgObj!=NULL)
+    s->dimg=(double*)PyArray_DATA(dimgObj);
+  else//for version not using gradients (threaded only)
+    s->dimg=NULL;
   s->out=(float*)PyArray_DATA(outObj);
   ang=(float)(deg*M_PI/180.);
   s->r=r;
@@ -531,11 +546,352 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
   s->dim[1]=(int)dim[1];
   s->imgdim[0]=(int)imgdim[0];
   s->imgdim[1]=(int)imgdim[1];
+  if(nthreads<1){
+    if(dim[0]<512 && dim[1]<512){//for small simulations, don't bother threading. Note, this value of 512 was chosen arbitrarily without any testing.
+      nthreads=1;
+    }else{
+      nthreads = sysconf(_SC_NPROCESSORS_ONLN)/2;
+      if(nthreads<1)
+	nthreads = 1;
+    }
+    printf("nthreads set to %d for initialiseInterp (this will only affect the threaded version: rotShiftWrapSplineImageThreaded)\n",nthreads);
+    nblockx=1;
+    nblocky=nthreads;
+  }
+  if(nblockx*nblocky<nthreads){
+    nthreads=nblockx*nblocky;
+    printf("Reducing nthreads to number of blocks: %d\n",nthreads);
+  }
+  if((nblockx*nblocky)%nthreads!=0){
+    printf("warning in iscrnmodule - number of blocks (%d,%d) is not a multiple of number of threads (%d) - may lose some efficiency here\n",nblocky,nblockx,nthreads);
+  }
   s->nthreads=nthreads;
   s->nblockx=nblockx;
   s->nblocky=nblocky;
+  
   return PyArray_SimpleNewFromData(1,&dimsize,NPY_UBYTE,s);  
 }
+void *rswsiWorkerNoGrad(void *threaddata){
+  //Version without using precomputed gradients.  Slower (but doesn't need the precoputed gradients so saves memory).
+  threadStruct *t=(threadStruct*)threaddata;
+  interpStruct *ss=t->s;
+  int threadno=t->threadno;
+  int outofrange[4];
+  float points[4];
+  float sx,sy;
+  int wrappoint;//,nthreads,nblockx,nblocky;
+  float s;
+  float c;
+  int *dim;
+  int *imgdim;
+  double *img;
+  //double *dimg;
+  float *out;
+  int i,yy,xx;
+  float x,y,xold,yold;
+  int x1;
+  int y1,y2,y1x1,y2x1;
+  float xm,ym;
+  float k1,k2,Y1,Y2,a,b,val;
+  float const0,const1,const2,const3;
+  int tx,ty,ystart,yend,xstart,xend;
+  float mult0,mult3;
+  int y0,y3,y3x1,y0x1;
+  //printf("without dimg\n");
+  //each thread may have more than 1 block to do.
+  sx=ss->sx;
+  sy=ss->sy;
+  wrappoint=ss->wrappoint;
+  dim=ss->dim;
+  imgdim=ss->imgdim;
+  img=ss->img;
+  //dimg=ss->dimg;
+  out=ss->out;
+  const0=-dim[0]/2.+0.5;
+  const1=-dim[1]/2.+0.5;
+  const2=imgdim[0]/2.-.5-sy+wrappoint;
+  const3=imgdim[1]/2.-.5-sx;
+  s=ss->s;//(float)(r*sin(ang));
+  c=ss->c;//(float)(r*cos(ang));
+
+  while(threadno<ss->nblockx*ss->nblocky){
+    tx=threadno%ss->nblockx;
+    ty=threadno/ss->nblockx;
+    ystart=ty*(dim[0]/ss->nblocky);
+    yend=ystart+(dim[0]/ss->nblocky);
+    if(ty==ss->nblocky-1)
+      yend=dim[0];
+    xstart=tx*(dim[1]/ss->nblockx);
+    xend=xstart+(dim[1]/ss->nblockx);
+    if(tx==ss->nblockx-1)
+      xend=dim[1];
+    //printf("Block for thread %d: %d->%d, %d->%d\n",threadno,ystart,yend,xstart,xend);
+    for(yy=ystart;yy<yend;yy++){
+      y=yy+const0;//-dim[0]/2.+0.5;
+      for(xx=xstart;xx<xend;xx++){
+	x=xx+const1;//-dim[1]/2.+0.5;
+	yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+	x1=(int)floorf(xold);
+	//First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+	y1=(int)floorf(yold);
+	if(y1>=imgdim[0]){//wrap it
+	  y1-=imgdim[0];
+	  yold-=imgdim[0];
+	}
+	y2=y1+1;
+	xm=xold-x1;
+	ym=yold-y1;
+	if(y2==imgdim[0])
+	  y2=0;
+	x1--;
+	//WITHOUT YGRADIENTS
+	mult3=0.5;
+	mult0=0.5;
+	y0=y1-1;
+	y3=y1+2;
+	if(y3>=imgdim[0])
+	  y3-=imgdim[0];
+	if(y3==wrappoint){
+	  y3=y2;
+	  mult3=1.;
+	}
+	if(y0<0)
+	  y0+=imgdim[0];
+	if(y0==wrappoint){//underwrapped!
+	  y0=y1;
+	  mult0=1.;
+	}
+	y0x1=y0*imgdim[1]+x1;
+	y3x1=y3*imgdim[1]+x1;
+	//END WITHOUT YGRADIENTS
+	y1x1=y1*imgdim[1]+x1;
+	y2x1=y2*imgdim[1]+x1;
+	
+	//4 interpolations in Y direction using precomputed gradients.
+	for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	  if(x1+i>=0 && x1+i<imgdim[1]){
+	    //k1=(float)dimg[y1x1+i];
+	    //k2=(float)dimg[y2x1+i];
+	    k1=(float)((img[y2x1+i]-img[y0x1+i])*mult0);
+	    k2=(float)((img[y3x1+i]-img[y1x1+i])*mult3);
+
+	    Y1=(float)img[y1x1+i];
+	    Y2=(float)img[y2x1+i];
+	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	    points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	    outofrange[i]=0;
+	  }else{
+	    outofrange[i]=1;
+	  }
+	}
+	//and now interpolate in X direction (using points).
+	if(outofrange[0])
+	  k1=points[2]-points[1];
+	else
+	  k1=(points[2]-points[0])*.5;
+	if(outofrange[3])
+	  k2=points[2]-points[1];
+	else
+	  k2=(points[3]-points[1])*.5;
+	if(outofrange[1] || outofrange[2]){
+	  printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	}else{
+	  Y1=points[1];
+	  Y2=points[2];
+	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	  val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	  out[yy*dim[1]+xx]+=val;
+	}
+      }
+    }
+
+
+    threadno+=ss->nthreads;//increment to get the next set of blocks...
+  }
+  
+  return NULL;
+}
+
+
+void *rswsiWorker(void *threaddata){
+  threadStruct *t=(threadStruct*)threaddata;
+  interpStruct *ss=t->s;
+  int threadno=t->threadno;
+  int outofrange[4];
+  float points[4];
+  float sx,sy;
+  int wrappoint;//,nthreads,nblockx,nblocky;
+  float s;
+  float c;
+  int *dim;
+  int *imgdim;
+  double *img;
+  double *dimg;
+  float *out;
+  int i,yy,xx;
+  float x,y,xold,yold;
+  int x1;
+  int y1,y2,y1x1,y2x1;
+  float xm,ym;
+  float k1,k2,Y1,Y2,a,b,val;
+  float const0,const1,const2,const3;
+  int tx,ty,ystart,yend,xstart,xend;
+  //printf("With dimg\n");
+  //each thread may have more than 1 block to do.
+  sx=ss->sx;
+  sy=ss->sy;
+  wrappoint=ss->wrappoint;
+  dim=ss->dim;
+  imgdim=ss->imgdim;
+  img=ss->img;
+  dimg=ss->dimg;
+  out=ss->out;
+  const0=-dim[0]/2.+0.5;
+  const1=-dim[1]/2.+0.5;
+  const2=imgdim[0]/2.-.5-sy+wrappoint;
+  const3=imgdim[1]/2.-.5-sx;
+  s=ss->s;//(float)(r*sin(ang));
+  c=ss->c;//(float)(r*cos(ang));
+
+  while(threadno<ss->nblockx*ss->nblocky){
+    tx=threadno%ss->nblockx;
+    ty=threadno/ss->nblockx;
+    ystart=ty*(dim[0]/ss->nblocky);
+    yend=ystart+(dim[0]/ss->nblocky);
+    if(ty==ss->nblocky-1)
+      yend=dim[0];
+    xstart=tx*(dim[1]/ss->nblockx);
+    xend=xstart+(dim[1]/ss->nblockx);
+    if(tx==ss->nblockx-1)
+      xend=dim[1];
+    //printf("Block for thread %d: %d->%d, %d->%d\n",threadno,ystart,yend,xstart,xend);
+    for(yy=ystart;yy<yend;yy++){
+      y=yy+const0;//-dim[0]/2.+0.5;
+      for(xx=xstart;xx<xend;xx++){
+	x=xx+const1;//-dim[1]/2.+0.5;
+	yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+	x1=(int)floorf(xold);
+	//First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+	y1=(int)floorf(yold);
+	if(y1>=imgdim[0]){//wrap it
+	  y1-=imgdim[0];
+	  yold-=imgdim[0];
+	}
+	y2=y1+1;
+	xm=xold-x1;
+	ym=yold-y1;
+	if(y2==imgdim[0])
+	  y2=0;
+	x1--;
+	y1x1=y1*imgdim[1]+x1;
+	y2x1=y2*imgdim[1]+x1;
+	
+	//4 interpolations in Y direction using precomputed gradients.
+	for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	  if(x1+i>=0 && x1+i<imgdim[1]){
+	    k1=(float)dimg[y1x1+i];
+	    k2=(float)dimg[y2x1+i];
+	    Y1=(float)img[y1x1+i];
+	    Y2=(float)img[y2x1+i];
+	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	    points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	    outofrange[i]=0;
+	  }else{
+	    outofrange[i]=1;
+	  }
+	}
+	//and now interpolate in X direction (using points).
+	if(outofrange[0])
+	  k1=points[2]-points[1];
+	else
+	  k1=(points[2]-points[0])*.5;
+	if(outofrange[3])
+	  k2=points[2]-points[1];
+	else
+	  k2=(points[3]-points[1])*.5;
+	if(outofrange[1] || outofrange[2]){
+	  printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	}else{
+	  Y1=points[1];
+	  Y2=points[2];
+	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	  val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	  out[yy*dim[1]+xx]+=val;
+	}
+      }
+    }
+
+
+    threadno+=ss->nthreads;//increment to get the next set of blocks...
+  }
+  
+  return NULL;
+}
+
+
+
+PyObject *py_rotShiftWrapSplineImageThreaded(PyObject *self,PyObject *args){
+  interpStruct *ss;
+  pthread_t *tid;
+  threadStruct *ts;
+  PyArrayObject *structObj;
+  float sx,sy;
+  int wrappoint,i;
+  int *imgdim;
+  if(!PyArg_ParseTuple(args,"O!ffi",&PyArray_Type,&structObj,&sx,&sy,&wrappoint)){
+    printf("Args for rotShiftWrapSplineImage should be:\n");
+    printf("struct returned from initialiseInterp,shiftx,shifty,wrappoint\n");
+    return NULL;
+  }
+  if(checkContigSize(structObj,sizeof(interpStruct))!=0){
+    printf("interpStruct should be initialised with the initialiseInterp method of iscrn module\n");
+    return NULL;
+  }
+  ss=(interpStruct*)(structObj->data);
+
+  imgdim=ss->imgdim;
+  ss->wrappoint=wrappoint;
+  ss->sx=sx;
+  ss->sy=sy;
+  if(wrappoint>imgdim[0] || wrappoint<0){
+    printf("Illegal wrappoint in iscrnmodule %d\n",wrappoint);
+    return NULL;
+  }
+  if((tid=malloc(sizeof(pthread_t)*ss->nthreads))==NULL){
+    printf("Unable to alloc tid in iscrnmodule\n");
+    return NULL;
+  }
+  if((ts=malloc(sizeof(threadStruct)*ss->nthreads))==NULL){
+    printf("unable to alloc ts in iscrnmodule\n");
+    return NULL;
+  }
+  Py_BEGIN_ALLOW_THREADS;
+  for(i=0;i<ss->nthreads;i++){
+    ts[i].s=ss;
+    ts[i].threadno=i;
+    if(ss->dimg==NULL)
+      pthread_create(&tid[i],NULL,rswsiWorkerNoGrad,&ts[i]);
+    else
+      pthread_create(&tid[i],NULL,rswsiWorker,&ts[i]);
+  }
+  //now wait for completion
+  for(i=0;i<ss->nthreads;i++){
+    pthread_join(tid[i],NULL);
+  }
+  Py_END_ALLOW_THREADS;
+  free(tid);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
+
 
 
 PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
@@ -544,7 +900,7 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
   float points[4];
   //float ang;
   float sx,sy;
-  int wrappoint,nthreads,nblockx,nblocky;
+  int wrappoint;//,nthreads,nblockx,nblocky;
   //PyArrayObject *imgObj, *dimgObj, *outObj;
   PyArrayObject *structObj;
   float s;
@@ -582,6 +938,8 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
     printf("Illegal wrappoint in iscrnmodule %d\n",wrappoint);
     return NULL;
   }
+  Py_BEGIN_ALLOW_THREADS;
+
   const0=-dim[0]/2.+0.5;
   const1=-dim[1]/2.+0.5;
   const2=imgdim[0]/2.-.5-sy+wrappoint;
@@ -646,6 +1004,8 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
       }
     }
   }
+  Py_END_ALLOW_THREADS;
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -714,6 +1074,8 @@ PyObject *py_rotShiftWrapSplineImageNoInit(PyObject *self,PyObject *args){
     printf("Illegal wrappoint in iscrnmodule %d\n",wrappoint);
     return NULL;
   }
+  Py_BEGIN_ALLOW_THREADS;
+
   const0=-dim[0]/2.+0.5;
   const1=-dim[1]/2.+0.5;
   const2=imgdim[0]/2.-.5-sy+wrappoint;
@@ -775,6 +1137,7 @@ PyObject *py_rotShiftWrapSplineImageNoInit(PyObject *self,PyObject *args){
       }
     }
   }
+  Py_END_ALLOW_THREADS;
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -793,6 +1156,7 @@ static PyMethodDef iscrn_methods[] = 	{
   {"free", py_free, METH_VARARGS}, 
   {"initialiseInterp",py_initialiseInterp,METH_VARARGS},
   {"rotShiftWrapSplineImage", py_rotShiftWrapSplineImage, METH_VARARGS},
+  {"rotShiftWrapSplineImageThreaded", py_rotShiftWrapSplineImageThreaded, METH_VARARGS},
   {"rotShiftWrapSplineImageNoInit", py_rotShiftWrapSplineImageNoInit, METH_VARARGS},
   {NULL, NULL} };
 
