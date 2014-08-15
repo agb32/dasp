@@ -148,9 +148,9 @@ def computeInitialScreen(config,idstr=None):
     ##we first compute the physical size of the array required to perform the FFT
     so=config.searchOrder
     if idstr!=None:
-        searchOrder=["infScrn_"+idstr,"infScrn","globals"]
+        searchOrder=["iscrn_"+idstr,"iscrn","globals"]
     else:
-        searchOrder=["infScrn","globals"]
+        searchOrder=["iscrn","globals"]
     config.setSearchOrder(searchOrder)
     Dtel=config.getVal("telDiam")#diameter in m.
     dpix=config.getVal("npup")#diameter in pixels.
@@ -211,7 +211,7 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
     #rowAdd=-vWind/pixScale*tstep
 
     if seed==None:
-        print "ERROR (possibly): computeInitialScreen - seed is None, so timer will be used, meaning that the initial screen cannot be replicated, so if both infScrn and infAtmos try to create, you will get a bad phasescreen.  If you wish to use a random seed, use int(time.time()) in the parameter file - though this will only work if all running in the same process."
+        print "ERROR (possibly): computeInitialScreen - seed is None, so timer will be used, meaning that the initial screen cannot be replicated, so if both iscrn and infAtmos try to create, you will get a bad phasescreen.  If you wish to use a random seed, use int(time.time()) in the parameter file - though this will only work if all running in the same process."
     if L0>=Dtel:
         scrnSize=2*L0
     elif Dtel>=2*L0:
@@ -308,7 +308,7 @@ class iscrn(base.aobase.aobase):
         ##Precision of the output screen array
         self.dataType="d"#config.getVal("dataType")
         if self.dataType not in ["d",na.float64]:
-            print "WARNING - infScrn - it is not known whether statistics for infScrn will be right if not Float64.  Would be good if someone could test this... ie is it true Kolmogorov/von Karman"
+            print "WARNING - iscrn - it is not known whether statistics for iscrn will be right if not Float64.  Would be good if someone could test this... ie is it true Kolmogorov/von Karman"
         self.tstep=config.getVal("tstep")
         self.useCmodule=config.getVal("useCmodule",default=1)
         self.sendWholeScreen=self.config.getVal("sendWholeScreen",default=0)
@@ -536,7 +536,7 @@ class iscrn(base.aobase.aobase):
 
         ##we compute the inverse of ZZT
         t0=time.time()
-        print "infScrn - doing cho_solve 0"
+        print "iscrn - doing cho_solve 0"
         try:
             ZZT_inv=LA.cho_solve(LA.cho_factor(ZZT),na.identity(nbCol*dpix))
         except:
@@ -544,7 +544,7 @@ class iscrn(base.aobase.aobase):
             ZZT_inv=LA.inv(ZZT)
         
         ##we compute a Fortran contiguous matrix
-        print "infScrn - doing matrix dot %g"%(time.time()-t0)
+        print "iscrn - doing matrix dot %g"%(time.time()-t0)
         matrixA=matrixdot(XZT,ZZT_inv)
         matrixAStart=na.empty(matrixA.shape,dtype=na.float64)#,order="F")
         ##we fill the matrix
@@ -555,13 +555,13 @@ class iscrn(base.aobase.aobase):
             matrixAStart[:,jstart:jend]=matrixA[:,-(jstart+1):-(jend+1):-1][:,::-1]
         
         ##we compute now the B matrix
-        print "infScrn - doing 2nd matrix dot %g"%(time.time()-t0)
+        print "iscrn - doing 2nd matrix dot %g"%(time.time()-t0)
         BBt=XXT-matrixdot(matrixA,ZXT)
-        print "infScrn - doing svd %g"%(time.time()-t0)
+        print "iscrn - doing svd %g"%(time.time()-t0)
         u,w,vt=LA.svd(BBt)
         L=na.sqrt(w)
         matrixB=(u*L[na.newaxis,:]).copy()#multiplication of columns of U by diagonal elements
-        print "infScrn - done A and B matricees %g"%(time.time()-t0)
+        print "iscrn - done A and B matricees %g"%(time.time()-t0)
         return matrixA,matrixB,matrixAStart
 
     ##The next functions are the functions used to add new rows at the end of the phase screen
@@ -695,21 +695,21 @@ class iscrn(base.aobase.aobase):
         paramList.append(base.dataType.dataType(description="dataType",typ="eval",val="this.globals.fpDataType",comment="Array numpy data type"))
         paramList.append(base.dataType.dataType(description="l0",typ="f",val="30.0",comment="TODO: turbulence outer scale"))
         paramList.append(base.dataType.dataType(description="r0",typ="f",val="0.15",comment="TODO: Fried parameter (m)"))
-        #paramList.append(base.dataType.dataType(description="strength",typ="eval",val="this.infScrn.strenghts['0m']",comment="TODO: layer strength (a float, initially a dictionary holding all strengths)"))
-        #paramList.append(base.dataType.dataType(description="windDirection",typ="eval",val="this.infAtmos.windDirection['0m']",comment="TODO: Wind direction (degrees, going from -180 to 180) - include as dict in infAtmos module, with keys equal to layer heights, and then select the correct one for each infScrn module."))
-        #paramList.append(base.dataType.dataType(description="vWind",typ="eval",val="this.infAtmos.vWind['0m']",comment="TODO: Wind velocity (m/s) - include as dict in infAtmos module, with keys equal to layer heights, and then select the correct one for each infScrn module."))
+        #paramList.append(base.dataType.dataType(description="strength",typ="eval",val="this.iscrn.strenghts['0m']",comment="TODO: layer strength (a float, initially a dictionary holding all strengths)"))
+        #paramList.append(base.dataType.dataType(description="windDirection",typ="eval",val="this.infAtmos.windDirection['0m']",comment="TODO: Wind direction (degrees, going from -180 to 180) - include as dict in infAtmos module, with keys equal to layer heights, and then select the correct one for each iscrn module."))
+        #paramList.append(base.dataType.dataType(description="vWind",typ="eval",val="this.infAtmos.vWind['0m']",comment="TODO: Wind velocity (m/s) - include as dict in infAtmos module, with keys equal to layer heights, and then select the correct one for each iscrn module."))
         #paramList.append(base.dataType.dataType(description="offset",typ="i",val="1",comment="wind offset in pixels (integer)"))
         paramList.append(base.dataType.dataType(description="nbCol",typ="i",val="2",comment="Number of columns or rows used to create a new one"))
         #paramList.append(base.dataType.dataType(description="initPhsSeed",typ="eval",val="None",comment="Random number generator seed"))
-        #paramList.append(base.dataType.dataType(description="scrnSize",typ="code",val="from science.infScrn import computeScrnSize;scrnSize=computeScrnSize(this.infAtmos.sourceThetaDict,this.infAtmos.sourcePhiDict,this.globals.ntel,this.globals.npup,this.globals.telDiam,this.infAtmos.altitude)",comment="Screen sizes"))
-        #paramList.append(base.dataType.dataType(description="scrnXPxls",typ="eval",val="this.infScrn.scrnSize['0m'][0]",comment="TODO: select the screen size for this layer."))        
-        #paramList.append(base.dataType.dataType(description="scrnYPxls",typ="eval",val="this.infScrn.scrnSize['0m'][1]",comment="TODO: select the screen size for this layer."))        
+        #paramList.append(base.dataType.dataType(description="scrnSize",typ="code",val="from science.iscrn import computeScrnSize;scrnSize=computeScrnSize(this.infAtmos.sourceThetaDict,this.infAtmos.sourcePhiDict,this.globals.ntel,this.globals.npup,this.globals.telDiam,this.infAtmos.altitude)",comment="Screen sizes"))
+        #paramList.append(base.dataType.dataType(description="scrnXPxls",typ="eval",val="this.iscrn.scrnSize['0m'][0]",comment="TODO: select the screen size for this layer."))        
+        #paramList.append(base.dataType.dataType(description="scrnYPxls",typ="eval",val="this.iscrn.scrnSize['0m'][1]",comment="TODO: select the screen size for this layer."))        
         paramList.append(base.dataType.dataType(description="tstep",typ="f",val="0.005",comment="TODO: timestep."))        
         #paramList.append(base.dataType.dataType(description="degRad",typ="eval",val="2*Numeric.pi/360.",comment="degrees to radians."))        
         paramList.append(base.dataType.dataType(description="stepFunction",typ="eval",val="None",comment="For modelling phasesteps."))        
         paramList.append(base.dataType.dataType(description="r0Function",typ="eval",val="None",comment="R0 as a function of time."))        
         paramList.append(base.dataType.dataType(description="saveInfPhaseCovMatrix",typ="i",val="0",comment="Save the inf phase covariance matrix."))        
-        paramList.append(base.dataType.dataType(description="atmosGeom",typ="code",val="import util.atmos;atmosGeom=util.atmos.geom(layerDict, sourceList,ntel,npup,telDiam)",comment="TODO: atmosGeom with arguments layerDict, sourceList,ntel,npup,telDiam.  layerDict is a dictionar with keys equal to the layer name (idstr used by infScrn object) and values equal to a tuple of (height, direction, speed, strength, initSeed), and sourceList is a list of ources equal to a tuple of (idstr (infAtmos), theta, phi, alt, nsubx or None)."))
+        paramList.append(base.dataType.dataType(description="atmosGeom",typ="code",val="import util.atmos;atmosGeom=util.atmos.geom(layerDict, sourceList,ntel,npup,telDiam)",comment="TODO: atmosGeom with arguments layerDict, sourceList,ntel,npup,telDiam.  layerDict is a dictionar with keys equal to the layer name (idstr used by iscrn object) and values equal to a tuple of (height, direction, speed, strength, initSeed), and sourceList is a list of ources equal to a tuple of (idstr (infAtmos), theta, phi, alt, nsubx or None)."))
 
         return paramList
 	

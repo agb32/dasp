@@ -40,18 +40,18 @@ def calcLayerOffset(scrnSize,thetas,phis,altitude,npup,ntel,telDiam):
 
 
 class iatmos(base.aobase.aobase):
-    """Create an infAtmos object.  This object can take several iscrn
+    """Create an iatmos object.  This object can take several iscrn
     objects as parents, and returns the pupil phase for a given source
 
-    Thoughts on resource sharing: each infAtmos object stores phasescreens from
+    Thoughts on resource sharing: each iatmos object stores phasescreens from
     the nLayers iscrn.thisObjDict objects.  This is potentially a large amount of data
-    when replicated over a number of different infAtmos objects (different sky
+    when replicated over a number of different iatmos objects (different sky
     directions).  However, the phasescreens should be identical.  So, we can
-    create 1 infAtmos object which resource shares between all the others.
+    create 1 iatmos object which resource shares between all the others.
 
-    Alternatively, we have 1 infAtmos object which is able to compute
+    Alternatively, we have 1 iatmos object which is able to compute
     lots of directions from one call to generateNext.  You would then only
-    ever need one infAtmos module running on a given node, serving up pupil
+    ever need one iatmos module running on a given node, serving up pupil
     phase for lots of different directions, ie the outputData would be 3D.
 
     Having a resource sharing object is best - particularly if you have lots
@@ -130,7 +130,7 @@ class iatmos(base.aobase.aobase):
                         print "iatmos: Copied initial screen from parent %s[%d]"%(str(pkey),str(key))
                         print "TODO: iatmos - is this copy of initial screen needed?"
                     except:
-                        print "infAtmos: cannot copy parent screen %s - generating directly."%str(key)
+                        print "iatmos: cannot copy parent screen %s - generating directly."%str(key)
                         self.phaseScreens[key]=numpy.array(iscrn.computeInitialScreen(self.config,idstr=str(key)))
                     if self.phaseScreens[key].dtype.char!=self.scrnDataType:
                         raise Exception("iatmos and iscrn should use the same dataType value %s %s"%(self.phaseScreens[key].dtype.char,self.scrnDataType))
@@ -177,7 +177,7 @@ class iatmos(base.aobase.aobase):
             #    parent=self.parentList[i]
             #    self.initialise(parent,idstr)
     def newParent(self,parent,idstr=None):
-        raise Exception("infAtmos - not yet able to accept new parent... (needs some extra coding)")
+        raise Exception("iatmos - not yet able to accept new parent... (needs some extra coding)")
     def initialise(self,parentDict,idstr):
         """note, parent should be a dictionary here...
         This is called both from the __init__ method, and from the addNewIdObject method.  
@@ -185,7 +185,7 @@ class iatmos(base.aobase.aobase):
         """
         if type(parentDict)!=type({}):#expecting a dictionary of parents
             parentDict={"L0":parentDict}
-            print "WARNING - infAtmos: I was expecting a dictionary for parent here..."
+            print "WARNING - iatmos: I was expecting a dictionary for parent here..."
         if not set(parentDict)==set(self.parentDict):#check they have teh same parents (main and resource sharer).
             raise Exception("iatmos - all resource sharing objects must have same parents... (though whether they use them can be selected in the param file")
         this=base.aobase.resourceSharer(parentDict,self.config,idstr,self.moduleName)
@@ -227,7 +227,7 @@ class iatmos(base.aobase.aobase):
         """
         t1=time.time()
         if self.debug:
-            print "infAtmos: GenerateNext (debug=%s)"%str(self.debug)
+            print "iatmos: GenerateNext (debug=%s)"%str(self.debug)
         if self.generate==1:
             if self.newDataWaiting:
                 nvalid=0
@@ -238,7 +238,7 @@ class iatmos(base.aobase.aobase):
                         if self.parent[pkey].dataValid==1:
                             if self.inputData[pkey] is not self.parent[pkey].outputData:
                                 #create the arrays...
-                                #print "Allocating infAtmos arrays (hopefully this only happens during first iteration...)"
+                                #print "Allocating iatmos arrays (hopefully this only happens during first iteration...)"
                                 self.inputData[pkey]=self.parent[pkey].outputData
                                 if self.inputData[pkey].dtype.char!=self.scrnDataType:
                                     raise Exception("iatmos and iscrn dataTypes must be same")
@@ -272,7 +272,7 @@ class iatmos(base.aobase.aobase):
         else:
             self.dataValid=0
         if self.debug:
-            print "infAtmos: done atmos generateNext (debug=%s)"%str(self.debug)
+            print "iatmos: done atmos generateNext (debug=%s)"%str(self.debug)
         self.generateNextTime=time.time()-t1
 
 
@@ -482,5 +482,5 @@ class iatmos(base.aobase.aobase):
         paramList.append(base.dataType.dataType(description="ntel",typ="eval",val="this.globals.npup",comment="Pixels for telescope"))
         paramList.append(base.dataType.dataType(description="pupil",typ="code",val="import util.tel;pupil=util.tel.Pupil(this.globals.npup,this.globals.ntel/2,this.globals.ntel/2*this.globals.telSec/this.globals.telDiam,this.globals.wfs_nsubx,this.globals.wfs_minarea)",comment="Telescope pupil"))
         paramList.append(base.dataType.dataType(description="tstep",typ="f",val="0.005",comment="TODO: timestep."))        
-        paramList.append(base.dataType.dataType(description="atmosGeom",typ="code",val="import util.atmos;atmosGeom=util.atmos.geom(layerDict, sourceList,ntel,npup,telDiam)",comment="TODO: atmosGeom with arguments layerDict, sourceList,ntel,npup,telDiam.  layerDict is a dictionar with keys equal to the layer name (idstr used by iscrn object) and values equal to a tuple of (height, direction, speed, strength, initSeed), and sourceList is a list of ources equal to a tuple of (idstr (infAtmos), theta, phi, alt, nsubx or None)."))
+        paramList.append(base.dataType.dataType(description="atmosGeom",typ="code",val="import util.atmos;atmosGeom=util.atmos.geom(layerDict, sourceList,ntel,npup,telDiam)",comment="TODO: atmosGeom with arguments layerDict, sourceList,ntel,npup,telDiam.  layerDict is a dictionar with keys equal to the layer name (idstr used by iscrn object) and values equal to a tuple of (height, direction, speed, strength, initSeed), and sourceList is a list of ources equal to a tuple of (idstr (iatmos), theta, phi, alt, nsubx or None)."))
         return paramList
