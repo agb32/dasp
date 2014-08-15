@@ -190,7 +190,7 @@ class geom:
             layerAlt=self.layerHeight(altkey)
             if rotateDirections:#this comes from the new phase screen method (generated along 1 axis and then rotated in iatmos).  To work out the max size of this screen, we consider the rotation here.  
                 wd=self.layerWind(altkey)
-                rotangle=(wd-90)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
+                rotangle=(wd-0)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
             for key in self.sourceDict.keys():
                 #xposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.cos(self.sourcePhi(key)*degrad)))
                 #yposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.sin(self.sourcePhi(key)*degrad)))
@@ -240,7 +240,7 @@ class geom:
             ypos=[]
             if rotateDirections:#this comes from the new phase screen method (generated along 1 axis and then rotated in iatmos).  To work out the max size of this screen, we consider the rotation here.  
                 wd=self.layerWind(altKey)
-                rotangle=(wd-90)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
+                rotangle=(wd-0)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             for sourceKey in self.sourceDict.keys():
                 xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad-rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
@@ -1023,9 +1023,9 @@ class iatmos:
                 if not self.interpStruct.has_key(key):
                     #print "Initialising atmos interpolation"
                     if self.ygradients==None:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                     else:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                 print "%s %g %g %gxxx"%(key,x,y,shift)
                 cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
                 print "Here %s"%key
