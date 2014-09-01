@@ -75,28 +75,29 @@ import util.dot as quick # will replace numpy.dot when I implement it for double
 matrixdot=quick.dot#matrix.dot
 
     
-def computeScrnSize(thetas,phis,ntel,npup,telDiam,altitude,zenith):
-    """Zenith in degrees"""
-    zenith=0.
-    arcsecrad=2*na.pi/360./3600.
-    degrad=2*na.pi/360.
-    scrnSize={}
-    for altkey in altitude.keys():
-        xposlist=[]
-        yposlist=[]
-        layerAlt=altitude[altkey]
-        for key in thetas.keys():
-            xposlist.append(layerAlt/numpy.cos(zenith*degrad)*na.fabs(na.tan(thetas[key]*arcsecrad)*na.cos(phis[key]*degrad)))
-            yposlist.append(layerAlt*na.fabs(na.tan(thetas[key]*arcsecrad)*na.sin(phis[key]*degrad)))
-        maxx=max(xposlist)
-        minx=min(xposlist)
-        maxy=max(yposlist)
-        miny=min(yposlist)
-        scrnXPxls=int(na.ceil(maxx*ntel/telDiam+npup+na.ceil(minx*ntel/telDiam))+1)
-        scrnYPxls=int(na.ceil(maxy*ntel/telDiam+npup+na.ceil(miny*ntel/telDiam))+1)
-        scrnSize[altkey]=(scrnXPxls,scrnYPxls)
-    print "scrnSize: %s"%str(scrnSize)
-    return scrnSize
+# def computeScrnSize(thetas,phis,ntel,npup,telDiam,altitude,zenith):
+#     """Zenith in degrees"""
+    
+#     zenith=0.
+#     arcsecrad=2*na.pi/360./3600.
+#     degrad=2*na.pi/360.
+#     scrnSize={}
+#     for altkey in altitude.keys():
+#         xposlist=[]
+#         yposlist=[]
+#         layerAlt=altitude[altkey]
+#         for key in thetas.keys():
+#             xposlist.append(layerAlt/numpy.cos(zenith*degrad)*na.fabs(na.tan(thetas[key]*arcsecrad)*na.cos(phis[key]*degrad)))
+#             yposlist.append(layerAlt*na.fabs(na.tan(thetas[key]*arcsecrad)*na.sin(phis[key]*degrad)))
+#         maxx=max(xposlist)
+#         minx=min(xposlist)
+#         maxy=max(yposlist)
+#         miny=min(yposlist)
+#         scrnXPxls=int(na.ceil(maxx*ntel/telDiam+npup+na.ceil(minx*ntel/telDiam))+1)
+#         scrnYPxls=int(na.ceil(maxy*ntel/telDiam+npup+na.ceil(miny*ntel/telDiam))+1)
+#         scrnSize[altkey]=(scrnXPxls,scrnYPxls)
+#     print "scrnSize: %s"%str(scrnSize)
+#     return scrnSize
 
 def distanceMap(n,m=None,dy=0,dx=0,natype=na.float32):
     """
