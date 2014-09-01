@@ -896,11 +896,14 @@ class iatmos:
         #We need to know the x and y shifts into the layer where we start interpolating from.  The phasescreen is always rotated about its centre.
 
         self.positionDict={}
-        #compute centre of the source.
-        xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos((self.sourcePhi-0)*degRad)#xxx 90?
-        ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin((self.sourcePhi-0)*degRad)#xxx 90?
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
+                #compute centre of the source.
+                rotangle=self.windDirection[key]*numpy.pi/180.
+                xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad-rotangle)#xxx 90?
+                ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad-rotangle)#xxx 90?
+
+
                 #use the layer...
                 shape=self.phaseScreens[key].shape
                 #compute where the middle of the pupil array should be within the phase array.
