@@ -135,8 +135,8 @@ class iatmos(base.aobase.aobase):
                     if self.phaseScreens[key].dtype.char!=self.scrnDataType:
                         raise Exception("iatmos and iscrn should use the same dataType value %s %s"%(self.phaseScreens[key].dtype.char,self.scrnDataType))
                     ps=self.phaseScreens[key]
-                    if ps.shape!=(atmosGeom.getScrnYPxls(key,rotateDirections=1),atmosGeom.getScrnXPxls(key,rotateDirections=1)):
-                        raise Exception("Phase screen size unexpected in iatmos: %s -> %s"%(str(ps.shape),str((atmosGeom.getScrnYPxls(key,rotateDirections=1),atmosGeom.getScrnXPxls(key,rotateDirections=1)))))
+                    if ps.shape!=(self.atmosGeom.getScrnYPxls(key,rotateDirections=1),self.atmosGeom.getScrnXPxls(key,rotateDirections=1)):
+                        raise Exception("Phase screen size unexpected in iatmos: %s -> %s"%(str(ps.shape),str((self.atmosGeom.getScrnYPxls(key,rotateDirections=1),self.atmosGeom.getScrnXPxls(key,rotateDirections=1)))))
                     if self.ygradient!=None:
                         self.ygradient[key]=numpy.empty(ps.shape,self.scrnDataType)
                         self.ygradient[key][1:-1]=(ps[2:]-ps[:-2])*0.5
