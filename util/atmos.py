@@ -261,13 +261,13 @@ class geom:
         #else:
             if rotateDirections:
                 if layerXOffset[altKey]>0:
-                    layerXOffset[altKey]+=0.5
-                elif layerXOffset[altKey]<0:
                     layerXOffset[altKey]-=0.5
+                elif layerXOffset[altKey]<0:
+                    layerXOffset[altKey]+=0.5
                 if layerYOffset[altKey]>0:
-                    layerYOffset[altKey]+=0.5
-                elif layerYOffset[altKey]<0:
                     layerYOffset[altKey]-=0.5
+                elif layerYOffset[altKey]<0:
+                    layerYOffset[altKey]+=0.5
         self.layerOffset=(layerXOffset,layerYOffset)
         #print self.layerOffset
         return self.layerOffset
