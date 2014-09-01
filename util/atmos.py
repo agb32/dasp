@@ -1027,7 +1027,9 @@ class iatmos:
                     else:
                         self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                 #print "%s %g %g %gxxx"%(key,x,y,shift)
-                cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+                nout=cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+                if nout!=0:
+                    print "%d points out of range in interpolation: %s [%g, %g, %g]"%(nout,key,x,y,scale) 
                 #print "Here %s"%key
                 #print hex(self.interpStruct[key].view(numpy.uint64)[0]),hex(self.phaseScreens[key].__array_interface__["data"][0])
                 #cmod.iscrn.rotShiftWrapSplineImageNoInit(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale,1,1,1)
@@ -1193,7 +1195,10 @@ class iatmos:
         self.outputData[:]=0
         #Now, rotate the correct part of the phase screen into the outputData.   Add 90 because of the way the phase layers are defined (moving up).
         #This writes it into outputData.
-        cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+        nout=cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+        if nout!=0:
+            print "%d points out of range in interpolation: %s [%g, %g, %g]"%(nout,key,x,y,scale) 
+
         #cmod.iscrn.rotShiftWrapSplineImageNoInit(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale)
 
         #rotateShiftWrapSplineImage(phaseScreens[key],ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],phs,scale)

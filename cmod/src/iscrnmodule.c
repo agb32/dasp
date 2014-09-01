@@ -488,6 +488,7 @@ typedef struct{
 typedef struct{
   interpStruct *s;
   int threadno;
+  int nout;
 }threadStruct;
 
 PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
@@ -597,6 +598,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
   int tx,ty,ystart,yend,xstart,xend;
   float mult0,mult3;
   int y0,y3,y3x1,y0x1;
+  int nout=0;
   //printf("without dimg\n");
   //each thread may have more than 1 block to do.
   sx=ss->sx;
@@ -696,7 +698,8 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	else
 	  k2=(points[3]-points[1])*.5;
 	if(outofrange[1] || outofrange[2]){
-	  printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	  //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	  nout++;
 	}else{
 	  Y1=points[1];
 	  Y2=points[2];
@@ -711,7 +714,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
 
     threadno+=ss->nthreads;//increment to get the next set of blocks...
   }
-  
+  t->nout=nout;
   return NULL;
 }
 
@@ -739,6 +742,7 @@ void *rswsiWorker(void *threaddata){
   float k1,k2,Y1,Y2,a,b,val;
   float const0,const1,const2,const3;
   int tx,ty,ystart,yend,xstart,xend;
+  int nout=0;
   //printf("With dimg\n");
   //each thread may have more than 1 block to do.
   sx=ss->sx;
@@ -815,7 +819,8 @@ void *rswsiWorker(void *threaddata){
 	else
 	  k2=(points[3]-points[1])*.5;
 	if(outofrange[1] || outofrange[2]){
-	  printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	  //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	  nout++;
 	}else{
 	  Y1=points[1];
 	  Y2=points[2];
@@ -830,7 +835,7 @@ void *rswsiWorker(void *threaddata){
 
     threadno+=ss->nthreads;//increment to get the next set of blocks...
   }
-  
+  t->nout=nout;
   return NULL;
 }
 
@@ -844,6 +849,7 @@ PyObject *py_rotShiftWrapSplineImageThreaded(PyObject *self,PyObject *args){
   float sx,sy;
   int wrappoint,i;
   int *imgdim;
+  int nout=0;
   if(!PyArg_ParseTuple(args,"O!ffi",&PyArray_Type,&structObj,&sx,&sy,&wrappoint)){
     printf("Args for rotShiftWrapSplineImage should be:\n");
     printf("struct returned from initialiseInterp,shiftx,shifty,wrappoint\n");
@@ -867,7 +873,7 @@ PyObject *py_rotShiftWrapSplineImageThreaded(PyObject *self,PyObject *args){
     printf("Unable to alloc tid in iscrnmodule\n");
     return NULL;
   }
-  if((ts=malloc(sizeof(threadStruct)*ss->nthreads))==NULL){
+  if((ts=calloc(sizeof(threadStruct),ss->nthreads))==NULL){
     printf("unable to alloc ts in iscrnmodule\n");
     return NULL;
   }
@@ -883,11 +889,11 @@ PyObject *py_rotShiftWrapSplineImageThreaded(PyObject *self,PyObject *args){
   //now wait for completion
   for(i=0;i<ss->nthreads;i++){
     pthread_join(tid[i],NULL);
+    nout+=ts[i].nout;
   }
   Py_END_ALLOW_THREADS;
   free(tid);
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Py_BuildValue("i",nout);//Py_None;
 }
 
 
@@ -917,6 +923,7 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
   float xm,ym;
   float k1,k2,Y1,Y2,a,b,val;
   float const0,const1,const2,const3;
+  int nout=0;
   if(!PyArg_ParseTuple(args,"O!ffi",&PyArray_Type,&structObj,&sx,&sy,&wrappoint)){
     printf("Args for rotShiftWrapSplineImage should be:\n");
     printf("struct returned from initialiseInterp,shiftx,shifty,wrappoint\n");
@@ -993,7 +1000,8 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
       else
 	k2=(points[3]-points[1])*.5;
       if(outofrange[1] || outofrange[2]){
-	printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	//printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	nout++;
       }else{
 	Y1=points[1];
 	Y2=points[2];
@@ -1005,9 +1013,9 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
     }
   }
   Py_END_ALLOW_THREADS;
-
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Py_BuildValue("i",nout);//Py_None;
+  //Py_INCREF(Py_None);
+  //return Py_None;
 }
 
 
@@ -1034,7 +1042,7 @@ PyObject *py_rotShiftWrapSplineImageNoInit(PyObject *self,PyObject *args){
   float xm,ym;
   float k1,k2,Y1,Y2,a,b,val;
   float const0,const1,const2,const3;
-
+  int nout=0;
   if(!PyArg_ParseTuple(args,"O!O!fffiO!fiii",&PyArray_Type,&imgObj,&PyArray_Type,&dimgObj,&deg,&sx,&sy,&wrappoint,&PyArray_Type,&outObj,&r,&nthreads,&nblockx,&nblocky)){
     printf("Args for rotShiftWrapSplineImageNoInit should be:\n");
     printf("img,gradients,angle,shiftx,shifty,wrappoint,outputarray,nthreads,nblockx,nblocky\n");
@@ -1126,7 +1134,8 @@ PyObject *py_rotShiftWrapSplineImageNoInit(PyObject *self,PyObject *args){
       else
 	k2=(points[3]-points[1])*.5;
       if(outofrange[1] || outofrange[2]){
-	printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,(int)dim[0],(int)dim[1],(int)imgdim[0],(int)imgdim[1],x1+1);
+	//printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,(int)dim[0],(int)dim[1],(int)imgdim[0],(int)imgdim[1],x1+1);
+	nout++;
       }else{
 	Y1=points[1];
 	Y2=points[2];
@@ -1138,8 +1147,9 @@ PyObject *py_rotShiftWrapSplineImageNoInit(PyObject *self,PyObject *args){
     }
   }
   Py_END_ALLOW_THREADS;
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Py_BuildValue("i",nout);//Py_None;
+  //Py_INCREF(Py_None);
+  //return Py_None;
 }
 
 
