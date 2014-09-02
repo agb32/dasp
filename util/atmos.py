@@ -240,7 +240,7 @@ class geom:
             ypos=[]
             if rotateDirections:#this comes from the new phase screen method (generated along 1 axis and then rotated in iatmos).  To work out the max size of this screen, we consider the rotation here.  
                 wd=self.layerWind(altKey)
-                rotangle=(wd-0)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
+                rotangle=(wd-0)*numpy.pi/180.+numpy.pi#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.  Also need to add 180 degrees (pi), because found that the coordinates were wrong.  
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             for sourceKey in self.sourceDict.keys():
                 xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad-rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
@@ -908,7 +908,7 @@ class iatmos:
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
                 #compute centre of the source.
-                rotangle=self.windDirection[key]*numpy.pi/180.
+                rotangle=self.windDirection[key]*numpy.pi/180.+numpy.pi#found that the relative positions of different pupils were wrong, so need to rotate by 180 degrees...
                 xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad-rotangle)#xxx 90?
                 ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad-rotangle)#xxx 90?
 
@@ -955,11 +955,11 @@ class iatmos:
                     #     axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
                 else:#select a whole pupil area (collimated from NGS).
                     scale=1.
-                    width=self.npup
-                    widthx=int(width/numpy.cos(self.zenithOld*numpy.pi/180.)+0.5)
-                    if self.zenithOld!=0:
-                        axis2=numpy.arange(width).astype(numpy.float64)
-                        axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
+                    #width=self.npup
+                    #widthx=int(width/numpy.cos(self.zenithOld*numpy.pi/180.)+0.5)
+                    #if self.zenithOld!=0:
+                    #    axis2=numpy.arange(width).astype(numpy.float64)
+                    #    axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
                 #self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,1,1,1)
                     
                 self.positionDict[key]=(x-shape[1]/2.+0.5,y-shape[0]/2.+0.5,scale)
@@ -1042,114 +1042,6 @@ class iatmos:
                 nout=cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
                 if nout!=0:
                     print "%d points out of range in interpolation: %s [%g, %g, %g]"%(nout,key,x,y,scale) 
-                #print "Here %s"%key
-                #print hex(self.interpStruct[key].view(numpy.uint64)[0]),hex(self.phaseScreens[key].__array_interface__["data"][0])
-                #cmod.iscrn.rotShiftWrapSplineImageNoInit(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale,1,1,1)
-                #rotateShiftWrapSplineImage(phaseScreens[key],ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale)
-
-
-                # if self.colAdd[key]>=0:#add on to start...
-                #     if interpPosColDict[key]>0:
-                #         interpPosCol+=1-interpPosColDict[key]
-                # else:
-                #     if interpPosColDict[key]>0:
-                #         interpPosCol+=interpPosColDict[key]
-                #     else:
-                #         interpPosCol+=1
-                # phsShiftY=numpy.floor(interpPosCol)
-                # tmpcol=interpPosCol
-                # interpPosCol-=phsShiftY
-
-                # if interpPosRowDict[key]>0:
-                #     interpPosRow+=interpPosRowDict[key]
-                # else:
-                #     interpPosRow+=1
-                # phsShiftX=numpy.floor(interpPosRow)
-                # tmprow=interpPosRow
-                # interpPosRow-=phsShiftX
-
-                # #now select the area we're interested in for this target...
-                # phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,
-                #                       posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
-                # #now do interpolation... (sub-pxl)
-                # #print "atmos time3 %g"%(time.time()-t1)
-                # #This next section takes a long time (3/4)
-                # #Note, posDict[2,3] will be npup unless an LGS... in which case
-                # #will be the projected width, which we then interpolate out
-                # #to the full pupil array.
-                # #c function call about 10x faster.
-                # #print "Doing linshift"
-                # linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])
-                # #print "Linshift done"
-                # if self.storePupilLayers or self.computeUplinkTT:
-                #     #Want to store the individual layers at pupil size, before LGS compression.
-                #     #  e.g. for uplink tiptilts...
-                #     #Note - we do this a bit stupidly - ie brute force... the launch ap is only a small
-                #     #  fraction of the pupil, but we still use the full pupil, mostly multiplied by zeros... 
-                #     #  so if need speedup in future, this is one place...
-                #     if self.sourceAlt>0:#lgs
-                #         # want full pupil, so will have to shift
-                #         pd=self.uplinkPositionDict[key]
-                #         phs2=phaseScreens[key][pd[1]+phsShiftX:pd[1]+pd[3]+1+phsShiftX,
-                #                                pd[0]+phsShiftY:pd[0]+pd[2]+1+phsShiftY]
-                #         if self.storePupilLayers:
-                #             phs=self.storedLayer[key]
-                #         else:
-                #             phs=self.tmpPup
-                #         #print "Doing linearshift"
-                #         linearshift(phs2,interpPosCol,interpPosRow,phs)
-                #         #print "Linearshift done"
-                #     else:#already shifted
-                #         phs=self.interpPhs[:posDict[3],:posDict[2]]
-                #         if self.storePupilLayers:
-                #             self.storedLayer[key][:]=phs
-
-                #     if self.computeUplinkTT:
-                #         #add phase of this layer to the total uplink phase
-                #         self.uplinkPhs+=phs
-                #         #Now compute the combined tip/tilt of the uplink
-                #         #uplinkZTT contain a zernike tip and tilt mode on the diameter of the 
-                #         # launch telescope, scaled so that sum(phs*uplinkZTT[0]) gives tip in radians.
-                #         #tip,tilt=(numpy.inner(self.uplinkZTT[0].ravel(),self.uplinkPhs.ravel()),
-                #         # (numpy.inner(self.uplinkZTT[1].ravel(),self.uplinkPhs.ravel())))
-                #         #self.uplinkTTDict[key]=tip,tilt
-                #         #Now compute how this will shift the spot.
-                #         #hdiff=self.distToNextLayer[key]
-                #         #Instead, just compute tip/tilt of this layer.
-                #         tip,tilt=(numpy.inner(self.uplinkZTT[0].ravel(),phs.ravel()),
-                #                   (numpy.inner(self.uplinkZTT[1].ravel(),phs.ravel())))
-                #         self.uplinkTTDict[key]=tip,tilt
-                #         #Now compute how this will shift the spot.
-                #         hdiff=self.distToFocus[key]
-                #         #Assuming tip/tilt gives the mean tip and tilt in radians, then we 
-                #         # can compute the angle according to:  tan-1(tip*500e-9/(2*numpy.pi*launchApDiam))
-                #         tottip+=hdiff*numpy.tan(tip)
-                #         tottilt+=hdiff*numpy.tan(tilt)
-
-                # if self.zenithOld!=0:
-                #     #need to bin down to the correct size...
-                #     x=posDict[6]
-                #     x2=posDict[8]
-                #     #make it square (was rectangular):
-                #     gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,
-                #                        self.interpPhs[:posDict[3],:posDict[3]],self.interpolationNthreads)
-                # # print "atmos time4 %g"%(time.time()-t1)
-
-                # if self.sourceAlt>0:
-                #     #this is a LGS... need to project (interpolate/expand up to the full npup sized array.)
-                #     x2=posDict[6]
-                #     x=posDict[7]
-                #     #Bicubic interpolation (in C) for LGS projection
-                #     #print "gslCubS",self.interpolationNthreads,posDict[3]
-                #     #util.FITS.Write(self.interpPhs[:posDict[3],:posDict[3]],"tmp.fits")
-                #     #util.FITS.Write(x2,"tmp.fits",writeMode="a")
-                #     #util.FITS.Write(x,"tmp.fits",writeMode="a")
-                #     #util.FITS.Write(self.interpPhs,"tmp.fits",writeMode="a")
-                #     gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,
-                #                        self.interpPhs,self.interpolationNthreads)
-                #     #print "gslCubs done"
-                # #print "atmos time5 %g"%(time.time()-t1)
-                # self.outputData+=self.interpPhs#and finally add the phase.
         if self.computeUplinkTT:
             if self.sourceLam!=500:
                 self.uplinkPhs*=(500./self.sourceLam)
