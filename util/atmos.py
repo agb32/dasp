@@ -194,15 +194,15 @@ class geom:
             for key in self.sourceDict.keys():
                 #xposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.cos(self.sourcePhi(key)*degrad)))
                 #yposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.sin(self.sourcePhi(key)*degrad)))
-                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad-rotangle))
-                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad-rotangle))
+                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
+                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
             maxx=max(xposlist)
             minx=min(xposlist)
             maxy=max(yposlist)
             miny=min(yposlist)
             #scrnXPxls=int(Numeric.ceil(maxx*ntel/telDiam+npup+Numeric.ceil(minx*ntel/telDiam))+1)
             #scrnYPxls=int(Numeric.ceil(maxy*ntel/telDiam+npup+Numeric.ceil(miny*ntel/telDiam))+1)
-            print altkey,maxx,minx,(maxx-minx),maxy,miny,(maxy-miny)
+            #print altkey,maxx,minx,(maxx-minx),maxy,miny,(maxy-miny)
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             scrnXPxls=int(numpy.ceil(npup*extra/numpy.cos(self.zenithOld*degrad)))+1+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
             scrnYPxls=int(numpy.ceil(npup*extra))+1+int(numpy.ceil((maxy-miny)*ntel/telDiam))
@@ -243,8 +243,8 @@ class geom:
                 rotangle=(wd-0)*numpy.pi/180.+numpy.pi#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.  Also need to add 180 degrees (pi), because found that the coordinates were wrong.  
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             for sourceKey in self.sourceDict.keys():
-                xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad-rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
-                ypos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad-rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
+                xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
+                ypos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
             minx=min(xpos)
             miny=min(ypos)
             #print "minx,miny %g %g"%(minx,miny)
