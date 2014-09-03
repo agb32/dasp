@@ -908,9 +908,9 @@ class iatmos:
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
                 #compute centre of the source.
-                rotangle=0#self.windDirection[key]*numpy.pi/180.+numpy.pi#found that the relative positions of different pupils were wrong, so need to rotate by 180 degrees...
-                xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad-rotangle)#xxx 90?
-                ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad-rotangle)#xxx 90?
+                rotangle=self.windDirection[key]*numpy.pi/180.+numpy.pi#found that the relative positions of different pupils were wrong, so need to rotate by 180 degrees...
+                xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad+rotangle)#xxx 90?
+                ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad+rotangle)#xxx 90?
 
 
                 #use the layer...
