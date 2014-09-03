@@ -908,7 +908,7 @@ class iatmos:
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
                 #compute centre of the source.
-                rotangle=self.windDirection[key]*numpy.pi/180.+numpy.pi#found that the relative positions of different pupils were wrong, so need to rotate by 180 degrees...
+                rotangle=0#self.windDirection[key]*numpy.pi/180.+numpy.pi#found that the relative positions of different pupils were wrong, so need to rotate by 180 degrees...
                 xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad-rotangle)#xxx 90?
                 ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad-rotangle)#xxx 90?
 
@@ -1035,7 +1035,7 @@ class iatmos:
                 if not self.interpStruct.has_key(key):
                     #print "Initialising atmos interpolation"
                     if self.ygradients==None:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])#interpolationNthreads=0,1,1 by default.
                     else:
                         self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                 #print "%s %g %g %gxxx"%(key,x,y,shift)
