@@ -127,6 +127,17 @@ int checkContigDoubleSize(PyArrayObject *a,int s){
     return 1;
   return 0;
 }
+
+int checkContigByteSize(PyArrayObject *a,int s){
+  if(PyArray_SIZE(a)!=s)
+    return 1;
+  if(PyArray_ITEMSIZE(a)!=1)
+    return 1;
+  if(!PyArray_IS_C_CONTIGUOUS(a))
+    return 1;
+  return 0;
+}
+
 int checkContigDouble(PyArrayObject *a){
   if(a->descr->type_num!=NPY_DOUBLE)
     return 1;
@@ -482,6 +493,7 @@ typedef struct{
   int nthreads;
   int nblockx;
   int nblocky;
+  char *pupil;
 } interpStruct;
 
 
@@ -497,11 +509,11 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
   float ang;
   int nthreads,nblockx,nblocky;
   float deg,r;
-  PyArrayObject *imgObj, *dimgObj=NULL, *outObj;
-  PyObject *dimgOrNoneObj;
+  PyArrayObject *imgObj, *dimgObj=NULL, *outObj,*pupilObj=NULL;
+  PyObject *dimgOrNoneObj,*pupilOrNoneObj;
   interpStruct *s;
   npy_intp dimsize;
-  if(!PyArg_ParseTuple(args,"O!OfO!fiii",&PyArray_Type,&imgObj,&dimgOrNoneObj,&deg,&PyArray_Type,&outObj,&r,&nthreads,&nblockx,&nblocky)){
+  if(!PyArg_ParseTuple(args,"O!OfO!fOiii",&PyArray_Type,&imgObj,&dimgOrNoneObj,&deg,&PyArray_Type,&outObj,&r,&pupilOrNoneObj,&nthreads,&nblockx,&nblocky)){
     printf("Args for setupInterpolate should be:\n");
     printf("img,dimg,deg,out,r,nthread,nblockx,nblocky\n");
     return NULL;
@@ -520,6 +532,15 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
     }
   }//else
   //printf("No ygradients specified - will compute on-the-fly (in threaded version)\n");
+  if(pupilOrNoneObj->ob_type==&PyArray_Type){//it is an array
+    pupilObj=(PyArrayObject*)pupilOrNoneObj;
+    if(checkContigByteSize(pupilObj,dim[0]*dim[1])!=0){
+      printf("Error, pupil must have shape same as out (%ld, %ld), be contiguous and byte (char/bool) array\n",dim[0],dim[1]);
+      return NULL;
+    }
+  }//else
+
+
   if(checkContigDouble(imgObj)!=0){
     printf("img should be contiguous and float64\n");
     return NULL;
@@ -538,6 +559,10 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
     s->dimg=(double*)PyArray_DATA(dimgObj);
   else//for version not using gradients (threaded only)
     s->dimg=NULL;
+  if(pupilObj!=NULL)
+    s->pupil=(char*)PyArray_DATA(pupilObj);
+  else
+    s->pupil=NULL;
   s->out=(float*)PyArray_DATA(outObj);
   ang=(float)(deg*M_PI/180.);
   s->r=r;
@@ -599,7 +624,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
   float mult0,mult3;
   int y0,y3,y3x1,y0x1;
   int nout=0;
-  
+  char *pupil;
   //printf("without dimg\n");
   //each thread may have more than 1 block to do.
   sx=ss->sx;
@@ -616,7 +641,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
   const3=imgdim[1]/2.-.5-sx;
   s=ss->s;//(float)(r*sin(ang));
   c=ss->c;//(float)(r*cos(ang));
-
+  pupil=ss->pupil;
   while(threadno<ss->nblockx*ss->nblocky){
     tx=threadno%ss->nblockx;
     ty=threadno/ss->nblockx;
@@ -632,84 +657,86 @@ void *rswsiWorkerNoGrad(void *threaddata){
     for(yy=ystart;yy<yend;yy++){
       y=yy+const0;//-dim[0]/2.+0.5;
       for(xx=xstart;xx<xend;xx++){
-	x=xx+const1;//-dim[1]/2.+0.5;
-	yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
-	xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
-	x1=(int)floorf(xold);
-	//First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
-	y1=(int)floorf(yold);
-	if(y1>=imgdim[0]){//wrap it
-	  y1-=imgdim[0];
-	  yold-=imgdim[0];
-	}
-	y2=y1+1;
-	xm=xold-x1;
-	ym=yold-y1;
-	oneminusxm=1-xm;
-	oneminusym=1-ym;
-	if(y2==imgdim[0])
-	  y2=0;
-	x1--;
-	//WITHOUT YGRADIENTS
-	mult3=0.5;
-	mult0=0.5;
-	y0=y1-1;
-	y3=y1+2;
-	if(y3>=imgdim[0])
-	  y3-=imgdim[0];
-	if(y3==wrappoint){
-	  y3=y2;
-	  mult3=1.;
-	}
-	if(y0<0)
-	  y0+=imgdim[0];
-	if(y0==wrappoint){//underwrapped!
-	  y0=y1;
-	  mult0=1.;
-	}
-	y0x1=y0*imgdim[1]+x1;
-	y3x1=y3*imgdim[1]+x1;
-	//END WITHOUT YGRADIENTS
-	y1x1=y1*imgdim[1]+x1;
-	y2x1=y2*imgdim[1]+x1;
-	
-	//4 interpolations in Y direction using precomputed gradients.
-	for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
-	  if(x1+i>=0 && x1+i<imgdim[1]){
-	    //k1=(float)dimg[y1x1+i];
-	    //k2=(float)dimg[y2x1+i];
-	    k1=(float)((img[y2x1+i]-img[y0x1+i])*mult0);
-	    k2=(float)((img[y3x1+i]-img[y1x1+i])*mult3);
-
-	    Y1=(float)img[y1x1+i];
-	    Y2=(float)img[y2x1+i];
+	if(pupil==NULL || pupil[yy*dim[1]+xx]==1){
+	  x=xx+const1;//-dim[1]/2.+0.5;
+	  yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	  xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+	  x1=(int)floorf(xold);
+	  //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+	  y1=(int)floorf(yold);
+	  if(y1>=imgdim[0]){//wrap it
+	    y1-=imgdim[0];
+	    yold-=imgdim[0];
+	  }
+	  y2=y1+1;
+	  xm=xold-x1;
+	  ym=yold-y1;
+	  oneminusxm=1-xm;
+	  oneminusym=1-ym;
+	  if(y2==imgdim[0])
+	    y2=0;
+	  x1--;
+	  //WITHOUT YGRADIENTS
+	  mult3=0.5;
+	  mult0=0.5;
+	  y0=y1-1;
+	  y3=y1+2;
+	  if(y3>=imgdim[0])
+	    y3-=imgdim[0];
+	  if(y3==wrappoint){
+	    y3=y2;
+	    mult3=1.;
+	  }
+	  if(y0<0)
+	    y0+=imgdim[0];
+	  if(y0==wrappoint){//underwrapped!
+	    y0=y1;
+	    mult0=1.;
+	  }
+	  y0x1=y0*imgdim[1]+x1;
+	  y3x1=y3*imgdim[1]+x1;
+	  //END WITHOUT YGRADIENTS
+	  y1x1=y1*imgdim[1]+x1;
+	  y2x1=y2*imgdim[1]+x1;
+	  
+	  //4 interpolations in Y direction using precomputed gradients.
+	  for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	    if(x1+i>=0 && x1+i<imgdim[1]){
+	      //k1=(float)dimg[y1x1+i];
+	      //k2=(float)dimg[y2x1+i];
+	      k1=(float)((img[y2x1+i]-img[y0x1+i])*mult0);
+	      k2=(float)((img[y3x1+i]-img[y1x1+i])*mult3);
+	      
+	      Y1=(float)img[y1x1+i];
+	      Y2=(float)img[y2x1+i];
+	      a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	      b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	      points[i]=((oneminusym)*Y1+ym*Y2+ym*(oneminusym)*(a*(oneminusym)+b*ym));
+	      outofrange[i]=0;
+	    }else{
+	      outofrange[i]=1;
+	    }
+	  }
+	  //and now interpolate in X direction (using points).
+	  if(outofrange[0])
+	    k1=points[2]-points[1];
+	  else
+	    k1=(points[2]-points[0])*.5;
+	  if(outofrange[3])
+	    k2=points[2]-points[1];
+	  else
+	    k2=(points[3]-points[1])*.5;
+	  if(outofrange[1] || outofrange[2]){
+	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	    nout++;
+	  }else{
+	    Y1=points[1];
+	    Y2=points[2];
 	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	    points[i]=((oneminusym)*Y1+ym*Y2+ym*(oneminusym)*(a*(oneminusym)+b*ym));
-	    outofrange[i]=0;
-	  }else{
-	    outofrange[i]=1;
+	    val=(oneminusxm)*Y1+xm*Y2+xm*(oneminusxm)*(a*(oneminusxm)+b*xm);
+	    out[yy*dim[1]+xx]+=val;
 	  }
-	}
-	//and now interpolate in X direction (using points).
-	if(outofrange[0])
-	  k1=points[2]-points[1];
-	else
-	  k1=(points[2]-points[0])*.5;
-	if(outofrange[3])
-	  k2=points[2]-points[1];
-	else
-	  k2=(points[3]-points[1])*.5;
-	if(outofrange[1] || outofrange[2]){
-	  //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
-	  nout++;
-	}else{
-	  Y1=points[1];
-	  Y2=points[2];
-	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
-	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	  val=(oneminusxm)*Y1+xm*Y2+xm*(oneminusxm)*(a*(oneminusxm)+b*xm);
-	  out[yy*dim[1]+xx]+=val;
 	}
       }
     }
@@ -746,6 +773,7 @@ void *rswsiWorker(void *threaddata){
   float const0,const1,const2,const3;
   int tx,ty,ystart,yend,xstart,xend;
   int nout=0;
+  char *pupil;
   //printf("With dimg\n");
   //each thread may have more than 1 block to do.
   sx=ss->sx;
@@ -762,7 +790,7 @@ void *rswsiWorker(void *threaddata){
   const3=imgdim[1]/2.-.5-sx;
   s=ss->s;//(float)(r*sin(ang));
   c=ss->c;//(float)(r*cos(ang));
-
+  pupil=ss->pupil;
   while(threadno<ss->nblockx*ss->nblocky){
     tx=threadno%ss->nblockx;
     ty=threadno/ss->nblockx;
@@ -778,59 +806,61 @@ void *rswsiWorker(void *threaddata){
     for(yy=ystart;yy<yend;yy++){
       y=yy+const0;//-dim[0]/2.+0.5;
       for(xx=xstart;xx<xend;xx++){
-	x=xx+const1;//-dim[1]/2.+0.5;
-	yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
-	xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
-	x1=(int)floorf(xold);
-	//First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
-	y1=(int)floorf(yold);
-	if(y1>=imgdim[0]){//wrap it
-	  y1-=imgdim[0];
-	  yold-=imgdim[0];
-	}
-	y2=y1+1;
-	xm=xold-x1;
-	ym=yold-y1;
-	if(y2==imgdim[0])
-	  y2=0;
-	x1--;
-	y1x1=y1*imgdim[1]+x1;
-	y2x1=y2*imgdim[1]+x1;
-	
-	//4 interpolations in Y direction using precomputed gradients.
-	for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
-	  if(x1+i>=0 && x1+i<imgdim[1]){
-	    k1=(float)dimg[y1x1+i];
-	    k2=(float)dimg[y2x1+i];
-	    Y1=(float)img[y1x1+i];
-	    Y2=(float)img[y2x1+i];
+	if(pupil==NULL || pupil[yy*dim[1]+xx]==1){
+	  x=xx+const1;//-dim[1]/2.+0.5;
+	  yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	  xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+	  x1=(int)floorf(xold);
+	  //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+	  y1=(int)floorf(yold);
+	  if(y1>=imgdim[0]){//wrap it
+	    y1-=imgdim[0];
+	    yold-=imgdim[0];
+	  }
+	  y2=y1+1;
+	  xm=xold-x1;
+	  ym=yold-y1;
+	  if(y2==imgdim[0])
+	    y2=0;
+	  x1--;
+	  y1x1=y1*imgdim[1]+x1;
+	  y2x1=y2*imgdim[1]+x1;
+	  
+	  //4 interpolations in Y direction using precomputed gradients.
+	  for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	    if(x1+i>=0 && x1+i<imgdim[1]){
+	      k1=(float)dimg[y1x1+i];
+	      k2=(float)dimg[y2x1+i];
+	      Y1=(float)img[y1x1+i];
+	      Y2=(float)img[y2x1+i];
+	      a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	      b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	      points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	      outofrange[i]=0;
+	    }else{
+	      outofrange[i]=1;
+	    }
+	  }
+	  //and now interpolate in X direction (using points).
+	  if(outofrange[0])
+	    k1=points[2]-points[1];
+	  else
+	    k1=(points[2]-points[0])*.5;
+	  if(outofrange[3])
+	    k2=points[2]-points[1];
+	  else
+	    k2=(points[3]-points[1])*.5;
+	  if(outofrange[1] || outofrange[2]){
+	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	    nout++;
+	  }else{
+	    Y1=points[1];
+	    Y2=points[2];
 	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	    points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
-	    outofrange[i]=0;
-	  }else{
-	    outofrange[i]=1;
+	    val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	    out[yy*dim[1]+xx]+=val;
 	  }
-	}
-	//and now interpolate in X direction (using points).
-	if(outofrange[0])
-	  k1=points[2]-points[1];
-	else
-	  k1=(points[2]-points[0])*.5;
-	if(outofrange[3])
-	  k2=points[2]-points[1];
-	else
-	  k2=(points[3]-points[1])*.5;
-	if(outofrange[1] || outofrange[2]){
-	  //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
-	  nout++;
-	}else{
-	  Y1=points[1];
-	  Y2=points[2];
-	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
-	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	  val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
-	  out[yy*dim[1]+xx]+=val;
 	}
       }
     }
@@ -927,6 +957,7 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
   float k1,k2,Y1,Y2,a,b,val;
   float const0,const1,const2,const3;
   int nout=0;
+  char *pupil;
   if(!PyArg_ParseTuple(args,"O!ffi",&PyArray_Type,&structObj,&sx,&sy,&wrappoint)){
     printf("Args for rotShiftWrapSplineImage should be:\n");
     printf("struct returned from initialiseInterp,shiftx,shifty,wrappoint\n");
@@ -943,6 +974,7 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
   img=ss->img;
   dimg=ss->dimg;
   out=ss->out;
+  pupil=ss->pupil;
 
   if(wrappoint>imgdim[0] || wrappoint<0){
     printf("Illegal wrappoint in iscrnmodule %d\n",wrappoint);
@@ -960,58 +992,60 @@ PyObject *py_rotShiftWrapSplineImage(PyObject *self,PyObject *args){
   for(yy=0;yy<dim[0];yy++){
     y=yy+const0;//-dim[0]/2.+0.5;
     for(xx=0;xx<dim[1];xx++){
-      x=xx+const1;//-dim[1]/2.+0.5;
-      yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
-      xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
-      x1=(int)floorf(xold);
-      //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
-      y1=(int)floorf(yold);
-      if(y1>=imgdim[0]){//wrap it
-	y1-=imgdim[0];
-	yold-=imgdim[0];
-      }
-      y2=y1+1;
-      xm=xold-x1;
-      ym=yold-y1;
-      if(y2==imgdim[0])
-	y2=0;
-      x1--;
-      y1x1=y1*imgdim[1]+x1;
-      y2x1=y2*imgdim[1]+x1;
-      //4 interpolations in Y direction using precomputed gradients.
-      for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
-	if(x1+i>=0 && x1+i<imgdim[1]){
-	  k1=(float)dimg[y1x1+i];
-	  k2=(float)dimg[y2x1+i];
-	  Y1=(float)img[y1x1+i];
-	  Y2=(float)img[y2x1+i];
+      if(pupil==NULL || pupil[yy*dim[1]+xx]==1){
+	x=xx+const1;//-dim[1]/2.+0.5;
+	yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+	x1=(int)floorf(xold);
+	//First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+	y1=(int)floorf(yold);
+	if(y1>=imgdim[0]){//wrap it
+	  y1-=imgdim[0];
+	  yold-=imgdim[0];
+	}
+	y2=y1+1;
+	xm=xold-x1;
+	ym=yold-y1;
+	if(y2==imgdim[0])
+	  y2=0;
+	x1--;
+	y1x1=y1*imgdim[1]+x1;
+	y2x1=y2*imgdim[1]+x1;
+	//4 interpolations in Y direction using precomputed gradients.
+	for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+	  if(x1+i>=0 && x1+i<imgdim[1]){
+	    k1=(float)dimg[y1x1+i];
+	    k2=(float)dimg[y2x1+i];
+	    Y1=(float)img[y1x1+i];
+	    Y2=(float)img[y2x1+i];
+	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
+	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
+	    points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	    outofrange[i]=0;
+	  }else{
+	    outofrange[i]=1;
+	  }
+	}
+	//and now interpolate in X direction (using points).
+	if(outofrange[0])
+	  k1=points[2]-points[1];
+	else
+	  k1=(points[2]-points[0])*.5;
+	if(outofrange[3])
+	  k2=points[2]-points[1];
+	else
+	  k2=(points[3]-points[1])*.5;
+	if(outofrange[1] || outofrange[2]){
+	  //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	  nout++;
+	}else{
+	  Y1=points[1];
+	  Y2=points[2];
 	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	  points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
-	  outofrange[i]=0;
-	}else{
-	  outofrange[i]=1;
+	  val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	  out[yy*dim[1]+xx]+=val;
 	}
-      }
-      //and now interpolate in X direction (using points).
-      if(outofrange[0])
-	k1=points[2]-points[1];
-      else
-	k1=(points[2]-points[0])*.5;
-      if(outofrange[3])
-	k2=points[2]-points[1];
-      else
-	k2=(points[3]-points[1])*.5;
-      if(outofrange[1] || outofrange[2]){
-	//printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
-	nout++;
-      }else{
-	Y1=points[1];
-	Y2=points[2];
-	a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
-	b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
-	out[yy*dim[1]+xx]+=val;
       }
     }
   }

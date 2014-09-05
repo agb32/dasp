@@ -1035,11 +1035,16 @@ class iatmos:
                 if not self.interpStruct.has_key(key):
                     #print "Initialising atmos interpolation"
                     if self.ygradients==None:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])#interpolationNthreads=0,1,1 by default.
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+0.,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])#interpolationNthreads=0,1,1 by default.
                     else:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+0.,self.outputData,scale,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+0.,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                 #print "%s %g %g %gxxx"%(key,x,y,shift)
+                if control["fullPupil"]:#temporarily set pupil to 1
+                    tmp=self.pupil.fn.copy()
+                    self.pupil.fn[:]=1
                 nout=cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+                if control["fullPupil"]:#copy proper pupil back.
+                    self.pupil.fn[:]=tmp
                 if nout!=0:
                     print "%d points out of range in interpolation: %s [%g, %g, %g]"%(nout,key,x,y,scale) 
         if self.computeUplinkTT:
