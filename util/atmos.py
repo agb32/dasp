@@ -1066,7 +1066,8 @@ class iatmos:
             pfn=self.pupil.fn
             pfnArea=self.pupil.area
         if control["removePiston"]:
-            pist=numpy.sum(self.outputData*pfn)/pfnArea
+            #pist=numpy.sum(self.outputData*pfn)/pfnArea
+            pist=self.outputData.sum()/pfnArea#already has the pupil function imposed
             self.outputData-=pist
         #print "atmos time7 %g"%(time.time()-t1)
         # Multiply by pupil and scale to output wavelength
