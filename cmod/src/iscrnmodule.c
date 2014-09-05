@@ -592,13 +592,14 @@ void *rswsiWorkerNoGrad(void *threaddata){
   float x,y,xold,yold;
   int x1;
   int y1,y2,y1x1,y2x1;
-  float xm,ym;
+  float xm,ym,oneminusxm,oneminusym;  
   float k1,k2,Y1,Y2,a,b,val;
   float const0,const1,const2,const3;
   int tx,ty,ystart,yend,xstart,xend;
   float mult0,mult3;
   int y0,y3,y3x1,y0x1;
   int nout=0;
+  
   //printf("without dimg\n");
   //each thread may have more than 1 block to do.
   sx=ss->sx;
@@ -644,6 +645,8 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	y2=y1+1;
 	xm=xold-x1;
 	ym=yold-y1;
+	oneminusxm=1-xm;
+	oneminusym=1-ym;
 	if(y2==imgdim[0])
 	  y2=0;
 	x1--;
@@ -682,7 +685,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	    Y2=(float)img[y2x1+i];
 	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	    points[i]=((1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym));
+	    points[i]=((oneminusym)*Y1+ym*Y2+ym*(oneminusym)*(a*(oneminusym)+b*ym));
 	    outofrange[i]=0;
 	  }else{
 	    outofrange[i]=1;
@@ -705,7 +708,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	  Y2=points[2];
 	  a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	  b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	  val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm);
+	  val=(oneminusxm)*Y1+xm*Y2+xm*(oneminusxm)*(a*(oneminusxm)+b*xm);
 	  out[yy*dim[1]+xx]+=val;
 	}
       }
