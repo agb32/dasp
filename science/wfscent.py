@@ -348,15 +348,15 @@ class wfscent(base.aobase.aobase):
 
 
         
-        wfs_bandwidth=this.config.getVal("wfs_bandwidth")                  # WFS Optical bandwidth
-        wfs_thruput=this.config.getVal("wfs_thruput")                      # Thruput to the WFS
-        wfs_phot_rate_factor=this.config.getVal("wfs_phot_rate_factor")    # Photons/sec/area/angstrom
-        wfs_mag=this.config.getVal("wfs_mag")                              # Guide star magnitude
         telDiam=this.config.getVal("telDiam")                              # Telescope aperture diameter
         wfs_ncen=this.config.getVal("wfs_ncen",default=wfs_nimg)            # Centroiding box size (pixels)
         wfs_floor=this.config.getVal("wfs_floor")          # Centroiding floor value
         sig=this.config.getVal("wfs_sig",default=None,raiseerror=0)
         if sig==None:
+            wfs_bandwidth=this.config.getVal("wfs_bandwidth")                  # WFS Optical bandwidth
+            wfs_thruput=this.config.getVal("wfs_thruput")                      # Thruput to the WFS
+            wfs_phot_rate_factor=this.config.getVal("wfs_phot_rate_factor")    # Photons/sec/area/angstrom
+            wfs_mag=this.config.getVal("wfs_mag")                              # Guide star magnitude
             sig=util.centroid.wfs_sig(wfs_bandwidth,wfs_thruput,wfs_phot_rate_factor,telDiam,wfs_nsubx,wfs_int,wfs_mag)
         this.laserGuideStar=None
         addPoisson=this.config.getVal("addPoisson",default=1)
