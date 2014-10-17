@@ -11,6 +11,7 @@ def getArgs(args):
     ilist=[]#outputs - strehl, etc.
     exclude=[]#list of strings to exclude
     vallist=[]#values to be printed
+    valcharlist=[]#tuples of (N,text) where N is the number of characters after finding text to print.
     printid=0
     printdict=0
     printall=0
@@ -66,6 +67,8 @@ def getArgs(args):
             exclude.append(a[10:])
         elif a[:6]=="--val=":
             vallist.append(a[6:])
+        elif a[:5]=="--val":
+            valcharlist.append((int(a[5:a.index("=")]),a[a.index("=")+1:]))
         elif a[:10]=="--printval":
             printval=1
         else:
@@ -79,10 +82,10 @@ def getArgs(args):
                         got=1
                 if got==0:#its a grep string
                     glist.append(a)
-    return glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval
+    return glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist
 
 
-def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0,precision=0,exclude=[],vallist=[],printval=0):
+def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0,precision=0,exclude=[],vallist=[],printval=0,valcharlist=[]):
     outtxt=""
     pretxt=""
     cnt=0
@@ -155,6 +158,17 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                         txt+="%s%s%s"%(fillchr,v,str(val))
                     else:
                         txt+="%s%sNone"%(fillchr,v)
+                for n,v in valcharlist:
+                    try:
+                        indx=line.index(v)+len(v)
+                    except:
+                        indx=None
+                    if not printval:
+                        v=""
+                    if indx!=None:
+                        txt+="%s%s%s"%(fillchr,v,line[indx:indx+n])
+                    else:
+                        txt+="%s%sNONE"%(fillchr,v)
                 for param in ilist:
                     if param[0]=="%":
                         m=100.
@@ -182,6 +196,6 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
 
 
 if __name__=="__main__":
-    glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval=getArgs(sys.argv[1:])
-    txt=grep(glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval)
+    glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist=getArgs(sys.argv[1:])
+    txt=grep(glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist)
     print txt

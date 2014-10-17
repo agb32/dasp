@@ -121,6 +121,8 @@ class AOXml:
                 self.filename=file
                 self.error=0
                 self.loadPyConfig(txt)
+            else:
+                raise Exception("Unknown file type %s"%file)
             if self.error and ignoreError==0:
                 self.reset()
             else:

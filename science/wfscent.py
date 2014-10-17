@@ -1479,6 +1479,7 @@ class wfscent(base.aobase.aobase):
         if self.sentPlotsCnt==0:
             #outputData is only valid for one object at a time, when that has just run...
             txt+="""<plot title="WFS SH img%s" cmd="data=%s.drawCents(0)" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+            txt+="""<plot title="Change mask (-1,0,1) %s" cmd="data=%s.imgmask=(%s.imgmask+2)%%3-1" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname)
             if self.imageOnly==0:
                 txt+="""<plot title="XCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
                 txt+="""<plot title="YCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)

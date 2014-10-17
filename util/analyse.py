@@ -41,7 +41,7 @@ class analyse:
         self.savedTag=2**30#note tag can be anything - int, string etc.
         self.recDataList=[]
         self.dataProcessDict={}#dictionary with key=(socket,tag), value=method
-    def openConnection(self,host,port):
+    def openConnection(self,host,port,pr=1):
         """Open a connection to simulation.
         @param host: Hostname
         @type host: String
@@ -54,9 +54,11 @@ class analyse:
         #can use conn.getpeername() to get the IP/port.
         conn=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            print "INFORMATION Connecting..."
+            if pr:
+                print "INFORMATION Connecting..."
             conn.connect((host,port))
-            print "Connected..."
+            if pr:
+                print "Connected..."
             self.connList.append(conn)
         except:
             print "ERROR Couldn't connect"
@@ -258,7 +260,7 @@ class analyse:
         @type method: Function
         """
         self.dataProcessDict[(conn,tag)]=method
-    def getData(self):
+    def getData(self,block=0):
         """Get a list of any data returned from all sockets of the simulation.
         This is provided for convenience, rather than use, as only the data
         is returned, so you will not be able to tell which socket this has come
@@ -270,7 +272,7 @@ class analyse:
         @rtype: List
         """
         retn=[]
-        dl=self.read()
+        dl=self.read(block=block)
         for d in dl:
             for k in d[3].keys():
                 retn.append(d[3][k])
