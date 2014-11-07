@@ -20,7 +20,7 @@ except:
 import scipy.sparse,scipy.linalg
 import util.spmatrix
 import time,types
-import Scientific.MPI
+#import Scientific.MPI
 class recon(base.aobase.aobase):
     """A reconstructor for tomographic reconstruction.
     Sends actuator values for model DMs to the children.
@@ -931,10 +931,11 @@ class recon(base.aobase.aobase):
             self.poking=0
             if self.abortAfterPoke:
                 print "Finished poking - aborting simulation"
-                if Scientific.MPI.world.size==1:
-                    Scientific.MPI.world.abort()
-                else:
-                    Scientific.MPI.world.abort(0)#this raises an error if python, or aborts correctly if mpipython -
+                self.config.abort()
+                #if Scientific.MPI.world.size==1:
+                #    Scientific.MPI.world.abort()
+                #else:
+                #    Scientific.MPI.world.abort(0)#this raises an error if python, or aborts correctly if mpipython -
                                                  # however, result is as desired - the simulation finishes.
         if self.poking>0:
             self.poking+=1

@@ -1,5 +1,5 @@
 #$Id: mpiSend.py,v 1.13 2009/02/18 10:28:41 ali Exp $
-import Scientific.MPI#,threading
+#import Scientific.MPI#,threading
 import numpy
 import types,time
 import base.aobase

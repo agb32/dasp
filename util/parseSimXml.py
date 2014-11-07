@@ -369,7 +369,7 @@ class parseSimXml:
         """
         procDict={}#keys are cpus, values are list of objects on this cpu.
         orderedProcDict={}#keys are cpus, vaules are list of object on this cpu, in the order in which they will be created and exec'd.
-        importList=["numpy","util.Ctrl","base.mpiGet","base.mpiSend","base.shmGet","base.shmSend","Scientific.MPI"]
+        importList=["numpy","util.Ctrl","base.mpiGet","base.mpiSend","base.shmGet","base.shmSend"]#,"Scientific.MPI"]
         objectList=["newMPIGet","newMPISend","newSHMGet","newSHMSend"]
         MPIRank={}
         MPIRank2={}

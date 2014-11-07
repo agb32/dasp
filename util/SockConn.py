@@ -2,7 +2,8 @@
 import socket,serialise,types,os,select,cPickle,thread,time
 import traceback
 import util.ConnObj as ConnObj
-import Scientific.MPI,sys
+#import Scientific.MPI
+import sys
 class SockConn:
     
     """Class to open a listening socket, and start a select loop in a
@@ -63,7 +64,7 @@ class SockConn:
     @cvar globals: global dictionary
     @type globals: Dict
     """
-    def __init__(self, port, host="", fwd=None,globals=None,startThread=1,listenSTDIN=1):
+    def __init__(self, port, host="", fwd=None,globals=None,startThread=1,listenSTDIN=1,mpiWorldSize=1):
         """Opens a listening port, and either acts on commands send, or if
         fwd is (host,port), forwards commands to this port (little used)
         @param port: Port number to listen on
@@ -91,7 +92,7 @@ class SockConn:
                 self.lsock.bind((host,port))
             except:
                 print "WARNING Couldn't bind to port %d.  "%port,
-                port+=Scientific.MPI.world.size#inc by number of processes in this mpi run
+                port+=mpiWorldSize#Scientific.MPI.world.size#inc by number of processes in this mpi run
                 print "INFORMATION Trying port %d"%port
                 cnt+=1
                 self.port=port
@@ -100,7 +101,7 @@ class SockConn:
                 print "INFORMATION Bound to port %d"%port
         self.lsock.listen(1)
         self.listenSTDIN=listenSTDIN
-        if Scientific.MPI.world.size>1:
+        if mpiWorldSize>1:#Scientific.MPI.world.size>1:
             self.listenSTDIN=0
         self.selIn=[self.lsock]
         if self.listenSTDIN:

@@ -9,7 +9,6 @@ import base.mpiGet
 import base.mpiSend
 import base.shmGet
 import base.shmSend
-import Scientific.MPI
 import science.iscrn
 import science.iatmos
 import science.xinterp_dm

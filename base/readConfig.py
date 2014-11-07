@@ -2,13 +2,15 @@
 import xml.parsers.expat,types,string
 import time,os,sys,numpy
 import socket,util.serialise
-try:#this is used for sharing live data between modules/processes.
-    from Scientific.MPI import world as MPIWorld
-except:
-    class dummy:
-        rank=0
-        size=1
-    MPIWorld=dummy()
+# try:#this is used for sharing live data between modules/processes.
+#     from Scientific.MPI import world as MPIWorld
+# except:
+#     class dummy:
+#         rank=0
+#         size=1
+#         def abort(self,rt):
+#             sys.exit(0)
+#     MPIWorld=dummy()
 
 class AOXml:
     """A class for reading an AO XML config file.  If given, file (filename)
@@ -74,7 +76,7 @@ class AOXml:
     @cvar ignoreModule: Flag, whether module should be ignored (batch number mismatch)
     @type ignoreModule: Int
     """ 
-    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0,initDict=None):
+    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0,initDict=None,mpiRankSizeAbort=(0,1,None)):
         """Initialise a AO XML parser object.
         @param file: Filename
         @type  file: String
@@ -82,6 +84,7 @@ class AOXml:
         @type  writeSchema: Int flag
         @param batchno: Batch number that we're interested in
         @type  batchno: Int
+        mpiRankSizeAbort is the mpi rank, worldsize, and an abort function.
         """
         self.p=None
         self.writeSchema=writeSchema
@@ -91,6 +94,8 @@ class AOXml:
         self.filename=None
         self.batchno=batchno
         self.initDict=initDict
+        self.mpiRankSizeAbort=mpiRankSizeAbort
+        self.rank=self.mpiRankSizeAbort[0]
         self.reset()
         for f in file:
             self.p = xml.parsers.expat.ParserCreate()
@@ -100,6 +105,13 @@ class AOXml:
             self.p.returns_unicode=0
 
             self.open(f,ignoreError)
+    def abort(self,rt=0):
+        rank,size,abt=self.mpiRankSizeAbort
+        if abt!=None:
+            if size==1:
+                abt()
+            else:
+                abt(rt)
 
     def open(self,file,ignoreError=0):
         """Open an XML file and parse it.
@@ -193,8 +205,8 @@ class AOXml:
         self.ignoreModule=0
         self.postList=[]#list of data that have been posted by simulation processes... (live sharing of data)
         self.connectionParamsDict={}#dictionary of rank:(host,port)
-        self.rank=MPIWorld.rank
-        self.rankSize=MPIWorld.size
+        self.rank=self.mpiRankSizeAbort[0]#MPIWorld.rank
+        self.rankSize=self.mpiRankSizeAbort[1]#MPIWorld.size
     def start_element(self,name, attrs):
         """Called by XML parser at opening of tag.
         @param name: Name of tag

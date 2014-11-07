@@ -1,5 +1,5 @@
 #$Id: mpiGet.py,v 1.11 2009/02/18 10:28:41 ali Exp $
-import Scientific.MPI
+#import Scientific.MPI
 import numpy,time
 import base.aobase
 
@@ -56,6 +56,7 @@ class mpiGet(base.aobase.aobase):
             if debug==None:
                 debug="mpiGet %d"%mpiComm.rank
         base.aobase.aobase.__init__(self,None,None,args=args,debug=debug,idstr=idstr)
+        self.rank=mpiComm.rank
         self.generateNextTime=0.
         self.mpiParent=mpiParentObj
         self.outputData=self.mpiParent.data

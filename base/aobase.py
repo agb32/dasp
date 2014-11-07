@@ -3,7 +3,7 @@
 import threading,thread,os,sys,getopt,types
 import socket, string
 import util.rwlock
-import Scientific.MPI as MPI
+#import Scientific.MPI as MPI
 import base.dataType
 
 class aobase:
@@ -110,7 +110,8 @@ class aobase:
         self.newDataWaiting=1
         self.generate=1
         self.control={}
-        self.rank=MPI.world.rank
+        if config!=None:
+            self.rank=config.rank#MPI.world.rank
         self.idstr=[None]
         self.thisObjList=[]#list of object details when resource sharing is implemented.
         self.sentPlotsCnt=0#used when user calls plottable()...

@@ -968,7 +968,7 @@ class simsetup:
                 #now add stxt and etxt in the right places...
                 etxt=etxt.strip()
                 if len(etxt)==0:
-                    etxt="Scientific.MPI.world.abort(0)\n"
+                    etxt="ctrl.config.abort(0)\n"
                 if len(stxt)>0 or len(etxt)>0:
                     lines=pycode.split("\n")
                     f=open(fn,"w")

@@ -3,7 +3,7 @@ import numpy
 import numpy.linalg
 #from LinearAlgebra import generalized_inverse,singular_value_decomposition,inverse
 #from plwf import *
-import Scientific.MPI
+#import Scientific.MPI
 import base.aobase
 import util.FITS
 import util.fitModes
@@ -478,7 +478,8 @@ class recon(base.aobase.aobase):
             self.poking = 0 #Finish poking
             if self.abortAfterPoke:
                 print "Finished poking - aborting simulation"
-                Scientific.MPI.world.abort(0)#this raises an error if python, or aborts correctly if mpipython - however, result is as desired - the simulation finishes.
+                self.config.abort()
+                #Scientific.MPI.world.abort(0)#this raises an error if python, or aborts correctly if mpipython - however, result is as desired - the simulation finishes.
         if self.poking>0:
             self.poking+=1 #Move to next actuator
         if self.control["close_dm"]:#do the reconstruction.

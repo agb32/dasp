@@ -9,7 +9,7 @@ import base.mpiGet
 import base.mpiSend
 import base.shmGet
 import base.shmSend
-import Scientific.MPI
+#import Scientific.MPI
 import science.infScrn
 import science.infAtmos
 import science.xinterp_dm
@@ -43,5 +43,6 @@ if ctrl.rank==0:
     ctrl.mainloop(execOrder)
 print "Simulation finished..."
 #Add any personal code after this, and it will not get overwritten
-Scientific.MPI.world.abort(0)
+#Scientific.MPI.world.abort(0)
+ctrl.config.abort()
 

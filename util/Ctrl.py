@@ -6,6 +6,20 @@ import sys,thread,threading,os,socket
 import getopt,re
 import base.readConfig,util.SockConn,cmod.shmem,util.serialise
 import Scientific.MPI
+"""
+Switching to a generic MPI module:
+
+mpicomm requires:
+send(data,rank,tag)
+receive(data,rank,tag)
+rank
+size
+barrier
+broadcast
+abort
+
+"""
+
 class Ctrl:
     """A control class for the AO simulation.  This is responsible for keeping
     the simulation running.
@@ -151,7 +165,7 @@ class Ctrl:
             d={"numpy":numpy}
             initDict={}
             exec self.initParamString in d,initDict
-        self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno,initDict=initDict)
+        self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno,initDict=initDict,mpiRankSizeAbort=(self.mpiComm.rank,self.mpiComm.size,self.abort))
         if self.paramString!=None:
             tmpDict={"this":self.config.this}
             print "INFORMATION Changes to parameter file:\n%s"%self.paramString
@@ -165,7 +179,7 @@ class Ctrl:
             self.simID=self.initParamString
 
         self.config.this.simID=self.simID
-        self.sockConn=util.SockConn.SockConn(self.config.getVal("testrunport",default=9000)+self.rank,globals=self.globals,startThread=1,listenSTDIN=self.listenSTDIN)
+        self.sockConn=util.SockConn.SockConn(self.config.getVal("testrunport",default=9000)+self.rank,globals=self.globals,startThread=1,listenSTDIN=self.listenSTDIN,mpiWorldSize=self.mpiComm.size)
         os.nice(self.config.getVal("nice",default=nice))
         if self.config.getVal("connectPortDict",default=0,warn=0):
             try:
@@ -203,6 +217,12 @@ class Ctrl:
         except:
             pass
             #cmod.shmem.cleanUp()
+
+    def abort(self,rt=0):
+        if self.mpiComm.size==1:
+            self.mpiComm.abort()
+        else:
+            self.mpiComm.abort(rt)
     def connectPortDict(self):
         """This is run as a thread, connects to portdict, and sends info,
         and remains connected until simulation dies..."""
