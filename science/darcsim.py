@@ -350,6 +350,7 @@ control={"ncam":%d,
     def sendToDarc(self):
         self.inputHdr[0]=0xa<<28|self.npxls
         self.inputHdr[1]=self.frameno
+        #print "Sending %d bytes"%(self.inputData.size*self.inputData.itemsize)
         try:
             self.camsock.sendall(self.inputData.view(numpy.uint8))
         except:

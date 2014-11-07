@@ -630,8 +630,8 @@ void *rswsiWorkerNoGrad(void *threaddata){
   sx=ss->sx;
   sy=ss->sy;
   wrappoint=ss->wrappoint;
-  dim=ss->dim;
-  imgdim=ss->imgdim;
+  dim=ss->dim;//dimensions of the pupil phase
+  imgdim=ss->imgdim;//dimensions of the layer phase.
   img=ss->img;
   //dimg=ss->dimg;
   out=ss->out;
@@ -727,7 +727,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	  else
 	    k2=(points[3]-points[1])*.5;
 	  if(outofrange[1] || outofrange[2]){
-	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d %g %g\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1,xold,const3);
 	    nout++;
 	  }else{
 	    Y1=points[1];

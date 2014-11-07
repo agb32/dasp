@@ -962,7 +962,9 @@ class iatmos:
                     #    axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
                 #self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,1,1,1)
                     
-                self.positionDict[key]=(x-shape[1]/2.+0.5,y-shape[0]/2.+0.5,scale)
+                #self.positionDict[key]=(x-shape[1]/2.+0.5,y-shape[0]/2.+0.5,scale)
+                #Changed to +1 on 7/11/2014 by agb - so that test/scao/scaoiatmos.py works.  Checked with test/iscrn and test/iatmos
+                self.positionDict[key]=(x-shape[1]/2.+1,y-shape[0]/2.+1,scale)
                 #print "positionDict %s: %s %s"%(str(key),str(self.positionDict[key]),str((self.layerXOffset[key],self.layerYOffset[key])))
             else:#layer above source, so don't use.
                 self.positionDict[key]=()
