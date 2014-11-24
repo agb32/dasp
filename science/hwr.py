@@ -3,7 +3,7 @@
 # aosim HWR reconstructor
 #
 # Author:   Nazim Ali Bharmal
-# Date:     Sept/2013
+# Date:     Sept/2013,Sept/2014
 # Version:  not for production
 # Platform: Darwin
 # Python:   2.6.7
@@ -80,6 +80,24 @@ class recon(tomoRecon.recon):
                default=1e-7,raiseerror=0) 
       self.pokeIgnore=self.config.getVal( "pokeIgnore",
             default=1e-10,raiseerror=0)
+      self.whichAlgo=self.config.getVal( "_whichAlgorithm",
+            default=0,raiseerror=0)
+      self.numberCGloops=self.config.getVal( "_numberCGloops",
+            default=50,raiseerror=0)
+      print("INFORMATION(**HWR**): CG inner-loop no. limit={0:d}".format(
+            self.numberCGloops))
+      opStr="INFORMATION(**HWR**): Algorithm="
+      if self.whichAlgo==0:
+         opStr+="HWR"
+      elif self.whichAlgo==1:
+         opStr+="MVM (no HWR)"
+      elif self.whichAlgo==2:
+         opStr+="CG (no HWR)"
+      elif self.whichAlgo==3:
+         opStr+="CG (with HWR)"
+      else:
+         raise RuntimeError("ERROR: HWR: Unspecified/unsupported algorithm")
+      print(opStr) # tell what algorithm was chosen
       
          # \/ Run a few checks to make sure we're in a supported configuration
       if len(self.dmList)!=1:
@@ -98,36 +116,46 @@ class recon(tomoRecon.recon):
             self.config.getVal("spmxNdata",default=self.nmodes*self.ncents*0.1))
       else:
          pass # hmm, perhaps something ought to go here but its after lunch and I can't quite recall what that something should be...
-
       nsubx_tmp=self.config.getVal("wfs_nsubx")
       #
       subapMap=self.pupil.getSubapFlag(nsubx_tmp, self.minarea) 
       self.gradOp=abbot.gradientOperator.gradientOperatorType1(
             subapMap )
-#??      #
-#??      #  \/ This maps neatly to the actual DM actuator locations but
-#??      #  doesn't lead to a sufficient mapping: better to specify the
-#??      #  same actual sub-apertures so that the wavefront is more accurately
-#??      #  estimated on the grid, and then transferred to the actuators.
-#??      DMactMap=numpy.array( self.dmList[0].dmflag )
-#??      self.gradOp=abbot.gradientOperator.gradientOperatorType1(
-#??            pupilMask=DMactMap )
-# (redundant?) :      self.gradM=self.gradOp.returnOp().T # *** DEBUG ***
-      print(
-"INFORMATION(**HWR**): gradOp.(numberPhases={0:d},numberSubaps={1:d})".format(
-            self.gradOp.numberPhases, self.gradOp.numberSubaps))
-      t1=time.time()
-      self.smmtnsDef,self.smmtnsDefStrts,self.smmtnsMap,self.offsetEstM=\
-            abbot.hwr.prepHWR( self.gradOp,
-               self.hwrMaxLen,
-               self.hwrBoundary,
-               self.hwrOverlap,
-               self.hwrSparse,
-               False,
-               self.hwrSVErcon
-               )
-      print("INFORMATION(**HWR**): took {0:d}s to setup HWR".format(
-            int(time.time()-t1)) )
+##      self.smoothingOp=abbot.gradientOperator.smoothingOperatorType1( #***
+##            [None,0.11,None,0.11,(1-0.11*4),0.11,None,0.11],  #***
+##      # +0.2 -> unstable,
+##      # +0.133 -> 0.87
+##      # +0.1 -> 0.89
+##      # +0.07 -> 0.89
+##      # X0.07 -> 0.88
+##      # mvm wfim -> 0.88
+##      self.smoothingM=self.smoothingOp.returnOp() #***
+
+      #  \/ this maps neatly to the actual dm actuator locations but
+      #  doesn't lead to a sufficient mapping: better to specify the
+      #  same actual sub-apertures so that the wavefront is more accurately
+      #  estimated on the grid, and then transferred to the actuators.
+      #dmactmap=numpy.array( self.dmlist[0].dmflag )
+      #self.gradop=abbot.gradientoperator.gradientoperatortype1(
+      #      pupilmask=dmactmap )
+# (redundant?) :      self.gradm=self.gradop.returnop().t # *** debug ***
+      print(( self.gradOp.numberPhases,self.gradOp.numberSubaps) )
+# broked:: The next line casues the interpreter to assert, and dump the core
+#(broked?)      print("INFORMATION(**HWR**): Size of problem:: ({0:d}x{1:d})".format(
+#(broked?)            self.gradOp.numberPhases,self.gradOp.numberSubaps) )
+#(obs)      print(".")
+#(obs)      t1=time.time()
+#(obs)      smmtnsDef,smmtnsDefStrts,smmtnsMap,offsetEstM=\
+#(obs)            abbot.hwr.prepHWR( self.gradOp,
+#(obs)               self.hwrMaxLen,
+#(obs)               self.hwrBoundary,
+#(obs)               self.hwrOverlap,
+#(obs)               self.hwrSparse,
+#(obs)               False,
+#(obs)               self.hwrSVErcon
+#(obs)               )
+#(obs)      print("INFORMATION(**HWR**): took {0:d}s to setup HWR".format(
+#(obs)            int(time.time()-t1)) )
       
       if self.hwrWFMMblockReduction:
          # \/ calculate which indices should be included in the WFIM
@@ -147,6 +175,7 @@ class recon(tomoRecon.recon):
                for i in range( int(numpy.ceil(
                     self.gradOp.n_[0]*self.hwrWFMMblockReduction**-1.0)) ) ]
 
+#(obs)      self.hwrParameterCalcReqd=True # don't *yet* calculate the HWR parameters
 
    def calcTakeRef(self):
       self.control["takeRef"]=0
@@ -320,7 +349,9 @@ class recon(tomoRecon.recon):
          self.WFIM=numpy.zeros(
                (self.nmodes,self.gradOp.numberPhases), numpy.float64 )
          # \/ do computations
-      self.calcComputeWFIM()
+##      self.calcComputeWFIM() #**
+      self.calcComputeWFIMMVM()
+   
       self.calcComputeWFMM()
          # \/ save, if asked to, the WFIM and WFMM  
       if self.hwrArchive:
@@ -336,18 +367,71 @@ class recon(tomoRecon.recon):
             util.FITS.Write(self.WFIM,self.hwrWFIMfname)
             util.FITS.Write(self.WFMM,self.hwrWFMMfname)
 
+   def calcComputeWFIMMVM(self):
+      '''Compute the WFIM based on spmx using MVM'''
+      print("INFORMATION:(**HWR/MVM**): Calculating WFIM, using MVM (wavefront-interaction matrix)")
+      for actNo,thisIp in enumerate(self.spmx):
+         if type(thisIp)!=numpy.ndarray:
+            thisIp=numpy.array(thisIp.todense()).ravel()
+         if 'gIM' not in dir(self):
+            print("INFORMATION(**HWR/MVM**): Loading gIM")
+            self.gIM=numpy.load("../gIM_92x92.pickle")
+
+         MVMcalc= numpy.dot( self.gIM, thisIp )
+         if self.hwrWFMMblockReduction:
+            thisi=None
+            for i,tWFIMbrIndicesModes in enumerate(self.WFIMbrIndicesModes):
+               # search through indices to find the right one
+               if actNo in tWFIMbrIndicesModes:
+                  thisi=i
+                  continue
+            if type(thisi)==type(None):
+               print(actNo)
+               raise Exception("ERROR:(**HWR**): Block-reduction index location"
+                     " failed, too few defined blocks?")
+            validModes=self.WFIMbrIndicesWFGrid[thisi]
+         if self.hwrSparse:
+            for i,val in enumerate(MVMcalc):
+               if self.hwrWFMMblockReduction and (i not in validModes):
+                  continue
+               self.WFIMData.append( val )
+               self.WFIMRowind.append( actNo )
+               self.WFIMIndptr.append( i )
+         else:
+            if self.hwrWFMMblockReduction:
+               self.WFIM[actNo][validModes]=MVMcalc[validModes]
+            else:
+               self.WFIM[actNo]=MVMcalc
+      #
+      if self.hwrSparse:
+         self.WFIM=scipy.sparse.csc_matrix(
+               (self.WFIMData, (self.WFIMRowind, self.WFIMIndptr) ),
+               (self.nmodes, self.gradOp.numberPhases) )
+
    def calcComputeWFIM(self):
       '''Compute the WFIM based on spmx'''
       if self.hwrVerbose:
          print("INFORMATION:(**HWR**): Calculating WFIM, wavefront-interaction matrix")
 
       # \/ loop over rows and convert
+      # first calculate new parameters, full HWR with minimal overlap and
+      # some good default parameters (based on reconstructing a theoretical
+      # poke matrix (-> identity) with 91x91 sub-apertures over a circle
+      smmtnsDef,smmtnsDefStrts,smmtnsMap,offsetEstM=\
+            abbot.hwr.prepHWR( self.gradOp,
+               None,
+               [1]*2,
+               0.05,
+               self.hwrSparse,
+               False,
+               0.01
+               )
       for actNo,thisIp in enumerate(self.spmx):
-         if self.hwrSparse:
+         if type(thisIp)!=numpy.ndarray:
             thisIp=numpy.array(thisIp.todense()).ravel()
          HWRcalc= abbot.hwr.doHWRGeneral( thisIp,
-               self.smmtnsDef,self.gradOp,self.offsetEstM,
-               self.smmtnsDefStrts,self.smmtnsMap,
+               smmtnsDef,self.gradOp,offsetEstM,
+               smmtnsDefStrts,smmtnsMap,
                doWaffleReduction=0, doPistonReduction=1,
                sparse=self.hwrSparse )[1]
          if self.hwrWFMMblockReduction:
@@ -374,7 +458,7 @@ class recon(tomoRecon.recon):
                self.WFIM[actNo][validModes]=HWRcalc[validModes]
             else:
                self.WFIM[actNo]=HWRcalc
-
+      #
       if self.hwrSparse:
          self.WFIM=scipy.sparse.csc_matrix(
                (self.WFIMData, (self.WFIMRowind, self.WFIMIndptr) ),
@@ -404,6 +488,21 @@ class recon(tomoRecon.recon):
 
    def calcClosedLoop(self):
       """Apply reconstruction, and mapping"""
+      if 'smmtnsDef' not in dir(self):
+         if self.hwrVerbose:
+            print( "INFORMATION(**HWR**): Calculating HWR parameters")
+         t1=time.time()
+         self.smmtnsDef,self.smmtnsDefStrts,self.smmtnsMap,self.offsetEstM=\
+               abbot.hwr.prepHWR( self.gradOp,
+                  self.hwrMaxLen,
+                  self.hwrBoundary,
+                  self.hwrOverlap,
+                  self.hwrSparse,
+                  False,
+                  self.hwrSVErcon
+                  )
+         print("INFORMATION(**HWR**): took {0:d}s to setup HWR".format(
+               int(time.time()-t1)) )
       try:
          self.integratedV=abbot.hwr.doHWRGeneral( self.inputData,
                   self.smmtnsDef,self.gradOp,self.offsetEstM,
@@ -431,8 +530,142 @@ class recon(tomoRecon.recon):
                   'self.inputData': self.inputData})
          raise Exception("ERROR: HWR: ... written")
       if not self.hwrSparse:
+##         self.integratedV=numpy.dot( self.smoothingOp, self.integratedV ) #***
          self.outputV=numpy.dot( self.WFMM, self.integratedV )
       else:
+##         self.integratedV=self.smoothingM.dot( self.integratedV ) #***
+         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(self.integratedV),
+               tol=self.hwrCGtol )
+         if outputV[1]==0:
+            self.outputV=outputV[0]
+         else:
+            raise Exception("ERROR: HWR: Could not converge on mapping")
+      self.outputData=self.decayFactor*self.outputData+self.gains*-self.outputV
+   
+   def calcClosedLoopCG(self):
+      """Apply reconstruction, and mapping"""
+      if 'gM' not in dir(self):
+         print("WARNING:(**HWR/CG**): Doing CG (no HWR) in closed loop")
+         print("INFORMATION(**HWR/CG**): Computing gM")
+         self.gM=self.gradOp.returnOp()
+         print(type(self.gM),self.gM.shape,self.gM.var(),self.inputData.var())
+      ### Conjugate Gradient Algorithm with initial guess
+      print("INFORMATION(**HWR/CG**): Start CG")
+      A=self.gM ; AT=A.T
+      r=numpy.dot(AT,self.inputData)
+      k=0
+      self.integratedV=numpy.zeros([self.gradOp.numberPhases],numpy.float64)
+      p=r
+      rNorm=(r**2.0).sum() # just for comparison
+      while rNorm>(len(r)*1e3)**-1.0 and k<self.numberCGloops:
+         k+=1
+         z=numpy.dot(A,p)
+         nu_k=(r**2.0).sum()/(z**2).sum()
+         self.integratedV+=nu_k*p
+         r_prev=r
+         r=r-nu_k*numpy.dot(AT,z)
+         mu_k_1=(r**2.0).sum()/(r_prev**2.0).sum()
+         p=r+mu_k_1*p
+         rNorm_prev=rNorm
+         rNorm=(r**2.0).sum()
+         print("INFORMATION(**HWR/CG**): loop ({0:d}), |r|^2={1:5.3e}/{2:5.3e},"
+         "var{{x}}={3:5.3e}".format(k,rNorm,rNorm_prev,self.integratedV.var()) )
+
+      print(
+         "INFORMATION(**HWR/CG**): CG took {0:d} iterrations".format(k))
+      print(".")
+      if not self.hwrSparse:
+         self.outputV=numpy.dot( self.WFMM, self.integratedV )
+      else:
+         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(self.integratedV),
+               tol=self.hwrCGtol )
+         if outputV[1]==0:
+            self.outputV=outputV[0]
+         else:
+            raise Exception("ERROR: HWR: Could not converge on mapping")
+      self.outputData=self.decayFactor*self.outputData+self.gains*-self.outputV
+
+   def calcClosedLoopHWRCG(self):
+      """Apply reconstruction, and mapping"""
+      print("WARNING:(**HWR/CG**): Doing HWR-CG in closed loop")
+      if 'smmtnsDef' not in dir(self):
+         if self.hwrVerbose:
+            print( "INFORMATION(**HWR**): Calculating HWR parameters")
+         t1=time.time()
+         self.smmtnsDef,self.smmtnsDefStrts,self.smmtnsMap,self.offsetEstM=\
+               abbot.hwr.prepHWR( self.gradOp,
+                  self.hwrMaxLen,
+                  self.hwrBoundary,
+                  self.hwrOverlap,
+                  self.hwrSparse,
+                  False,
+                  self.hwrSVErcon
+                  )
+         print("INFORMATION(**HWR**): took {0:d}s to setup HWR".format(
+               int(time.time()-t1)) )
+      print(".")
+      hwrV=abbot.hwr.doHWRGeneral( self.inputData,
+               self.smmtnsDef,self.gradOp,self.offsetEstM,
+               self.smmtnsDefStrts,self.smmtnsMap,
+               doWaffleReduction=0, doPistonReduction=0,
+          doGradientMgmnt=self.hwrGradientMgmnt,
+               sparse=self.hwrSparse )[1]
+      print(".")
+
+      if 'gM' not in dir(self):
+         print("INFORMATION(**HWR/CG-HWR**): Computing gM")
+         self.gM=self.gradOp.returnOp()
+      ### Conjugate Gradient Algorithm with initial guess
+      A=self.gM ; AT=A.T
+      r=numpy.dot(AT,self.inputData),numpy.dot(numpy.dot(AT,A),hwrV)
+      rNormCG=(r[0]**2.0).sum()
+      r=r[0]-r[1]
+      p=r
+      k=0
+      self.integratedV=hwrV.copy()
+      rNorm=(r**2.0).sum() # just for comparison
+      print("INFORMATION(**HWR/CG-HWR**): pre CG loop, "
+            "rNorm_CG={0:5.3e}".format(rNormCG))
+      while rNorm>(len(r)*1e3)**-1.0 and k<self.numberCGloops:
+         k+=1
+         z=numpy.dot(A,p)
+         nu_k=(r**2.0).sum()/(z**2).sum()
+         self.integratedV+=nu_k*p
+         r_prev=r
+         r=r-nu_k*numpy.dot(AT,z)
+         mu_k_1=(r**2.0).sum()/(r_prev**2.0).sum()
+         p=r+mu_k_1*p
+         rNorm_prev=rNorm
+         rNorm=(r**2.0).sum()
+         print("INFORMATION(**HWR/CG-HWR**): loop ({0:d}), |r|^2={1:5.3e}/{2:5.3e},var{{x}}={3:5.3e}".format(k,rNorm,rNorm_prev,self.integratedV.var()) )
+
+      print(
+         "INFORMATION(**HWR/CG-HWR**): CG took {0:d} iterrations".format(k))
+
+      print(".")
+      if not self.hwrSparse:
+         self.outputV=numpy.dot( self.WFMM, self.integratedV )
+      else:
+         outputV=spcg( self.WFMM[0], self.WFMM[1].dot(self.integratedV),
+               tol=self.hwrCGtol )
+         if outputV[1]==0:
+            self.outputV=outputV[0]
+         else:
+            raise Exception("ERROR: HWR: Could not converge on mapping")
+      self.outputData=self.decayFactor*self.outputData+self.gains*-self.outputV
+
+   def calcClosedLoopMVM(self):
+      """Apply reconstruction, and mapping"""
+      print("WARNING:(**HWR/MVM**): Doing MVM in closed loop")
+      if 'gIM' not in dir(self):
+         print("INFORMATION(**HWR/MVM**): Loading gIM")
+         self.gIM=numpy.load("../gIM_92x92.pickle")
+      self.integratedV=numpy.dot( self.gIM, self.inputData )
+      if not self.hwrSparse:
+##         self.integratedV=numpy.dot( self.smoothingOp, self.integratedV ) #***
+         self.outputV=numpy.dot( self.WFMM, self.integratedV )
+      else:
+##         self.integratedV=self.smoothingM.dot( self.integratedV ) #***
          outputV=spcg( self.WFMM[0], self.WFMM[1].dot(self.integratedV),
                tol=self.hwrCGtol )
          if outputV[1]==0:
@@ -477,8 +710,8 @@ class recon(tomoRecon.recon):
          if type(self.saveRefCentroids)==type(""):
              util.FITS.Write(self.refCentroids,self.saveRefCentroids)
              if self.hwrVerbose:
-                print("INFORMATION(**HWR**): Saving reference centroids, {0:s}".format(
-                     self.saveRefCentroids))
+                print("INFORMATION(**HWR**): Saving reference centroids, "
+                        "{0:s}".format(self.saveRefCentroids))
          else:
              if self.hwrVerbose:
                 print("INFORMATION(**HWR**): Not saving reference centroids")
@@ -504,7 +737,14 @@ class recon(tomoRecon.recon):
       # \/ This section is when the loop is closed.
       #
       if self.control["close_dm"]:
-         self.calcClosedLoop()
+         if self.whichAlgo==0:
+            self.calcClosedLoop() #***
+         elif self.whichAlgo==1:
+            self.calcClosedLoopMVM() #***
+         elif self.whichAlgo==2:
+            self.calcClosedLoopCG() #***
+         elif self.whichAlgo==3:
+            self.calcClosedLoopHWRCG() #***
 
 
    def plottable(self,objname="$OBJ"):
