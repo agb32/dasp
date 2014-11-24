@@ -348,15 +348,15 @@ class wfscent(base.aobase.aobase):
 
 
         
-        wfs_bandwidth=this.config.getVal("wfs_bandwidth")                  # WFS Optical bandwidth
-        wfs_thruput=this.config.getVal("wfs_thruput")                      # Thruput to the WFS
-        wfs_phot_rate_factor=this.config.getVal("wfs_phot_rate_factor")    # Photons/sec/area/angstrom
-        wfs_mag=this.config.getVal("wfs_mag")                              # Guide star magnitude
         telDiam=this.config.getVal("telDiam")                              # Telescope aperture diameter
         wfs_ncen=this.config.getVal("wfs_ncen",default=wfs_nimg)            # Centroiding box size (pixels)
         wfs_floor=this.config.getVal("wfs_floor")          # Centroiding floor value
         sig=this.config.getVal("wfs_sig",default=None,raiseerror=0)
         if sig==None:
+            wfs_bandwidth=this.config.getVal("wfs_bandwidth")                  # WFS Optical bandwidth
+            wfs_thruput=this.config.getVal("wfs_thruput")                      # Thruput to the WFS
+            wfs_phot_rate_factor=this.config.getVal("wfs_phot_rate_factor")    # Photons/sec/area/angstrom
+            wfs_mag=this.config.getVal("wfs_mag")                              # Guide star magnitude
             sig=util.centroid.wfs_sig(wfs_bandwidth,wfs_thruput,wfs_phot_rate_factor,telDiam,wfs_nsubx,wfs_int,wfs_mag)
         this.laserGuideStar=None
         addPoisson=this.config.getVal("addPoisson",default=1)
@@ -1479,6 +1479,7 @@ class wfscent(base.aobase.aobase):
         if self.sentPlotsCnt==0:
             #outputData is only valid for one object at a time, when that has just run...
             txt+="""<plot title="WFS SH img%s" cmd="data=%s.drawCents(0)" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+            txt+="""<plot title="Change mask (-1,0,1) %s" cmd="data=%s.imgmask=(%s.imgmask+2)%%3-1" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname)
             if self.imageOnly==0:
                 txt+="""<plot title="XCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
                 txt+="""<plot title="YCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)

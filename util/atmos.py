@@ -1,4 +1,5 @@
 from cmod.interp import gslCubSplineInterp,linearshift
+import cmod.iscrn
 import time
 import numpy
 import util.dm,util.guideStar
@@ -70,6 +71,7 @@ class geom:
         """
         self.zenith=zenith
         self.zenithAz=zenithAz
+        self.rotateDirections=0#Used in getScrnXPxls etc, whether to rotate the phase screens when considering max width to use.
         self.r0=r0*numpy.cos(self.zenith*numpy.pi/180.)**0.6#adjust r0 for zenith.
         self.l0=l0
         self.zenithOld=0.#this was used when making eliptical pupils.  However, that idea is no longer in vogue.  So, this is always set at zero.
@@ -170,8 +172,9 @@ class geom:
             print "WARNING util.atmos.getLayerWidth - do not use if zenith!=0"
         fov=max(self.sourceThetas().values())/60./60./180*numpy.pi
         return numpy.tan(fov)*height*2/numpy.cos(self.zenith*numpy.pi/180.)+self.telDiam
-    def getScrnSize(self):
+    def getScrnSize(self,rotateDirections=0):
         """Compute the screen sizes"""
+        self.rotateDirections=rotateDirections
         thetas={}#source direction
         phis={}#source direction
         ntel=self.ntel
@@ -180,41 +183,50 @@ class geom:
         arcsecrad=2*numpy.pi/360./3600.
         degrad=2*numpy.pi/360.
         scrnSize={}
+        rotangle=0.
         for altkey in self.layerDict.keys():
             xposlist=[]
             yposlist=[]
             layerAlt=self.layerHeight(altkey)
+            if rotateDirections:#this comes from the new phase screen method (generated along 1 axis and then rotated in iatmos).  To work out the max size of this screen, we consider the rotation here.  
+                wd=self.layerWind(altkey)
+                rotangle=(wd-0)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
             for key in self.sourceDict.keys():
                 #xposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.cos(self.sourcePhi(key)*degrad)))
                 #yposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.sin(self.sourcePhi(key)*degrad)))
-                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad))
-                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad))
+                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
+                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
             maxx=max(xposlist)
             minx=min(xposlist)
             maxy=max(yposlist)
             miny=min(yposlist)
             #scrnXPxls=int(Numeric.ceil(maxx*ntel/telDiam+npup+Numeric.ceil(minx*ntel/telDiam))+1)
             #scrnYPxls=int(Numeric.ceil(maxy*ntel/telDiam+npup+Numeric.ceil(miny*ntel/telDiam))+1)
-            print altkey,maxx,minx,(maxx-minx),maxy,miny,(maxy-miny)
-            scrnXPxls=int(numpy.ceil(npup/numpy.cos(self.zenithOld*degrad)))+1+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
-            scrnYPxls=npup+1+int(numpy.ceil((maxy-miny)*ntel/telDiam))
+            #print altkey,maxx,minx,(maxx-minx),maxy,miny,(maxy-miny)
+            extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
+            scrnXPxls=int(numpy.ceil(npup*extra/numpy.cos(self.zenithOld*degrad)))+1+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
+            scrnYPxls=int(numpy.ceil(npup*extra))+1+int(numpy.ceil((maxy-miny)*ntel/telDiam))
+            #if rotateDirections:
+            #    scrnSize[altkey]=(scrnYPxls,scrnXPxls)
+            #else:
             scrnSize[altkey]=(scrnXPxls,scrnYPxls)
         print "scrnSize: %s"%str(scrnSize)
         self.scrnSize=scrnSize
         return scrnSize
 
-    def getScrnXPxls(self,id):
+    def getScrnXPxls(self,id,rotateDirections=0):
         """return screen x size"""
-        if self.scrnSize==None:
-            self.getScrnSize()
+        if self.scrnSize==None or self.rotateDirections!=rotateDirections:
+            self.getScrnSize(rotateDirections)
         return self.scrnSize[id][0]
-    def getScrnYPxls(self,id):
+    def getScrnYPxls(self,id,rotateDirections=0):
         """return screen y size"""
-        if self.scrnSize==None:
-            self.getScrnSize()
+        if self.scrnSize==None or self.rotateDirections!=rotateDirections:
+            self.getScrnSize(rotateDirections)
         return self.scrnSize[id][1]
-    def getLayerOffset(self):
+    def getLayerOffset(self,rotateDirections=0):
         """compute the layer offsets"""
+        self.rotateDirections=rotateDirections
         arcsecrad=2*numpy.pi/360./3600.
         degrad=2*numpy.pi/360.
         npup=self.npup
@@ -222,12 +234,17 @@ class geom:
         telDiam=self.telDiam
         layerXOffset={}
         layerYOffset={}
+        rotangle=0.
         for altKey in self.layerDict.keys():
             xpos=[]
             ypos=[]
+            if rotateDirections:#this comes from the new phase screen method (generated along 1 axis and then rotated in iatmos).  To work out the max size of this screen, we consider the rotation here.  
+                wd=self.layerWind(altKey)
+                rotangle=(wd-0)*numpy.pi/180.+numpy.pi#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.  Also need to add 180 degrees (pi), because found that the coordinates were wrong.  
+            extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             for sourceKey in self.sourceDict.keys():
-                xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
-                ypos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad)*self.layerHeight(altKey)/telDiam*ntel-npup/2.)#scrnSize[altKey][1]/2.)
+                xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
+                ypos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
             minx=min(xpos)
             miny=min(ypos)
             #print "minx,miny %g %g"%(minx,miny)
@@ -239,19 +256,31 @@ class geom:
                 layerYOffset[altKey]=int(numpy.ceil(numpy.fabs(miny)))
             else:
                 layerYOffset[altKey]=-int(numpy.floor(miny))
+        #if rotateDirections:
+        #    self.layerOffset=(layerYOffset,layerXOffset)
+        #else:
+            if rotateDirections:
+                if layerXOffset[altKey]>0:
+                    layerXOffset[altKey]-=0.5
+                elif layerXOffset[altKey]<0:
+                    layerXOffset[altKey]+=0.5
+                if layerYOffset[altKey]>0:
+                    layerYOffset[altKey]-=0.5
+                elif layerYOffset[altKey]<0:
+                    layerYOffset[altKey]+=0.5
         self.layerOffset=(layerXOffset,layerYOffset)
         #print self.layerOffset
         return self.layerOffset
 
-    def getLayerXOffset(self):
+    def getLayerXOffset(self,rotateDirections=0):
         """return the layer x offsets"""
-        if self.layerOffset==None:
-            self.getLayerOffset()
+        if self.layerOffset==None or self.rotateDirections!=rotateDirections:
+            self.getLayerOffset(rotateDirections)
         return self.layerOffset[0]
-    def getLayerYOffset(self):
+    def getLayerYOffset(self,rotateDirections=0):
         """return the layer y offsets"""
-        if self.layerOffset==None:
-            self.getLayerOffset()
+        if self.layerOffset==None or self.rotateDirections!=rotateDirections:
+            self.getLayerOffset(rotateDirections)
         return self.layerOffset[1]
 #makeDMList depreciated - use util.dm instead...
 ##     def makeDMList(self,nact,height,fov=None,coupling=0.1):
@@ -769,3 +798,459 @@ class atmos:
             return self.interpPhs
         else:
             return self.interpPhs*self.pupil.fn
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class iatmos:
+    """A class to carry out computation of a pupil phase screen
+    for a given source direction.  This can (possibly) be used stand-alone
+    and is used as part of the AO simulation (iatmos module)."""
+    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=None,outputData=None):
+        """Source altitude, wavelength and position are given, and info about all the phase screen layers.
+        storePupilLayers - if 1, a dictionary of layers along this line of sight will be created - unexpanded in the case of LGS - i.e. full pupil.
+        computeUplinkTT - if 1 then uplink tip/tilt will be computed.
+        ygradient is a dictionary of the y gradients.
+        """
+        if outputData==None:
+            raise Exception("outputData should be specified")
+        self.outputData=outputData
+        self.npup=npup
+        if ntel==None:
+            ntel=npup
+        self.ntel=ntel
+        self.telDiam=telDiam
+        if interpolationNthreads==None:
+            self.interpolationNthreads=(0,1,1)#number of threads will be computed as half number of (hyperthreaded) cores (if npup sufficiently large)
+        elif type(interpolationNthreads) in [type(0),type(0.)]:
+            self.interpolationNthreads=(interpolationNthreads,interpolationNthreads,1)
+        else:
+            self.interpolationNthreads=interpolationNthreads#a tuple of (nthreads, nblockx, nblocky)
+        self.pupil=pupil
+        self.rowAdd=rowAdd
+        self.sourceAlt=sourceAlt
+        self.sourceLam=sourceLam
+        self.sourceTheta=sourceTheta
+        self.sourcePhi=sourcePhi
+        self.intrinsicPhase=intrinsicPhase#added to the output each iteration
+        degRad=2*numpy.pi/360
+        arcsecRad=2*numpy.pi/360/3600
+        self.layerList=layerList
+        if self.layerList==None:
+            raise Exception("LayerList shouldn't be None")
+        self.zenith=zenith
+        self.zenithOld=0.#used to be used when stretching screens - now no longer.
+
+        self.windDirection=windDirection#dictionary
+        self.layerAltitude=layerAltitude#these are pre-scaled by zenith.
+        self.sortedLayerList=[]
+        hh=sorted(self.layerAltitude.values())
+        for h in hh:
+            for key in self.layerList:
+                if self.layerAltitude[key]==h:
+                    self.sortedLayerList.append(key)
+                    break
+        print "atmos: Layers %s, sorted %s"%(self.layerList,self.sortedLayerList)
+        if len(self.layerList)!=len(self.sortedLayerList):
+            raise Exception("Error sorting layerList in atmos.py")
+        self.interpStruct={}
+        self.phaseScreens=phaseScreens
+        self.ygradients=ygradients
+        self.scrnScale=scrnScale#length per phase pixel (teldiam/ntel)
+        self.layerXOffset=layerXOffset
+        self.layerYOffset=layerYOffset
+        self.storePupilLayers=storePupilLayers
+        self.computeUplinkTT=computeUplinkTT
+        if self.computeUplinkTT and self.sourceAlt==-1:
+            raise Exception("Cannot compute uplink for source at infinity")
+        self.launchApDiam=launchApDiam
+        if self.storePupilLayers or self.computeUplinkTT:
+            self.uplinkPositionDict={}
+            if self.storePupilLayers:
+                self.storedLayer={}
+                for key in self.layerList:
+                    self.storedLayer[key]=numpy.zeros((self.npup,self.npup),numpy.float64)
+            else:
+                self.tmpPup=numpy.zeros((self.npup,self.npup),numpy.float64)
+            if self.computeUplinkTT:
+                self.uplinkTTDict={}
+                self.calibrateUplinkTilt()
+                self.uplinkPhs=numpy.zeros((self.npup,self.npup),numpy.float64)
+                self.distToFocus={}
+                for i in range(len(self.sortedLayerList)):
+                    key=self.sortedLayerList[i]
+                    alt=self.layerAltitude[key]
+                    if alt<self.sourceAlt:
+                        self.distToFocus[key]=self.sourceAlt-alt
+
+        #Now, for each layer, compute where abouts in this layer we should take phase from.
+        #We need to take wind direction into account, because this will rotate positions respective to the layer in memory.
+
+        #We need to know the x and y shifts into the layer where we start interpolating from.  The phasescreen is always rotated about its centre.
+
+        self.positionDict={}
+        for key in self.layerList:
+            if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
+                #compute centre of the source.
+                rotangle=self.windDirection[key]*numpy.pi/180.+numpy.pi#found that the relative positions of different pupils were wrong, so need to rotate by 180 degrees...
+                xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad+rotangle)#xxx 90?
+                ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad+rotangle)#xxx 90?
+
+
+                #use the layer...
+                shape=self.phaseScreens[key].shape
+                #compute where the middle of the pupil array should be within the phase array.
+                x=xpos*self.layerAltitude[key]/self.scrnScale+self.layerXOffset[key]
+                y=ypos*self.layerAltitude[key]/self.scrnScale+self.layerYOffset[key]
+
+
+                # #compute starting position for corner of the arrays.
+                # x=xpos*self.layerAltitude[key]/numpy.cos(self.zenithOld*numpy.pi/180.)/self.scrnScale-self.npup/numpy.cos(self.zenithOld*degRad)/2+self.layerXOffset[key]#+shape[0]/2#zenith added 090518
+                # y=ypos*self.layerAltitude[key]/self.scrnScale-self.npup/2+self.layerYOffset[key]#+shape[1]/2
+                # #if x<0 or y<0 or numpy.ceil(x+self.npup)>shape[1] or numpy.ceil(y+self.npup)>shape[0]:#agb removed +1 in x+npup and y+npup, and replaced with numpy.ceil, date 070831.
+                # if x<0 or y<0 or x+self.npup/numpy.cos(self.zenithOld*degRad)+1>shape[1] or y+self.npup+1>shape[0]:#zenith added 090518
+                #     print "ERROR: util.atmos - phasescreen %s is not large enough to contain this source %g %g %g %g %g %g"%(str(key),x,y,x+self.npup/numpy.cos(self.zenithOld*degRad)+1,y+self.npup+1,shape[1],shape[0])#agbc changed shape[0->1] and vice versa zenith added 090518
+                #     raise Exception("ERROR: util.atmos - phasescreen is not large enough to contain this source")
+                axis1=axis2=axis3=None
+                if self.sourceAlt>0:#an LGS
+                    if (self.storePupilLayers or self.computeUplinkTT):
+                        #Need to make a note of the position of full pupil.
+                        width=self.npup
+                        widthx=int(width/numpy.cos(self.zenithOld*numpy.pi/180.)+0.5)
+                        if self.zenithOld!=0:
+                            axis2=numpy.arange(width).astype(numpy.float64)
+                            axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
+                        self.uplinkPositionDict[key]=(int(x-self.npup/2.),int(y-self.npup/2.),widthx,width,x-self.npup/2.-numpy.floor(x-self.npup/2.),y-self.npup/2.-numpy.floor(y-self.npup/2.),axis2,axis1,axis3)
+
+                    #this is a LGS... need to project (interpolate)
+                    #so we only select the central portion of the pupil
+                    #since beam diverges from LGS spot.
+                    scale=1.-self.layerAltitude[key]/self.sourceAlt
+                    # npup2=self.npup*(1.-self.layerAltitude[key]/self.sourceAlt)
+                    # x=x+(self.npup-npup2)/numpy.cos(self.zenithOld*degRad)/2#select central portion zenith added 090518
+                    # y=y+(self.npup-npup2)/2
+                    # width=int(npup2+0.5)#round correctly...
+                    # widthx=int(npup2/numpy.cos(self.zenithOld*degRad)+0.5)
+                    # axis2=numpy.arange(width).astype(numpy.float64)
+                    # step=(width-1)/float(self.npup-1)
+                    # axis1=numpy.arange(self.npup).astype(numpy.float64)*step
+                    # #and the axis used for binning down to width when zenith!=0
+                    # if self.zenithOld!=0:
+                    #     axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
+                else:#select a whole pupil area (collimated from NGS).
+                    scale=1.
+                    #width=self.npup
+                    #widthx=int(width/numpy.cos(self.zenithOld*numpy.pi/180.)+0.5)
+                    #if self.zenithOld!=0:
+                    #    axis2=numpy.arange(width).astype(numpy.float64)
+                    #    axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
+                #self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,1,1,1)
+                    
+                #self.positionDict[key]=(x-shape[1]/2.+0.5,y-shape[0]/2.+0.5,scale)
+                #Changed to +1 on 7/11/2014 by agb - so that test/scao/scaoiatmos.py works.  Checked with test/iscrn and test/iatmos
+                self.positionDict[key]=(x-shape[1]/2.+1,y-shape[0]/2.+1,scale)
+                #print "positionDict %s: %s %s"%(str(key),str(self.positionDict[key]),str((self.layerXOffset[key],self.layerYOffset[key])))
+            else:#layer above source, so don't use.
+                self.positionDict[key]=()
+        
+    def initMem(self):#,outputData):#,interpPhs):
+        """Initialise memory to shared memory regions... in this case, they
+        are always the same size, so access directly without using
+        arrayFromArray.
+        """
+        #self.outputData=outputData    #this will be shared by all resource 
+        #self.interpPhs=interpPhs#sharing infAtmos objects.  
+        pass
+
+    def calibrateUplinkTilt(self):
+        pup=util.tel.Pupil(self.npup,self.ntel/self.telDiam*self.launchApDiam,0)
+        ztt=util.zernikeMod.Zernike(pup,3,computeInv=0).zern[1:]
+        pupsum=pup.fn.sum()
+        
+        a=numpy.zeros((self.npup,self.npup),numpy.float32)
+        a[:]=numpy.arange(self.npup)
+        est=(ztt[0]*a).sum()/pupsum
+        #est should equal theta=arctan((npup-1)/npup*(ntel/telDiam*launchApDiam)*500e-9/(2*numpy.pi)/launchApDiam)
+        #Can use small angle approx - so est== (npup-1)*ntel*500e-9/(npup*telDiam*2*numpy.pi)
+        #So, scaling factor is this/est.  Also include the pupil sum here, to avoid 2 further divisions each iteration later on.
+        scalingFactor=((self.npup-1)*self.ntel*500e-9)/(self.npup*self.telDiam*2*numpy.pi*est*pupsum)
+        #This means that given some phase, (phs*ztt[0]).sum()*scale should give the tilt in radians.
+        #So, multiply scale with ztt, so then (phs*ztt[0]).sum() gives tilt in radians.
+        ztt*=scalingFactor
+        self.uplinkZTT=ztt
+
+        #Now compute the zernikes that go from tip/tilt shift in m on-sky to radians across the pupil again.
+        #Angle is arctan(dist/height) ~ dist/height.
+        #Across the pupil this corresponds to a tilt of diam*tan(theta) = diam*dist/height, giving the P-V tilt in m.  diam*dist/height/500e-9*2*pi gives in radians.  ie this is the range of tt values that need to be applied.  But what is the range of the zernike generated?
+        dtt=util.zernikeMod.Zernike(self.pupil.fn,3,computeInv=0).zern[1:]
+        #Find range - same for tip and tilt.
+        r=numpy.ptp(dtt[0])#numpy.max(dtt[0])-numpy.min(dtt[0])
+        dtt*=self.telDiam*2*numpy.pi/(self.sourceAlt*500e-9*r)
+        self.uplinkDownTT=-dtt
+        print "Computed uplink related calibrations"
+
+    def createPupilPhs(self,interpPosRowDict,insertPosDict,control):
+        """Here, interpolate the screens, add together, and voila,
+        have the pupil phase.
+        Assumes the screens have already been created (eg in iatmos).
+        """
+        #t1=time.time()
+        if self.intrinsicPhase!=None:
+            self.outputData[:]=self.intrinsicPhase
+        else:
+            self.outputData[:,]=0.#clear the array.
+        if self.computeUplinkTT:
+            self.uplinkPhs[:]=0#reset the uplink phase.
+            tottip=0.
+            tottilt=0.
+        for key in self.sortedLayerList:#for each atmosphere layer... (increasing in height)
+            posDict=self.positionDict[key]
+            if len(posDict)>0:#this layer is used (ie below star height)
+                
+
+
+                #print "atmos time2 %g"%(time.time()-t1)
+                x=posDict[0]
+                y=posDict[1]
+                scale=posDict[2]
+                #interpPosCol=posDict[4]#static offset due to source direction.
+                #interpPosRow=posDict[5]#static offset due to source direction.
+                #scale=posDict[9]#the scale (<1 for layerheight>0 if using lgs).
+                shift=interpPosRowDict[key]#layer should be interpolshifted by this amount.  Which corresponds to an x and y shift when rotated.
+                #Now, rotate the correct part of the phase screen into the outputData.   Add 90 because of the way the phase layers are defined (moving up).
+                if not self.interpStruct.has_key(key):
+                    #print "Initialising atmos interpolation"
+                    if self.ygradients==None:
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+0.,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])#interpolationNthreads=0,1,1 by default.
+                    else:
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+0.,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                #print "%s %g %g %gxxx"%(key,x,y,shift)
+                if control["fullPupil"]:#temporarily set pupil to 1
+                    tmp=self.pupil.fn.copy()
+                    self.pupil.fn[:]=1
+                nout=cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+                if control["fullPupil"]:#copy proper pupil back.
+                    self.pupil.fn[:]=tmp
+                if nout!=0:
+                    print "%d points out of range in interpolation: %s [%g, %g, %g]"%(nout,key,x,y,scale) 
+        if self.computeUplinkTT:
+            if self.sourceLam!=500:
+                self.uplinkPhs*=(500./self.sourceLam)
+            self.uplinkTT=numpy.array([tottip,tottilt])
+            #This value should be added to a lgs wfs.  Note, tip is in x direction, tilt is in y direction.
+            #print "Uplink tt (m shift on-sky): %s"%str(self.uplinkTT)
+            #So, how much zernike does this correspond to?
+            self.outputData+=self.uplinkDownTT[0]*tottip
+            self.outputData+=self.uplinkDownTT[1]*tottilt
+        #print "atmos time6 %g"%(time.time()-t1)
+        #from here to end takes a long time (1/4), equally spaced between each.
+        # Remove overall piston
+        if control["fullPupil"]:
+            pfn=1
+            pfnArea=self.npup*self.npup
+        else:
+            pfn=self.pupil.fn
+            pfnArea=self.pupil.area
+        if control["removePiston"]:
+            #pist=numpy.sum(self.outputData*pfn)/pfnArea
+            pist=self.outputData.sum()/pfnArea#already has the pupil function imposed
+            self.outputData-=pist
+        #print "atmos time7 %g"%(time.time()-t1)
+        # Multiply by pupil and scale to output wavelength
+        if not control["fullPupil"]:
+            self.outputData*=pfn
+        if self.sourceLam!=500.:
+            self.outputData[:,]*=(500./self.sourceLam)
+        #print "atmos time8 %g"%(time.time()-t1)
+
+                   
+#    def createSingleLayerPhs(self,phaseScreens,ygradients,interpPosRowDict,insertPosDict,key,control):
+    def createSingleLayerPhs(self,interpPosRowDict,insertPosDict,key,control):
+        """Just do the interpolation for a single layer."""
+        posDict=self.positionDict[key]
+##         interpPosCol=interpPosColDict[key]+posDict[4]
+##         interpPosRow=interpPosRowDict[key]+posDict[5]
+        
+##         #print "%g %g"%(interpPosCol,interpPosRow)
+##         phsShiftY=int(interpPosCol)
+##         phsShiftX=int(interpPosRow)
+##         interpPosCol-=phsShiftY
+##         interpPosRow-=phsShiftX
+##         if self.colAdd[key]>=0:
+##             interpPosCol=1-interpPosCol
+##             #phsShiftY*=-1
+##         if self.rowAdd[key]>=0:
+##             interpPosRow=1-interpPosRow
+##             #phsShiftX*=-1
+
+        x=posDict[0]
+        y=posDict[1]
+        scale=posDict[2]
+        shift=interpPosRowDict[key]#layer should be interpolshifted by 
+        tmp=self.outputData.copy()
+        self.outputData[:]=0
+        #Now, rotate the correct part of the phase screen into the outputData.   Add 90 because of the way the phase layers are defined (moving up).
+        #This writes it into outputData.
+        nout=cmod.iscrn.rotShiftWrapSplineImageThreaded(self.interpStruct[key],x,y-shift,insertPosDict[key])
+        if nout!=0:
+            print "%d points out of range in interpolation: %s [%g, %g, %g]"%(nout,key,x,y,scale) 
+
+        #cmod.iscrn.rotShiftWrapSplineImageNoInit(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],self.outputData,scale)
+
+        #rotateShiftWrapSplineImage(phaseScreens[key],ygradients[key],self.windDirection[key]+90,x,y-shift,insertPosDict[key],phs,scale)
+        phs=self.outputData.copy()
+        #reinstate the original.
+        self.outputData[:]=tmp
+        if not control["fullPupil"]:
+            phs*=self.pupil.fn
+        return phs
+
+
+        # if self.colAdd[key]>=0:#add on to start...
+        #     if interpPosColDict[key]>0:
+        #         interpPosCol+=1-interpPosColDict[key]
+        # else:
+        #     if interpPosColDict[key]>0:
+        #         interpPosCol+=interpPosColDict[key]
+        #     else:
+        #         interpPosCol+=1
+
+        # phsShiftY=numpy.floor(interpPosCol)
+        # tmpcol=interpPosCol
+        # interpPosCol-=phsShiftY
+        # #if interpPosCol==0 and self.colAdd[key]<0:
+        # #    interpPosCol=1.
+
+
+        # if self.rowAdd[key]>=0:#add on to start
+        #     if interpPosRowDict[key]>0:
+        #         interpPosRow+=1-interpPosRowDict[key]
+        # else:
+        #     if interpPosRowDict[key]>0:
+        #         interpPosRow+=interpPosRowDict[key]
+        #     else:
+        #         interpPosRow+=1
+        # phsShiftX=numpy.floor(interpPosRow)
+        # tmprow=interpPosRow
+        # interpPosRow-=phsShiftX
+        # #if interpPosRow==0 and self.rowAdd[key]<0:
+        # #    interpPosRow=1.
+
+        # #phsShiftX+=1
+        # #phsShiftY+=1
+        # #now select the area we're interested in for this target...
+        # phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,
+        #                       posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
+        # #now do interpolation... (sub-pxl)
+        # linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])
+        # if self.zenithOld!=0:
+        #     x=posDict[6]
+        #     x2=posDict[8]
+        #     #make it square (was rectangular):
+        #     gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,
+        #                        self.interpPhs[:posDict[3],:posDict[3]],self.interpolationNthreads)
+            
+        # if self.sourceAlt>0:
+        #     #this is a LGS... need to project (interpolate)
+        #     x2=posDict[6]
+        #     x=posDict[7]
+        #     #Bicubic interpolation (in C) for LGS projection
+        #     gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,
+        #                        self.interpPhs,self.interpolationNthreads)
+        # if control["fullPupil"]:
+        #     return self.interpPhs
+        # else:
+        #     return self.interpPhs*self.pupil.fn
+
+
+def rotateShiftWrapSplineImage(img,dimg,deg,shiftx,shifty,wrappoint,out,r=1.):
+    """Rotates an image by deg degrees, shifts centre by x,y and puts result into out, which can be different size from img.
+    wrappoint is the point at which img is wrapped, being the oldest phase.
+    dimg is the gradient of img in y direction, ie approx (img[2:]-img[:-2])/2.   (with the edge cases included too).
+    r is a zoom factor - e.g 0.5 gives zoom of 2.
+    (from py/rotinterp.py)
+"""
+    ang=deg*numpy.pi/180.
+    s=r*numpy.sin(ang)
+    c=r*numpy.cos(ang)
+    dim=out.shape
+    imgdim=img.shape
+    sx=shiftx
+    sy=shifty
+    points=numpy.zeros((4,),"f")
+    outofrange=numpy.zeros((4,),"i")
+    for yy in range(dim[0]):
+        y=yy-dim[0]/2.+.5
+        for xx in range(dim[1]):
+            x=xx-dim[1]/2.+.5
+            yold=-s*x+c*y+imgdim[0]/2.-.5-sy+wrappoint
+            xold=c*x+s*y+imgdim[1]/2.-.5-sx
+            x1=int(numpy.floor(xold))
+            x2=x1+1
+            x0=x1-1
+            x3=x1+2
+            #First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+            y1=int(numpy.floor(yold))
+            if y1>=imgdim[0]:#wrap it
+                y1-=imgdim[0]
+                yold-=imgdim[0]
+            y2=y1+1
+            xm=xold-x1
+            ym=yold-y1
+            if y2==imgdim[0]:
+                y2=0
+
+            #X1=0, X2=1.  
+            #t=ym
+            for i in range(4):#at x1-1, x1, x2, x2+1.
+                if x1+i-1>=0 and x1+i-1<img.shape[1]:
+                    k1=dimg[y1,x1+i-1]
+                    k2=dimg[y2,x1+i-1]
+                    Y1=img[y1,x1+i-1]
+                    Y2=img[y2,x1+i-1]
+                    a=k1-(Y2-Y1)#k1*(X2-X1)-(Y2-Y1)
+                    b=-k2+(Y2-Y1)#-k2*(X2-X1)+(Y2-Y1)
+                    points[i]=(1-ym)*Y1+ym*Y2+ym*(1-ym)*(a*(1-ym)+b*ym)
+                    outofrange[i]=0
+                else:
+                    outofrange[i]=1
+            #and now interpolate in X direction (using points).
+            if outofrange[0]:
+                k1=points[2]-points[1]
+            else:
+                k1=(points[2]-points[0])*.5
+            if outofrange[3]:
+                k2=points[2]-points[1]
+            else:
+                k2=(points[3]-points[1])*.5
+            if outofrange[1] or outofrange[2]:
+                #raise Exception("Out of range")
+                print "Out of range y:%d x:%d %g %g %g %d %g %s %s %d"%(yy,xx,deg,shiftx,shifty,wrappoint,r,str(dim),str(imgdim),x1)
+                continue
+            #t=xm.
+            #X1=0, X2=1
+            Y1=points[1]
+            Y2=points[2]
+            a=k1-(Y2-Y1)#k1*(X2-X1)-(Y2-Y1)
+            b=-k2+(Y2-Y1)#-k2*(X2-X1)+(Y2-Y1)
+            val=(1-xm)*Y1+xm*Y2+xm*(1-xm)*(a*(1-xm)+b*xm)
+            
+            out[yy,xx]+=val
+    return out
+

@@ -70,6 +70,8 @@ class simctrlGUI:
         self.commandHistoryList=[]
         self.commandHistoryListPos=0
         self.gladetree.signal_autoconnect(self.sigdict)
+        self.gladetree.get_widget("entryHostPort").set_text("9000")
+
         #set up the socket connection list
         self.sockView=self.gladetree.get_widget("treeviewConnections")
         self.sockView.get_selection().set_mode(gtk.SELECTION_MULTIPLE)
@@ -213,46 +215,8 @@ class simctrlGUI:
         """connect pressed"""
         txt=self.gladetree.get_widget("entryHostPort").get_text()
         notowned=0
-        if len(txt)==0:
-            try:
-                
-                data=self.sim.queryPortDict()
-            except:
-                data=[]
-            if data==[]:
-                data=[["localhost",9000,"Guess",os.environ.get("USER","?")]]
-                # try:
-                #     data=self.sim.queryPortDict("192.168.3.30")
-                # except:
-                #     data=[]
-            if len(data)==0:
-                gui.dialog.dialog.myDialog(msg="No simulation found to connect to.\nPlease check it is running.\nIf util/portdict.py is not running, try running it\nand restarting your simulation so that it is registered.\n",title="No simulations found",buttons=(gtk.STOCK_OK,gtk.RESPONSE_ACCEPT),parent=self.gladetree.get_widget("window1"))
-            else:
-                mysims=[]
-                simulations=[]
-                mydata=[]
-                odata=[]
-                for d in data:
-                    if d[3]==os.environ.get("USER","?"):
-                        mysims.append(str(d))
-                        mydata.append(d)
-                    else:
-                        simulations.append(str(d))
-                        odata.append(d)
-                simulations=mysims+simulations
-                data=mydata+odata
-                s=selectionbox.selectionbox(simulations,txt="Choose the connections",title="Choose the connections",multiple=1,parent=self.gladetree.get_widget("window1"))
-                if s.choice!=None:
-                    if type(s.choice)==types.ListType and len(s.choice)==0:
-                        for d in data:#connect to all...
-                            if self.makeConnection(d[0],d[1],d[3])==-1:
-                                notowned=1
-                    else:
-                        for selection in s.choice:
-                            if self.makeConnection(data[selection][0],data[selection][1],data[selection][3])==-1:
-                                notowned=1
-                        
-        else:#already selected port and hostname.
+        if len(txt)>0:
+            #already selected port and hostname.
             txt=txt.split()
             port=9000
             host="localhost"
@@ -261,8 +225,55 @@ class simctrlGUI:
                 port=int(txt[1])
             elif len(txt)==1:
                 port=int(txt[0])
-            if self.makeConnection(host,port)==-1:#not owned by you...
+            owned=self.makeConnection(host,port)
+            if owned==-1:#not owned by you...
                 notowned=1
+            if owned==0:#not connected
+                txt=""
+        if len(txt)==0:
+            #print "Trying default simulation port (9000)"
+            owned=0#self.makeConnection("localhost",9000)
+            if owned==-1:#not owned by you...
+                notowned=1
+            elif owned==0:#not connected
+                try:
+
+                    data=self.sim.queryPortDict()
+                except:
+                    data=[]
+                if data==[]:
+                    data=[["localhost",9000,"Guess",os.environ.get("USER","?")]]
+                    # try:
+                    #     data=self.sim.queryPortDict("192.168.3.30")
+                    # except:
+                    #     data=[]
+                if len(data)==0:
+                    gui.dialog.dialog.myDialog(msg="No simulation found to connect to.\nPlease check it is running.\nIf util/portdict.py is not running, try running it\nand restarting your simulation so that it is registered.\n",title="No simulations found",buttons=(gtk.STOCK_OK,gtk.RESPONSE_ACCEPT),parent=self.gladetree.get_widget("window1"))
+                else:
+                    mysims=[]
+                    simulations=[]
+                    mydata=[]
+                    odata=[]
+                    for d in data:
+                        if d[3]==os.environ.get("USER","?"):
+                            mysims.append(str(d))
+                            mydata.append(d)
+                        else:
+                            simulations.append(str(d))
+                            odata.append(d)
+                    simulations=mysims+simulations
+                    data=mydata+odata
+                    s=selectionbox.selectionbox(simulations,txt="Choose the connections",title="Choose the connections",multiple=1,parent=self.gladetree.get_widget("window1"))
+                    if s.choice!=None:
+                        if type(s.choice)==types.ListType and len(s.choice)==0:
+                            for d in data:#connect to all...
+                                if self.makeConnection(d[0],d[1],d[3])==-1:
+                                    notowned=1
+                        else:
+                            for selection in s.choice:
+                                if self.makeConnection(data[selection][0],data[selection][1],data[selection][3])==-1:
+                                    notowned=1
+                        
         if notowned:
             gui.dialog.dialog.myDialog(msg="WARNING: Connected to simulation(s) not owned by you.\nPlease check that this is what you expected\n",title="Owner warning",buttons=(gtk.STOCK_OK,gtk.RESPONSE_ACCEPT),parent=self.gladetree.get_widget("window1"))
                 

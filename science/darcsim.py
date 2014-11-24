@@ -144,8 +144,9 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
             #Open a listening socket, for the darc camera and mirror to connect to.
             self.lsock=socket.socket()
             self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            port=8000
-            while port<9000:
+            self.port=self.config.getVal("port",8000)
+            port=self.port
+            while port<self.port+1000:
                 print "binding to port %d..."%port
                 try:
                     self.lsock.bind(("",port))
@@ -153,7 +154,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
                     port+=1
                 else:
                     break
-            if port==9000:
+            if port==self.port+1000:
                 raise Exception("Unable to bind...")
             print "Bound to port %d"%port
             self.port=port
@@ -346,12 +347,12 @@ control={"ncam":%d,
             size=self.parent[key].outputData.size
             self.inputData[pos:pos+size]=self.parent[key].outputData.ravel()
             pos+=size
-
     def sendToDarc(self):
         self.inputHdr[0]=0xa<<28|self.npxls
         self.inputHdr[1]=self.frameno
+        #print "Sending %d bytes"%(self.inputData.size*self.inputData.itemsize)
         try:
-            self.camsock.sendall(self.inputData)
+            self.camsock.sendall(self.inputData.view(numpy.uint8))
         except:
             if self.useExistingDarc:
                 #darc has swapped to a different camera library - so here, just listen again.
@@ -362,7 +363,6 @@ control={"ncam":%d,
                 self.camsock.sendall(self.inputData)
             else:#something went wrong.
                 raise
-
     def getDarcOutput(self):
         nrec=0
         while nrec<self.outputDataBuffer.size:
@@ -375,7 +375,6 @@ control={"ncam":%d,
                     self.reopenSockets()
                 else:
                     raise Exception("Error receiving... %d (received %d)"%(r,nrec))
-    
     def plottable(self,objname="$OBJ"):
         """Return a XML string which contains the commands to be sent
         over a socket to obtain certain data for plotting.  The $OBJ symbol

@@ -94,4 +94,11 @@ scrn=Extension('scrnmodule',
 		extra_link_args=scrnmodule_extra_link_args,
 		)
 
-setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams,scrn])
+iscrn=Extension('iscrnmodule',
+      include_dirs=idnumpy+idveclib+idgsl,
+		sources=['iscrnmodule.c'],
+		library_dirs=ld+["/usr/lib64","/usr/lib64/atlas"],
+		extra_link_args=scrnmodule_extra_link_args,
+		)
+
+setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams,scrn,iscrn])

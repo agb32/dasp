@@ -23,7 +23,7 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
     If doByteSwap is not set, no byteswap will be done if little endian - if this is the case, the file is not actually fits compliant
     if memmap is used, the file is memmapped rather than read.  If this is used, it is recommended that memmap="r" and that the file is non-byte-swapped.
     """
-    file = open(filename, "r")
+    file = open(filename, "rb")
     done=0
     filelen=os.path.getsize(filename)
     returnVal=[]

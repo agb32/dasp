@@ -90,6 +90,8 @@ class centroid:
     If you have a 2D phase map, you can put this into reorderdPhs by calling:
     c.reformatPhs(phs)
 
+    Or, you can use util.centroid.compute(phase,nsubx) which does the same thing.
+
     """
     #def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
     def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,
@@ -1892,11 +1894,30 @@ class centroid:
                 self.centWeight=self.cmodbimg.copy()
                 self.centcmod.update(util.centcmod.CENTWEIGHT,self.centWeight)
 
-def compute(phase,nsubx):
+def computeOld(phase,nsubx):
     """Simple interface..."""
-    c=centroid(nsubx)
+    c=centroid(nsubx,pup=util.tel.Pupil(phase.shape[0],phase.shape[0]/2,0))
     c.run(phase)
     return c
+
+def compute(phase,nsubx):
+    """Simple interface"""
+    import util.tel
+    npup=phase.shape[0]
+    fftsize=npup/nsubx*2
+    phasesize=npup/nsubx
+    nimg=phasesize
+    ncen=phasesize
+    c=util.centroid.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)#addPoisson=0,sig=1.
+    c.easy()
+    c.reformatPhs(phase)
+    c.runCalc({"cal_source":0})
+    #c.outputData is the slopes
+    #c.cmodbimg is the wfs image (divided into subaps).
+    #Then, put your data into self.reorderedPhs... 
+    img=c.reformatImg()# can be used to get a displayable image.
+    #If you have a 2D phase map, you can put this into reorderdPhs by calling:
+    return img,c
 
 def createAiryDisc(npup,halfwidth=1.,xoff=0.,yoff=0.):
     """Creates an airy disk pattern central on an array npup pixels wide,
