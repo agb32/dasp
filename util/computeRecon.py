@@ -802,6 +802,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
 
     dmObj=c.getVal("dmObj")
     dmList=dmObj.makeDMList(idstr)
+    print dmList
     nactsCumList=[0]
     atmosGeom=c.getVal("atmosGeom")
     pup=c.getVal("pupil")

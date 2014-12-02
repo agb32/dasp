@@ -47,6 +47,7 @@ class recon(base.aobase.aobase):
         self.atmosGeom=self.config.getVal("atmosGeom")
         self.dmObj=self.config.getVal("dmObj")
         self.dmList=self.dmObj.makeDMList(self.idstr[0])
+        self.reconObj=None#to aid addition of generic algorithms.  This must implement a few methods.  In 2014 only used by fewha, to be extended in the future
         if len(self.dmList)==0:
             raise Exception("No DMs found - do you need to specify actuatorsFrom='%s' in your config file?"%str(
                     self.idstr))
@@ -121,7 +122,7 @@ class recon(base.aobase.aobase):
 
             self.reconType=self.config.getVal("recontype",default="pcg")
             supportedReconTypes = ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","SVD",
-                                   "MAP","pinv","reg","regSmall","regBig","regularised","dicure"]
+                                   "MAP","pinv","reg","regSmall","regBig","regularised","dicure","fewha"]
             if "newReconType" in dir():
                supportReconTypes.append( newReconType )
             # check if the recontype given in the parameter file is valid:
@@ -148,20 +149,6 @@ class recon(base.aobase.aobase):
 
             if self.reconType=="SVD":
                 self.reconType="svd"
-            if self.reconType=="dicure": # UB, 2012 Aug 3rd
-                import util.dicure
-                nsubx_tmp = self.config.getVal("wfs_nsubx")
-                #print "MINAREA:", self.minarea
-                subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
-                print "SUBAPMAP:", subapMap
-                #print "PUPILMASK:", self.dmPupList[0]
-                #del nsubx_tmp # delete the temporary nsubx, as you don't need it anywhere else
-                #self.dicure=util.dicure.DiCuRe( subapMap )
-                self.dicure=util.dicure.DiCuRe( self.dmPupList[0] ) # provide DM actuator map, dmPupList[0].
-                                              # If there are more DMs the method will still do something,
-                                              # but the result will not make sense, since dicure works only
-                                              # for a single DM. (UB, 2012Aug15)
-                #del subapMap
             self.npup=config.getVal("npup")
             self.telDiam=config.getVal("telDiam")
 
@@ -534,6 +521,20 @@ class recon(base.aobase.aobase):
                         self.pcgB=None
                 else:
                     self.pcgB=self.pcgBfile
+            elif self.reconType=="dicure": # UB, 2012 Aug 3rd
+                import util.dicure
+                nsubx_tmp = self.config.getVal("wfs_nsubx")
+                subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
+                print "SUBAPMAP:", subapMap
+                self.dicure=util.dicure.DiCuRe( self.dmPupList[0] ) # provide DM actuator map, dmPupList[0].
+                                              # If there are more DMs the method will still do something,
+                                              # but the result will not make sense, since dicure works only
+                                              # for a single DM. (UB, 2012Aug15)
+            elif self.reconType=="fewha":
+                #austrian wavelet reconstructor.
+                import fewhaUser
+                self.reconObj=fewhaUser.Fewha(self)
+
 
             if self.scaleWhenPoking and self.mirrorScale==None:
                 self.computeMirrorScale()
@@ -709,6 +710,8 @@ class recon(base.aobase.aobase):
         if self.control["zero_dm"]:
             self.control["zero_dm"]=0
             self.outputData[:,]=0.
+            if self.reconObj!=None and hasattr(self.reconObj,"resetDM"):
+                self.reconObj.resetDM()
         if self.takingRef==2:#the reference centorids should now be ready...
             self.takingRef=0
             self.refCentroids=self.inputData.copy()
@@ -718,8 +721,7 @@ class recon(base.aobase.aobase):
             else:
                 print "Got reference centroids (not saving)"
         if self.control["subtractRef"] and type(self.refCentroids)!=type(None):
-            self.inputData-=self.refCentroids# if this raises an error, it means you specified a 
-                                             # reference filename, but it wasn't found.
+            self.inputData-=self.refCentroids# if this raises an error, it means you specified a reference filename, but it wasn't found.
         if self.poking>0 and self.poking<=self.npokes:
             #set actuator(s) to be set.
             if self.dmModeType=="poke":
@@ -907,6 +909,9 @@ class recon(base.aobase.aobase):
                 elif self.reconType=="MAP":
                     print "Computing MAP control matrix"
                     self.createMAPControl(self.spmx)
+                else:
+                    if self.reconObj!=None and hasattr(self.reconObj,"computeControl"):
+                        self.reconObj.computeControl(self.spmx)
                     
             if self.pmxFilename!=None:
                 #save the poke matrix to a file...
@@ -948,7 +953,7 @@ class recon(base.aobase.aobase):
         if type(self.reconmxFunction)!=type(None):
             #call a function which can change the reconstructor on a per-iteration basis:
             self.reconmx=self.reconmxFunction()
-        if self.reconType not in ["pcg","dicure"] and type(self.reconmx)==type(0.):
+        if self.reconType not in ["pcg","dicure","fewha"] and type(self.reconmx)==type(0.):
             #if self.reconmxFilename!=None:
             #    print "Attempting to load reconmx %s"%self.reconmxFilename
             self.reconmx=self.loadReconmx(self.reconmxFilename)
@@ -1061,9 +1066,14 @@ class recon(base.aobase.aobase):
         elif self.reconType=="dicure":
             tmp=self.gains*self.dicure.calc( self.inputData )
             self.outputData+=tmp 
-#        print "self.outputData: ", self.outputData
-#        print "self.inputData.shape: ", self.inputData.shape
-#        print "self.outputData.shape: ", self.outputData.shape
+        else:#fewha, others.
+            if self.reconObj!=None and hasattr(self.reconObj,"reconstruct"):
+                tmp,partial=self.reconObj.reconstruct(self.inputData)
+                #tmp*=self.gains
+                if partial:
+                    self.outputData+=tmp*self.gains
+                else:#the reconstructor does the gain...
+                    self.outputData[:]=tmp
     # END of calc2()
 
 
@@ -1246,68 +1256,7 @@ class recon(base.aobase.aobase):
         #        reconmx=f[1]
         return reconmx
 
-##     def getMirrorMode(self,i):
-##         """If mirror modes too large to store in mem, make as needed."""
-##         if self.mirrorModes!=None:
-##             return self.mirrorMode[i]
-##         else:
-##             #make the mirror modes...
-##             return self.makeMirrorModes(i)[0]
-##     def makeMirrorModes(self,indx=None,retScale=0):
-##         """Here, we make the mirror modes.
-##         Note, maybe the shape should be dmpup, and of different sizes for different DMs... how can I do this?  Or should they all be of the largest size?  
-##         """
-##         modes=[]#numpy.zeros((len(indx),self.npup,self.npup),numpy.float32)
-##         save=0
-##         if indx==None:
-##             indx=range(self.nmodes)
-##             self.mirrorModes=modes
-##             save=1
-##         elif type(indx)!=type([]):
-##             indx=[indx]
 
-##         mirrorScale=numpy.zeros((len(indx),),numpy.float32)
-##         if save:
-##             self.mirrorScale=mirrorScale
-##         actmap=None
-##         spos=0
-##         for i in indx:
-##             #first, find out which dm i corresponds to.
-##             pos=0
-##             while i>=self.nactsCumList[pos+1]:
-##                 pos+=1
-##             dmindx=i-self.nactsCumList[pos]
-##             dm=self.dmList[pos]
-##             dmpup=dm.calcdmpup(self.atmosGeom)
-##             newMode=numpy.zeros((dmpup,dmpup),numpy.float32)
-##             modes.append(newMode)
-##             if dm.zonalDM:
-##                 actoffset=dm.actoffset
-##                 nact=dm.nact
-##                 if actmap==None or actmap.shape!=(nact,nact):
-##                     actmap=numpy.zeros((nact,nact),numpy.float32)
-##                 dmflag=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0]
-##                 dmindices=numpy.nonzero(dmflag.flat)[0]
-##                 y=dmindices[dmindx]/dm.nact
-##                 x=dmindices[dmindx]%dm.nact
-##                 actmap[y,x]=1
-##                 mirrorSurface=util.dm.MirrorSurface("spline",dmpup,nact,phsOut=newMode,actoffset=actoffset)
-##                 mirrorSurface.fit(actmap)
-##                 mirrorScale[spos]=numpy.sqrt(numpy.sum(newMode*newMode))
-##                 newMode/=mirrorScale[spos]
-##                 actmap[y,x]=0
-##             else:#modal DM...
-##                 tmp=util.zernikeMod.Zernike(dmpup,[dmindx],computeInv=0).zern.astype(numpy.float32)#piston is included, and ignored later (ie zdm ignores it).  Kept for completeness and simplicity.
-##                 util.zernikeMod.normalise(tmp)
-##                 newMode[:]=tmp[0]
-##                 mirrorScale[spos]=1.
-##             spos+=1
-##         if retScale:
-##             return modes,mirrorScale
-##         else:
-##             return modes
-
-            
     def computeInfluenceProducts(self):
         """Here, compute the scalar products of the influence functions.
         Returns a matrix of size nmodes x nmodes.
@@ -1696,6 +1645,8 @@ class recon(base.aobase.aobase):
             txt+="""<plot title="%s reconmx%s" cmd="data=%s.reconmx" ret="data" type="pylab" when="cmd"/>\n"""%(self.objID,id,objname)
             txt+="""<plot title="%s pmx%s" cmd="data=%s.spmx" ret="data" type="pylab" when="cmd"/>\n"""%(self.objID,id,objname)
         txt+="""<plot title="%s inputData%s" cmd="data=%s.inputData" ret="data" type="pylab" when="cmd"/>\n"""%(self.objID,id,objname)
+        if self.reconObj!=None and hasattr(self.reconObj,"plottable"):
+            txt+=self.reconObj.plottable(objname+".reconObj")
 
             
         return txt

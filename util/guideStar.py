@@ -2,10 +2,10 @@
 #import Numeric
 import numpy
 import cmod.imgnoise
+import util.atmos 
 import util.tel
 import util.FITS
 import base.readConfig
-
 #import sor30
 #import plwf
 
@@ -29,7 +29,7 @@ def makeDoughnut(outer,inner,xoff,yoff):
     path=mpath.Path(vert,codes)
     return path
 
-def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None):
+def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None):
     """
     Shows a plot of guide star overlaps.
     gsList is a list of either LGS objects, NGS objects or tuples of (alt,theta,phi).
@@ -38,6 +38,20 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False,telCol="red
     import pylab
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
+    if gsList==None:
+        txt=raw_input("Enter your guide star positions as a list of (alt,theta,phi), e.g. [(90000.,20,x*90) for x in range(4)]: ")
+        gsList=eval(txt)
+    if layerList==None:
+        txt=raw_input("Enter the heights at which to view the overlap (in m) e.g. [0,1000,4000,10000]: ")
+        layerList=eval(txt)
+    if telDiam==None:
+        txt=raw_input("Enter telescope diameter: ")
+        telDiam=eval(txt)
+        if telSec==None:
+            txt=raw_input("Enter telescope secondary diameter: ")
+            telSec=eval(txt)
+        if fill==False:
+            fill=eval(raw_input("Fill?  True/False 1/0: "))
     if telSec!=None:
         telSec/=2.
     
@@ -52,7 +66,7 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False,telCol="red
         if type(g) in [type(()),type([])]:
             alt,theta,phi=g[:3]
         else:
-            alt=g.height
+            alt=g.alt#height
             theta=g.theta
             phi=g.phi
         if theta>maxtheta:
@@ -75,7 +89,7 @@ def displayGSOverlap(gsList,layerList,telDiam,telSec=None,fill=False,telCol="red
                     elif alt>50000:col="orange"
                     else:col="green"
             else:
-                alt=g.height
+                alt=g.alt
                 theta=g.theta
                 phi=g.phi
                 if isinstance(g,LGS):
@@ -165,15 +179,22 @@ def simple(paramfile=None,batchno=0,lgsAlt=15000.,gateDepth=400.,sig=None,fname=
 
 
 
-class LGS:
+class LGS(util.atmos.source):
     """Simple structure for holding LGS info"""
-    def __init__(self,nsubx,theta,phi,height,minarea=0.5):
-        self.theta=theta#angle in arcsec
-        self.phi=phi#angle in degrees
+    def __init__(self,nsubx,theta,phi,height,minarea=0.5,wfssig=None,launchDist=0.,launchTheta=0.,idstr=None,sourcelam=None,phslam=None,reconList=None):
+        #Initialise the parent...
+        super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=wfssig)
+        #self.theta=theta#angle in arcsec
+        #self.phi=phi#angle in degrees
         self.nsubx=nsubx
-        self.height=height
+        #self.alt=height Now self.alt.  
         self.minarea=minarea
-        self.dmheight=None#used in computeCoords
+        #self.wfssig=wfssig
+        self.idstr=idstr
+        self.reconList=reconList
+        self.launchDist=launchDist#distance of laser launch off-axis, in m.
+        self.launchTheta=launchTheta#angle of launch from 3 oclock, anticlockwise
+        self.dmheight=None#used in computeCoords, to avoid recomputation if not necessary.
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
     def computeCoords(self,telDiam,height,fname=None):
@@ -183,16 +204,16 @@ class LGS:
         if self.coords!=None and telDiam==self.telDiam and height==self.dmheight:
             return#already computed
         self.telDiam=telDiam
-        if self.height<=height:
-            raise Exception("LGS height lower than DM height %g %g"%(self.height,height))
-        telDiam*=(self.height-height)/float(self.height)
+        if self.alt<=height:
+            raise Exception("LGS height lower than DM height %g %g"%(self.alt,height))
+        telDiam*=(self.alt-height)/float(self.alt)
         self.dmheight=height
         self.coords=numpy.zeros((self.nsubx,self.nsubx,2),numpy.float32)
         r=height*numpy.tan(self.theta/3600./180.*numpy.pi)
         wsx=r*numpy.cos(self.phi/180.*numpy.pi)#position of centre of phase on dm.
         wsy=r*numpy.sin(self.phi/180.*numpy.pi)
         #allow for cone effect
-        subapDiam=telDiam/self.nsubx#*(self.height-height)/float(self.height)
+        subapDiam=telDiam/self.nsubx#*(self.alt-height)/float(self.alt)
         if fname!=None:
             f=open(fname,"a")
             f.write("#GS height %g, nsubx %g, theta %g, phi %g\n"%(height,self.nsubx,self.theta,self.phi))
@@ -205,13 +226,19 @@ class LGS:
         if fname!=None:
             f.write("\n")
             f.close()
-class NGS:
+class NGS(util.atmos.source):
     """simple structure for holding NGS info"""
-    def __init__(self,nsubx,theta,phi,minarea=0.5):
-        self.theta=theta#angle in arcsec
-        self.phi=phi#angle in degrees
+    def __init__(self,nsubx,theta,phi,minarea=0.5,wfssig=None,idstr=None,sourcelam=None,phslam=None,reconList=None):
+        #Initialise parent...
+        super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=wfssig)
+
+        #self.theta=theta#angle in arcsec
+        #self.phi=phi#angle in degrees
         self.nsubx=nsubx
         self.minarea=minarea
+        #self.wfssig=wfssig
+        self.idstr=idstr
+        self.reconList=reconList
         self.dmheight=None#used in computeCoords
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
@@ -1404,3 +1431,21 @@ class Flux:
             a[x-start]+=self.sodProfileStrength2*numpy.exp(-((x-self.sodProfilePeak2)/self.sodProfileWidth2)**2/2)
         return a
         
+if __name__=="__main__":
+    import sys
+    gsList=None
+    layerList=None
+    telDiam=None
+    telSec=None
+    fill=False
+    if len(sys.argv)>1:
+        gsList=eval(sys.argv[1])
+    if len(sys.argv)>2:
+        layerList=eval(sys.argv[2])
+    if len(sys.argv)>3:
+        telDiam=eval(sys.argv[3])
+    if len(sys.argv)>4:
+        telSec=eval(sys.argv[4])
+    if len(sys.argv)>1:
+        fill=eval(sys.argv[5])
+    displayGSOverlap(gsList,layerList,telDiam,telSec,fill)

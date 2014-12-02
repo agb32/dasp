@@ -611,3 +611,23 @@ Supermicro gpu:  /etc/modprobe.d/blacklist.conf:  add blacklist mei
 nongraphical boot:  Change GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 to "text" in /etc/default/grub and then do sudo update-grub
 Then all should be well!
+
+
+Cuda on gig46:
+
+ sudo apt-get purge cuda*
+wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1204/x86_64/cuda-repo-ubuntu1204_6.5-14_amd64.deb  (you get the link for the most recent
+version from https://developer.nvidia.com/cuda-downloads)
+sudo dpkg -i cuda-repo-ubuntu1204_6.5-14_amd64.deb
+sudo apt-get update
+sudo apt-get install cuda
+(restart required)
+ The PATH and LD_LIBRARY_PATH were set in /etc/bash.bashrc, but they were
+set to cuda-5.5, so I changed that to '/usr/local/cuda' which is a symbolic
+link pointing to the most recently installed cuda version.
+
+To test cuda/gpu:
+cuda-install-samples-6.5.sh  <dir>
+cd <dir>/NVIDIA_CUDA-6.5_Samples
+make
+executables placed in the bin directory.

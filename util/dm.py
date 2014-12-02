@@ -40,7 +40,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0,cn2=None):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -102,6 +102,7 @@ class dmInfo:
         self.dmflag=None
         self.subarea=None
         self.dmDiam=None
+        self.cn2=cn2
         self.mirrorModes=None
         self.mirrorScale=None
         self.mirrorSurface=None
@@ -1806,13 +1807,13 @@ class MirrorSurface:
 
 # # The functions below are not used anywhere in the aosim:  # # # # # # # # # # # # # # 
 
-def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=None,reconIdStr=None):
+def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=None,reconIdStr=None,initDict=None):
     """Uses vdmUser to do a geometrical projection"""
     if config==None:
         config="params.xml"
     if type(config) in [type(""),type([]),type(())]:
         import base.readConfig
-        config=base.readConfig.AOXml(config,batchno=batchno)
+        config=base.readConfig.AOXml(config,batchno=batchno,initDict=initDict)
     if config.getVal("projMxFilename",raiseerror=0)==None:
         config.this.globals.projMxFilename="projmx%d.fits"%batchno
     if reconIdStr!=None:#should be specified in config file, but if not, can specify here...

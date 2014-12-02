@@ -787,6 +787,9 @@ class science:
                         self.longExpPSF[:,]=self.longExpImg/numpy.sum(self.longExpImg)##We normalise the instantaneous PSF to 1
 
                         self.computeScientificParameters()
+                        #add instantaneous Strehl
+                        self.dictScience['strehlInst']=numpy.max(self.instImg)/self.diffn_core_en
+
                         # we update the history lists
                         if self.history==None:
                             self.historyKeys=self.dictScience.keys()

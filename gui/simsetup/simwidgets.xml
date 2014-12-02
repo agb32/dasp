@@ -3,6 +3,9 @@
 <author name="ali"/>
 <created date="061019"/>
 <simsetup>
+<simobj name="New iscrn" shortname="iscrn" comment="New Infinite sized phase screens" pixmap="infScrn.xpm" textcol="red" import="science.iscrn" object="iscrn"/>
+<simobj name="New iatmos (infinite)" shortname="iatmos" comment="New atmospheric
+pupil phase from infinite phase screens" pixmap="infAtmos.xpm" textcol="red" import="science.iatmos" object="iatmos"/>
 <simobj name="Infinite Phasescreen" shortname="infScrn" comment="Infinite sized phase screens" pixmap="infScrn.xpm"
 textcol="red" import="science.infScrn" object="infScrn"/>
 <simobj name="Atmos (infinite)" shortname="atmos" comment="Atmospheric

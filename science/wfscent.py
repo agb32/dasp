@@ -119,7 +119,7 @@ class wfscent(base.aobase.aobase):
             self.debug=debug
             self.fpid=None
             self.fullOutput=self.config.getVal("fullWFSOutput",default=1)
-            self.fpDataType=self.config.getVal("fpDataType",default=numpy.float32)
+            self.fpDataType=numpy.float32#self.config.getVal("fpDataType",default=numpy.float32)
             self.doneFinalInit=0
 ##             self.atmosPhaseType=self.config.getVal("atmosPhaseType",default="phaseonly")
 ##             if self.atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:

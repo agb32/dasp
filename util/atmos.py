@@ -2,7 +2,8 @@ from cmod.interp import gslCubSplineInterp,linearshift
 import cmod.iscrn
 import time
 import numpy
-import util.dm,util.guideStar
+import util.dm
+#import util.guideStar
 import util.tel
 import util.zernikeMod
 class layer:
@@ -35,24 +36,36 @@ class layer:
         self.speed=numpy.sqrt(vx*vx+vy*vy)
         self.direction=zenithAz-numpy.arctan(numpy.tan((zenithAz-self.direction)*degrad)/numpy.cos(zenith*degrad))/degrad
         
-class source:
-    """a holder for source direction objects
+class source(object):
+    """
+    This is the parent object for sources, including util.guideStar.LGS and .NGS, and some sort of science object too (not yet implemented).
+
+    a holder for source direction objects
     sourcelam is the wavelength for this direction.
     phslam is the wavelength at which the received phase is at.  Defaults to the same as sourcelam, but can be different.
     lam in nm.
+    sig, if not None, is the photons/subap(or image)/frame
     """
-    def __init__(self,idstr,theta,phi,alt,nsubx,sourcelam=None,reconList=None,phslam=None):
+    def __init__(self,idstr,theta,phi,alt,nsubx=None,sourcelam=None,reconList=None,phslam=None,sig=None,launchDist=None,launchTheta=None):
         self.idstr=idstr#id string
         self.theta=theta#arcsec
         self.phi=phi#degrees
         self.alt=alt#-1 or lgs alt
+        if nsubx!=None:
+            print "DEPRECIATION WARNING: nsubx specified in atmos.source.  Please use guideStar.LGS or .NGS instead"
         self.nsubx=nsubx#None or the number of subaps.
+        self.sig=sig
+        if launchDist!=None or launchTheta!=None:
+            print "DEPRECIATION WARNING: Please use guideStar.LGS for launching instead of atmos.source."
+        self.launchDist=launchDist
+        self.launchTheta=launchTheta
         self.sourcelam=sourcelam
         if phslam==None:
             self.phslam=sourcelam
         else:
             self.phslam=phslam
         if reconList!=None:
+            print "DEPRECIATION WARNING: reconList specified in atmos.source.  Please use guideStar.LGS or .NGS instead."
             if type(reconList)!=type([]):
                 reconList=[reconList]
         self.reconList=reconList#a list of reconstructor idstr which use this wfs.
@@ -63,7 +76,7 @@ class geom:
         and values equal to either a layer() object or (depreciated) to a tuple of:
         (height, wind direction, speed, strength,initSeed) (metres, degrees, metres per second, fraction, int).
 
-        sourceList is a list of source objects or a tuple of:
+        sourceList is a list of source objects and util.guideStar.LGS and util.guideStar.NGS objects,  or (depreciated) a tuple of:
         (idstr,theta, phi, alt, nsubx) (idstr, arcsec, degrees, metres or -1 for star at infinity, number of subaps or None if not a GS).  Note, if the source is science only, nsubx should be None.  If the source is GS and science, nsubx should not be None.
         Here, idstr is the idstr used by infAtmos objects.  It is specified as a list since ordering may be important (eg for the reconstructor).
         zenith is in degrees.
@@ -90,9 +103,11 @@ class geom:
         self.sourceList=[]#sourceList
         for obj in sourceList:
             if type(obj)==type(()):
-                print "DEPRECIATION WARNING - atmosGeom object sourceList should be a list of util.atmos.source() objects"
+                print "DEPRECIATION WARNING - atmosGeom object sourceList should be a list of util.atmos.source(), or util.guideStar.LGS or NGS objects"
                 self.sourceList.append(source(*obj))
             else:
+                if obj.nsubx!=None and isinstance(obj,source):
+                    print "DEPRECIATION WARNING - sourceList should be a util.guideStar.LGS or NGS if it is a guide star (keep util.source objects for science targets only)"
                 self.sourceList.append(obj)
         
         self.sourceDict={}
@@ -146,7 +161,12 @@ class geom:
         return self.layerDict[id].strength
     def layerInitSeed(self,id):
         return self.layerDict[id].seed
-
+    def sig(self,id):
+        return self.getSource(id).sig
+    def launchDist(self,id):
+        return self.getSource(id).launchDist
+    def launchTheta(self,id):
+        return self.getSource(id).launchTheta
     def sourceTheta(self,id):
         return self.getSource(id).theta
     def sourcePhi(self,id):
@@ -159,6 +179,8 @@ class geom:
         return self.getSource(id).sourcelam
     def phaseLambda(self,id):
         return self.getSource(id).phslam
+    def reonList(self,id):
+        return self.getSource(id).reconList
     def sourceThetas(self):
         t={}
         for key in self.sourceDict.keys():
@@ -320,15 +342,23 @@ class geom:
         if reconID=="":
             reconID=None
         ngslist=[]
+        import util.guideStar
         for key in self.sourceOrder:
             nsubx=self.sourcensubx(key)#If None, this is a science object only!
+            s=self.getSource(key)
             if self.sourceAlt(key)<0 and nsubx!=None:#a NGS.
                 if reconID==None:#any will do
-                    ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),minarea=minarea))
+                    if type(s)==util.guideStar.NGS:
+                        ngslist.append(s)
+                    else:
+                        ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),minarea=minarea,wfssig=self.sig(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key)))
                 else:
                     rl=self.getSource(key).reconList
                     if rl!=None and (rl==[] or reconID in rl):
-                        ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),minarea=minarea))
+                        if type(s)==util.guideStar.NGS:
+                            ngslist.append(s)
+                        else:
+                            ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),minarea=minarea,wfssig=self.sig(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl))
 
         return ngslist
     def makeLGSList(self,reconID=None,minarea=0.5):#,nsubx,keylist):
@@ -347,17 +377,25 @@ class geom:
         if reconID=="":
             reconID=None
         lgslist=[]
+        import util.guideStar
         for key in self.sourceOrder:
             nsubx=self.sourcensubx(key)
             if self.sourceAlt(key)>=0.:
                 if nsubx==None:
                     raise Exception("util.atmos.geom - LGS specified without nsubx")
+                s=self.getSource(key)
                 if reconID==None:
-                    lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),minarea=minarea))
+                    if type(s)==util.guideStar.LGS:
+                        lgslist.append(s)
+                    else:#depreciated version...
+                        lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key)))
                 else:
                     rl=self.getSource(key).reconList
                     if rl!=None and (rl==[] or reconID in rl):
-                        lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),minarea=minarea))
+                        if type(s)==util.guideStar.LGS:
+                            lgslist.append(s)
+                        else:
+                            lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl))
                         
         return lgslist
     
