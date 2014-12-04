@@ -4,11 +4,12 @@
 <created date="130319"/>
 <module name="globals">
 <variables>
-<var comment="time step" type="eval" name="tstep" value="1./250"/>
+<var name="useCmod" type="i" value="1"/><!-- Rolling Shutter approximation --><!-- NOTE: Set to '0' for Rolling Shutter -->
+<var name="wfs_nsubx" type="i" value="6"/>
+<var type="eval" name="tstep" value="1./250*(1**-1.0)" comment="time step" /><!-- Rolling Shutter approximation -->
 <var type="f" name="l0" value="10.0"/>
 <var type="eval" name="r0" value="0.137"/>
 <var name="wfs_sig" type="f" value="1e6"/>
-<var name="wfs_nsubx" type="i" value="6"/>
 <var name="npup" type="eval" value="wfs_nsubx*8"/>
 <var type="eval" name="telDiam" value="4.2*wfs_nsubx/6."/>
 <var type="copy" name="ntel" value="npup"/>
@@ -63,10 +64,11 @@ scrnScale=this.globals.telDiam/float(this.globals.ntel)
 </var>
 <var name="calsource" type="i" value="0"/>
 <var name="timing" type="i" value="0"/>
-<var name="wfs_int" value="tstep" type="eval" comment="integration time"/>
+<var name="wfs_int" value="tstep*1" type="eval" comment="integration time"/>
+<!--var name="wfs_rowint" value="tstep*2" type="eval" comment="sub-aperture row integration time"/--><!-- Rolling Shutter approximation -->
 <var name="wfs_lat" value="0.0" type="f" comment="latency for integ time"/>
 <var name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
-<var name="wfs_read_sigma" value="0." type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_read_sigma" value="0" type="f" comment="WFS Read noise (e-)"/>
 <var name="wfs_floor" value="wfs_read_mean+0*wfs_read_sigma" type="eval" comment="WFS Read noise (e-)"/>
 <var name="wfs_skybrightness" type="f" value="0."/>
 <var name="nthreads" type="s" value="all"/>

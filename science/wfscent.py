@@ -137,7 +137,7 @@ class wfscent(base.aobase.aobase):
 #             self.initFPGA=self.config.getVal("initFPGA",default=0)#whether to initialise the FPGA... (load binary, set up arrays etc).
 #             self.FPGABitFile=None
 #             self.ignoreFPGAOpenFailure=0
-#             if self.initFPGA:
+#             if self.initFPGA/:
 #                 self.FPGABitFile=self.config.getVal("FPGAWFSBitFile",default=string.join(__file__.split("/")[:-2]+["fpga","wfspipe.bin.ufp"],"/"))
 #                 self.ignoreFPGAOpenFailure=self.config.getVal("ignoreFPGAOpenFailure",default=0)
 # ##             self.waitFPGA=self.config.getVal("waitFPGA",1)
@@ -146,13 +146,16 @@ class wfscent(base.aobase.aobase):
 #                 useFPGA=0
 #            useCell=self.config.getVal("useCell",default=0)
             useCmod=self.config.getVal("useCmod",default=1)
+            if not useCmod:
+               print("INFORMATION:wfscent: Using **Python** implementation")
             self.printLinearisationForcing=self.config.getVal("printLinearisationForcing",default=0)
             #self.cellseed=self.config.getVal("cellseed",default=1)
             self.cmodcentseed=self.config.getVal("cmodcentseed",default=0)
             self.nthreads=self.config.getVal("nthreads",default="all")#usually an integer... or "all"
             if self.nthreads=="all":#use all available CPUs...
                 self.nthreads=self.config.getVal("ncpu")#getCpus()
-                print "wfscent: Using %d threads"%self.nthreads
+                print("INFORMATION:wfscent: Using {0:d} threads".format(self.nthreads))
+##(old)                print("INFORMATION:wfscent: Using %d threads"%self.nthreads)
             calSource=self.config.getVal("calsource")
             self.imgmask=1#value used when creating sh img in drawCents()
 #            self.control={"cal_source":calSource,"useFPGA":useFPGA,"useCell":useCell,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed"}#ZeroOutput can be used when calibrating a pseudo-open loop system.
@@ -190,7 +193,7 @@ class wfscent(base.aobase.aobase):
 
 ##             self.texp=0.                                                            # Elapsed exposure time
 ##             self.tstep=self.config.getVal("tstep")                                  # Simulation tick length
-##             self.wfs_int=self.config.getVal("wfs_int")                              # WFS integration time
+            self.wfs_int=self.config.getVal("wfs_int") # WFS integration time
 ##             self.wfs_read_mean=self.config.getVal("wfs_read_mean")                  # WFS Readnoise e-
 ##             self.wfs_read_sigma=self.config.getVal("wfs_read_sigma")
 ##             self.fpga_read_sigma=self.wfs_read_sigma/26.11
@@ -295,7 +298,9 @@ class wfscent(base.aobase.aobase):
         if type(parent)!=type({}):
             parent={"closed":parent}
         this=base.aobase.resourceSharer(parent,self.config,idstr,self.moduleName)
-        print "Initialising centroid object %s %s"%(str(parent),str(idstr))
+        print("INFORMATION:wfscent:Initialising centroid object {0:s} {1:s}".format(
+              str(parent),str(idstr)) )
+##(old)        print("INFORMATION:wfscent:Initialising centroid object %s %s"%(str(parent),str(idstr))
         self.thisObjList.append(this)
         #fpDataType=this.config.getVal("fpDataType",default=Numeric.Float32) # Numeric.Float64
         #if self.fpDataType!=None:#specified by args{}
@@ -324,9 +329,12 @@ class wfscent(base.aobase.aobase):
         if(clipsize!=wfs_nimg):
             bin=1
             if (float(clipsize)/wfs_nimg)%1!=0:
-                print "WARNING: wfscent - Non-integer binning of image - software (binimgmodule.so) cannot handle this (though FPGA will be fine!)."
+                print("WARNING:wfscent: Non-integer binning of image - "+
+                     "FPGA/software (binimgmodule.so) can/cannot handle")
+##(old)                print("WARNING: wfscent - Non-integer binning of image - software (binimgmodule.so) cannot handle this (though FPGA will be fine!).")
         tstep=this.config.getVal("tstep")                                  # Simulation tick length
         wfs_int=this.config.getVal("wfs_int")                              # WFS integration time
+        wfs_rowint=this.config.getVal("wfs_rowint",default=None,raiseerror="None")           # row integration time
         wfs_read_mean=this.config.getVal("wfs_read_mean")                  # WFS Readnoise e-
 
         wfs_read_sigma=this.config.getVal("wfs_read_sigma")
@@ -342,7 +350,10 @@ class wfscent(base.aobase.aobase):
         # else:
         #     waitFPGATime=0
         if (wfs_int/tstep)%1!=0:
-            print "Warning: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep)
+            print(("WARNING: wfs - Integration times is not a whole number of"+
+                  "timesteps - you might misinterpret the results... {0:g} "+
+                  "{1:%g}").format(wfs_int,tstep))
+##(old)            print("WARNING: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep))
         pupil=this.config.getVal("pupil")
         wfs_minarea=this.config.getVal("wfs_minarea")#0.5... # Min unvignetted subap area to use - why here ????
 
@@ -391,19 +402,22 @@ class wfscent(base.aobase.aobase):
             else:
                 if laserGuideStar.subap_pix<clipsize or laserGuideStar.nsubx!=wfs_nsubx:
                     raise Exception("laserGuideStar sizes incorrect (clipsize>%g or nsubx!=%g)"%(laserGuideStar.subap_pix,laserGuideStar.nsubx))
-                print "Generating LGS spot patterns... (if these are all the same and take a while, you might be better specifying this in the param file...)"
+                print("INFORMATION:wfscent:Generating LGS spot patterns... (if these are all the same and take a while, you might be better specifying this in the param file...)")
                 laserGuideStar.wfs_image(off=0.5)
                 laserGuideStar.sumSubaps()
-                print "Finished generating LGS spot patterns."
+                print("INFORMATION:wfscent:Finished generating LGS spot patterns.")
                 spotpsf=laserGuideStar.spotPsf
                 sig=laserGuideStar.sig
                 this.laserGuideStar=laserGuideStar
             
         subtractTipTilt=this.config.getVal("subtractTipTilt",default=int(this.laserGuideStar!=None))
         if type(sig)==type(0.):
-            print "wfs sig is %g phot/subap"%sig
+            print("INFORMATION:wfscent:sig is {0:g} phot/subap".format(sig))
+##(old)            print "INFORMATION:wfscent:sig is %g phot/subap"%sig
         else:
-            print "wfs sig is array with max %g phot/subap"%max(sig.flat)
+            print("INFORMATION:wfscent:sig is array with max {0:g} phot/subap".format(
+                  max(sig.flat)) )
+##(old)            print "INFORMATION:wfscent:sig is array with max %g phot/subap"%max(sig.flat)
         if type(spotpsf)==type(None):
             spotpsf=this.config.getVal("spotpsf",default=None,raiseerror=0)#a spot PSF, eg an airy disc (eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)), or LGS elongated spots.
         opticalBinning=this.config.getVal("opticalBinning",default=0)#whether to simulate optical binning (beam splitter and 2 cylindrical lenslet arrays and 2 detectors)
@@ -419,12 +433,15 @@ class wfscent(base.aobase.aobase):
             phslam=atmosGeom.phaseLambda(idstr)
         if wfslam==None:
             wfslam=this.config.getVal("sourceLam")
-            print "Warning - wfslam not in atmosGeom, using %g"%wfslam
+            print("WARNING:wfscent: wfslam not in atmosGeom, using {0:g}".format(wfslam))
+##(old)            print("WARNING:wfscent: wfslam not in atmosGeom, using %g"%wfslam)
         if phslam==None:
             phslam=wfslam
         phaseMultiplier=phslam/wfslam
         if phaseMultiplier!=1:
-            print "Warning - wfscent %s has phaseMultiplier of %g"%(str(idstr),phaseMultiplier)
+            print("WARNING:wfscent: {0:s} has phaseMultiplier of {1:g}".format(
+                  str(idstr), phaseMultiplier) )
+##(old)            print "Warning - wfscent %s has phaseMultiplier of %g"%(str(idstr),phaseMultiplier)
         centWeight=this.config.getVal("centWeight",raiseerror=0)
         correlationCentroiding=this.config.getVal("correlationCentroiding",default=0)
         if correlationCentroiding:
@@ -438,7 +455,48 @@ class wfscent(base.aobase.aobase):
             # imageOnly=this.config.getVal("imageOnly",default=0)#0 to return slopes, 1 to return image as nsubx,nsubx,nimg,nimg, and 2 to return image as a 2d image.
         useBrightest=this.config.getVal("useBrightest",default=0)
 #        this.wfscentObj=util.centroid.centroid(wfs_nsubx,pup=pupil,oversamplefactor=None,readnoise=wfs_read_sigma,readbg=wfs_read_mean,addPoisson=1,noiseFloor=wfs_floor,binfactor=None,sig=sig,skybrightness=skybrightness,warnOverflow=None,atmosPhaseType=atmosPhaseType,fpDataType=self.fpDataType,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,phasesize=wfs_n,fftsize=wfs_nfft,clipsize=clipsize,nimg=wfs_nimg,ncen=wfs_ncen,tstep=tstep,integtime=wfs_int,latency=wfs_lat,wfs_minarea=wfs_minarea,spotpsf=spotpsf,opticalBinning=opticalBinning,useCell=self.control["useCell"],waitCell=1,usecmod=self.control["useCmod"],subtractTipTilt=subtractTipTilt,magicCentroiding=magicCentroiding,linearSteps=linearSteps,stepRangeFrac=stepRangeFrac,phaseMultiplier=phaseMultiplier,centWeight=centWeight,correlationCentroiding=correlationCentroiding,corrThresh=corrThresh,corrPattern=corrPattern,threshType=threshType,imageOnly=self.imageOnly,calNCoeff=calNCoeff,useBrightest=useBrightest)
-        this.wfscentObj=util.centroid.centroid(wfs_nsubx,pup=pupil,oversamplefactor=None,readnoise=wfs_read_sigma,readbg=wfs_read_mean,addPoisson=addPoisson,noiseFloor=wfs_floor,binfactor=None,sig=sig,skybrightness=skybrightness,warnOverflow=None,atmosPhaseType=atmosPhaseType,fpDataType=self.fpDataType,phasesize=wfs_n,fftsize=wfs_nfft,clipsize=clipsize,nimg=wfs_nimg,ncen=wfs_ncen,tstep=tstep,integtime=wfs_int,latency=wfs_lat,wfs_minarea=wfs_minarea,spotpsf=spotpsf,opticalBinning=opticalBinning,usecmod=self.control["useCmod"],subtractTipTilt=subtractTipTilt,magicCentroiding=magicCentroiding,linearSteps=linearSteps,stepRangeFrac=stepRangeFrac,phaseMultiplier=phaseMultiplier,centWeight=centWeight,correlationCentroiding=correlationCentroiding,corrThresh=corrThresh,corrPattern=corrPattern,threshType=threshType,imageOnly=self.imageOnly,calNCoeff=calNCoeff,useBrightest=useBrightest,printLinearisationForcing=self.printLinearisationForcing)
+        this.wfscentObj=util.centroid.centroid(
+            wfs_nsubx,
+            addPoisson=addPoisson,
+            atmosPhaseType=atmosPhaseType,
+            binfactor=None,
+            calNCoeff=calNCoeff,
+            centWeight=centWeight,
+            clipsize=clipsize,
+            correlationCentroiding=correlationCentroiding,
+            corrPattern=corrPattern,
+            corrThresh=corrThresh,
+            fftsize=wfs_nfft,
+            fpDataType=self.fpDataType,
+            imageOnly=self.imageOnly,
+            integtime=wfs_int,
+            latency=wfs_lat,
+            linearSteps=linearSteps,
+            magicCentroiding=magicCentroiding,
+            ncen=wfs_ncen,
+            nimg=wfs_nimg,
+            noiseFloor=wfs_floor,
+            opticalBinning=opticalBinning,
+            oversamplefactor=None,
+            phaseMultiplier=phaseMultiplier,
+            phasesize=wfs_n,
+            printLinearisationForcing=self.printLinearisationForcing,
+            pup=pupil,
+            readbg=wfs_read_mean,
+            readnoise=wfs_read_sigma,
+            rowintegtime=wfs_rowint,
+            sig=sig,
+            skybrightness=skybrightness,
+            spotpsf=spotpsf,
+            stepRangeFrac=stepRangeFrac,
+            subtractTipTilt=subtractTipTilt,
+            threshType=threshType,
+            tstep=tstep,
+            useBrightest=useBrightest,
+            usecmod=self.control["useCmod"],
+            warnOverflow=None,
+            wfs_minarea=wfs_minarea
+        )
 
 
     def finalInitialisation(self):
@@ -488,7 +546,9 @@ class wfscent(base.aobase.aobase):
                 maxnpup=wfs.nsubx*wfs.phasesize
             if wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize>rpmax:
                 atmosPhaseType=this.config.getVal("atmosPhaseType",default="phaseonly")
-                print this.config.searchOrder
+                print("INFORMATION:wfscent: this.config.searchOrder='{0:s}'".format(
+                     str(this.config.searchOrder)) )
+##(old)                print this.config.searchOrder
                 if atmosPhaseType=="phaseonly":
                     rpmax=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize
                 else:
@@ -963,7 +1023,9 @@ class wfscent(base.aobase.aobase):
         """
         t1=time.time()
         if self.debug!=None:
-            print "wfs: Doing generateNext (debug=%s)"%str(self.debug)
+            print("INFORMATION:wfscent: Doing generateNext (debug={0:s})".format(
+                  str(self.debug)) )
+##(old)            print "wfs: Doing generateNext (debug=%s)"%str(self.debug)
         current=self.control["parentType"]
         if self.generate==1:
             if self.newDataWaiting:#this is always 1
@@ -971,7 +1033,8 @@ class wfscent(base.aobase.aobase):
                     #self.inputData=self.parent.outputData
                     self.inputInvalid=0
                 else:
-                    print "wfscent: waiting for data from dm, but not valid"
+                    print("INFORMATION:wfscent: waiting for data from dm, but "+
+                        "not valid")
                     self.inputInvalid=1
                     self.dataValid=0
             if self.inputInvalid==0: # there was an input, so we can integrate...
@@ -1002,12 +1065,13 @@ class wfscent(base.aobase.aobase):
                     self.dataValid=1
 
                 if self.timing:
-                    print "wfs time:",time.time()-t1
+                    print("INFORMATION:wfscent: time:{0:s}".format( str(time.time()-t1) ))
             #self.config.setVal("simulationTime",self.config.getVal("simulationTime")+self.tstep)
         else:
             self.dataValid=0
         if self.debug!=None:
-            print "wfs: Done generateNext (debug=%s)"%str(self.debug)
+            print("INFORMATION:wfscent: Done generateNext (debug={0:s})".format(
+                  str(self.debug)) )
         self.generateNextTime=time.time()-t1
 
 
@@ -1375,7 +1439,8 @@ class wfscent(base.aobase.aobase):
             try:
                 wfsobj=self.wfscentObj
             except:
-                print "ERROR getting wfscentObj - assuming  thisObjList[0].wfscentObj"
+                print("ERROR:wfscent: getting wfscentObj - assuming "+
+                     "thisObjList[0].wfscentObj")
                 wfsobj=self.thisObjList[0].wfscentObj
         else:
             wfsobj=self.thisObjList[objNumber].wfscentObj
