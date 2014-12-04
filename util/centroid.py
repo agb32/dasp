@@ -216,12 +216,12 @@ class centroid:
             print("INFORMATION:DEBUG:**centroid**:"+
                      "Rolling Shutter approximation")
             print("INFORMATION:DEBUG:**centroid**:"+
-                     "^^r^^=# integ/row,^^l^^=# integ skipped for last row")
+                     "**r**=# integ/row,**l**=# integ skipped for last row")
             print("INFORMATION:DEBUG:**centroid**:"+
-                     "^^r^^={0[0]:d}, ^^l^^={0[1]:d}".format(
+                     "**r**={0[0]:d}, **l**={0[1]:d}".format(
                            [int(x) for x in (r,l)]))
             print("INFORMATION:DEBUG:**centroid**:"+
-                     "^^#^^integ.={0:d}".format( int(self.nIntegrations) ))
+                     "**#**integ.={0:d}".format( int(self.nIntegrations) ))
         self.wfs_minarea=wfs_minarea
         self.psf=spotpsf#eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)
         self.centroidPower=centroidPower
