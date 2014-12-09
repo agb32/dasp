@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<aosim>
+ <author name="agb"/>
+ <modified name="nab"/>
+ <created date="141209"/>
+ <module name="globals">
+ <variables>
+<!-- constants -->
+ 	<var name="calsource"
+ 		value="0" type="i"/>
+ 	<var name="useCmod"
+ 		value="0" type="i" /><!-- Rolling Shutter approximation --><!-- NOTE: Set to '0' for Rolling Shutter -->
+ 	<var name="wfs_lat"
+ 		value="0.0" type="f" comment="latency for integ time"/>
+ 	<var name="wfs_minarea"
+ 		value="0.5" type="f" comment="min unvignetted subap area to use"/>
+ 	<var name="wfs_nsubx"
+ 		value="10" type="i"/>
+ 	<var name="wfs_read_mean"
+ 		value="0.0" type="f" comment="WFS Read noise (e-)"/>
+ 	<var name="wfs_read_sigma"
+ 		value="0" type="f" comment="WFS Read noise (e-)"/>
+ 	<var name="wfs_sig"
+ 		value="1e6" type="f"/>
+ 	<var name="wfs_skybrightness"
+ 		value="0." type="f"/>
+ 	<var name="ngsLam"
+ 		value="640." type="f"/>
+ 	<var name="sourceLam"
+ 		value="640." type="f"/>
+ 	<var name="nthreads"
+ 		value="all" type="s"/>
+ 	<!--var name="r0"
+ 		value="0.137" type="f"/-->
+ 	<var name="telDiam"
+ 		value="8.0" type="f"/>
+ 	<var name="timing"
+ 		value="0" type="i"/>
+
+<!-- evals and others -->
+ 	<var name="npup"
+ 		value="wfs_nsubx*8" type="eval"/>
+ 	<var name="ntel"
+ 		value="npup" type="eval"/>
+ 	<var name="telSec"
+ 		value="telDiam/7." comment="telescope secondary diameter" type="eval"/>
+ 	<var name="pupil" comment="Telescope pupil function" type="code" >
+import util.tel
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=None)
+ 	</var>
+ 	<!--var name="strList"
+ 		value="[1.0]" type="eval"/-->
+ 	<var name="tstep"
+ 		value="1.0" type="eval" comment="time step" /><!-- Rolling Shutter approximation -->
+ 	<var name="wfs_floor"
+ 		value="wfs_read_mean+0*wfs_read_sigma" type="eval" comment="WFS Read noise (e-)"/>
+ 	<var name="wfs_int"
+ 		value="tstep*15" type="eval" comment="integration time"/>
+ 	<var name="wfs_rowint"
+ 		value="wfs_int" type="eval" comment="sub-aperture row integration time"/><!-- Rolling Shutter approximation: remove to disable, also try rowint:=int -->
+ 	<var name="wfs_n"
+ 		value="npup/wfs_nsubx" type="eval"/>
+ 	<var name="wfs_nfft"
+ 		value="wfs_n*2" type="eval"/>
+ 	<var name="wfs_clipsize"
+ 		value="wfs_nfft" type="eval"/>
+ 	<var name="wfs_nimg"
+ 		value="wfs_clipsize/2" type="eval"/>
+ 	<var name="wfs_ncen"
+ 		value="wfs_nimg" type="eval"/>
+ </variables>
+ </module>
+</aosim>

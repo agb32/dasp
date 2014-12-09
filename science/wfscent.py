@@ -350,9 +350,13 @@ class wfscent(base.aobase.aobase):
         # else:
         #     waitFPGATime=0
         if (wfs_int/tstep)%1!=0:
-            print(("WARNING: wfs - Integration times is not a whole number of"+
-                  "timesteps - you might misinterpret the results... {0:g} "+
+            print(("WARNING:wfscent: Integration times is not a whole number "+
+                  "of timesteps - you might misinterpret the results... {0:g} "+
                   "{1:%g}").format(wfs_int,tstep))
+        if wfs_rowint!=None and wfs_rowint%tstep!=0:
+            print(("ERROR: wfscent: Row integration times is not a whole "+
+                  "number of timesteps - results will be unreliable"+
+                  ": wfs_rowint%tstep={0:g}").format(wfs_rowint%tstep))
 ##(old)            print("WARNING: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep))
         pupil=this.config.getVal("pupil")
         wfs_minarea=this.config.getVal("wfs_minarea")#0.5... # Min unvignetted subap area to use - why here ????

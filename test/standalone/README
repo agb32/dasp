@@ -1,0 +1,6 @@
+These files are meant to represent using simulation modules in a standalone
+way; outside of the simulation framework.
+Useful, for example, for testing your code.
+Each filename represents the module that is being tested, and there is
+an associated XML parameter file.
+
