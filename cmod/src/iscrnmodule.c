@@ -613,15 +613,15 @@ void *rswsiWorkerNoGrad(void *threaddata){
   double *img;
   //double *dimg;
   float *out;
-  int i,yy,xx;
+  int i,yy,xx,yydim;
   float x,y,xold,yold;
   int x1;
   int y1,y2,y1x1,y2x1;
-  float xm,ym,oneminusxm,oneminusym;  
+  float xm,ym,oneminusxm,oneminusym,ymomym;  
   float k1,k2,Y1,Y2,a,b,val;
   float const0,const1,const2,const3;
   int tx,ty,ystart,yend,xstart,xend;
-  float mult0,mult3;
+  float mult0,mult3,cy2,sy3;
   int y0,y3,y3x1,y0x1;
   int nout=0;
   char *pupil;
@@ -656,11 +656,14 @@ void *rswsiWorkerNoGrad(void *threaddata){
     //printf("Block for thread %d: %d->%d, %d->%d\n",threadno,ystart,yend,xstart,xend);
     for(yy=ystart;yy<yend;yy++){
       y=yy+const0;//-dim[0]/2.+0.5;
+      cy2=c*y+const2;
+      sy3=s*y+const3;
+      yydim=yy*dim[1];
       for(xx=xstart;xx<xend;xx++){
-	if(pupil==NULL || pupil[yy*dim[1]+xx]==1){
+	if(pupil==NULL || pupil[yydim+xx]==1){
 	  x=xx+const1;//-dim[1]/2.+0.5;
-	  yold=-s*x+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
-	  xold=c*x+s*y+const3;//imgdim[1]/2.-.5-sx;
+	  yold=-s*x+cy2;//+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	  xold=c*x+sy3;//+s*y+const3;//imgdim[1]/2.-.5-sx;
 	  x1=(int)floorf(xold);
 	  //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
 	  y1=(int)floorf(yold);
@@ -673,12 +676,11 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	  ym=yold-y1;
 	  oneminusxm=1-xm;
 	  oneminusym=1-ym;
+	  ymomym=ym*oneminusym;
 	  if(y2==imgdim[0])
 	    y2=0;
 	  x1--;
 	  //WITHOUT YGRADIENTS
-	  mult3=0.5;
-	  mult0=0.5;
 	  y0=y1-1;
 	  y3=y1+2;
 	  if(y3>=imgdim[0])
@@ -686,13 +688,15 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	  if(y3==wrappoint){
 	    y3=y2;
 	    mult3=1.;
-	  }
+	  }else
+	    mult3=0.5;
 	  if(y0<0)
 	    y0+=imgdim[0];
 	  if(y0==wrappoint){//underwrapped!
 	    y0=y1;
 	    mult0=1.;
-	  }
+	  }else
+	    mult0=0.5;
 	  y0x1=y0*imgdim[1]+x1;
 	  y3x1=y3*imgdim[1]+x1;
 	  //END WITHOUT YGRADIENTS
@@ -711,7 +715,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	      Y2=(float)img[y2x1+i];
 	      a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	      b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
-	      points[i]=((oneminusym)*Y1+ym*Y2+ym*(oneminusym)*(a*(oneminusym)+b*ym));
+	      points[i]=((oneminusym)*Y1+ym*Y2+ymomym*(a*(oneminusym)+b*ym));
 	      outofrange[i]=0;
 	    }else{
 	      outofrange[i]=1;
@@ -735,7 +739,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
 	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
 	    val=(oneminusxm)*Y1+xm*Y2+xm*(oneminusxm)*(a*(oneminusxm)+b*xm);
-	    out[yy*dim[1]+xx]+=val;
+	    out[yydim+xx]+=val;
 	  }
 	}
       }
