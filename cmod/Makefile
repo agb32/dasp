@@ -30,4 +30,5 @@ clean:
 #	"/src/Makefile: python setup.py install --install-lib=../" comand.
 #	setup.py can not clean these files; they have to be removed "manually".
 #	(Before 2012Aug09 they were removed by "rm ../*.so" in shmem/Makefile.generic.)
-	rm *.so
+	##rm *.so # will fail if no .so files
+	for x in *.so ; do if [ -r $$x.o ] ; then rm $$x.o ; fi ; done

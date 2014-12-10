@@ -67,10 +67,11 @@ genInv.o: Makefile genInv.h genInv.c sparsemem.h
 	${CC} ${CFLAGS} -c genInv.c -o genInv.o
 
 
-clean: 
-	rm *.o
-	rm libsvd.a
-	rm -rf build
+clean:
+	for x in *.o libsvd.a ; do if [ -r $$x.o ] ; then rm $$x.o ; fi ; done
+	##rm *.o # this can fail if there are no .o files!!
+	##rm libsvd.a
+	if [ -d build ] ; then rm -rf build ; fi
 #clean: 
 #	rm *.o
 #	rm libsvd.a
