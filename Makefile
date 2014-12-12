@@ -24,6 +24,6 @@ clean:
 	@printf 'Cleaning c modules\n'
 	(cd cmod/ ; make clean )
 	rm -f base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py gui/__init.py__ gui/selectionbox/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py
-	find . -name \*.pyc | xargs rm
+	for fn in $( find . -name \*.pyc ) ; do if [ -a ${fn} ] ; then rm ${fn} ; fi ; done
 
 #	for x in base/__init__.py util/__init__.py science/__init__.py cmod/__init__.py gui/__init.py__ gui/selectionbox/__init__.py cmod/Numfftw3/__init__.py gui/myFileSelection/__init__.py gui/textbox/__init__.py gui/simctrl/__init__.py gui/dialog/__init__.py ; do if [ -a $$x ] ; then rm $$x ; fi ; done

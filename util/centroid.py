@@ -94,13 +94,17 @@ class centroid:
 
     """
     #def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
-    def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,
-                 binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",
-                 fpDataType=numpy.float32,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,
-                 tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,
-                 opticalBinning=0,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,
-                 stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,
-                 corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0,printLinearisationForcing=0):
+    def __init__(self, nsubx, pup=None, oversamplefactor=1, readnoise=0,
+          readbg=0., addPoisson=0, noiseFloor=0., binfactor=1, sig=1.,
+          skybrightness=0., warnOverflow=None, atmosPhaseType="phaseonly",
+          fpDataType=numpy.float32, phasesize=None, fftsize=None, clipsize=None,
+          nimg=None, ncen=None, tstep=0.05, integtime=0.05, latency=0.,
+          wfs_minarea=0.5, spotpsf=None, centroidPower=None, opticalBinning=0,
+          usecmod=1, subtractTipTilt=0, magicCentroiding=0, linearSteps=None,
+          stepRangeFrac=1., phaseMultiplier=1, centWeight=None,
+          correlationCentroiding=0, corrThresh=0., 
+          corrPattern=None, threshType=0, imageOnly=0, calNCoeff=0,
+          useBrightest=0, printLinearisationForcing=0, rowintegtime=None):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -130,6 +134,12 @@ class centroid:
          - ncen: Number of subap image pixels used to compute centroid (eg could leave a dead ring around edge etc).
          - tstep: time per iteration
          - integtime: total integration time
+         - rowintegtime: integration time per sub-aperture row (default=None), should
+               be <integtime.
+               Non-default use of this parameter is designed for *crude* simulation of
+               a rolling shutter. Properly, each pixel row of the WFS should be
+               staggered but this variable only permit staggering of each sub-aperture
+               row. Currently only implemented in the Python version.
          - latency: latency between readout starting and centroids being returned.
          - wfs_minarea: minimum fraction of subap receiving phase to allow it to be counted.
          - spotpsf: array (2 or 4d) of spot pattern PSFs.
@@ -189,6 +199,32 @@ class centroid:
         self.integtime=integtime
         self.latency=latency
         self.nIntegrations=int(numpy.ceil(self.integtime/self.tstep))
+        self.rowintegtime=None # start with this
+        if rowintegtime!=None:
+            if usecmod:
+               raise RuntimeError("ERROR: Currently you cannot have the "+
+                     "rolling shutter integrated with the C-module")
+            if rowintegtime>integtime:
+               print("ERROR:**centroid**: rowintegtime>integtime")
+            elif (rowintegtime/integtime)>1:
+               print("ERROR:**centroid**: Oops! rowintegtime long")
+            elif (rowintegtime<tstep):
+               print("ERROR:**centroid**: Woah! rowinteg<tstep")
+            else:
+               self.rowintegtime=rowintegtime
+               self.rowinteg_nIntegrations=int(numpy.ceil(rowintegtime/tstep))
+        if self.rowintegtime!=None:
+            r=self.rowintegtime/self.tstep
+            l=self.nIntegrations-r
+            print("INFORMATION:DEBUG:**centroid**:"+
+                     "Rolling Shutter approximation")
+            print("INFORMATION:DEBUG:**centroid**:"+
+                     "**r**=# integ/row,**l**=# integ skipped for last row")
+            print("INFORMATION:DEBUG:**centroid**:"+
+                     "**r**={0[0]:d}, **l**={0[1]:d}".format(
+                           [int(x) for x in (r,l)]))
+            print("INFORMATION:DEBUG:**centroid**:"+
+                     "**#**integ.={0:d}".format( int(self.nIntegrations) ))
         self.wfs_minarea=wfs_minarea
         self.psf=spotpsf#eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)
         self.centroidPower=centroidPower
@@ -264,7 +300,7 @@ class centroid:
 
         self.subflag=numpy.zeros((self.nsubx,self.nsubx),numpy.int8)
         if self.subflag.itemsize==8:
-            print "WARNING: untested with 8 byte longs...(wfs)"
+            print("WARNING:**centroid**:untested with 8 byte longs...(wfs)")
         self.subarea=numpy.zeros((self.nsubx,self.nsubx),numpy.float64)
         n=self.phasesize
         #if self.pupfn==None:
@@ -405,9 +441,10 @@ class centroid:
         if 1:
             if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
                 if self.atmosPhaseType=="phaseonly":
-                    self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
+                    self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
                 else:
-                    self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
+                    self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
+                self.reorder(None,numpy.nan) # fill with nan
             else:
                 if self.atmosPhaseType=="phaseonly":
                     self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
@@ -473,7 +510,8 @@ class centroid:
     def initialiseCmod(self,nthreads=8,calsource=0,seed=1):
         self.nthreads=nthreads
         if self.usecmod:
-            print "initialising cmod, nthreads = {0}".format(nthreads)
+            print("INFORMATION:**centroid**:initialising cmod, nthreads = "+
+                  "{0}".format(nthreads))
             sig=self.sig
             if type(self.sig)==numpy.ndarray:
                 sig=self.sig.ravel()
@@ -724,23 +762,99 @@ class centroid:
         """Do a reodering of the phase buffer, so that it is in the form ready
         for the fpga.  Phases corresponding to subaps should be placed next to
         those for the same subap at a later time (greater pos).
-        Also use with createSHImg() but not integrate().  If the FPGA has been initialised, this will place it in FPGA readable memory..."""
+        Also use with createSHImg() but not integrate().  If the FPGA has been
+        initialised, this will place it in FPGA readable memory...
+        
+        To support a rolling shutter, calling with pos==-1 rolls the buffer
+        backwards.
+      
+         -- time/pos ------------------------------>
+           |-- j -->
+            <-----> = r
+                    <---- -> = r
+                             <---- -> = r
+         _          <---> = l         
+         | |1111111-22222|22#33333-3344444#44
+         ' |.111111-12222|22#23333-3334444#444
+         i |..11111-11222|22#22333-3333444#4444
+         , |...1111-11122|22#22233-3333344#44444
+         | |....111-11112|22#22223-3333334#444444
+         V |.....11-11111|22#22222-3333333#4444444
+            <---> = l         
+
+        The intepretation of the above is that the first frame lies between the
+        '|' symbols, the second between the '-', and the third between the '#',
+        The '.' symbol implies recorded data which is later discarded.
+        The actual processing of the data is done in createSHimg; here only the
+        appropriate storage of the data is considered.
+        Thus for the first frame, all positions must be filled, for the
+        subsequent (after calling with pos=-1), only those corresponding to the
+        final row which is specified by 'l' are stored i.e. skip the first l.
+        This action preserves the values recorded in the previous frame, and so
+        most accurately represents a rolling shutter.
+        At the end of the first frame (after calling with pos=-1), roll the array
+        back by 'r'.
+        To start a camera streaming, the reorderedPhs array should be set to NaN
+        so any 'dirty' data is wiped: call with pos==numpy.nan.
+        """
+        if numpy.isnan(pos):
+            # It is not thought that this clause will ever be true after
+            # initialization (see above) since the WFS never stops receiving
+            # data... 
+            # Implemented for completeness.
+
+            # wipe array and return
+            self.reorderedPhs[:]=numpy.nan # fill with nan
+            return
+        if not self.atmosPhaseType in ("phaseonly","atmosphasetype"):
+            raise NotImplementedError("self.atmosPhaseType")
+
+        ## it is assumed that the two functions below are compiled into
+        ## efficient bytecode, hence the switch only occurs once per
+        ## call to reorder
+        elif self.atmosPhaseType=="phaseonly":
+             def _doassign(i,j,pos,n,phs,typecode):
+                 self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)
+        elif self.atmosPhaseType=="phaseamp":
+             def _doassign(i,j,pos,n,phs,typecode):
+                 self.reorderedPhs[i,j,pos,:,:n,0]=phs[0,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#phase
+                 self.reorderedPhs[i,j,pos,:,:n,1]=phs[1,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#amplitude
         #nsubx=    self.nsubx
         n=    self.phasesize
         typecode=self.reorderedPhs.dtype
-        if self.atmosPhaseType=="phaseonly":
-            for i in range(self.nsubx):
-                for j in range(self.nsubx):
-                    # Subap phase array
-                    self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)
-        elif self.atmosPhaseType=="phaseamp":
-            for i in range(self.nsubx):
-                for j in range(self.nsubx):
-                    # Subap phase array
-                    self.reorderedPhs[i,j,pos,:,:n,0]=phs[0,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#phase
-                    self.reorderedPhs[i,j,pos,:,:n,1]=phs[1,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#amplitude
-        else:
-            raise Exception("atmosphasetype")
+        if self.rowintegtime!=None:
+            # support for rolling shutter model
+            r=self.rowintegtime/self.tstep
+            l=self.nIntegrations-r
+            if int(pos)==0: # first frame
+                # roll backwards, irrelevant for the first exposure since it all wraps around
+                self.reorderedPhs[:,:,:,:,:n]=numpy.roll(
+                     self.reorderedPhs[:,:,:,:,:n], -int(r), axis=2 )
+##(DEBUGing)                print("DEBUG:rolling back by **{0:d}**".format(-int(r)))
+
+        # If the array isn't nan (hi gramps!) then we know some of the
+        # data is valid and for rolling shutter mode, don't overwrite the first
+        # l position, so the i loop is j dependent.  If the array is nan (hi gran!)
+        # then this is the first frame.
+        for i in xrange(self.nsubx):
+            for j in xrange(self.nsubx):
+                if self.rowintegtime!=None and pos<l and j==0:
+                    # only needs to be carried out for the the first j:-
+                    # if rolling shutter and are at the start, either,
+                    # (a) check i and if not used in the next frame, overwrite
+                    #     the unused parts with nan or, more simply,
+                    # (b) skip overwriting and hope for the best.
+                    # Option (b) is harder to diagnose if there is a mistake in
+                    # the code.
+                    # To enable option (b), comment out the if statement.
+                    # To enable option (a), keep the if statement.
+                    # Both require the escape-from-the-loop clause.
+                    # <<< EOL                                     # option (a) 
+                    if pos<int(i*(self.nsubx-1)**-1.0*l+0.5):     # option (a) 
+                        self.reorderedPhs[i,:,pos,:,:n]=numpy.nan # option (a) 
+##(DEBUGing)                        print("DEBUG:setting {0[0]:d},{0[2]:d} to nan".format((i,j,pos)))
+                    continue                         # option (a) & option (b)
+                _doassign(i,j,pos,n,phs,typecode) # more efficient than switching everytime
 
     def makeImage(self,phs,img,pup):
         tmpphs=numpy.zeros(img.shape,numpy.complex64)
@@ -753,41 +867,58 @@ class centroid:
         All this will eventually (we hope) be done in the FPGAs"""
         tmp=0.5*float(self.phasesize)/float(self.fftsize)*2.*numpy.pi
         self.subimg*=0.0                                                  # Zero the CCD
+        if self.rowintegtime!=None:
+            r=self.rowintegtime/self.tstep
+            l=self.nIntegrations-r
+##(DEBUGing)            print("DEBUG:createSHImgs:",r,l)
         #nsubx=self.nsubx
         for i in xrange(self.nsubx):
-            for j in xrange(self.nsubx):
-                if self.subflag[i][j]==1:
-                    for k in xrange(self.nIntegrations):
-                        if self.atmosPhaseType=="phaseonly":
-                            phssub=(self.reorderedPhs[i,j,k,:,:self.phasesize]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
-                        elif self.atmosPhaseType=="phaseamp":
-                            phssub=(self.reorderedPhs[i,j,k,:,:,0]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
-                        #now do the FFT: plan, phsin, imgout, pypupil
-                        if self.fpDataType==numpy.float64:
-                            if phssub.dtype!=self.fpDataType or self.tmpImg.dtype!=self.fpDataType or self.pupsub.dtype!=self.fpDataType:
-                                print "ERROR with typecodes in wfs.py"
-                                raise Exception("Error with typecodes in wfs.py mkimg")
-                            if self.atmosPhaseType=="phaseonly":
-                                #cmod.mkimg.mkimg(self.fftwPlan,phssub,self.tmpImg,self.pupsub[i][j])
-                                self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
-                            elif self.atmosPhaseType=="phaseamp":
-                                #cmod.mkimg.mkimg(self.fftwPlan,phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
-                                self.makeImage(pupsub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
-                            elif self.atmosPhaseType=="realimag":
-                                raise Exception("realimag")
-                        else:
-                            if phssub.dtype!=self.fpDataType or self.tmpImg.dtype!=self.fpDataType or self.pupsub.dtype!=self.fpDataType:
-                                print "ERROR with typecodes in wfs.py",phssub.dtype,self.tmpImg.dtype,self.pupsub.dtype
-                                raise Exception("Error with typecodes in wfs.py mkimg")
-                            if self.atmosPhaseType=="phaseonly":
-                                #cmod.mkimgfloat.mkimg(self.fftwPlan,phssub,self.tmpImg,self.pupsub[i][j])
-                                self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
-                            elif self.atmosPhaseType=="phaseamp":
-                                #cmod.mkimgfloat.mkimg(self.fftwPlan,phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
-                                self.makeImage(phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
-                            elif self.atmosPhaseType=="realimag":
-                                raise Exception("realimag")
-                        self.subimg[i][j]+=self.tmpImg                    # Long exposure image
+           for j in xrange(self.nsubx):
+              if self.subflag[i][j]!=1: continue
+              for k in xrange(self.nIntegrations):
+                 if ( self.rowintegtime!=None and
+                       ( k<int(i*(self.nsubx-1)**-1.0*l+0.5) or
+                         k>int(i*(self.nsubx-1)**-1.0*l+r-0.5) )):
+                   # algorithm is::
+                   #    if before the start : i<j/(nsubx-1)*l
+                   # or if after the end : i>j/(nsubx-1)*l+r-1
+                   # then continue
+                   continue
+##(DEBUGing)                 elif self.rowintegtime!=None:
+##(DEBUGing)                   print("DEBUG:**centroid**:using {0:d}:{1:d}".format(i,k))
+                 if self.atmosPhaseType=="phaseonly":
+                     phssub=(self.reorderedPhs[i,j,k,:,:self.phasesize]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
+                 elif self.atmosPhaseType=="phaseamp":
+                     phssub=(self.reorderedPhs[i,j,k,:,:,0]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
+                 #now do the FFT: plan, phsin, imgout, pypupil
+                 if self.fpDataType==numpy.float64:
+                     if phssub.dtype!=self.fpDataType or self.tmpImg.dtype!=self.fpDataType or self.pupsub.dtype!=self.fpDataType:
+                         print("ERROR:**centroid**: typecode error")
+                         raise Exception("Error with typecodes in wfs.py mkimg")
+                     if self.atmosPhaseType=="phaseonly":
+                         #cmod.mkimg.mkimg(self.fftwPlan,phssub,self.tmpImg,self.pupsub[i][j])
+                         self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
+                     elif self.atmosPhaseType=="phaseamp":
+                         #cmod.mkimg.mkimg(self.fftwPlan,phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
+                         self.makeImage(pupsub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
+                     elif self.atmosPhaseType=="realimag":
+                         raise Exception("realimag")
+                 else:
+                     if phssub.dtype!=self.fpDataType or self.tmpImg.dtype!=self.fpDataType or self.pupsub.dtype!=self.fpDataType:
+                         print("ERROR:**centroid**: typecode error"
+                                +str((phssub.dtype,self.tmpImg.dtype,
+                                      self.pupsub.dtype)) )
+                         raise Exception("Error with typecodes in "+
+                                "wfs.py mkimg")
+                     if self.atmosPhaseType=="phaseonly":
+                         #cmod.mkimgfloat.mkimg(self.fftwPlan,phssub,self.tmpImg,self.pupsub[i][j])
+                         self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
+                     elif self.atmosPhaseType=="phaseamp":
+                         #cmod.mkimgfloat.mkimg(self.fftwPlan,phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
+                         self.makeImage(phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
+                     elif self.atmosPhaseType=="realimag":
+                         raise Exception("realimag")
+                 self.subimg[i][j]+=self.tmpImg                    # Long exposure image
 
     def tidyImage(self,calSource):
         """Flip image (to correct for FFT), then bin the image up if
@@ -840,9 +971,10 @@ class centroid:
                             # Inject shot noise
                             cmod.imgnoise.shot(bimg,bimg)
 
-
-                        # Generate random read noise :
-                        bimg+=(numpy.random.normal(mean,readnoise,bimg.shape)+0.5).astype("i")#round to integer
+                        if readnoise>1e-12:
+                           # Generate random read noise :
+                           bimg+=(numpy.random.normal(mean,
+                              readnoise,bimg.shape)+0.5).astype("i") # round to integer
                     #self.shimg[i*self.wfs_nimg:(i+1)*self.wfs_nimg,j*self.wfs_nimg:(j+1)*self.wfs_nimg]=bimg    # Tessalate up for WFS display
 
     def calc_cents(self,calSource):
@@ -1264,7 +1396,8 @@ class centroid:
         pupsub=numpy.ones((nsubx,nsubx,n,n),"d")
         if type(pupfn)!=type(None):
             if pupfn.shape!=phase.shape:
-                print "ERROR: centroid.py - pupil function shape not equal to phase shape."
+                print("ERROR:**centroid**: pupil function shape not equal to "+
+                      "phase shape.")
             for i in range(nsubx):
                 for j in range(nsubx):
                     pupsub[i,j]=pupfn[i*n:(i+1)*n,j*n:(j+1)*n].astype("d")
@@ -1370,10 +1503,13 @@ class centroid:
         self.cent=cent
         if self.warnOverflow!=None:
             if max(self.tile.flat)>self.warnOverflow:
-                print "Max value in CCD is",max(self.tile.flat)
+                print("WARNING:**centroid**:Max value in CCD is "
+                     +str(max(self.tile.flat)) )
         if self.printmax:
-            print "Max value in CCD is",max(self.tile.flat)
-            print "Mean signal in CCD is",numpy.average(self.tile.flat)
+            print("INFORMATION:**centroid**:Max value in CCD is"
+                  +str( max(self.tile.flat) ) )
+            print("INFORMATION:**centroid**:Mean signal in CCD is "
+                  +str( numpy.average(self.tile.flat) ) )
             
         return self.cent
 
@@ -1511,7 +1647,8 @@ class centroid:
     def calibrateSHSUnique(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
-        print "Calibrating centroids (all subaps treated differently)"
+        print("INFORMATION:**centroid**:Calibrating centroids (all subaps "+
+               "treated differently)")
         steps=self.linearSteps
         self.linearSteps=None
         #create a (fairly large) array to store the data.
@@ -1567,7 +1704,11 @@ class centroid:
                         if self.calibrateData[0,i,j,k]>self.calibrateData[0,i,j,k+1]:
                             val=(self.calibrateData[0,i,j,k-1]+self.calibrateData[0,i,j,k+1])/2.
                             if self.printLinearisationForcing:
-                                print "INFORMATION Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val)
+                                print(("INFORMATION:**centroid**: Forcing SHS "+
+                                    "calibration for point ({0:d},{1:d}) step "+
+                                    "{2:d} from {3:g} to {4:g}").format(
+                                       i,j,k,self.calibrateData[0,i,j,k],val))
+##(old)                                print("INFORMATION:**centroid**: Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[0,i,j,k],val))
                             #and save for a summary at the end.
                             linearPointsForced+=1
                             shift=abs(self.calibrateData[0,i,j,k]-val)
@@ -1578,15 +1719,20 @@ class centroid:
                         if self.calibrateData[1,i,j,k]>self.calibrateData[1,i,j,k+1]:
                             val=(self.calibrateData[1,i,j,k-1]+self.calibrateData[1,i,j,k+1])/2.
                             if self.printLinearisationForcing:
-                                print "INFORMATION Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
+                                print(("INFORMATION:**centroid**: Forcing SHS "+
+                                    "calibration for point ({0:d},{1:d}) step "+
+                                    "{2:d} from {3:g} to {4:g}").format(
+                                       i,j,k,self.calibrateData[1,i,j,k],val))
+##(old)                                print("INFORMATION:**centroid**: Forcing SHS calibration for point (%d,%d) step %d from %g to %g"%(i,j,k,self.calibrateData[1,i,j,k],val)
                             #and save for a summary at the end.
                             linearPointsForced+=1
                             shift=abs(self.calibrateData[0,i,j,k]-val)
                             if shift>maxShift:
                                 maxShift=shift
-
                             self.calibrateData[1,i,j,k]=val
-        print "Finished calibrating centroids: Forced %d, max shift %g"%(linearPointsForced,maxShift)
+        print(("INFORMATION:**centroid**:Finished calibrating centroids: Forced "+
+              "{0:d} max shift {1:g})").format(linearPointsForced,maxShift))
+##(old)        print("INFORMATION:**centroid**:Finished calibrating centroids: Forced %d, max shift %g"%(linearPointsForced,maxShift))
 
     def applyCalibrationUnique(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.
@@ -1601,9 +1747,15 @@ class centroid:
                     if self.subflag[i,j]:
                         cx,cy=data[i,j]#the x,y centroids.
                         if cx>self.calibrateData[0,i,j,self.calibrateBounds[0,i,j,1]] or cx<self.calibrateData[0,i,j,self.calibrateBounds[0,i,j,0]]:
-                            print "WARNING: x centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cx)
+                            print(("WARNING:**centroid**: x centroid at %d,%d "+
+                                 "with value %g is outside the calibrated "+
+                                 "bounds").format(i,j,cx))
+##(old)                            print("WARNING:**centroid**: x centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cx))
                         if cy>self.calibrateData[1,i,j,self.calibrateBounds[1,i,j,1]] or cy<self.calibrateData[1,i,j,self.calibrateBounds[1,i,j,0]]:
-                            print "WARNING: y centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cy)
+                            print(("WARNING:**centroid**: y centroid at %d,%d "+
+                                  "with value %g is outside the calibrated "+
+                                  "bounds").format(i,j,cy))
+##(old)                            print("WARNING:**centroid**: y centroid at %d,%d with value %g is outside the calibrated bounds"%(i,j,cy))
                         data[i,j,0]=numpy.interp([cx],self.calibrateData[0,i,j,self.calibrateBounds[0,i,j,0]:self.calibrateBounds[0,i,j,1]+1],self.calibrateSteps[self.calibrateBounds[0,i,j,0]:self.calibrateBounds[0,i,j,1]+1])[0]
                         #print "applyCalibration error %d %d 0 %g %d %d"%(i,j,cx,self.calibrateBounds[0,i,j,0],self.calibrateBounds[0,i,j,1]+1)
                         data[i,j,1]=numpy.interp([cy],self.calibrateData[1,i,j,self.calibrateBounds[1,i,j,0]:self.calibrateBounds[1,i,j,1]+1],self.calibrateSteps[self.calibrateBounds[1,i,j,0]:self.calibrateBounds[1,i,j,1]+1])[0]
@@ -1628,7 +1780,8 @@ class centroid:
     def calibrateSHSIdentical(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
-        print "Calibrating centroids (identical subap pupil functions treated same)"
+        print("INFORMATION:**centroid**:Calibrating centroids (identical subap "+
+               "pupil functions treated same)")
         steps=self.linearSteps
         self.linearSteps=None
         #create a (fairly large) array to store the data.
@@ -1754,7 +1907,8 @@ class centroid:
             cd=self.calDataDict[k]
             cd.xindx=numpy.array(cd.indx).astype(numpy.int32)*2
             cd.yindx=cd.xindx+1
-        print "Finished calibrating centroids, shifted %d, maxShift %g"%(linearPointsForced,maxShift)
+        print(("INFORMATION:**centroid**:Finished calibrating centroids, shifted "+
+              "{0:d}, maxShift {1:g}").format(linearPointsForced,maxShift))
 
     def applyCalibrationIdentical(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.
@@ -1764,7 +1918,7 @@ class centroid:
         if data==None:
             data=self.outputData
         if numpy.any(numpy.isnan(data)):
-            print "WARNING -nan prior to applyCalibrationIdentical"
+            print("WARNING:**centroid**: nan prior to applyCalibrationIdentical")
         rdata=data.ravel()
         for k in self.calDataDict.keys():
             cd=self.calDataDict[k]
@@ -1772,13 +1926,17 @@ class centroid:
             y=numpy.take(rdata,cd.yindx)
             #print "x,y",x,y
             if cd.xc.size==0 or numpy.any(x>cd.xc[-1]) or numpy.any(x<cd.xc[0]):
-                print "WARNING: x centroid is outside calibrated bounds"
+                opstr=("WARNING:**centroid**: x centroid is outside calibrated "+
+                     "bounds")
                 if cd.xc.size==0:
-                    print "because there are no calibration bounds..."
+                    opstr+=", because there aren't any"
+                print(opstr)
             if cd.yc.size==0 or numpy.any(y>cd.yc[-1]) or numpy.any(y<cd.yc[0]):
-                print "WARNING: y centroid is outside calibrated bounds"
+                opstr=("WARNING:**centroid**: y centroid is outside calibrated "+
+                     "bounds")
                 if cd.yc.size==0:
-                    print "because there are no calibration bounds..."
+                    opstr+=", because there aren't any"
+                print(opstr)
             #now put the calibrated values back (using numpy fancy indexing)
             if cd.xc.size!=0:
                 rdata[cd.xindx]=numpy.interp(x,cd.xc,cd.xr).astype(numpy.float32)
@@ -1786,20 +1944,26 @@ class centroid:
                 rdata[cd.yindx]=numpy.interp(y,cd.yc,cd.yr).astype(numpy.float32)
             indx=numpy.nonzero(numpy.isnan(rdata[cd.xindx]))[0]
             if indx.size>0:
-                print "indx",indx,numpy.take(rdata[cd.xindx],indx),numpy.take(x,indx)
-                print cd.xc,cd.xr
+                print("INFORMATION:**centroid**:applyCalibrationIdentical, indx"+
+                     str((indx,numpy.take(rdata[cd.xindx],indx),
+                          numpy.take(x,indx))) )
+                print("INFORMATION:**centroid**:applyCalibrationIdentical "+
+                     str((cd.xc,cd.xr)) )
             #print "rdata",rdata[cd.xindx],rdata[cd.yindx]
         if not data.flags.c_contiguous:
             #need to copy the data back in.
-            print "WARNING - flattening non-contiguous centroid data"
+            print("WARNING:**centroid**: flattening non-contiguous centroid data")
             rdata.shape=data.shape
             data[:]=rdata
         if numpy.any(numpy.isnan(data)):
-            print "WARNING -nan after applyCalibrationIdentical"
+            print("WARNING:**centroid**: nan after applyCalibrationIdentical")
 
     def makeCalibrationCoeffs(self):
         self.calCoeff=numpy.zeros((self.nsubx,self.nsubx,2,self.calNCoeff),numpy.float32)
-        print "todo makeCalibrationCoeffs - check whether is giving best performance (calibrateSHSUnique does some adjustment to the data, so it may not) - should be use the bounds, or use the whole think unadjusted...?"
+        print("INFORMATION:**centroid**: todo makeCalibrationCoeffs - check "+
+              "whether is giving best performance (calibrateSHSUnique does "+
+              "some adjustment to the data, so it may not) - should be use "+
+              "the bounds, or use the whole think unadjusted...?")
         for i in range(self.nsubx):
             for j in range(self.nsubx):
                 if self.subflag[i,j]:

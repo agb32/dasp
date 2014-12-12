@@ -1,3 +1,10 @@
 python scao.py    for a 6x6 scao system on a 4.2m telescope.
 
 python scao.py --init="wfs_nsubx=64" for a 64x64 system... etc
+
+Rolling shutter approximation::
+=============================
+
+Examine the paramter file for those lines containing the XML comment,
+   <!-- Rolling Shutter approximation -->
+to discover the changes necessary to incorporate a rolling shutter.

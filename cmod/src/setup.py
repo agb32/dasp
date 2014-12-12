@@ -1,7 +1,9 @@
 from distutils.core import setup, Extension
+from distutils.unixccompiler import UnixCCompiler
 import sys,os.path
 idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
 idgsl=['/opt/local/include'] # Added for different GSL locations, NAB 08/Apr/2013
+ld=[sys.prefix+'/lib','/usr/lib','/usr/lib64','/usr/local/lib64','/usr/local/lib','/opt/local/lib','/opt/local/lib64']
 
 # platorm dependant stuff
 if sys.platform=='darwin':
@@ -9,9 +11,23 @@ if sys.platform=='darwin':
 	idveclib=['/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/'] 
 	scrnmodule_extra_link_args=['-lgsl','-framework vecLib']
 else:
-	scrnmodule_extra_link_args=['-lm','-lcblas','-latlas','-lgsl']
+	scrnmodule_extra_link_args=['-lm','-latlas','-lgsl']
+	# now search for (in order) blas and cblas, and if neither exist,
+	# tell the user. For example, Debian installs for both (so either
+	# is okay), Ubuntu (**tentative**) install for cblas, and CentOS
+	# installs for blas.
+	cc=UnixCCompiler()
+	theseLibs=('blas','cblas',)
+	for thisLib in theseLibs:
+	   if cc.find_library_file(ld,thisLib):
+	      scrnmodule_extra_link_args.append( "-l"+thisLib )
+	      print("<<< setup.py: will use "+str(thisLib))
+	      del cc
+	      break
+	if 'cc' in dir():
+	   raise RuntimeError("Cannot find any of:"+str(theseLibs))
+	      
 	idveclib=[]
-ld=[sys.prefix+'/lib']
 fft=Extension('fftmodule',
               include_dirs=idnumpy,
               library_dirs=ld,

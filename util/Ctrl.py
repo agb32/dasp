@@ -613,10 +613,34 @@ class Ctrl:
     def doInitialPokeThenRun(self,startiter=0):
         """This function can be called during sim setup to make the simulation perform a poke from iteration zero, followed by computation of the reconstructor, and then run using this.
         """
-        cmd="""for obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "INFORMATION Starting poking"\n"""
+        cmd="""pass
+for obj in ctrl.compList:
+    if obj.control.has_key("poke"):
+          obj.control["poke"]=1
+    if obj.control.has_key("science_integrate"):
+          obj.control["science_integrate"]=0
+    if obj.control.has_key("zero_dm"):
+          obj.control["zero_dm"]=1
+    if obj.control.has_key("cal_source"):
+          obj.control["cal_source"]=1
+    print("  :: "+str(obj.control))
+print("INFORMATION:^^Ctrl^^:Starting poking")
+		"""
         self.initialCommand(cmd,freq=-1,startiter=startiter)
 
-        cmd="""maxmodes=0\nfor obj in ctrl.compList:\n if hasattr(obj,"nmodes") and obj.nmodes>maxmodes:\n  maxmodes=obj.nmodes\nctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)\nprint "INFORMATION Will close loop after %d iterations"%(maxmodes+10)\n"""
+        cmd="""maxmodes,wfsObj_int,global_tstep=0,None,None
+for obj in ctrl.compList:
+  if hasattr(obj,"nmodes") and obj.nmodes>maxmodes:
+	 modesObj_nmodes=obj.nmodes
+  if hasattr(obj,"tstep"):
+    global_tstep=obj.tstep
+for obj in ctrl.compList:
+  if hasattr(obj,"wfs_int") and (wfsObj_int==None or obj.wfs_int>wfsObj_int):
+    wfsObj_int=obj.wfs_int
+maxmodes=modesObj_nmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
+ctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)
+print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
+		"""
         self.initCmdList.append(cmd)
     def doInitialSciRun(self,startiter=0):
         cmd="ctrl.doSciRun()"
@@ -647,7 +671,7 @@ class myStdout:
         self.rank=rank
         self.displayRank=1
         self.displayThread=0
-        self.colourized=-1 # -1 means force OFF
+        self.colourized=0# -1 means force OFF
         if self.colourized!=-1 and (
                hasattr(sys.stdout,'isatty') and sys.stdout.isatty()): 
             # assume that if stdout is connected to a terminal, it can support
@@ -665,7 +689,9 @@ class myStdout:
         self.triggerTags={
             'ERROR':      '\x1b[1;31m\\1\x1b[0m',
             'INFORMATION':'\x1b[1;32m\\1\x1b[0m',
+            'DEBUG':      '\x1b[1;7m\\1\x1b[0m',
             'WARNING':    '\x1b[1;33m\\1\x1b[0m',
+            'DEPRECIATION':'\x1b[7;1;33m\\1\x1b[0m',
            }
         
     def write(self,txt):

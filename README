@@ -12,6 +12,15 @@ e.g. if you are in the aosim top-level directory and running bash
 
 export PYTHONPATH=$PYTHONPATH:`pwd`
 
+
+Colourized output
+~~~~~~~~~~~~~~~~~
+To get colour in your terminal, ensure the line 'self.colourized=...'
+in util/Ctrl.py->class myStdout->def __init__ should not equal '-1' (which
+prevents detection of colour, as this isn't foolproof) but instead '0'. 
+The 'gnome-terminal' and Terminal.app do support colour correctly.
+
+
 Platform build notes
 ====================
 

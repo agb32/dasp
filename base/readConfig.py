@@ -455,7 +455,9 @@ class AOXml:
             elif t=="string" or t=="s":
                 pass
             else:
-                print "ERROR:  Unrecognised type for",attrs["name"],t,"Assuming string"
+                print("ERROR:readConfig: Unrecognised type for: '**"+   
+                     str(attrs["name"].strip())+"**'(='**"+str(t)+"**'); "+
+                     "Assuming string")
         return v
 
     def doexec(self,strng,name,glob):

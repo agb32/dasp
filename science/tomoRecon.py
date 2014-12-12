@@ -16,7 +16,7 @@ import util.dot as quick
 try:
     import scipy.linsolve
 except:
-    print "TO DO: Sort out import of scipy.linsolve in tomoRecon"
+    print("INFORMATION:**tomoRecon**:TO DO: Sort out import of scipy.linsolve in tomoRecon")
 import scipy.sparse,scipy.linalg
 import util.spmatrix
 import time,types
@@ -96,7 +96,9 @@ class recon(base.aobase.aobase):
             self.scaleWhenPoking=self.config.getVal("scaleWhenPoking",default=0)
             self.minarea=self.config.getVal("wfs_minarea")
             self.pokeActMapFifo=[]
-            print "tomoRecon: Using %d DMs for reconstruction."%len(self.dmList)
+            print(("INFORMATION:**tomoRecon**: Using {0:d} DMs for "+
+                  "reconstruction").format( len(self.dmList) ) )
+##(old)            print("INFORMATION:**tomoRecon**: Using %d DMs for reconstruction."%len(self.dmList))
             self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
             self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea=self.minarea)
             self.subtractTipTilt=self.config.getVal("subtractTipTilt",default=0)
@@ -139,13 +141,16 @@ class recon(base.aobase.aobase):
                 # matrix which is then sparsified.  Can be one of "lil", "csc","mmap" with mmap
                 # being fastest, though requiring space fora mmap file.
                 if self.sparsePmxType not in ["lil","csc","dense"]:
-                    print "Warning: sparsePmxType not known - will assume dense but will not sparsify"
+                    print("WARNING:**tomoRecon**:: sparsePmxType not known - "+
+                        "will assume dense but will not sparsify")
                 if self.sparsePmxType=="csc":
                     # default 10% sparsity:
                     self.ndata=int(self.config.getVal("spmxNdata",default=self.nmodes*self.ncents*0.1))
                     if self.ndata>=1<<31:
                         self.ndata=(1<<31)-1
-                        print "Error: spmxNdata>=1<<31 - must fit into an int... downsizing to %d."%self.ndata
+                        print(("ERROR:**tomoRecon**: spmxNdata>=1<<31 - must "+
+                              "fit into an int... downsizing to "+
+                              str(self.ndata)))
 
             if self.reconType=="SVD":
                 self.reconType="svd"
@@ -161,14 +166,16 @@ class recon(base.aobase.aobase):
                                                    # (can be an array or a filename or None.)
             self.takingRef=0
             if type(self.refCentroids)==type(""):
-                print "Using reference centroids from %s"%self.refCentroids
+                print("INFORMATION:**tomoRecon**:Using reference centroids "+
+                     "from :"+self.refCentroids)
                 import util.FITS
                 try:
                     self.refCentroids=util.FITS.Read(self.refCentroids)[1]
                 except:
-                    print "**************************************************"
-                    print "WARNING - Unable to load reference centroids %s"%self.refCentroids
-                    print "**************************************************"
+##(old)                    print("**************************************************")
+                    print("WARNING:**tomoRecon**:**Unable to load reference "+
+                        "centroids**: "+self.refCentroids)
+##(old)                    print("**************************************************")
                     self.refCentroids=None
             self.saveRefCentroids=self.config.getVal("saveRefCentroids",default=None,raiseerror=0)#either a fits filename or None.
                 
@@ -205,7 +212,9 @@ class recon(base.aobase.aobase):
                 if type(self.nLowOrderModalModes)==type(0):
                     self.nLowOrderModalModes=[self.nLowOrderModalModes]*len(self.dmList)
                 if len(self.nLowOrderModalModes)!=len(self.dmList):
-                    print "ERROR: length of list of number of low order modes for poking doesn't equal number of DMs"
+                    print("ERROR:**tomoRecon**: length of list of number of "+
+                        "low order modes for poking doesn't equal number of "+
+                        "DMs")
                     self.nLowOrderModalModes=[0]*len(self.dmList)
                 n=reduce(lambda x,y:x+y,self.nLowOrderModalModes)
                 self.totalLowOrderModalModes=n
@@ -283,7 +292,8 @@ class recon(base.aobase.aobase):
                 self.readNoiseBg=self.config.getVal("wfs_read_mean")
                 self.noiseMatrix=None
                 self.phaseCov=None
-                print "tomoRecon - creating centroid object for pixel factors"
+                print("INFORMATION:**tomoRecon**: creating centroid object "+
+                     "for pixel factors")
                 import util.centroid#don't know why this is needed - python bug?
                 c=None
                 if self.monteNoiseCovariance:
@@ -318,9 +328,15 @@ class recon(base.aobase.aobase):
                 self.convergenceWarning=self.config.getVal("fdpcg_convergenceWarning",default=1)#if 1 will print a warning when convergence not reached.
                 self.pcgFakePokeMxVal=self.config.getVal("pcgFakePokeMxVal",default=0.31)#will use an artificial poke matrix if >0.  Probably best to do so.  The value here should be approximately the value that would be given by a real poke matrix, and can have a strong influence on strehl.
                 if self.pcgFakePokeMxVal==0.31:
-                    print "WARNING - you are using the default value of 0.31 for pcgFakePokeMxVal - this could mean your Strehl is less than it could be.  To get a better value, create a poke matrix and look at the typical values of poked centroids, and use this (and try varying a bit, eg maybe slightly less...)."
+                    print("WARNING:**tomoRecon**: you are using the default "+
+                          "value of 0.31 for pcgFakePokeMxVal - this could "+
+                          "mean your Strehl is less than it could be.  To "+
+                          "get a better value, create a poke matrix and look "+
+                          "at the typical values of poked centroids, and use "+
+                          "this (and try varying a bit, eg maybe slightly  "+
+                          "less...).")
                 self.pcgConvergenceValue=self.config.getVal("pcgConvergenceValue",default=0.1)#set this lower (eg 0.001) for slight improvement in reconstruction.  This value is the maximum allowed difference between the pcg solution from the previous iteration, before it is considered to have converged.
-                print "tomoRecon - creating pcg object"
+                print("INFORMATION:**tomoRecon**: creating pcg object")
                 self.pcg=util.tomofdpcg.pcg(self.noiseCov,self.phasecov,None,dmList=self.dmList,ngsList=self.ngsList,lgsList=self.lgsList,minIter=1,maxIter=100,convergenceValue=self.pcgConvergenceValue,convergenceWarning=self.convergenceWarning,fakePokeMxVal=self.pcgFakePokeMxVal,telDiam=self.telDiam)
             elif self.reconType=="spmx":#a broken type...
                 self.pokeIgnore=self.config.getVal("pokeIgnore",default=0.01)#ignore pokes below this value when creating a real poke matrix.
@@ -330,7 +346,7 @@ class recon(base.aobase.aobase):
                     import util.createPokeMx#dont know why this is needed - python bug?
                     self.spmx=util.createPokeMx.sparseTomo(ngsList=self.ngsList,lgsList=self.lgsList,dmList=self.dmList,telDiam=self.telDiam).mx
                     self.pTp=util.spmatrix.dotWithSelfTransposed(self.spmx)#this can take 10-20 minutes if large.
-                    print "tomoRecon: doing LU decomposition"
+                    print("INFORMATION:tomoRecon: doing LU decomposition")
                     self.LUdecomp=scipy.linsolve.splu(self.pTp)#do LU decomposition
                 else:
                     self.spmx=dummyClass()#needs a matvec method that returns 0 and takes one input.
@@ -401,7 +417,9 @@ class recon(base.aobase.aobase):
                 self.nthreads=self.config.getVal("nthreads",default="all")#usually an integer... or "all"
                 if self.nthreads=="all":#use all available CPUs...
                     self.nthreads=self.config.getVal("ncpu")#getCpus()
-                    print "tomoRecon: Using %d threads"%self.nthreads
+                    print("INFORMATION:tomoRecon: Using {0:d} "+
+                        "threads".format(self.nthreads) )
+##(old)                    print("INFORMATION:tomoRecon: Using %d threads"%self.nthreads)
                 self.rcond=self.config.getVal("rcond",default=0.)
                 self.phaseCov=None
                 self.monteNoiseCov=None
@@ -419,18 +437,22 @@ class recon(base.aobase.aobase):
                 self.computePhaseCov=self.config.getVal("computePhaseCov",default=0)
                 if self.phaseCovFilename!=None and os.path.exists(self.phaseCovFilename):
                     self.phaseCov=util.FITS.loadBlockMatrix(self.phaseCovFilename)
-                    print "tomoRecon - Loading phaseCovariance from %s - check that this is actually what you want..."%self.phaseCovFilename
+                    print(("WARNING:tomoRecon: Loading phaseCovariance from "+
+                         "{0:s} - check that this is actually what you want..."+
+                         "").format(self.phaseCovFilename))
+##(old)                         "%s - check that this is actually what you want..."+
+##(old)                         "")%self.phaseCovFilename)
                     if self.phaseCov.shape!=(self.nacts,self.nacts):
-                        print "Warning - tomoRecon - phaseCov shape=%s, not equal to nacts (%d)"%(str(self.phaseCov.shape),self.nacts)
+                        print("WARNING:**tomoRecon**:- tomoRecon - phaseCov shape=%s, not equal to nacts (%d)"%(str(self.phaseCov.shape),self.nacts))
                     h=util.FITS.ReadHeader(self.phaseCovFilename)["parsed"]
                     if h.has_key("r0") and float(h["r0"])!=self.r0:
-                        print "phase cov file is for wrong r0: not using"
+                        print("INFORMATION:**tomoRecon**:phase cov file is for wrong r0: not using")
                         self.phaseCov=None
                     if h.has_key("l0") and float(h["l0"])!=self.l0:
-                        print "phase cov file is for wrong l0: not using"
+                        print("INFORMATION:**tomoRecon**:phase cov file is for wrong l0: not using")
                         self.phaseCov=None
                     if h.has_key("r2") and float(h["r2"])!=self.pupil.r2:
-                        print "phase cov file is for wrong r2: not using"
+                        print("INFORMATION:**tomoRecon**:phase cov file is for wrong r2: not using")
                         self.phaseCov=None
                 if self.computePhaseCov and type(self.phaseCov)==type(None):
                     #compute the phase covariance
@@ -446,20 +468,23 @@ class recon(base.aobase.aobase):
                 if self.noiseCovFilename!=None:
                     self.noiseCov=util.FITS.loadBlockMatrix(self.noiseCovFilename)
                     if self.noiseCov.shape!=(self.ncents,) and self.noiseCov.shape!=(self.ncents,self.ncents):
-                        print "Warning - tomoRecon - noiseCov shape=%s, not equal to ncents (%d)"%(
-                            str(self.noiseCov.shape),self.ncents)
+                        print("WARNING:**tomoRecon**:- tomoRecon - noiseCov "+
+                              "shape=%s, not equal to ncents (%d)"%(
+                                 str(self.noiseCov.shape),self.ncents))
                         if len(self.noiseCov.shape)==2:#just take the diagonal-but this could be error for LGS case
                             self.noiseCov=self.noiseCov.diagonal()
                         nsubx=(self.ngsList+self.lgsList)[0].nsubx
                         if self.ncents==self.noiseCov.shape[0]*self.nwfs:
-                            print "tomoRecon - assuming identical noise covariance for each wfs"
+                            print("INFORMATION:**tomoRecon**:"+
+                      "assuming identical noise covariance for each wfs")
                             tmp=numpy.zeros((self.ncents),numpy.float32)
                             for i in xrange(self.nwfs):
                                 tmp[i*self.noiseCov.shape[0]:(i+1)*self.noiseCov.shape[0]]=self.noiseCov
                             self.noiseCov=tmp
                         elif self.noiseCov.shape[0]==nsubx*nsubx*2:
                             #first need to extract the used values and then use them.
-                            print "tomoRecon - extracting noise covariance values from FITS file"
+                            print("INFORMATION:**tomoRecon**:"+
+                      "extracting noise covariance values from FITS file")
                             xindices=self.centIndex[:self.ncentList[0]]
                             yindices=self.centIndex[self.ncents/2:self.ncents/2+self.ncentList[0]]
                             xnoisecov=numpy.take(self.noiseCov,xindices)
@@ -503,13 +528,15 @@ class recon(base.aobase.aobase):
                     if os.path.exists(self.pcgPreconditioner):
                         self.pcgPreconditioner=util.FITS.loadSparse(self.pcgPreconditioner)
                     else:
-                        print "%s not found"%self.pcgPreconditioner
+                        print("INFORMATION:**tomoRecon**:"+
+                          "%s not found"%self.pcgPreconditioner)
                         self.pcgPreconditioner=None
                 if type(self.pcgAfile)==type(""):
                     if os.path.exists(self.pcgAfile):
                         self.pcgA=util.FITS.loadSparse(self.pcgAfile)
                     else:
-                        print "%s not found"%self.pcgAfile
+                        print("INFORMATION:**tomoRecon**:"+
+                          "%s not found"%self.pcgAfile)
                         self.pcgA=None
                 else:
                     self.pcgA=self.pcgAfile
@@ -517,7 +544,8 @@ class recon(base.aobase.aobase):
                     if os.path.exists(self.pcgBfile):
                         self.pcgB=util.FITS.loadSparse(self.pcgBfile)
                     else:
-                        print "%s not found"%self.pcgBfile
+                        print("INFORMATION:**tomoRecon**:"+
+                          "%s not found"%self.pcgBfile)
                         self.pcgB=None
                 else:
                     self.pcgB=self.pcgBfile
@@ -525,7 +553,7 @@ class recon(base.aobase.aobase):
                 import util.dicure
                 nsubx_tmp = self.config.getVal("wfs_nsubx")
                 subapMap = self.pupil.getSubapFlag(nsubx_tmp, self.minarea) # get the subaperture map
-                print "SUBAPMAP:", subapMap
+                print("INFORMATION:**tomoRecon**:SUBAPMAP:", subapMap)
                 self.dicure=util.dicure.DiCuRe( self.dmPupList[0] ) # provide DM actuator map, dmPupList[0].
                                               # If there are more DMs the method will still do something,
                                               # but the result will not make sense, since dicure works only
@@ -549,8 +577,10 @@ class recon(base.aobase.aobase):
     # END of __init__
 
     def finalInitialisation(self):
-        print "tomoRecon decay factors of %s applied where closed loop list %s is 0 - is this what you intended?"%(
-            str(self.decayFactorOpen),str(self.closedLoopList))
+        print("INFORMATION:**tomoRecon**:"+
+              ("decay factors of %s applied where closed loop list %s is 0 - "+
+              "is this what you intended?")%(
+                  str(self.decayFactorOpen),str(self.closedLoopList)))
 
     def computeMirrorScale(self):
         self.mirrorScale=numpy.zeros((self.nmodes,),numpy.float32)
@@ -582,13 +612,14 @@ class recon(base.aobase.aobase):
                 for key in self.parent.keys():
                     if self.parent[key].dataValid==1:
                         nin+=1
-                    else:
-                        print "tomoRecon: Waiting for data from wfs, but not valid"
+##                    else:
+##                        print("INFORMATION:**tomoRecon**:tomoRecon: Waiting for data from wfs, but not valid")
                 if nin>0:
                     if nin==len(self.parent.keys()):
                         self.dataValid=1
                     else:
-                        print "tomoRecon: Warning - got some data but not all, setting dataValid=0"
+                        print("WARNING:**tomoRecon**: got some data but not "+
+                           "all, setting dataValid=0")
                         self.dataValid=0
                 else:
                     self.dataValid=0
@@ -628,7 +659,7 @@ class recon(base.aobase.aobase):
             if stt==-1 or (stt==1 and (self.control["poke"]==0 and self.poking==0 and
                                        self.control["takeRef"]==0 and self.takingRef==0)):
                 #remove the mean slopes...
-                #print "Removing mean slopes"
+                #print("INFORMATION:**tomoRecon**:Removing mean slopes")
                 self.inputData[cnt:cnt+ns]-=self.inputData[cnt:cnt+ns].mean()
                 self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns] -= \
                     self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns].mean()
@@ -660,14 +691,14 @@ class recon(base.aobase.aobase):
             if dm.pokeSpacing!=None:
                 self.pokeActMap=numpy.zeros((dm.nact,dm.nact),numpy.int32)
             if self.reconType=="fdpcg":
-                print "Tomographic FDPCG reconstruction does not do poking"
+                print("INFORMATION:**tomoRecon**:Tomographic FDPCG reconstruction does not do poking")
                 self.poking=0
                 self.control["close_dm"]=1
             elif self.reconType in ["svd","MAP","pinv","reg","regBig","regSmall","regularised","pcg"]:
-                print "Creating poke matrix of type %s shape %d %d"%(str(self.reconDtype),self.nmodes,self.ncents)
+                print("INFORMATION:**tomoRecon**:Creating poke matrix of type %s shape %d %d"%(str(self.reconDtype),self.nmodes,self.ncents))
                 self.spmx=numpy.zeros((self.nmodes,self.ncents),self.reconDtype)
             elif self.reconType in ["spmx","spmxSVD","spmxGI"]:
-                print "Creating sparse poke matrix"
+                print("INFORMATION:**tomoRecon**:Creating sparse poke matrix")
                 self.spmxOld=self.spmx
                 if self.sparsePmxType=="lil":
                     self.spmx=scipy.sparse.lil_matrix((self.nmodes,self.ncents),dtype="f")
@@ -706,7 +737,8 @@ class recon(base.aobase.aobase):
                     #self.spmx.savespace(1)
             else:
                 raise Exception("Unknown reconType %s for poking"%self.reconType)
-            print "Will be poking for %d iterations"%(self.npokes+1)
+            print("INFORMATION:**tomoRecon**:"+
+                          "Will be poking for %d integrations"%(self.npokes+1))
         if self.control["zero_dm"]:
             self.control["zero_dm"]=0
             self.outputData[:,]=0.
@@ -717,9 +749,12 @@ class recon(base.aobase.aobase):
             self.refCentroids=self.inputData.copy()
             if type(self.saveRefCentroids)==type(""):
                 util.FITS.Write(self.refCentroids,self.saveRefCentroids)
-                print "Saving reference centroids to file %s"%self.saveRefCentroids
+                print("INFORMATION:**tomoRecon**:"+
+                      "Saving reference centroids to file %s"%(
+                           self.saveRefCentroids) )
             else:
-                print "Got reference centroids (not saving)"
+                print("INFORMATION:**tomoRecon**:"+
+                      "Got reference centroids (not saving)")
         if self.control["subtractRef"] and type(self.refCentroids)!=type(None):
             self.inputData-=self.refCentroids# if this raises an error, it means you specified a reference filename, but it wasn't found.
         if self.poking>0 and self.poking<=self.npokes:
@@ -758,7 +793,8 @@ class recon(base.aobase.aobase):
                     self.pokingActNo+=1
                     if self.pokingActNo==self.npokesList[self.pokingDMNo]:
                         self.pokingDMNo+=1
-                        print("INFORMATION: switching to DM no.="+str(self.pokingDMNo))
+                        print("INFORMATION:**tomoRecon**:"+
+                              "switching to DM no.="+str(self.pokingDMNo))
                         self.pokingActNo=0
                         if self.pokingDMNo<len(self.dmList):
                             dm=self.dmList[self.pokingDMNo]
@@ -767,11 +803,11 @@ class recon(base.aobase.aobase):
                         else:
                             self.pokeActMap=None
                 else:
-                    print "Now poking mirror modes"
+                    print("INFORMATION:**tomoRecon**:Now poking mirror modes")
                     mode=self.poking-(self.npokes-self.totalLowOrderModalModes)-1#starts at 0 for the first mode to be poked.
                     #mode=self.totalLowOrderModalModes-1
                     for i in range(len(self.dmList)):#find out which DM we're poking now and get the actuators for it.
-                        #print "Mode: %d, nlomm: %d, dm: %d"%(mode,self.nLowOrderModalModes[i],i)
+                        #print("INFORMATION:**tomoRecon**:Mode: %d, nlomm: %d, dm: %d"%(mode,self.nLowOrderModalModes[i],i))
                         if mode<self.nLowOrderModalModes[i]:
                             #this mode in this DM...
                             #print self.outputData.shape
@@ -782,7 +818,8 @@ class recon(base.aobase.aobase):
                                 try:
                                     self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]=self.modalActuatorList[i][mode]
                                 except:
-                                    print "ERROR in tomoRecon"
+                                    print("ERROR:**tomoRecon**: assignment "+
+                                           "(l815)")
                             break
                         else:
                             #move onto the next DM...
@@ -811,7 +848,7 @@ class recon(base.aobase.aobase):
 
                 mode=self.poking-2-(self.npokes-self.totalLowOrderModalModes)
                 pokenumber=mode+self.nacts
-                #print "poke number %d"%pokenumber
+                #print("INFORMATION:**tomoRecon**:poke number %d"%pokenumber)
             if pokenumber!=None:
                 if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                     if self.sparsePmxType in ["lil","csc"]:
@@ -847,45 +884,53 @@ class recon(base.aobase.aobase):
                                                           # maybe todo with precision?  Maybe not...
                     rowind=numpy.zeros((self.spmxValidCnt*2,),numpy.int32)
                     indptr=numpy.zeros((self.ncents+1,),numpy.int32)
-                    print "Sparsifying poke matrix"
+                    print("INFORMATION:**tomoRecon**:Sparsifying poke matrix")
                     c1=time.clock()
                     t1=time.time()
                     if cmod.svd.sparsifyGenInv(self.spmx,self.pokeIgnore/self.pokeval,transpose,
                                                self.nmodes,data,rowind,indptr)!=0:
                         raise Exception("Error sparsifying genInv (%gs)"%(time.time()-t1))
-                    print "tomoRecon - time for sparsifying poke matrix: %gs in clocks or %g seconds"%(
-                        (time.clock()-c1),time.time()-t1)
+                    print(("INFORMATION:**tomoRecon**:- time for sparsifying "+
+                           "poke matrix: %gs in clocks or %g seconds")%(
+                              (time.clock()-c1),time.time()-t1))
                     spmx=scipy.sparse.csc_matrix((numpy.array(data,copy=0),numpy.array(rowind,copy=0),
                                                   numpy.array(indptr,copy=0)),(self.nmodes,self.ncents))
                     self.spmx=spmx
             elif self.reconType in ["svd","MAP","pinv","reg","regularised","regSmall","regBig","pcg"]:
-                print "Finished poking"
+                print("INFORMATION:**tomoRecon**:Finished poking")
                 pass#don't need to do owt.
                 
             if self.computeControl:
                 if self.reconType=="spmx":
-                    print "Computing sparse control matrix"
+                    print("INFORMATION:**tomoRecon**:"+
+                          "Computing sparse control matrix")
                     self.spmx=self.spmx.tocsc()
                     self.pTp=util.spmatrix.dotWithSelfTransposed(self.spmx)#this can take 10-20 minutes if large.
-                    print "tomoRecon: doing LU decomposition"
+                    print("INFORMATION:**tomoRecon**:"+
+                          "tomoRecon: doing LU decomposition")
                     self.LUdecomp=scipy.linsolve.splu(self.pTp)#do LU decomposition
                 elif self.reconType=="spmxSVD":
-                    print "Computing SVD control matrix"
+                    print("INFORMATION:**tomoRecon**:"+
+                          "Computing SVD control matrix")
                     self.createSVDControl(self.spmx.todense())
                 elif self.reconType=="spmxGI":
-                    print "Computing generalized inverse control matrix"
+                    print("INFORMATION:**tomoRecon**:"+
+                          "Computing generalized inverse control matrix")
                     self.reconmx=numpy.array(scipy.linalg.pinv(self.spmx.todense(),self.minEig))
                     self.sparsifyMx()
                 elif self.reconType=="svd":
-                    print "Computing svd control matrix"
+                    print("INFORMATION:**tomoRecon**:"+
+                          "Computing svd control matrix")
                     self.createSVDControl(self.spmx)
                     if self.reconmxFilename!=None:
-                        print "Writing reconmx to file %s"%self.reconmxFilename
+                        print("INFORMATION:**tomoRecon**:"+
+                          "Writing reconmx to file %s"%self.reconmxFilename)
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pinv":
                     self.reconmx=numpy.linalg.pinv(self.spmx,self.rcond).T.astype(numpy.float32)
                     if self.reconmxFilename!=None:
-                        print "Writing reconmx to file %s"%self.reconmxFilename
+                        print("INFORMATION:**tomoRecon**:"+
+                          "Writing reconmx to file %s"%self.reconmxFilename)
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pcg":
                     self.pcgB=self.spmx
@@ -898,16 +943,19 @@ class recon(base.aobase.aobase):
                 elif self.reconType=="regBig":
                     self.reconmx=util.regularisation.invert(self.spmx,self.rcond,large=1).T.astype(numpy.float32)
                     if self.reconmxFilename!=None:
-                        print "Writing reconmx to file %s"%self.reconmxFilename
+                        print("INFORMATION:**tomoRecon**:"+
+                              "Writing reconmx to file %s"%self.reconmxFilename)
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType in ["reg","regSmall","regularised"]:
                     self.reconmx=util.regularisation.invert(self.spmx,self.rcond).T.astype(numpy.float32)
                     if self.reconmxFilename!=None:
-                        print "Writing reconmx to file %s"%self.reconmxFilename
+                        print("INFORMATION:**tomoRecon**:"+
+                           "Writing reconmx to file %s"%self.reconmxFilename)
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
 
                 elif self.reconType=="MAP":
-                    print "Computing MAP control matrix"
+                    print("INFORMATION:**tomoRecon**:"+
+                        "Computing MAP control matrix")
                     self.createMAPControl(self.spmx)
                 else:
                     if self.reconObj!=None and hasattr(self.reconObj,"computeControl"):
@@ -917,25 +965,32 @@ class recon(base.aobase.aobase):
                 #save the poke matrix to a file...
                 if self.reconType in ["spmx","spmxSVD","spmxGI"]:
                     if self.sparsePmxType in ["lil","csc","dense"]:
-                        print "Saving poke matrix to file %s (shape %s)"%(self.pmxFilename,"hi")
+                        print("INFORMATION:**tomoRecon**:Saving poke matrix "+
+                        "to file %s (shape %s)"%(self.pmxFilename,"hi"))
                         self.spmx=self.spmx.tocsc()
                         self.savecsc(self.spmx,self.pmxFilename)
                     else:
                         import shutil
-                        print "Copying poke matrix from %s to %s"%(self.pmxfname,self.pmxFilename)
+                        print("INFORMATION:**tomoRecon**:Copying poke matrix "+ 
+                              "from %s to %s"%(self.pmxfname,self.pmxFilename))
                         shutil.copyfile(self.pmxfname,self.pmxFilename)
                         
                 elif self.reconType in ["pcg","svd","MAP","pinv","reg","regularised","regBig","regSmall"]:
-                    print "Saving poke matrix to file %s (shape %s)"%(self.pmxFilename,str(self.spmx.shape))
+                    print("INFORMATION:**tomoRecon**:Saving poke matrix to "+
+                    "file %s (shape %s)"%(
+                        self.pmxFilename,str(self.spmx.shape)))
                     util.FITS.Write(self.spmx,self.pmxFilename,extraHeader="NACTLIST= '%s'"%str(self.nactsList))
                 #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE = %s"%str(self.spmx.shape))
                 #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
                 #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
-            print "Poking took: %gs in CPU time, or %g seconds"%((time.clock()-self.pokeStartClock),
-                                                                 time.time()-self.pokeStartTime)
+            print(("INFORMATION:**tomoRecon**:Poking took: %gs in CPU time, "+
+                  "or %g seconds")%(
+                        (time.clock()-self.pokeStartClock),
+                        (time.time()-self.pokeStartTime) ))
             self.poking=0
             if self.abortAfterPoke:
-                print "Finished poking - aborting simulation"
+                print("INFORMATION:**tomoRecon**:Finished poking - aborting "+
+                     "simulation")
                 self.config.abort()
                 #if Scientific.MPI.world.size==1:
                 #    Scientific.MPI.world.abort()
@@ -955,7 +1010,7 @@ class recon(base.aobase.aobase):
             self.reconmx=self.reconmxFunction()
         if self.reconType not in ["pcg","dicure","fewha"] and type(self.reconmx)==type(0.):
             #if self.reconmxFilename!=None:
-            #    print "Attempting to load reconmx %s"%self.reconmxFilename
+            #    print("INFORMATION:**tomoRecon**:Attempting to load reconmx %s"%self.reconmxFilename)
             self.reconmx=self.loadReconmx(self.reconmxFilename)
         #nsubx=self.wfs_nsubx
         #wfsdata=self.wfsdata
@@ -979,7 +1034,7 @@ class recon(base.aobase.aobase):
             self.pcg.solve(data,usePrevious=0)# for some reason, usePrevious=1 will 
                    # cause it to blow up eventually... have no idea why - maybe the pcg
                    # algorithm is not too good at starting points close to the initial.
-            #print "TODO: select only needed phase values - only the used acts"
+            #print("INFORMATION:**tomoRecon**:TODO: select only needed phase values - only the used acts")
             #self.outputData[:,]+=-self.pcg.gainfactor*numpy.take(numpy.array(self.pcg.x),self.dmindices)
             self.outputData[:,]+=-self.gainFactor*self.pcg.x
         elif self.reconType=="spmx":#sparse poke matrix reconstruction...
@@ -995,7 +1050,8 @@ class recon(base.aobase.aobase):
                 if data.shape[0]==self.reconmx.shape[0]:
                     tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
                 else:
-                    print self.reconmx.shape,data.shape
+                    print("INFORMATION:**tomorRecon**:self.reconmx.shape,"+
+                          "data.shape"+str(self.reconmx.shape,data.shape))
                     tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
             elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or \
             (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and \
@@ -1006,7 +1062,8 @@ class recon(base.aobase.aobase):
                 else:
                     tmp=-self.reconmx.dot(data)
             else:
-                print "tomoRecon: reconmx type not known %s"%str(type(self.reconmx))
+                print("WARNING:**tomoRecon**:tomoRecon: reconmx type not "+
+                      "known %s"%str(type(self.reconmx)))
                 tmp=None
             if type(tmp)!=type(None):
                 self.outputData[:,]+=self.gains*tmp[:self.nacts]
@@ -1028,17 +1085,23 @@ class recon(base.aobase.aobase):
                 dorecon=1
                 if type(self.reconmx)!=numpy.ndarray or \
                         self.reconmx.shape!=(self.gains.shape[0],data.shape[0]):
-                    print "Reconstructor shape should be (%d,%d)"%(self.gains.shape[0],data.shape[0])
+                    print("INFORMATION:**tomoRecon**:Reconstructor shape "+
+                          "should be "+
+                          "(%d,%d)"%(self.gains.shape[0],data.shape[0]))
                     dorecon=0
                     if type(self.reconmx)==numpy.ndarray:
-                        print "But current shape is %s"%str(self.reconmx.shape)
+                        print("                         :But current shape is "
+                              "%s"%str(self.reconmx.shape))
                         if self.reconmx.shape==(data.shape[0],self.gains.shape[0]):#small...
                             dorecon=1
                             if self.reconmx.size<1e6:#small
-                                print "Transposing (for small matrices only)"
+                                print("INFORMATION:**tomoRecon**:Transposing "+
+                                      "(for small matrices only)")
                                 self.reconmx=self.reconmx.T.copy()
                             else:
-                                print "WARNING: Transposing, but no longer c-contiguous - performance may be reduced"
+                                print("INFORMATION:**tomoRecon**:WARNING:"+
+                                   "Transposing, but no longer c-contiguous - "+
+                                   "performance may be reduced")
                                 self.reconmx=self.reconmx.T
                     tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 if dorecon:
@@ -1087,7 +1150,8 @@ class recon(base.aobase.aobase):
         actuators=self.pokeActMapFifo.pop(0)
         nonzero=numpy.nonzero(actuators.ravel())[0]
         if nonzero.size==0:
-            print "Got no actuators used for this poke"
+            print("INFORMATION:**tomoRecon**:Got no actuators used for this "+
+                  "poke")
             return
         pokedCoordsx=numpy.take(dm.coords.ravel(),nonzero*2)#coordinates of poked ones only.
         pokedCoordsy=numpy.take(dm.coords.ravel(),nonzero*2+1)#coordinates of poked ones only.
@@ -1174,7 +1238,8 @@ class recon(base.aobase.aobase):
             if work==None:
                 mem=getMem("MemFree:")
                 nrows=min(mem/4/nacts,ncents)
-                print "Compressed rmx decompressing to %d rowsa at a time"%nrows
+                print("INFORMATION:**tomoRecon**:Compressed rmx decompressing "+
+                     "to %d rowsa at a time"%nrows)
                 work=numpy.zeros((nrows,nacts),numpy.float32)
                 self.compressedWork=work
             nrows=work.shape[0]
@@ -1188,16 +1253,17 @@ class recon(base.aobase.aobase):
                     end=nrows-(nsteps*nrows-ncents)
                 else:
                     end=nrows
-                #print "running %d"%i
+                #print("INFORMATION:**tomoRecon**:running %d"%i)
                 cmod.utils.uncompressFloatArrayAllThreaded(rmx,r[:end*nacts],bits,expMin,expMax,i*nrows*nacts,8)
-                #print "done"
+                #print("INFORMATION:**tomoRecon**:done")
                 tmp+=quick.dot(data[i*nrows:i*nrows+end],work[:end])
         else:
             nacts,ncents=shape
             if work==None:
                 mem=getMem("MemFree:")
                 nrows=min(mem/4/ncents,nacts)
-                print "Compressed rmx decompressing to %d rowsb at a time"%nrows
+                print("INFORMATION:**tomoRecon**:Compressed rmx decompressing "+
+                     "to %d rowsb at a time"%nrows)
                 work=numpy.zeros((nrows,ncents),numpy.float32)
                 self.compressedWork=work
             nrows=work.shape[0]
@@ -1209,9 +1275,9 @@ class recon(base.aobase.aobase):
                     end=nrows-(nsteps*nrows-nacts)
                 else:
                     end=nrows
-                #print "running %d"%i
+                #print("INFORMATION:**tomoRecon**:running %d"%i)
                 cmod.utils.uncompressFloatArrayAllThreaded(rmx,r[:end*ncents],bits,expMin,expMax,i*nrows*ncents,8)
-                #print "done"
+                #print("INFORMATION:**tomoRecon**:done")
                 tmp[i*nrows:i*nrows+end]=quick.dot(work[:end],data)
         return tmp
 
@@ -1227,13 +1293,16 @@ class recon(base.aobase.aobase):
                 
     def loadReconmx(self,reconmxFilename):
         if reconmxFilename==None:
-            print "Reconmxfilename not specified - using 0."
+            print("WARNING:**tomoRecon**:Reconmxfilename not specified "+
+                  "- using 0.")
             return 0.
-        print "tomoRecon: Loading reconstructor (%d,%d) from file: %s"%(self.nmodes,self.ncents,reconmxFilename)
+        print("INFORMATION:**tomoRecon**:tomoRecon: Loading reconstructor "+
+            "(%d,%d) from file: %s"%(self.nmodes,self.ncents,reconmxFilename))
         if os.path.exists(reconmxFilename):
             head=util.FITS.ReadHeader(reconmxFilename)["parsed"]
             if head.has_key("COMPBITS"):
-                print "Reconstructor in compressed FP format"
+                print("INFORMATION:**tomoRecon**:Reconstructor in compressed "+
+                     "FP format")
                 #its a compressed floating point format rmx...
                 reconmx=util.FITS.Read(reconmxFilename)[1]
                 self.compressedBits=int(head["COMPBITS"])
@@ -1244,7 +1313,8 @@ class recon(base.aobase.aobase):
                 # f=util.FITS.Read(reconmxFilename,savespace=1)
                 reconmx=util.FITS.loadSparse(reconmxFilename)
         else:
-            print "Error/warning - unable to load reconmx %s, using 0. instead"%reconmxFilename
+            print("WARNING:**tomoRecon**: unable to load reconmx "+
+                  "%s, using 0. instead"%reconmxFilename)
             reconmx=0.
             #f=[0.]
         #if len(f)==2:
@@ -1403,7 +1473,8 @@ class recon(base.aobase.aobase):
         self.iapan=self.apa.copy()
         if type(noiseCov)==type(0) or type(noiseCov)==type(0.) or type(noiseCov)==type(None):
             if noiseCov==0 or noiseCov==None:
-                print "WARNING - tomoRecon.createMAPControl not using noise covariance matrix"
+                print("INFORMATION:**tomoRecon**:WARNING - tomoRecon."+
+                     "createMAPControl not using noise covariance matrix")
                 noiseCov=None
             else:#add const to diag
                 self.iapan.ravel()[::self.iapan.shape[0]+1]+=noiseCov
@@ -1433,7 +1504,8 @@ class recon(base.aobase.aobase):
                 self.reconmx[i]/=self.mirrorScale[i]
 
         if self.reconmxFilename!=None:
-            print "Writing MAP reconmx to file %s"%self.reconmxFilename
+            print("INFORMATION:**tomoRecon**:Writing MAP reconmx to file "+
+                  "%s"%self.reconmxFilename)
             util.FITS.Write(self.reconmx,self.reconmxFilename,extraHeader="reconmx")
             if phaseIsBlock:
                 for b in phaseCov.blockList:
@@ -1453,10 +1525,13 @@ class recon(base.aobase.aobase):
         covariance, as it doesn't take into account the spot
         broadening.  Should actually use something like
         science.centCov"""
-        print "tomoRecon-computeMonteNoiseCovariance depreciated: use science.centCov"
+        print("DEPRECIATED:**tomoRecon**:tomoRecon."+
+            "computeMonteNoiseCovariance, use science.centCov")
         if self.sumcent==None:
-            print "WARNING - computeMonteNoiseCovariance doesn't actually do what it says, since it \
-                   doesn't take spot broadening into account - try science.centCov instead"
+            print("WARNING:**tomoRecon**: computeMonteNoiseCovariance "+
+                  "doesn't actually do what it says, since it "+
+                  "doesn't take spot broadening into account - "+
+                  "try science.centCov instead")
             self.sumcent=numpy.zeros((self.ncents,),numpy.float64)
             self.sum2cent=numpy.zeros((self.ncents,),numpy.float64)
             self.monteNoiseCov=numpy.zeros((self.ncents,),numpy.float64)
@@ -1479,7 +1554,7 @@ class recon(base.aobase.aobase):
 
     def computeMontePhaseCovariance(self):
         """Not sure how this will work!"""
-        print "TODO computeMontePhaseCovariance()"
+        print("INFORMATION:**tomoRecon**:TODO computeMontePhaseCovariance()")
         pass
     def makeMonteRecon(self):
         """Make a MAP reconstructor using the monte-carlo generated
@@ -1488,18 +1563,19 @@ class recon(base.aobase.aobase):
             phasecov=self.phaseCov
         else:
             phasecov=self.montePhaseCov
-            print "Using monte phase covariance"
+            print("INFORMATION:**tomoRecon**:Using monte phase covariance")
         if self.monteNoiseCov==None:
             noisecov=self.noiseCov
         else:
             noisecov=self.monteNoiseCov
-            print "Using monte noise covariance"
+            print("INFORMATION:**tomoRecon**:Using monte noise covariance")
         self.createMAPControl(self.pokemx,phasecov,noisecov)
 
     def createSVDControl(self,pokemx):
         """create a SVD decomposition of pokemx (dense format).
         """
-        print "tomoRecon.createSVDControl - doing svd"
+        print("INFORMATION:**tomoRecon**:tomoRecon.createSVDControl - doing "+
+               "svd")
         t1=time.time()
         u,a,vt=scipy.linalg.svd(numpy.array(pokemx))
         self.svd_u=numpy.array(u)
@@ -1515,8 +1591,10 @@ class recon(base.aobase.aobase):
                 a[i]=0.
                 n_removed += 1
         t2=time.time()
-        print 'Removed %d modes from control matrix (took %g s), ignoring values below %g'%(n_removed,t2-t1,self.minEig)
-        print 'Eigenvalues:',a
+        print(('INFORMATION:**tomoRecon**:Removed %d modes from control '+
+               'matrix (took %g s), ignoring) values below %g')%(
+                  n_removed,t2-t1,self.minEig))
+        print('INFORMATION:**tomoRecon**:Eigenvalues: '+str(a))
         #now do some sparsifying - for testing purposes... ie remove lowest values...
         if self.svdSparsityFactors!=None:
             if self.svdSparsityFactors[0]>=1.:
@@ -1534,16 +1612,17 @@ class recon(base.aobase.aobase):
         #id=numpy.identity(len(a))
         #ai=numpy.multiply(a,id)
         #ai=numpy.where(ai != 0, 1/ai, 0)
-        print "tomoRecon.createSVDControl - doing matrix multiplies"
+        print("INFORMATION:**tomoRecon**:tomoRecon.createSVDControl - doing "+
+               "matrix multiplies")
         ai=numpy.where(a!=0,1/a,0)
-        print ut.shape,ai.shape,v.shape
+        print("                         :"+str((ut.shape,ai.shape,v.shape)))
         for i in xrange(min(ut.shape[0],ai.shape[0])):
             ut[i]*=ai[i]
         #the prev loop is the same as numpy.matrixmultiply(ai, ut) if ai is the version created by the next 3 (commented out) lines...
         #ai=numpy.identity(vt.shape[0],"d")
         #ai.flat[0:(vt.shape[0]+1)*a.shape[0]:vt.shape[0]+1]=numpy.where(a!=0,1/a,0)
         #ai=ai[:,:ut.shape[0]]
-        #print "tomoRecon:",v.shape,ai.shape,ut.shape,vt.shape,a.shape,u.shape
+        #print("INFORMATION:**tomoRecon**:tomoRecon:",v.shape,ai.shape,ut.shape,vt.shape,a.shape,u.shape)
         #print v.shape,ut.shape
         if v.shape[0]>ut.shape[0]:#ncents>nmodes...
             self.reconmx = quick.dot(v[:,:ut.shape[0]], ut)#numpy.matrixmultiply(ai, ut))
@@ -1551,7 +1630,9 @@ class recon(base.aobase.aobase):
             self.reconmx=quick.dot(v,ut[:vt.shape[1]])
         t3=time.time()
         if self.svdSparsityFactors!=None:
-            print "tomoRecon.createSVDControl - doing possible sparsity checks (matrix multiply took %g s)"%(t3-t2)
+            print("INFORMATION:**tomoRecon**:tomoRecon.createSVDControl - "+
+                  "doing possible sparsity checks (matrix multiply took "+
+                  "%g s)"%(t3-t2))
             #and do some sparsifying (testing)
             if self.svdSparsityFactors[2]>=1.:
                 if self.svdMin[2]>0.:
@@ -1560,7 +1641,8 @@ class recon(base.aobase.aobase):
                     self.sparsifyMx()
         s1=reduce(lambda x,y:x*y,self.reconmx.shape)
         s2=s1-numpy.sum(self.reconmx.ravel()==0)
-        print "tomoRecon.reconmx is %g full (%d/%d)"%(float(s2)/s1,s2,s1)
+        print(("INFORMATION:**tomoRecon**:tomoRecon.reconmx is %g full "+
+              "(%d/%d)")%(float(s2)/s1,s2,s1))
 
     def sparsifyMx(self,frac=None,mx=None):
         """Sparsity (set to zero) a certain fraction of the reconmx."""
@@ -1575,7 +1657,8 @@ class recon(base.aobase.aobase):
         val=numpy.sort(numpy.fabs(mx.ravel()))[n]
         mx[:,]=numpy.where(numpy.fabs(mx)<val,0.,mx).astype(mx.typecode())
         s2=s1-numpy.sum(mx.ravel()==0)
-        print "tomoRecon.sparsifyMx: Matrix is %g full (%d/%d)"%(float(s2)/s1,s2,s1)
+        print(("INFORMATION:**tomoRecon**:tomoRecon.sparsifyMx: Matrix is %g "+
+               "full (%d/%d)")%(float(s2)/s1,s2,s1))
 
         
 
@@ -1661,14 +1744,14 @@ def getMem(memtxt="MemTotal:"):
             if line.split()[2] in multiplier.keys():
                 mem*=multiplier[line.split()[2]]
             else:
-                print "WARNING - multiplier %s not known for memory"
-            print "Total system memory %d bytes"%mem
+                print("INFORMATION:**tomoRecon**:WARNING - multiplier %s not known for memory")
+            print("INFORMATION:**tomoRecon**:Total system memory %d bytes"%mem)
             break
     return mem
 
 
 if __name__=="__main__":
-    print "Not testing tomoRecon"
+    print("INFORMATION:**tomoRecon**:Not testing tomoRecon")
 
 class dummyClass:
     def solve(self,val):
