@@ -1907,8 +1907,8 @@ class centroid:
             cd=self.calDataDict[k]
             cd.xindx=numpy.array(cd.indx).astype(numpy.int32)*2
             cd.yindx=cd.xindx+1
-        print(("INFORMATION:**centroid**:Finished calibrating centroids, shifted "+
-              "{0:d}, maxShift {1:g}").format(linearPointsForced,maxShift))
+        #print(("INFORMATION:**centroid**:Finished calibrating centroids, shifted {0:d}, maxShift {1:g}").format(linearPointsForced,maxShift))
+        print("INFORMATION:**centroid**:Finished calibrating centroids, shifted %d, maxShift %g"%(linearPointsForced,maxShift))
 
     def applyCalibrationIdentical(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.
