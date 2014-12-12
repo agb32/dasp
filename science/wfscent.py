@@ -104,7 +104,7 @@ class wfscent(base.aobase.aobase):
             else:
                 n=self.config.getVal("wfs_n")                                  
                 pupfn=self.config.getVal("pupil")
-                if type(pupil)!=numpy.ndarray:
+                if type(pupfn)!=numpy.ndarray:
                     pupfn=pupfn.fn
                 pupfn=pupfn.astype(numpy.float32)
                 wfs_minarea=self.config.getVal("wfs_minarea")
