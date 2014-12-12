@@ -421,8 +421,7 @@ class wfscent(base.aobase.aobase):
             print("INFORMATION:wfscent:sig is {0:g} phot/subap".format(sig))
 ##(old)            print "INFORMATION:wfscent:sig is %g phot/subap"%sig
         else:
-            print("INFORMATION:wfscent:sig is array with max {0:g} phot/subap".format(
-                  max(sig.flat)) )
+            print("INFORMATION:wfscent:sig is array with max %g phot/subap"%max(sig.flat))
 ##(old)            print "INFORMATION:wfscent:sig is array with max %g phot/subap"%max(sig.flat)
         if type(spotpsf)==type(None):
             spotpsf=this.config.getVal("spotpsf",default=None,raiseerror=0)#a spot PSF, eg an airy disc (eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)), or LGS elongated spots.
