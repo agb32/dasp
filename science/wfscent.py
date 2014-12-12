@@ -343,6 +343,7 @@ class wfscent(base.aobase.aobase):
         #     waitFPGATime=0
         if (wfs_int/tstep)%1!=0:
             print "Warning: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep)
+        print "TODO: Get pupil and wfs_minarea (and other stuff) from the NGS/LGS object (util.guideStar)"
         pupil=this.config.getVal("pupil")
         wfs_minarea=this.config.getVal("wfs_minarea")#0.5... # Min unvignetted subap area to use - why here ????
 
