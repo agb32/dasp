@@ -181,7 +181,8 @@ def simple(paramfile=None,batchno=0,lgsAlt=15000.,gateDepth=400.,sig=None,fname=
 
 class LGS(util.atmos.source):
     """Simple structure for holding LGS info"""
-    def __init__(self,nsubx,theta,phi,height,minarea=0.5,wfssig=None,launchDist=0.,launchTheta=0.,idstr=None,sourcelam=None,phslam=None,reconList=None):
+    def __init__(self,nsubx,theta,phi,height,minarea=0.5,wfssig=None,launchDist=0.,launchTheta=0.,idstr=None,sourcelam=None,phslam=None,reconList=None,pupil=None):
+        """pupil can be a util.tel object"""
         #Initialise the parent...
         super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=wfssig)
         #self.theta=theta#angle in arcsec
@@ -197,6 +198,7 @@ class LGS(util.atmos.source):
         self.dmheight=None#used in computeCoords, to avoid recomputation if not necessary.
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
+        self.pupil=pupil
     def computeCoords(self,telDiam,height,fname=None):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height), not the height of the LGS.
@@ -228,7 +230,8 @@ class LGS(util.atmos.source):
             f.close()
 class NGS(util.atmos.source):
     """simple structure for holding NGS info"""
-    def __init__(self,nsubx,theta,phi,minarea=0.5,wfssig=None,idstr=None,sourcelam=None,phslam=None,reconList=None):
+    def __init__(self,nsubx,theta,phi,minarea=0.5,wfssig=None,idstr=None,sourcelam=None,phslam=None,reconList=None,pupil=None):
+        """pupil can be a util.tel object"""
         #Initialise parent...
         super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=wfssig)
 
@@ -242,6 +245,7 @@ class NGS(util.atmos.source):
         self.dmheight=None#used in computeCoords
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
+        self.pupil=pupil
     def computeCoords(self,telDiam,height,fname=None):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height).

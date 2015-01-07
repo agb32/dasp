@@ -104,7 +104,7 @@ class wfscent(base.aobase.aobase):
             else:
                 n=self.config.getVal("wfs_n")                                  
                 pupfn=self.config.getVal("pupil")
-                if type(pupil)!=numpy.ndarray:
+                if type(pupfn)!=numpy.ndarray:
                     pupfn=pupfn.fn
                 pupfn=pupfn.astype(numpy.float32)
                 wfs_minarea=self.config.getVal("wfs_minarea")
@@ -350,6 +350,7 @@ class wfscent(base.aobase.aobase):
         # else:
         #     waitFPGATime=0
         if (wfs_int/tstep)%1!=0:
+            #print "Warning: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep)
             print(("WARNING:wfscent: Integration times is not a whole number "+
                   "of timesteps - you might misinterpret the results... {0:g} "+
                   "{1:g}").format(wfs_int,tstep))
@@ -357,7 +358,8 @@ class wfscent(base.aobase.aobase):
             print(("ERROR: wfscent: Row integration times is not a whole "+
                   "number of timesteps - results will be unreliable"+
                   ": wfs_rowint%tstep={0:g}").format(wfs_rowint%tstep))
-##(old)            print("WARNING: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep))
+
+        print "TODO: Get pupil and wfs_minarea (and other stuff) from the NGS/LGS object (util.guideStar)"
         pupil=this.config.getVal("pupil")
         wfs_minarea=this.config.getVal("wfs_minarea")#0.5... # Min unvignetted subap area to use - why here ????
 
@@ -419,8 +421,7 @@ class wfscent(base.aobase.aobase):
             print("INFORMATION:wfscent:sig is {0:g} phot/subap".format(sig))
 ##(old)            print "INFORMATION:wfscent:sig is %g phot/subap"%sig
         else:
-            print("INFORMATION:wfscent:sig is array with max {0:g} phot/subap".format(
-                  max(sig.flat)) )
+            print("INFORMATION:wfscent:sig is array with max %g phot/subap"%max(sig.flat))
 ##(old)            print "INFORMATION:wfscent:sig is array with max %g phot/subap"%max(sig.flat)
         if type(spotpsf)==type(None):
             spotpsf=this.config.getVal("spotpsf",default=None,raiseerror=0)#a spot PSF, eg an airy disc (eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)), or LGS elongated spots.

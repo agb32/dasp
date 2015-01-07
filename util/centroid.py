@@ -1907,8 +1907,8 @@ class centroid:
             cd=self.calDataDict[k]
             cd.xindx=numpy.array(cd.indx).astype(numpy.int32)*2
             cd.yindx=cd.xindx+1
-        print(("INFORMATION:**centroid**:Finished calibrating centroids, shifted "+
-              "{0:d}, maxShift {1:g}").format(linearPointsForced,maxShift))
+        #print(("INFORMATION:**centroid**:Finished calibrating centroids, shifted {0:d}, maxShift {1:g}").format(linearPointsForced,maxShift))
+        print("INFORMATION:**centroid**:Finished calibrating centroids, shifted %d, maxShift %g"%(linearPointsForced,maxShift))
 
     def applyCalibrationIdentical(self,data=None):
         """Uses the calibration, to replace data with a calibrated version of data.
@@ -1920,23 +1920,29 @@ class centroid:
         if numpy.any(numpy.isnan(data)):
             print("WARNING:**centroid**: nan prior to applyCalibrationIdentical")
         rdata=data.ravel()
+        warnx=0
+        warny=0
         for k in self.calDataDict.keys():
             cd=self.calDataDict[k]
             x=numpy.take(rdata,cd.xindx)
             y=numpy.take(rdata,cd.yindx)
             #print "x,y",x,y
             if cd.xc.size==0 or numpy.any(x>cd.xc[-1]) or numpy.any(x<cd.xc[0]):
-                opstr=("WARNING:**centroid**: x centroid is outside calibrated "+
-                     "bounds")
+                if warnx<1:
+                    warnx=1
+                #opstr=()
                 if cd.xc.size==0:
-                    opstr+=", because there aren't any"
-                print(opstr)
+                    warnx=2
+                    #opstr+=", because there aren't any"
+                #print(opstr)
             if cd.yc.size==0 or numpy.any(y>cd.yc[-1]) or numpy.any(y<cd.yc[0]):
-                opstr=("WARNING:**centroid**: y centroid is outside calibrated "+
-                     "bounds")
+                if warny<1:
+                    warny=1
+                #opstr=("WARNING:**centroid**: y centroid is outside calibrated "+                     "bounds")
                 if cd.yc.size==0:
-                    opstr+=", because there aren't any"
-                print(opstr)
+                    warny=2
+                    #opstr+=", because there aren't any"
+                #print(opstr)
             #now put the calibrated values back (using numpy fancy indexing)
             if cd.xc.size!=0:
                 rdata[cd.xindx]=numpy.interp(x,cd.xc,cd.xr).astype(numpy.float32)
@@ -1950,6 +1956,15 @@ class centroid:
                 print("INFORMATION:**centroid**:applyCalibrationIdentical "+
                      str((cd.xc,cd.xr)) )
             #print "rdata",rdata[cd.xindx],rdata[cd.yindx]
+        if warnx==1:
+            print("WARNING:**centroid**: x centroid is outside calibrated bounds")
+        elif warnx==2:
+            print("WARNING:**centroid**: x centroid is outside calibrated bounds because there aren't any")
+        if warny==1:
+            print("WARNING:**centroid**: y centroid is outside calibrated bounds")
+        elif warny==2:
+            print("WARNING:**centroid**: y centroid is outside calibrated bounds because there aren't any")
+        
         if not data.flags.c_contiguous:
             #need to copy the data back in.
             print("WARNING:**centroid**: flattening non-contiguous centroid data")
