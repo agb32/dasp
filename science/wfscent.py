@@ -352,7 +352,7 @@ class wfscent(base.aobase.aobase):
         if (wfs_int/tstep)%1!=0:
             print(("WARNING:wfscent: Integration times is not a whole number "+
                   "of timesteps - you might misinterpret the results... {0:g} "+
-                  "{1:%g}").format(wfs_int,tstep))
+                  "{1:g}").format(wfs_int,tstep))
         if wfs_rowint!=None and wfs_rowint%tstep!=0:
             print(("ERROR: wfscent: Row integration times is not a whole "+
                   "number of timesteps - results will be unreliable"+
