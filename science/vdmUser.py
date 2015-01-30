@@ -97,11 +97,15 @@ class vdmUser(base.aobase.aobase):
                 nactstot=0
                 for dm in self.reconstructorDmList:
                     if dm.zonalDM:
-                        dmindices=numpy.nonzero(dm.computeDMPupil(
-                                self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
-                        nacts=int(dmindices.shape[0])
+                        #dmindices=numpy.nonzero(dm.computeDMPupil(
+                        #self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
+                        #nacts=int(dmindices.shape[0])
+                        tmp=dm.computeDMPupil(self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                        nacts=int(numpy.sum(tmp[0].ravel()))
+
                     else:
                         nacts=dm.nact
+                    print "nacts %s: %d"%(str(dm),nacts)
                     nactstot+=nacts
                 self.projmx=numpy.zeros((self.nacts,nactstot),numpy.float32)
             else:
