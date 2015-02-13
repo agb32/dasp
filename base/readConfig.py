@@ -128,7 +128,7 @@ class AOXml:
                 self.error=0
                 self.parse(txt)
             elif file[-3:]==".py":
-                print "TEST FUNCTION - USING PYTHON CONFIG FILE - PLEASE NOTE THIS IS NOT SUPPORTED FULLY YET!"
+                print "USING PYTHON CONFIG FILE %s"%file
                 txt=open(file).read()
                 self.filename=file
                 self.error=0
@@ -143,8 +143,8 @@ class AOXml:
                         setattr(self.this.globals,"ncpu",self.this.ncpu)
 
     def loadPyConfig(self,txt):
-        """Load a python configuration file.  Not supported or recommended - please use XML instead.
-        For more info, see agb (note to agb - example in example/test1/config.py)
+        """Load a python configuration file.
+        For more info, see example in test/scao/params.py
         """
         self.this.globals=This()
         d={"new":This,"this":self.this,"batchno":self.batchno,"batchNumber":self.batchno,"numpy":numpy,"filename":self.filename,"ncpu":self.getCpus()}
@@ -152,6 +152,7 @@ class AOXml:
             exec txt in d
         except:
             self.error=1
+            raise
         e={}
         exec "" in e
         for key in e.keys():
