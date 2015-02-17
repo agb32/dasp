@@ -755,10 +755,15 @@ void *rswsiWorkerNoGrad(void *threaddata){
 void *rswsiWorkerNoGradLarge(void *threaddata){
   //Version without using precomputed gradients.  Slower (but doesn't need the precoputed gradients so saves memory).
   //Also assumes the phase screen is large enough that it won't reach the edge of it... (so doesn't check, thus speeding up computation times).
+  //About 15-20% faster.
+  //If you make changes, then define CHECKBOUNDS while compiling, and run a good few cases to check it...
+
   threadStruct *t=(threadStruct*)threaddata;
   interpStruct *ss=t->s;
   int threadno=t->threadno;
+#ifdef CHECKBOUNDS
   int outofrange[4];
+#endif
   float points[4];
   float sx,sy;
   int wrappoint;//,nthreads,nblockx,nblocky;
@@ -843,19 +848,23 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	  y3=y1+2;
 	  if(y3>=imgdim[0])
 	    y3-=imgdim[0];
-	  /*if(y3==wrappoint){//once testing finished, this if can be removed.
+#ifdef CHECKBOUNDS
+	  if(y3==wrappoint){//once testing finished, this if can be removed.
 	    printf("Error %d - wrappoint reached %d\n",frameno,y3);
 	    y3=y2;
 	    mult3=1.;
-	    }else*/
+	    }else
+#endif
 	    mult3=0.5;
 	  if(y0<0)
 	    y0+=imgdim[0];
-	  /*if(y0==wrappoint){//underwrapped!  This test can be removed once testing finished.
+#ifdef CHECKBOUNDS
+	    if(y0==wrappoint){//underwrapped!  This test can be removed once testing finished.
 	    printf("ERROR %d - wrappoint reached %d\n",frameno,y0);
 	    y0=y1;
 	    mult0=1.;
-	    }else*/
+	    }else
+#endif
 	    mult0=0.5;
 	  y0x1=y0*imgdim[1]+x1;
 	  y3x1=y3*imgdim[1]+x1;
@@ -865,7 +874,9 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	  
 	  //4 interpolations in Y direction using precomputed gradients.
 	  for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
-	    //if(x1+i>=0 && x1+i<imgdim[1]){
+#ifdef CHECKBOUNDS
+	    if(x1+i>=0 && x1+i<imgdim[1]){
+#endif
 	      //k1=(float)dimg[y1x1+i];
 	      //k2=(float)dimg[y2x1+i];
 	      k1=(float)((img[y2x1+i]-img[y0x1+i])*mult0);
@@ -876,32 +887,42 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	      a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	      b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
 	      points[i]=((oneminusym)*Y1+ym*Y2+ymomym*(a*(oneminusym)+b*ym));
+#ifdef CHECKBOUNDS
 	      outofrange[i]=0;
-	      /*}else{//shouldn't get here!
+	      }else{//shouldn't get here!
 	      printf("OUT OF RANGE %d %d %d\n",i,x1+i,imgdim[1]);
 	      outofrange[i]=1;
-	      }*/
+	      }
+#endif
 	  }
 	  //and now interpolate in X direction (using points).
-	  /*if(outofrange[0])
+#ifdef CHECKBOUNDS
+	  if(outofrange[0])
 	    k1=points[2]-points[1];
-	    else*/
+	  else
+#endif
 	    k1=(points[2]-points[0])*.5;
-	    /*if(outofrange[3])
+#ifdef CHECKBOUNDS
+	  if(outofrange[3])
 	    k2=points[2]-points[1];
-	    else*/
+	  else
+#endif
 	    k2=(points[3]-points[1])*.5;
-	    /*if(outofrange[1] || outofrange[2]){
+#ifdef CHECKBOUNDS
+	  if(outofrange[1] || outofrange[2]){
 	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
 	    nout++;
-	    }else{*/
+	    }else{
+#endif
 	    Y1=points[1];
 	    Y2=points[2];
 	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
 	    val=(oneminusxm)*Y1+xm*Y2+xm*(oneminusxm)*(a*(oneminusxm)+b*xm);
 	    out[yydim+xx]+=val;
-	    //}
+#ifdef CHECKBOUNDS
+	    }
+#endif
 	}
       }
     }
