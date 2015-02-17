@@ -1,0 +1,39 @@
+<aosim>
+<module name="globals">
+<comment>
+Taken from Miska, Sept 2013
+
+GroundScaling is a parameter that can be used to increase strength of
+ground layer, but keep r0 of the other layers the same (so overall r0
+increases).
+
+New r0 = r0_orig * ((groundScaling-1)*strength_ground_orig+1)**(-3./5)
+</comment>
+<variables>
+<var name="groundScaling" type="f" value="1" comment="Additional
+						      strength for
+						      ground layer
+						      (changes r0)"/>
+<var name="nlayer" type="i" value="35" comment="only used in param
+						file"/>
+<var name="atmosData" type="code">
+import make35layer
+atmosData=make35layer.makeESO35layer()#hList,strList,vList,hListdm,strListdm,l0,r0
+atmosData[1][0]*=groundScaling
+</var>
+
+<var name="strList" type="eval" value="atmosData[1]"/>
+<var name="hList" type="eval" value="atmosData[0]"/>
+<var name="vList" type="eval" value="atmosData[2]"/>
+<var name="dirList" type="eval" value="(numpy.arange(nlayer))*10"/>
+<var name="ndm" type="eval" value="len(atmosData[3])"/>
+<var name="hListdm" type="eval" value="atmosData[3]"/>
+<var name="strListdm" type="eval" value="atmosData[4]"/>
+<var name="l0" type="eval" value="atmosData[5]"/>
+<var name="r0" type="eval" value="atmosData[6]*((groundScaling-1.)*strList[0]/groundScaling+1)**-0.6"/>
+<var name="fixToGradientOperator" type="i" value="1"/>
+<var name="layerList" type="eval" value="{'L0-34':['L%d'%x for x in range(35)]}"/>
+
+</variables>
+</module>
+</aosim>
