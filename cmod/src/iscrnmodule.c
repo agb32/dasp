@@ -782,7 +782,6 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
   int nout=0;
   char *pupil;
   static int frameno=0;
-  int oversize=1;//was 1.
   //printf("without dimg\n");
   //each thread may have more than 1 block to do.
   frameno++;
@@ -794,10 +793,10 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
   img=ss->img;
   //dimg=ss->dimg;
   out=ss->out;
-  const0=-dim[0]/2.+oversize/2.;
-  const1=-dim[1]/2.+oversize/2.;
-  const2=imgdim[0]/2.-oversize/2.-sy+wrappoint;
-  const3=imgdim[1]/2.-oversize/2.-sx;
+  const0=-dim[0]/2.+0.5;
+  const1=-dim[1]/2.+0.5;
+  const2=imgdim[0]/2.-0.5-sy+wrappoint;
+  const3=imgdim[1]/2.-0.5-sx;
   s=ss->s;//(float)(r*sin(ang));
   c=ss->c;//(float)(r*cos(ang));
   pupil=ss->pupil;
@@ -844,19 +843,19 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	  y3=y1+2;
 	  if(y3>=imgdim[0])
 	    y3-=imgdim[0];
-	  if(y3==wrappoint){//once testing finished, this if can be removed.
+	  /*if(y3==wrappoint){//once testing finished, this if can be removed.
 	    printf("Error %d - wrappoint reached %d\n",frameno,y3);
 	    y3=y2;
 	    mult3=1.;
-	  }else
+	    }else*/
 	    mult3=0.5;
 	  if(y0<0)
 	    y0+=imgdim[0];
-	  if(y0==wrappoint){//underwrapped!  This test can be removed once testing finished.
+	  /*if(y0==wrappoint){//underwrapped!  This test can be removed once testing finished.
 	    printf("ERROR %d - wrappoint reached %d\n",frameno,y0);
 	    y0=y1;
 	    mult0=1.;
-	  }else
+	    }else*/
 	    mult0=0.5;
 	  y0x1=y0*imgdim[1]+x1;
 	  y3x1=y3*imgdim[1]+x1;
@@ -866,7 +865,7 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	  
 	  //4 interpolations in Y direction using precomputed gradients.
 	  for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
-	    if(x1+i>=0 && x1+i<imgdim[1]){
+	    //if(x1+i>=0 && x1+i<imgdim[1]){
 	      //k1=(float)dimg[y1x1+i];
 	      //k2=(float)dimg[y2x1+i];
 	      k1=(float)((img[y2x1+i]-img[y0x1+i])*mult0);
@@ -878,31 +877,31 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	      b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
 	      points[i]=((oneminusym)*Y1+ym*Y2+ymomym*(a*(oneminusym)+b*ym));
 	      outofrange[i]=0;
-	    }else{//shouldn't get here!
+	      /*}else{//shouldn't get here!
 	      printf("OUT OF RANGE %d %d %d\n",i,x1+i,imgdim[1]);
 	      outofrange[i]=1;
-	    }
+	      }*/
 	  }
 	  //and now interpolate in X direction (using points).
-	  if(outofrange[0])
+	  /*if(outofrange[0])
 	    k1=points[2]-points[1];
-	  else
+	    else*/
 	    k1=(points[2]-points[0])*.5;
-	  if(outofrange[3])
+	    /*if(outofrange[3])
 	    k2=points[2]-points[1];
-	  else
+	    else*/
 	    k2=(points[3]-points[1])*.5;
-	  if(outofrange[1] || outofrange[2]){
+	    /*if(outofrange[1] || outofrange[2]){
 	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
 	    nout++;
-	  }else{
+	    }else{*/
 	    Y1=points[1];
 	    Y2=points[2];
 	    a=k1-(Y2-Y1);//k1*(X2-X1)-(Y2-Y1)
 	    b=-k2+(Y2-Y1);//-k2*(X2-X1)+(Y2-Y1)
 	    val=(oneminusxm)*Y1+xm*Y2+xm*(oneminusxm)*(a*(oneminusxm)+b*xm);
 	    out[yydim+xx]+=val;
-	  }
+	    //}
 	}
       }
     }
