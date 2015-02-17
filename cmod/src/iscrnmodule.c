@@ -879,7 +879,7 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 	      points[i]=((oneminusym)*Y1+ym*Y2+ymomym*(a*(oneminusym)+b*ym));
 	      outofrange[i]=0;
 	    }else{//shouldn't get here!
-	      printf("OUT OF RANGE\n");
+	      printf("OUT OF RANGE %d %d %d\n",i,x1+i,imgdim[1]);
 	      outofrange[i]=1;
 	    }
 	  }
