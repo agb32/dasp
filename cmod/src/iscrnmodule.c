@@ -782,7 +782,7 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
   int nout=0;
   char *pupil;
   static int frameno=0;
-  int oversize=5;//was 1.
+  int oversize=1;//was 1.
   //printf("without dimg\n");
   //each thread may have more than 1 block to do.
   frameno++;
