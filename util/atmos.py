@@ -87,6 +87,7 @@ class geom:
         self.rotateDirections=0#Used in getScrnXPxls etc, whether to rotate the phase screens when considering max width to use.
         self.r0=r0*numpy.cos(self.zenith*numpy.pi/180.)**0.6#adjust r0 for zenith.
         self.l0=l0
+        self.oversize=5.#was 1  - how much extra need to add to a screen so that sampling doesn't reach the edge.
         self.zenithOld=0.#this was used when making eliptical pupils.  However, that idea is no longer in vogue.  So, this is always set at zero.
         totstr=0
         self.layerDict=layerDict
@@ -226,8 +227,8 @@ class geom:
             #scrnYPxls=int(Numeric.ceil(maxy*ntel/telDiam+npup+Numeric.ceil(miny*ntel/telDiam))+1)
             #print altkey,maxx,minx,(maxx-minx),maxy,miny,(maxy-miny)
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
-            scrnXPxls=int(numpy.ceil(npup*extra/numpy.cos(self.zenithOld*degrad)))+1+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
-            scrnYPxls=int(numpy.ceil(npup*extra))+1+int(numpy.ceil((maxy-miny)*ntel/telDiam))
+            scrnXPxls=int(numpy.ceil(npup*extra/numpy.cos(self.zenithOld*degrad)))+int(self.oversize)+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
+            scrnYPxls=int(numpy.ceil(npup*extra))+int(self.oversize)+int(numpy.ceil((maxy-miny)*ntel/telDiam))
             #if rotateDirections:
             #    scrnSize[altkey]=(scrnYPxls,scrnXPxls)
             #else:
@@ -283,13 +284,13 @@ class geom:
         #else:
             if rotateDirections:
                 if layerXOffset[altKey]>0:
-                    layerXOffset[altKey]-=0.5
+                    layerXOffset[altKey]-=self.oversize/2.
                 elif layerXOffset[altKey]<0:
-                    layerXOffset[altKey]+=0.5
+                    layerXOffset[altKey]+=self.oversize/2.
                 if layerYOffset[altKey]>0:
-                    layerYOffset[altKey]-=0.5
+                    layerYOffset[altKey]-=self.oversize/2.
                 elif layerYOffset[altKey]<0:
-                    layerYOffset[altKey]+=0.5
+                    layerYOffset[altKey]+=self.oversize/2.
         self.layerOffset=(layerXOffset,layerYOffset)
         #print self.layerOffset
         return self.layerOffset
@@ -873,6 +874,7 @@ class iatmos:
         if ntel==None:
             ntel=npup
         self.ntel=ntel
+        self.oversize=5.#was 1.
         self.telDiam=telDiam
         if interpolationNthreads==None:
             self.interpolationNthreads=(0,1,1)#number of threads will be computed as half number of (hyperthreaded) cores (if npup sufficiently large)
@@ -1002,7 +1004,7 @@ class iatmos:
                     
                 #self.positionDict[key]=(x-shape[1]/2.+0.5,y-shape[0]/2.+0.5,scale)
                 #Changed to +1 (was +0.5) on 7/11/2014 by agb - so that test/scao/scaoiatmos.py works.  Checked with test/iscrn and test/iatmos
-                self.positionDict[key]=(x-shape[1]/2.+1,y-shape[0]/2.+1,scale)
+                self.positionDict[key]=(x-shape[1]/2.+self.oversize,y-shape[0]/2.+self.oversize,scale)
                 #print "positionDict %s: %s %s"%(str(key),str(self.positionDict[key]),str((self.layerXOffset[key],self.layerYOffset[key])))
             else:#layer above source, so don't use.
                 self.positionDict[key]=()

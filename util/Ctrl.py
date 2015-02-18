@@ -630,14 +630,17 @@ print("INFORMATION:^^Ctrl^^:Starting poking")
 
         cmd="""maxmodes,wfsObj_int,global_tstep=0,None,None
 for obj in ctrl.compList:
-  if hasattr(obj,"nmodes") and obj.nmodes>maxmodes:
-	 modesObj_nmodes=obj.nmodes
+  if hasattr(obj,"npokes"):
+    if obj.npokes>maxmodes:
+      maxmodes=obj.npokes     
+  elif hasattr(obj,"nmodes"):
+    if obj.nmodes>maxmodes:
+      maxmodes=obj.nmodes
   if hasattr(obj,"tstep"):
     global_tstep=obj.tstep
-for obj in ctrl.compList:
   if hasattr(obj,"wfs_int") and (wfsObj_int==None or obj.wfs_int>wfsObj_int):
     wfsObj_int=obj.wfs_int
-maxmodes=modesObj_nmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
+maxmodes=maxmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
 ctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)
 print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
 		"""

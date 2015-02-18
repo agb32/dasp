@@ -1,0 +1,345 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="agb"/>
+<created date="120705"/>
+<comment>
+</comment>
+<module name="globals">
+<variables>
+<var type="s" name="fpDataType" value="d"/>
+<var comment="time step" type="eval" name="tstep" value="1./250"/>
+<var name="fifoDelay" type="i" value="1"/>
+
+<var comment="port number for connections" type="i" name="testrunport" value="9000"/>
+<vr type="f" name="l0" value="10.0"/>
+<vr type="eval" name="r0" value="0.106"/>
+<var name="wfs_sig" type="f" value="1e6"/>
+<var name="subpxlInterp" type="i" value="1"/>
+<var name="useCmodule" type="i" value="1"/>
+<var name="lgs_nsubx" type="i" value="80"/>
+<var name="npup" type="eval" value="lgs_nsubx*20"/>
+<var type="eval" name="telDiam" value="39.3/80.*lgs_nsubx"/>
+
+<var name="lgs_n" type="eval" value="npup/lgs_nsubx"/>
+<var name="lgs_nfft" type="eval" value="lgs_n*2"/>
+<var name="lgs_clipsize" type="eval" value="lgs_nfft"/>
+<var name="lgs_nimg" type="eval" value="lgs_clipsize/2"/>
+<var name="lgs_ncen" value="lgs_nimg" type="eval"/>
+
+<var type="copy" name="ntel" value="npup"/>
+<var name="wfs_nsubx" type="i" value="10"/>
+<var name="wfs_nsubx" type="eval" value="lgs_nsubx" batchno="[3,4,103,104,203,204]"/>
+<var name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
+<var name="wfs_nfft" type="eval" value="wfs_n*2"/>
+<var name="wfs_clipsize" type="eval" value="wfs_nfft"/>
+<var name="wfs_nimg" type="eval" value="wfs_clipsize/2" />
+<var name="wfs_ncen" value="wfs_nimg-2" type="eval"/>
+
+<var name="nActHi" type="eval" value="lgs_nsubx+1"/>
+
+<vr name="ngsDiam" type="f" value="109" comment="half of 7.3 arcmin diam"/>
+<var name="ngsDiam" type="f" value="0" comment="half of 7.3 arcmin diam"/>
+<var name="lgsDiam" type="f" value="0" comment="180=6 arcmin 219=7.3 arcmin"/>
+<vr name="lgsDiam" type="f" value="219" comment="180=6 arcmin 219=7.3 arcmin"/>
+<var name="ngsDiam" type="f" value="55" batchno="[5,105,205]"/>
+<var name="lgsDiam" type="f" value="109" batchno="[5,105,205]"/>
+<var name="ngsLam" type="f" value="640." comment="was 640."/>
+<var name="lgsAlt" type="f" value="90000."/>
+<vr name="lgsAlt" type="f" value="-1" batchno="range(100)"/>
+<var name="lgsLam" type="f" value="589."/>
+<var name="nsci" type="i" value="1" comment="Only used in param file"/>
+<var name="nLGS" type="i" value="6"/>
+<var name="nNGS" type="i" value="5"/>
+<var name="nlayer" type="i" value="3" comment="only used in param
+					       file"/>
+<var name="strList" type="eval" value="[0.5224,0.0260,0.0444,0.116,0.0989,0.0295,0.0598,0.0430,0.06,0.01]"/>
+<var name="hList" type="eval" value="[47.,140.,281.,562.,1125.,2250.,4500.,9000.,18000.,22000.]"/>
+<var name="vList" type="eval" value="[4.55,  12.61,  12.61,   8.73,   8.73,  14.55,  24.25,  38.8 , 20.37,33.6]"/>
+<var name="dirList" type="eval" value="numpy.arange(10)*36"/>
+
+<var name="layerList" type="eval" value="{'L0-1':['L0','L1']}"/>
+<var name="atmosGeom" type="code">
+from util.atmos import geom,layer,source
+import util.compare
+#hList=[0.,3000.,9000.,1800.,4500.,7100.,11000.,12800.,14500.,16500.]
+#dirList=numpy.arange(nlayer)*36.+32.#wind directions..
+#vList=[15.,10.,6.6,12.,8.,34.,23.,22.,8.,10.]
+#strList=[0.41,0.16,0.1,0.09,0.08,0.05,0.045,0.035,0.02,0.01]
+hList=hList[:]
+strList=strList[:]
+vList=vList[:]
+poplist=[9,8,6,5,2,1,2,1,1]#the order in which to get rid of layers.
+for p in poplist:
+ if len(hList)==nlayer:
+  break
+ hList.pop(p)
+ strList.pop(p)
+ vList.pop(p)
+
+d={}
+for i in range(nlayer):
+ d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+
+if this.batchno==108:
+ ngsAlt=lgsAlt
+else:
+ ngsAlt=-1
+r0=0.106
+l0=50.
+sourceList=[]
+for i in range(nLGS):#the LGS
+ sourceList.append(source(chr(ord("a")+i),lgsDiam,i*360./nLGS,lgsAlt,lgs_nsubx,lgsLam,reconList=["lgs"]))
+
+for i in range(nNGS-1):#the high order NGS (4 in a ring)
+ sourceList.append(source(chr(ord("a")+nLGS+i),ngsDiam,45+i*360./(nNGS-1),ngsAlt,lgs_nsubx,ngsLam))
+sourceList.append(source(chr(ord("a")+nLGS+nNGS-1),0.,0.,ngsAlt,wfs_nsubx,ngsLam))
+
+for i in range(nsci):#the science...
+ sourceList.append(source(chr(ord("m")+i),i*30.,0.,-1,None,1650.))
+ sourceList.append(source(chr(ord("m")+i)+"uncorr",i*30.,0.,-1,None,1650.))
+ sourceList.append(source(chr(ord("m")+i)+"fsm",i*30.,0.,-1,None,1650.))
+
+atmosGeom=geom(d,sourceList,
+	       ntel,npup,telDiam,r0,l0
+	      )
+</var>
+<var name="dmObj" comment="dm object" type="code">
+from util.dm import dmOverview,dmInfo,calcActuators
+all=atmosGeom.sourceDict.keys()
+all.sort()
+reconList=map(chr,range(97,97+nLGS+nNGS))
+sciList=map(chr,range(ord("m"),ord("m")+nsci))
+actoffset=0.
+#pokeSpacing=None
+pokeSpacing=10
+actSpacingHi=telDiam/(nActHi-1+2*actoffset)
+nmodes=3
+actCoupling=None
+afHi=["0H","1H","2H","3H","4H","5H","6H","7H","8H","9H"][:nlayer]
+nactList=[None]*10
+gainAdjust=1.
+#hList=[0.,300.,900.,1800.,4500.,7100.,11000.,12800.,14500.,16500.]
+#strList=[0.41,0.16,0.1,0.09,0.08,0.05,0.045,0.035,0.02,0.01]
+poplist=[9,8,6,5,2,1,2,1,1]#the order in which to get rid of layers.
+for p in poplist:
+ if len(hList)==nlayer:
+  break
+ hList.pop(p)
+ strList.pop(p)
+print "Layers at height %s"%str(hList)
+
+
+interpType="spline"
+minarea=0.1
+maxActDist=1.5
+slaving="auto"
+nactList=numpy.ceil(calcActuators(hList,lgsDiam,telDiam,r0list=None,strList=strList)[0]*nActHi).astype(numpy.int32)
+if this.batchno in [106,206] and lgsAlt>0:
+ nactList/=(1-numpy.array(hList).astype(numpy.float32)/lgsAlt)
+elif this.batchno in [7,107,207]:
+ nactList=[None]*nlayer
+elif this.batchno in [9,109,209]:
+ nactList=[85,120]
+elif this.batchno in [10,110,210]:
+ nactList=[85,160]
+print "nactList:",nactList
+dmInfoList=[]
+for i in range(nlayer):
+ dmInfoList.append(dmInfo('%dH'%i,all,hList[i],nactList[i],minarea=minarea,closedLoop=0,actSpacing=actSpacingHi,reconLam=lgsLam,gainAdjustment=gainAdjust,actuatorsFrom="lgs",reconstructList=reconList,pokeSpacing=pokeSpacing,interpType=interpType,maxActDist=maxActDist,slaving=slaving))
+
+for i in range(nsci):
+ dmInfoList.append(dmInfo('vdmhi'+chr(ord('m')+i),[chr(ord('m')+i)],0.,nActHi,minarea=minarea,actuatorsFrom=afHi,closedLoop=0,reconLam=lgsLam,primaryTheta=atmosGeom.sourceTheta(chr(ord('m')+i)),interpType=interpType,maxActDist=maxActDist,slaving=slaving))
+ dmInfoList.append(dmInfo('hodm'+chr(ord('m')+i),[chr(ord('m')+i),chr(ord('m')+i)+'uncorr'],0.,nActHi,minarea=minarea,actuatorsFrom=['vdmhi'+chr(ord('m')+i)],closedLoop=0,reconLam=lgsLam,interpType=interpType,maxActDist=maxActDist,slaving=slaving,actCoupling=actCoupling))
+# dmInfoList.append(dmInfo('pdm'+chr(ord('m')+i),[chr(ord('m')+i),chr(ord('m')+i)+'uncorr'],0.,nActHi,minarea=minarea,actuatorsFrom=['proj'+chr(ord('m')+i)],closedLoop=0,reconLam=lgsLam,primaryTheta=atmosGeom.sourceTheta(chr(ord('m')+i)),interpType=interpType,maxActDist=maxActDist,slaving=slaving))
+
+#print "dminfolist:",dmInfoList
+dmObj=dmOverview(dmInfoList,
+		  atmosGeom)
+</var>
+
+<var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
+<var comment="We compute science parameters everry scinSamp iterations" type="i" name="scinSamp" value="5"/>
+<var comment="Simulation exposure time in seconds" type="f" name="AOExpTime" value="40."/>
+<var comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
+<var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
+<var comment="Telescope pupil function" type="code" name="pupil">
+import util.tel
+spider=None
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)#,wfs_nsubx,wfs_minarea)
+</var>
+<var type="code" name="scrnScale">
+scrnScale=this.globals.telDiam/float(this.globals.ntel)
+</var>
+<var name="calsource" type="i" value="0"/>
+<var name="timing" type="i" value="0"/>
+<var name="wfs_int" value="tstep" type="eval" comment="integration time"/>
+<var name="wfs_lat" value="0.0" type="f" comment="latency for integ time"/>
+<var name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_read_sigma" value="0." type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_floor" value="wfs_read_mean+0*wfs_read_sigma" type="eval" comment="WFS Read noise (e-)"/>
+<var type="i" name="wfs_bandwidth" value="300"/>
+<var type="f" name="wfs_thruput" value="0.4" comment="including QE"/>
+<var type="f" name="wfs_phot_rate_factor" value="700."/>
+<var type="f" name="wfs_mag" value="6.0"/>
+<var name="wfs_skybrightness" type="f" value="0."/>
+<var name="nthreads" type="s" value="all"/>
+</variables>
+</module>
+
+
+
+<module name="infAtmos">
+<variables>
+<var type="string" name="dataType" value="d"/>
+</variables>
+</module>
+
+<module name="magicdm">
+<variables>
+<var type="i" name="nmodes" value="6" comment="3==piston-tip-tilt only"/>
+</variables>
+</module>
+
+<module name="iscrn">
+<variables>
+<var type="string" name="dataType" value="d"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
+</variables>
+</module>
+
+<module name="infScrn">
+<variables>
+<var type="string" name="dataType" value="d"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
+</variables>
+</module>
+
+
+
+<module name="wfscent" comment="Default for LGS">
+<variables>
+<var name="linearSteps" type="i" value="1000"/>
+<var name="linearSteps" type="eval" value="None" batchno="[11,111,211]"/>
+<var name="magicCentroiding" type="i" value="0"/>
+<var name="fpDataType" type="eval" value="numpy.float32"/>
+<vr name="subapFov" type="f" value="2.5"/>
+<vr name="lgsPower" type="f" value="20."/>
+<vr name="lgsGateDepth" type="f" value="1000"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+<var name="subtractTipTilt" value="1" type="i" batchno="[2,4,102,104,202,204]"/>
+<var name="wfs_nsubx" type="copy" value="lgs_nsubx"/>
+<var name="wfs_n" type="copy" value="lgs_n"/>
+<var name="wfs_nfft" type="copy" value="lgs_nfft"/>
+<var name="wfs_clipsize" type="copy" value="lgs_clipsize"/>
+<var name="wfs_nimg" type="copy" value="lgs_nimg"/>
+<var name="wfs_ncen" value="lgs_ncen" type="copy"/>
+<vr name="laserGuideStar" value="lgsPsf.fits" type="s"/>
+<var name="laserGuideStar" type="code">
+import util.elong
+print "Making LGS"
+laserGuideStar=util.elong.make(spotsize=lgs_nfft,nsubx=lgs_nsubx,wfs_n=lgs_n,wfs_nfft=lgs_nfft,wfs_nimg=lgs_nimg,clipsize=lgs_clipsize,lam=lgsLam,telDiam=telDiam,telSec=telSec,launchDist=telDiam/2.,beacon_depth=5000.)[0]
+print "LGS made"
+</var>
+<var name="laserGuideStar" value="None" type="eval" batchno="range(100)+range(200,300)"/>
+</variables>
+</module>
+
+<module name="wfscent_g" comment="high order NGS">
+<variables>
+<var name="laserGuideStar" value="None" type="eval"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+<module name="wfscent_h" comment="high order NGS">
+<variables>
+<var name="laserGuideStar" value="None" type="eval"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+<module name="wfscent_i" comment="high order NGS">
+<variables>
+<var name="laserGuideStar" value="None" type="eval"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+<module name="wfscent_j" comment="high order NGS">
+<variables>
+<var name="laserGuideStar" value="None" type="eval"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+
+
+<module name="wfscent_k" comment="Low order NGS">
+<variables>
+<var name="wfs_nsubx" type="copy" value="this.globals.wfs_nsubx"/>
+<var name="wfs_n" type="copy" value="this.globals.wfs_n"/>
+<var name="wfs_nfft" type="copy" value="this.globals.wfs_nfft"/>
+<var name="wfs_clipsize" type="copy" value="this.globals.wfs_clipsize"/>
+<var name="wfs_nimg" type="copy" value="this.globals.wfs_nimg"/>
+<var name="wfs_ncen" value="this.globals.wfs_ncen" type="copy"/>
+<var name="laserGuideStar" value="None" type="eval"/>
+<vr name="wfs_sig" type="f" value="11200." comment="10.5 magnitude R band"/>
+<var name="wfs_sig" type="f" value="1e6" comment="10.5 magnitude R band"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+
+<module name="science">
+<variables>
+<var type="eval" name="simFilename" value="None"/>
+<var type="i" name="science_integrate" value="1"/>
+<var type="i" name="science_calcRMS" value="1"/>
+<var type="i" name="zero_science" value="10"/>
+<var type="eval" name="hist_list_size" value="int(AOExpTime/tstep/scinSamp)"/>
+<var type="eval" name="fitsFilename" value="None"/>
+<var name="scicsvFilename" value="'results42m%dlayer%d.csv'%(nlayer,this.batchno)" type="eval"/>
+<var name="scinfft" type="eval" value="npup*2"/>
+<var type="eval" name="scinimg" value="scinfft"/>
+<var name="fpDataType" type="s" value="f"/>
+<var name="inboxDiamList" type="eval" value="[0.2,0.1,0.075,0.05]"/>
+<var name="usedmpup" type="i" value="0"/>
+<var name="sourceLam" type="f" value="1650."/>
+<var name="histFilename" type="eval" value="'results42m%dlayer%d.fits'%(nlayer,this.batchno)"/>
+</variables>
+</module>
+
+<module name="tomoRecon">
+<variables>
+<var name="recontype" value="spmxSVD" type="s"/>
+<var name="pokeIgnore" type="f" value="0.00001"/>
+<var name="sparsePmxType" type="s" value="mmap"/>
+<var name="transposeDensePmx" type="i" value="0"/>
+<var name="pokeval" value="1." type="f"/>
+<var name="gainFactor" value="1." type="f"/>
+<var name="decayFactorOpen" value="0." type="f"/>
+<var name="computeControl" value="0" type="i"/>
+
+<var name="dmModeType" value="poke" type="s"/>
+<var name="reconmxFilename" value="'/var/ali/pmx6lgs%dlayer42mb%ddense_rmxden1e-05.fits'%(nlayer,this.batchno)" type="eval"/>
+<var name="pmxFilename" value="'/var/ali/pmx6lgs%dlayer42mb%d.fits'%(nlayer,this.batchno)" type="eval"/>
+<var name="minEig" value="0.05" type="f"/>
+<var name="abortAfterPoke" value="1" type="i"/>
+</variables>
+</module>
+
+<module name="xinterp_recon">
+<variables>
+<var name="rcond" value="0.0001" type="f"/>
+<var name="recontype" value="SVD" type="s"/>
+<var name="rmxFilename" value="rmxlo42m.fits" type="s"/>
+<var name="nmodes" value="6" type="i"/>
+<var name="dmModeType" value="zernDM" type="s"/>
+<var name="decayFactor" value="1." type="f"/>
+<var name="pokeval" value="100." type="f"/>
+<var name="gamma" type="f" value="0.5" comment="loop gain"/>
+<var name="abortAfterPoke" value="1" type="i"/>
+</variables>
+</module>
+
+<module name="vdmUser">
+<variables>
+<var name="reconIdStr" type="s" value="lgs"/>
+</variables>
+</module>
+</aosim>

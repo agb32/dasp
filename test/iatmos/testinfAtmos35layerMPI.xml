@@ -1,0 +1,57 @@
+<aosim>
+<simSetup>
+<simulationObject cpu="(1, 1)" import="science.infScrn" object="infScrn" pos="64,64" tag="1" shortname="infScrn" pixmap="infScrn.xpm" feedback="0" pyname="" groupshare="0" args="" connectto="[4, 5]" connectfrom="[]" textcol="red" idstr="L$">
+<lines>
+[
+[],
+[],
+]
+</lines>
+<endlines>
+[
+]
+</endlines>
+<parentNames>
+[]
+</parentNames>
+<sharedTo>
+[]
+</sharedTo>
+</simulationObject>
+<simulationObject cpu="(2, 1)" import="science.infAtmos" object="infAtmos" pos="72,183" tag="4" shortname="atmos" pixmap="infAtmos.xpm" feedback="0" pyname="" groupshare="0" args="" connectto="[]" connectfrom="[1]" textcol="red" idstr="a">
+<lines>
+[
+]
+</lines>
+<endlines>
+[
+[],
+]
+</endlines>
+<parentNames>
+['L$']
+</parentNames>
+<sharedTo>
+[]
+</sharedTo>
+</simulationObject>
+<simulationObject cpu="(3, 1)" import="science.infAtmos" object="infAtmos" pos="186,180" tag="5" shortname="atmos" pixmap="infAtmos.xpm" feedback="0" pyname="" groupshare="0" args="" connectto="[]" connectfrom="[1]" textcol="red" idstr="b">
+<lines>
+[
+]
+</lines>
+<endlines>
+[
+[],
+]
+</endlines>
+<parentNames>
+['L$']
+</parentNames>
+<sharedTo>
+[]
+</sharedTo>
+</simulationObject>
+<groupShare idstr="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34" cpu="[]" coordlist="[(20, 27), (120, 27), (120, 127), (20, 127)]"/>
+</simSetup>
+</aosim>

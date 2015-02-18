@@ -40,6 +40,7 @@ class saveOutput(base.aobase.aobase):
         self.initialised=0
         self.finalised=0
         self.outputData=None
+        self.parentList=None
         self.forGUISetup=forGUISetup
         if args.has_key("filename"):
             self.filename=args["filename"]
@@ -84,9 +85,28 @@ class saveOutput(base.aobase.aobase):
         """once we've got all the info we need, initialise here..."""
         if self.initialised==0:
             self.initialised=1
-            self.shape=self.parent.outputData.shape
+            if type(self.parent)==type({}):
+                size=0
+                dtype="1"
+                isize=1
+                self.parentList=self.parent.keys()
+                self.parentList.sort()
+                for p in self.parentList:
+                    od=self.parent[p].outputData
+                    size+=od.size
+                    if od.itemsize>isize:
+                        dtype=od.dtype.char
+                        isize=od.itemsize
+                    elif od.itemsize==isize:
+                        if od.dtype.char in ["f","F","d","D"]:
+                            dtype=od.dtype.char
+                            isize=od.itemsize
+                self.shape=(size,)
+                self.dtype=dtype
+            else:
+                self.shape=self.parent.outputData.shape
+                self.dtype=self.parent.outputData.dtype
             print self.idstr,self.parent
-            self.dtype=self.parent.outputData.dtype
             if type(self.dtype)!=type(""):
                 self.dtype=self.dtype.char
             if self.dtype=="f":
@@ -132,6 +152,8 @@ class saveOutput(base.aobase.aobase):
             if le:
                 util.FITS.WriteKey(self.ff,"UNORDERD","T")
                 util.FITS.WriteComment(self.ff,"Note, this file is be non-FITS complient, saved on a little endian machine.  All the data will be byteswapped.")
+            if self.parentList!=None:
+                util.FITS.WriteKey(self.ff,"PARENTS",str(self.parentList))
             util.FITS.EndHeader(self.ff)
 
     def newParent(self,parent,idstr=None):
@@ -148,26 +170,58 @@ class saveOutput(base.aobase.aobase):
             print "splitOutput: generateNext (debug=%s)"%str(self.debug)
         if self.generate==1:
             if self.newDataWaiting:
-                if self.parent.dataValid==1:
-                    outputData=self.parent.outputData
-                    if outputData.shape!=self.shape:
-                        print "ERROR: saveOutput - outputdata not same as that given %s %s"%(str(outputData.shape),str(self.shape))
-                        raise Exception("Wrong shape in splitOutput")
-                    if outputData.dtype.char!=self.dtype:
-                        outputData=outputData.astype(self.dtype)
-                        print "Warning: saveOutput - converting outputData to type %s"%self.dtype
-                    if self.doByteSwap and numpy.little_endian:
-                        outputData=outputData.byteswap()
-                    self.ff.seek(0,2)#move to end of file.
-                    self.ff.write(outputData)
-                    self.ff.seek(self.axisIncPos)
-                    key=self.ff.read(80)
-                    self.ff.seek(self.axisIncPos)
-                    newdim=int(key[10:])+1
-                    util.FITS.WriteKey(self.ff,"NAXIS%d"%self.nd,str(newdim))
+                if type(self.parent)==type({}):
+                    dv=1
+                    for p in self.parentList:
+                        pp=self.parent[p]
+                        dv&=pp.dataValid
+                    if dv==1:#all data valid...
+                        offset=0
+                        for p in self.parentList:
+                            pp=self.parent[p]
+                            outputData=pp.outputData
+                            if outputData.size+offset>self.shape[0]:
+                                raise Exception("Combined output data too large... (with parent %s, becomes %d which is >%s)"%(p,outputData.size+offset,str(self.shape)))
+                            if outputData.dtype.char!=self.dtype:
+                                outputData=outputData.astype(self.outputData)
+                                print "Warning: saveOutput - converting outputData[%s] to type %s"%(p,self.dtype)
+                            if self.doByteSwap and numpy.little_endian:
+                                outputData=outputData.byteswap()
+                            self.ff.seek(0,2)#move to end of file.
+                            self.ff.write(outputData)
+                            offset+=outputData.size
+                        if offset!=self.shape[0]:
+                            raise Exception("Combined output data wrong shape (%d != %s)"%(offset,str(self.shape)))
+                        self.ff.seek(self.axisIncPos)
+                        key=self.ff.read(80)
+                        self.ff.seek(self.axisIncPos)
+                        newdim=int(key[10:])+1
+                        util.FITS.WriteKey(self.ff,"NAXIS%d"%self.nd,str(newdim))
+                    else:
+                        print "saveOutput: Not all input data valid"
+                        self.dataValid=0
                 else:
-                    print "saveOutput: waiting for data but not valid (debug=%s)"%self.debug
-                    self.dataValid=0
+
+                    if self.parent.dataValid==1:
+                        outputData=self.parent.outputData
+                        if outputData.shape!=self.shape:
+                            print "ERROR: saveOutput - outputdata not same as that given %s %s"%(str(outputData.shape),str(self.shape))
+                            raise Exception("Wrong shape in splitOutput")
+                        if outputData.dtype.char!=self.dtype:
+                            outputData=outputData.astype(self.dtype)
+                            print "Warning: saveOutput - converting outputData to type %s"%self.dtype
+                        if self.doByteSwap and numpy.little_endian:
+                            outputData=outputData.byteswap()
+                        self.ff.seek(0,2)#move to end of file.
+                        self.ff.write(outputData)
+                        self.ff.seek(self.axisIncPos)
+                        key=self.ff.read(80)
+                        self.ff.seek(self.axisIncPos)
+                        newdim=int(key[10:])+1
+                        util.FITS.WriteKey(self.ff,"NAXIS%d"%self.nd,str(newdim))
+                    else:
+                        print "saveOutput: waiting for data but not valid (debug=%s)"%self.debug
+                        self.dataValid=0
         else:
             self.dataValid=0
 

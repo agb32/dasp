@@ -97,11 +97,15 @@ class vdmUser(base.aobase.aobase):
                 nactstot=0
                 for dm in self.reconstructorDmList:
                     if dm.zonalDM:
-                        dmindices=numpy.nonzero(dm.computeDMPupil(
-                                self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
-                        nacts=int(dmindices.shape[0])
+                        #dmindices=numpy.nonzero(dm.computeDMPupil(
+                        #self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)[0].ravel())[0]
+                        #nacts=int(dmindices.shape[0])
+                        tmp=dm.computeDMPupil(self.dmObj.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                        nacts=int(numpy.sum(tmp[0].ravel()))
+
                     else:
                         nacts=dm.nact
+                    print "nacts %s: %d"%(str(dm),nacts)
                     nactstot+=nacts
                 self.projmx=numpy.zeros((self.nacts,nactstot),numpy.float32)
             else:
@@ -197,11 +201,11 @@ class vdmUser(base.aobase.aobase):
                                 pos+=1
                                 actVal[i]=0
                             except:
-                                print "(proj shape %s, interpolated shape %s, resshape %s)"%(
+                                print "(%d %d proj shape %s, interpolated shape %s, resshape %s)"%(
                                     pos,self.projmx.shape[1],str(self.projmx.shape),
                                     str(self.interpolated.shape),str(res.shape))
                                 raise
-                        print "Projection matrix done next mirror...                               "
+                        print "Projection matrix done next mirror... %s %s %s                     "%(str(self.interpolated.shape),str(self.projmx.shape),str(res.shape))
                     #     tmp=numpy.zeros((dm.nact,dm.nact),numpy.float32)
                     #     tmp2=numpy.zeros((dm.nact,dm.nact),numpy.float32)
                     #     tmp=tmp[coords[0]:coords[1],coords[2]:coords[3]]#select the 

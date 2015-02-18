@@ -2,9 +2,18 @@ python scao.py    for a 6x6 scao system on a 4.2m telescope.
 
 python scao.py --init="wfs_nsubx=64" for a 64x64 system... etc
 
+To test a python parameter file:
+python scao.py --param-file=params.py
+
+For an iatmos/iscrn version:
+python scaoiatmos.py
+
+python scao.py --help will provide some common command line options.
+
+
 Rolling shutter approximation::
 =============================
 
-Examine the paramter file for those lines containing the XML comment,
+Examine the paramter file (params.xml) for those lines containing the XML comment,
    <!-- Rolling Shutter approximation -->
 to discover the changes necessary to incorporate a rolling shutter.
