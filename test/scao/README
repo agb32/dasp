@@ -10,6 +10,10 @@ python scaoiatmos.py
 
 python scao.py --help will provide some common command line options.
 
+If you don't want to use simsetup.py to set up simulations, and if
+you're doing something simple, then scaoHandwritten.py is worth a look at.
+
+
 
 Rolling shutter approximation::
 =============================
