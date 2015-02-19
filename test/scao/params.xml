@@ -51,7 +51,6 @@ dmInfoList.append(dmInfo('dm',all,0.,nAct,minarea=0.1,closedLoop=1,actSpacing=No
 dmObj=dmOverview(dmInfoList,atmosGeom)
 </var>
 <var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
-<var comment="We compute science parameters everry scinSamp iterations" type="i" name="scinSamp" value="10"/>
 <var comment="Simulation exposure time in seconds" type="f" name="AOExpTime" value="40."/>
 <var comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
 <var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
@@ -98,8 +97,10 @@ scrnScale=this.globals.telDiam/float(this.globals.ntel)
 <variables>
 <var type="eval" name="simFilename" value="None"/>
 <var type="i" name="science_integrate" value="1"/>
-<var type="i" name="science_calcRMS" value="1"/>
+<var type="i" name="science_calcRMS" value="0"/>
 <var type="i" name="zero_science" value="10"/>
+<var comment="We compute science parameters everry scinSamp*sciPSFSamp iterations" type="i" name="scinSamp" value="10"/>
+
 <var type="eval" name="hist_list_size" value="int(AOExpTime/tstep/scinSamp)"/>
 <var type="eval" name="fitsFilename" value="None"/>
 <var name="scicsvFilename" value="'results.csv'" type="eval"/>
@@ -109,6 +110,7 @@ scrnScale=this.globals.telDiam/float(this.globals.ntel)
 <var name="usedmpup" type="i" value="0"/>
 <var name="sourceLam" type="eval" value="sciLam"/>
 <var name="histFilename" type="eval" value="'resultshist.fits'"/>
+<var name="sciPSFSamp" type="i" value="1" comment="Integrate the PSF every 1 iterations"/>
 </variables>
 </module>
 

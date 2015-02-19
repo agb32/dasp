@@ -180,7 +180,7 @@ class geom:
         return self.getSource(id).sourcelam
     def phaseLambda(self,id):
         return self.getSource(id).phslam
-    def reonList(self,id):
+    def reconList(self,id):
         return self.getSource(id).reconList
     def sourceThetas(self):
         t={}

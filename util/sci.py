@@ -779,6 +779,8 @@ class science:
                     self.psfSamp=0
                     self.computeShortExposurePSF(self.phs,useFPGA)#calc short exposure PSF
                     self.longExpImg+=self.instImg# Integrate img
+                    #instantaneous strehl calc...
+                    self.dictScience['strehlInst']=numpy.max(self.instImg)/self.diffn_core_en
                     self.n_integn+=1 ##We increment the number of integrations used to compute long exposure PSF
                     self.isamp+=1##we increment the isamp counter
                     if (self.isamp>=self.scinSamp): #compute scientific parameters
@@ -787,8 +789,6 @@ class science:
                         self.longExpPSF[:,]=self.longExpImg/numpy.sum(self.longExpImg)##We normalise the instantaneous PSF to 1
 
                         self.computeScientificParameters()
-                        #add instantaneous Strehl
-                        self.dictScience['strehlInst']=numpy.max(self.instImg)/self.diffn_core_en
 
                         # we update the history lists
                         if self.history==None:

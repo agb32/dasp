@@ -359,6 +359,10 @@ class science(aobase.aobase):
             print "INFORMATION: Science results for %s%s:"%(self.moduleName,idtxt)
             timestamp=time.strftime("%y%m%d_%H%M%S")
             for this in self.thisObjList:
+                #final computation of science parameters:
+                this.sciObj.longExpPSF[:]=this.sciObj.longExpImg/numpy.sum(this.sciObj.longExpImg)##We normalise the instantaneous PSF to 1
+                this.sciObj.computeScientificParameters()
+
                 # compute the OTF, if not already done.
                 if this.sciObj.computeOTF==0:
                     sl=numpy.fft.fftshift(this.sciObj.longExpPSF)
@@ -400,7 +404,7 @@ class science(aobase.aobase):
                     f=open(this.sciObj.sciFilename,"a")
                     f.write("%s%s%s (%dx%d iters, batchno %d %s): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,timestamp,str(this.sciObj.dictScience),rmstxt))
                     f.close()
-                if this.sciObj.histFilename!=None:
+                if this.sciObj.histFilename!=None and this.sciObj.history!=None:
                     self.mkdirForFile(this.sciObj.histFilename)
                     head=[]
                     head.append("NAME    = '%s'"%this.objID)
