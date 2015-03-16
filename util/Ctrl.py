@@ -5,7 +5,8 @@ import numpy
 import sys,thread,threading,os,socket
 import getopt,re
 import base.readConfig,util.SockConn,cmod.shmem,util.serialise
-import Scientific.MPI
+#import Scientific.MPI
+import base.mpiWrapper
 """
 Switching to a generic MPI module:
 
@@ -78,7 +79,7 @@ class Ctrl:
         self.globals=globals
         self.indent="    "
         self.batchno=0
-        self.mpiComm=Scientific.MPI.world.duplicate()
+        self.mpiComm=base.mpiWrapper.comm#Scientific.MPI.world.duplicate()
         self.listenSTDIN=1
         self.rank=self.mpiComm.rank
         self.paramfile=paramfile
