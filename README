@@ -640,3 +640,12 @@ cuda-install-samples-6.5.sh  <dir>
 cd <dir>/NVIDIA_CUDA-6.5_Samples
 make
 executables placed in the bin directory.
+
+
+gig50 - exploring different MPI packages:
+apt-get install python-mpi4py
+
+Test with:
+mpiexec -n 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"
+or
+mpirun -np 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"

@@ -14,9 +14,9 @@ send(data,rank,tag)
 receive(data,rank,tag)
 rank
 size
-barrier
-broadcast
-abort
+barrier()
+broadcast(data,rank)
+abort()
 
 """
 
