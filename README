@@ -591,13 +591,14 @@ ln -s libatlas.so.3 libatlas.so
 
 
 
-acml-5.3.0.  
+acml-5.3.0.  REMEMBER TO ADD TO LD_LIBRARY_PATH.
 /etc/hosts (add gig44)
 
 ssh keys - so can log into self.
 
 Makesure /usr/local/bin/mpipython exists (not strictly necessary but
-some of my scripts use it).  Soft link from /usr/bin/mpipython.
+some of my scripts use it).  Soft link from /usr/bin/mpipython.  Or
+/usr/bin/python if using mpi4py.
 
 sudo mkdir /var/ali
 sudo chown ali:ali /var/ali
@@ -644,8 +645,11 @@ executables placed in the bin directory.
 
 gig50 - exploring different MPI packages:
 apt-get install python-mpi4py
+(and don't install python-scientific mpichpython mpich-bin python-netcdf )
+
 
 Test with:
 mpiexec -n 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"
 or
 mpirun -np 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"
+
