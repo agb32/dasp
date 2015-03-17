@@ -86,6 +86,7 @@ class mpiGet(base.aobase.aobase):
         if self.debug!=None: print "mpiGet: Waiting to receive (debug=%s)"%str(self.debug)
         data,rank,tag,nelements=self.mpiComm.receive(self.mpiParent.data,self.mpiParent.sourceRank,self.mpiParent.tag)
         if self.debug!=None: print "mpiGet: Received MPI data (debug=%s)"%str(self.debug)
+        #print "mpiGet: data=",data
         if nelements==0:#nelements is the number of elements of the array (not bytes) returned.
             self.dataValid=0
             sh="no data received"

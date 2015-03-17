@@ -243,7 +243,7 @@ class iatmos(base.aobase.aobase):
                                 #print "Allocating iatmos arrays (hopefully this only happens during first iteration...)"
                                 self.inputData[pkey]=self.parent[pkey].outputData
                                 if self.inputData[pkey].dtype.char!=self.scrnDataType:
-                                    raise Exception("iatmos and iscrn dataTypes must be same")
+                                    raise Exception("iatmos and iscrn dataTypes must be same (%s %s, key %s)"%(self.inputData[pkey].dtype.char,self.scrnDataType,pkey))
                                 if self.parentSendWholeScreen==0:
                                     pos=0
                                     for key in self.layerListDict[pkey]:

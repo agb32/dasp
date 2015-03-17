@@ -40,10 +40,18 @@ elif mpitype=="mpi4py.MPI":
             self.broadcast=self.comm.Bcast
             self.abort=self.comm.Abort
         def receive(self,data,rank,tag):
-            data=self.comm.Recv(data,rank,tag)
-            if data==None:
-                rt=0
-            else:
-                rt=1
+            #print "receive data type: %s %s (rank %d, tag %d), rms %g"%(data.dtype.char,str(data.shape),rank,tag,data.std())
+            self.comm.Recv(data,rank,tag)
+            #print "Received std: %g"%data.std()
+
+            #if data==None:
+            #    rt=0
+            #else:
+            #    rt=1
+            rt=1
             return data,rank,tag,rt
+
+        #def send(self,data,rank,tag):
+        #    #print "send data type: %s %s (rank %d, tag %d)"%(data.dtype.char,str(data.shape),rank,tag)
+        #    self.comm.Send(data,rank,tag)
     comm=mympi()
