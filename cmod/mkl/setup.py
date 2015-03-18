@@ -125,3 +125,36 @@ else:
     except:
         traceback.print_exc()
         print "UNABLE TO COMPILE ATLAS MODULE... CONTINUING"
+
+cont=0
+atpath=None
+if os.path.exists("/opt/openblas/lib/libopenblas.so"):
+    atpath="/opt/openblas/lib/"
+else:
+    print "For openblas, see README for installation instructions"
+if atpath!=None:
+    if 1:
+        oblib=[atpath]
+        ld=[sys.prefix+'/lib']
+        obinclude=["/opt/openblas/include/"]
+        print "Using openblas/lapack"
+        cont=1
+if cont==0:
+    print "ob/lapack library not found - not making openblasmodule"
+else:
+    ob=Extension('openblasmodule',
+                  include_dirs=idnumpy+obinclude,
+                  library_dirs=ld+oblib,
+                  libraries=["openblas","pthread"],
+                  extra_link_args=["-lopenblas","-lpthread","-lm"],
+                  sources=["openblasmodule.c"]
+                  )
+              
+    try:
+        setup (ext_modules = [ob])
+    except:
+        traceback.print_exc()
+        print "UNABLE TO COMPILE OPENBLAS MODULE... CONTINUING"
+
+
+

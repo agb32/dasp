@@ -1,7 +1,7 @@
 /*
 Python to perform mmx using amd lapack.
 
-Routine to perform SVD of a matrix using lapack.  Hopefully, similar to the scalapack version - I have a hunch that intel acml may be multi-threaded, so may be faster than scalapack on a single computer (eg 8 core mac).
+Routine to perform SVD of a matrix using lapack.  Hopefully, similar to the scalapack version - I have a hunch that intel atlas may be multi-threaded, so may be faster than scalapack on a single computer (eg 8 core mac).
 
 
 In this version, reads an input file, and does svd of it.
@@ -12,6 +12,12 @@ ncols, nrows, input data filename, output filename
 The input and outputs are FITS files.
 
 Perform the SVD, then write the results.
+import numpy,time,pylab,util.computeRecon
+mr=util.computeRecon.makeRecon("test")
+a=numpy.random.random((10,10)).astype("f")
+aa=mr.dot(a,a,order="C")
+
+
 */
 
 
@@ -29,15 +35,16 @@ Perform the SVD, then write the results.
 #include <assert.h>
 #include <math.h>
 #include <sys/mman.h>
-#include <acml.h>
-typedef int ACML_INT;
+#include <cblas.h>
+#include <lapacke.h>
+typedef int ATLAS_INT;
 
-static PyObject *acmlError;
+static PyObject *obError;
 
 static PyObject* ludecomp(PyObject *self,PyObject *args){
   PyArrayObject *Aarray,*ipiv;
-  ACML_INT info=0;
-  ACML_INT n,m;
+  ATLAS_INT info=0;
+  ATLAS_INT n,m;
   if(!PyArg_ParseTuple(args,"O!O!",&PyArray_Type,&Aarray,&PyArray_Type,&ipiv)){
     printf("Usage: A, ipiv (dimension equal to smallest dimension of A).\n");
     return NULL;
@@ -56,8 +63,8 @@ static PyObject* ludecomp(PyObject *self,PyObject *args){
     printf("A must be float or double\n");
     return NULL;
   }
-  if(sizeof(ACML_INT)!=ipiv->descr->elsize || ipiv->descr->kind!='i'){
-    printf("ipiv should be integer type size %ld (has size %d, kind %c\n",sizeof(ACML_INT),ipiv->descr->elsize,ipiv->descr->kind);
+  if(sizeof(ATLAS_INT)!=ipiv->descr->elsize || ipiv->descr->kind!='i'){
+    printf("ipiv should be integer type size %ld (has size %d, kind %c\n",sizeof(ATLAS_INT),ipiv->descr->elsize,ipiv->descr->kind);
     return NULL;
   }
   if(!PyArray_ISCONTIGUOUS(Aarray)){
@@ -71,9 +78,9 @@ static PyObject* ludecomp(PyObject *self,PyObject *args){
   info=0;
   Py_BEGIN_ALLOW_THREADS;
   if(Aarray->descr->type_num==NPY_FLOAT){
-    sgetrf(m,n,(float*)Aarray->data,m,(ACML_INT*)ipiv->data,&info);
+    LAPACKE_sgetrf(CblasRowMajor,m,n,(float*)Aarray->data,m,(ATLAS_INT*)ipiv->data);//,&info);
   }else{
-    dgetrf(m,n,(double*)Aarray->data,m,(ACML_INT*)ipiv->data,&info);
+    LAPACKE_dgetrf(CblasRowMajor,m,n,(double*)Aarray->data,m,(ATLAS_INT*)ipiv->data);//,&info);
   }
   Py_END_ALLOW_THREADS;
   if(info!=0){
@@ -86,8 +93,8 @@ static PyObject* ludecomp(PyObject *self,PyObject *args){
 static PyObject *luinv(PyObject *self,PyObject *args){
   PyArrayObject *Aarray,*ipiv,*workArray;
   PyObject *workObj;
-  ACML_INT info=0;
-  ACML_INT n,m,lwork;
+  ATLAS_INT info=0;
+  ATLAS_INT n,m,lwork;
   int checkWorkSize=0;
   char *workarr=NULL;
   if(!PyArg_ParseTuple(args,"O!O!O",&PyArray_Type,&Aarray,&PyArray_Type,&ipiv,&workObj)){
@@ -112,8 +119,8 @@ static PyObject *luinv(PyObject *self,PyObject *args){
     printf("A must be float or double\n");
     return NULL;
   }
-  if(sizeof(ACML_INT)!=ipiv->descr->elsize || ipiv->descr->kind!='i'){
-    printf("ipiv should be integer type size %ld\n",sizeof(ACML_INT));
+  if(sizeof(ATLAS_INT)!=ipiv->descr->elsize || ipiv->descr->kind!='i'){
+    printf("ipiv should be integer type size %ld\n",sizeof(ATLAS_INT));
     return NULL;
   }
   if(!PyArray_ISCONTIGUOUS(Aarray)){
@@ -151,18 +158,18 @@ static PyObject *luinv(PyObject *self,PyObject *args){
   info=0;
   Py_BEGIN_ALLOW_THREADS;
   if(Aarray->descr->type_num==NPY_FLOAT){
-    sgetri(n,(float*)Aarray->data,n,(ACML_INT*)ipiv->data,&info);
+    LAPACKE_sgetri(CblasRowMajor,n,(float*)Aarray->data,n,(ATLAS_INT*)ipiv->data);//,&info);
   }else{
-    dgetri(n,(double*)Aarray->data,n,(ACML_INT*)ipiv->data,&info);
+    LAPACKE_dgetri(CblasRowMajor,n,(double*)Aarray->data,n,(ATLAS_INT*)ipiv->data);//,&info);
 
   }
   Py_END_ALLOW_THREADS;
 
   if(checkWorkSize){
     if(Aarray->descr->type_num==NPY_FLOAT){
-      lwork=(ACML_INT)(*((float*)workarr));
+      lwork=(ATLAS_INT)(*((float*)workarr));
     }else{
-      lwork=(ACML_INT)(*((double*)workarr));
+      lwork=(ATLAS_INT)(*((double*)workarr));
     }
     free(workarr);
   }else{
@@ -180,14 +187,14 @@ static PyObject *luinv(PyObject *self,PyObject *args){
 /*
 static PyObject* svd(PyObject *self,PyObject *args){
   //Perform an SVD.
-  ACML_INT info=0;
-  ACML_INT n,lwork;
+  ATLAS_INT info=0;
+  ATLAS_INT n,lwork;
   PyArrayObject *Aarray,*Uarray,*VTarray,*workArray,*evalArray;
   PyObject *Uobj,*VTobj,*workObj,*evalObj;
   int usesdd=1;
   char jobu='N',jobvt='N',jobz='N';
   int doU=0,doVT=0,overwriteUA=0,overwriteVTA=0;
-  ACML_INT *iwork=NULL;
+  ATLAS_INT *iwork=NULL;
   char *uarr=NULL,*vtarr=NULL,*workarr=NULL,*evalarr=NULL,*aarr=NULL;
   int checkWorkSize=0;
 
@@ -345,7 +352,7 @@ static PyObject* svd(PyObject *self,PyObject *args){
   
   if(checkWorkSize==0){
     if(usesdd){
-      if((iwork=(ACML_INT*)malloc(sizeof(ACML_INT)*8*n))==NULL){
+      if((iwork=(ATLAS_INT*)malloc(sizeof(ATLAS_INT)*8*n))==NULL){
 	printf("unable to allocate iwork\n");
 	return NULL;
       }
@@ -372,9 +379,9 @@ static PyObject* svd(PyObject *self,PyObject *args){
   
   if(checkWorkSize){
     if(Aarray->descr->type_num==NPY_FLOAT){
-      lwork=(ACML_INT)(*((float*)workarr));
+      lwork=(ATLAS_INT)(*((float*)workarr));
     }else{
-      lwork=(ACML_INT)(*((double*)workarr));
+      lwork=(ATLAS_INT)(*((double*)workarr));
     }
     free(workarr);
   }else{
@@ -420,8 +427,9 @@ static PyObject* gemm(PyObject *self,PyObject *args){
   PyArrayObject *Aarray,*Barray,*Carray;
   double dalpha=1.,dbeta=0.;
   float falpha=1.,fbeta=0.;
-  char transA='N',transB='N';
-  ACML_INT lda,ldb,k,m,n,ldc;
+  //char transA='N',transB='N';
+  enum CBLAS_TRANSPOSE transA=CblasNoTrans,transB=CblasNoTrans;
+  ATLAS_INT lda,ldb,k,m,n,ldc;
   long wsize;
 
   if(!PyArg_ParseTuple(args,"O!O!O!|dd",&PyArray_Type,&Aarray,&PyArray_Type,&Barray,&PyArray_Type,&Carray,&dalpha,&dbeta)){
@@ -449,70 +457,79 @@ static PyObject* gemm(PyObject *self,PyObject *args){
   //now work out whether A, B are transposed or not, and check contiguous.
   wsize=Aarray->descr->type_num==NPY_FLOAT?4:8;
   if(Aarray->strides[1]==wsize)// && Aarray->strides[0]==wsize*Aarray->dimensions[1])
-    transA='T';
+    transA=CblasNoTrans;//'T';
   else if(Aarray->strides[0]==wsize)// && Aarray->strides[1]==wsize*Aarray->dimensions[0])
-    transA='N';
+    transA=CblasTrans;//'N';
   else{
     printf("A must be contiguous or transpose of contiguous along the stepping dimension\n");
     return NULL;
   }
 
   if(Barray->strides[1]==wsize)// && Barray->strides[0]==wsize*Barray->dimensions[1])
-    transB='T';
+    transB=CblasNoTrans;
   else if(Barray->strides[0]==wsize)// && Barray->strides[1]==wsize*Barray->dimensions[0])
-    transB='N';
+    transB=CblasTrans;
   else{
     printf("B must be contiguous or transpose of contiguous\n");
     return NULL;
   }
-  if(Carray->strides[0]!=wsize){
+  if(Carray->strides[1]!=wsize){
     printf("C must be contiguous along first dimension - use order='F' in call to numpy.zeros, or change c.strides\n");
     return NULL;
   }
 
   //now check matrix sizes are okay.
-  m=(ACML_INT)Aarray->dimensions[0];
+  m=(ATLAS_INT)Aarray->dimensions[0];
   if(Carray->dimensions[0]!=m){
     printf("Rows of A and C not in agreement\n");
     return NULL;
   }
-  n=(ACML_INT)Barray->dimensions[1];
+  n=(ATLAS_INT)Barray->dimensions[1];
   if(Carray->dimensions[1]!=n){
     printf("Cols of B and C not in agreement\n");
     return NULL;
   }
-  k=(ACML_INT)Aarray->dimensions[1];
+  k=(ATLAS_INT)Aarray->dimensions[1];
   if(Barray->dimensions[0]!=k){
     printf("Rows of B not equal to cols of A\n");
     return NULL;
   }
-  if(transA=='N'){
+  if(transA==CblasNoTrans){
     //lda=m;
-    lda=Aarray->strides[1]/wsize;
+    lda=Aarray->strides[0]/wsize;
   }else{
     //lda=k;
-    lda=Aarray->strides[0]/wsize;
+    lda=Aarray->strides[1]/wsize;
   }
-  if(transB=='N'){
+  if(transB==CblasNoTrans){
     //ldb=k;
-    ldb=Barray->strides[1]/wsize;
+    ldb=Barray->strides[0]/wsize;
   }else{
     //ldb=n;
-    ldb=Barray->strides[0]/wsize;
+    ldb=Barray->strides[1]/wsize;
   }
-  ldc=(ACML_INT)Carray->strides[1]/wsize;
-  printf("gemm values: %d %d %d %d %d %d\n",(int)m,(int)n,(int)k,(int)lda,(int)ldb,(int)ldc);
+  ldc=(ATLAS_INT)Carray->strides[0]/wsize;
+  printf("%d %d %d %d %d %d\n",(int)m,(int)n,(int)k,(int)lda,(int)ldb,(int)ldc);
   if(Aarray->descr->type_num==NPY_FLOAT){
-    sgemm(transA,transB,m,n,k,falpha,(float*)Aarray->data,lda,(float*)Barray->data,ldb,fbeta,(float*)Carray->data,ldc);
+    cblas_sgemm(CblasRowMajor,transA,transB,m,n,k,falpha,(float*)Aarray->data,lda,(float*)Barray->data,ldb,fbeta,(float*)Carray->data,ldc);
   }else{
-    dgemm(transA,transB,m,n,k,dalpha,(double*)Aarray->data,lda,(double*)Barray->data,ldb,dbeta,(double*)Carray->data,ldc);
+    cblas_dgemm(CblasRowMajor,transA,transB,m,n,k,dalpha,(double*)Aarray->data,lda,(double*)Barray->data,ldb,dbeta,(double*)Carray->data,ldc);
   }
   return Py_BuildValue("l",0);
 }
+/*
+import numpy,cmod.atlas
+a=numpy.random.random((10,10)).astype("f")
+res=numpy.zeros((5,8),"f")
+cmod.atlas.gemm(a[:5],a[:,:8],res)
+res-numpy.dot(a[:5],a[:,:8])
+
+
+ */
 
 
 
-static PyMethodDef acmlMethods[] = {
+static PyMethodDef obMethods[] = {
   //  {"svd",svd, METH_VARARGS,"Do SVD of a square array."},
   {"gemm",gemm, METH_VARARGS,"Do matrix-matrix multiply."},
   {"ludecomp",ludecomp,METH_VARARGS,"Do LU decomposition (destroys input)"},
@@ -520,15 +537,15 @@ static PyMethodDef acmlMethods[] = {
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 //PyMODINIT_FUNC 
-void initacml(void)
+void initob(void)
 {
   PyObject *m;
-  PyImport_AddModule("acml");
-  m=Py_InitModule("acml", acmlMethods);
+  PyImport_AddModule("ob");
+  m=Py_InitModule("ob", obMethods);
   import_array();
-  acmlError = PyErr_NewException("acml.error", NULL, NULL);
-  Py_INCREF(acmlError);
-  PyModule_AddObject(m, "error", acmlError);
+  obError = PyErr_NewException("ob.error", NULL, NULL);
+  Py_INCREF(obError);
+  PyModule_AddObject(m, "error", obError);
 }
 
 
@@ -542,7 +559,7 @@ main(int argc, char *argv[])
   Py_Initialize();
   
   // Add a static module 
-  initacml();
+  initob();
   return 0;
 }
 

@@ -653,3 +653,50 @@ mpiexec -n 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;pri
 or
 mpirun -np 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"
 
+gig50: ACML:
+ACML 5.3.0 didn't work (sgemm failed silently).
+So, got acml 6.1.0.31.
+But this failed to find an openCL device, so had to install openCL stuff:
+
+http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk/#
+AMD-APP-SDK-linux-v2.9-1.599.381-GA-x64.tar.bz2
+mkdir tmp/amdapp
+cd tmp/amdapp
+tar -xvf ../../AMD*
+sudo sh A<tab>
+Then edit the entry in /etc/profile.d/* to prevent it overwriting LD_LIBRARY_PATH
+
+TGT_DIR=/opt/opencl-headers/include/CL 
+
+
+sudo mkdir -p $TGT_DIR && cd $TGT_DIR
+sudo wget https://www.khronos.org/registry/cl/api/1.2/{opencl,cl_platform,cl,cl_ext,cl_gl,cl_gl_ext}.h
+
+Test it:
+cd ~/
+curl https://codeload.github.com/hpc12/tools/tar.gz/master
+tar -zxvf master
+cd tools-master
+make
+make OPENCL_INC=/opt/AMDAPPSDK-2.9-1/include/ OPENCL_LIB=/opt/AMDAPPSDK-2.9-1/lib/x86_64/
+./print-devices
+./cl-demo 1000000 10
+
+import numpy,cmod.acml
+aa=numpy.random.random((61,909)).astype("f");bb=aa.T;ress=numpy.zeros((61,61),"f",order="F");cmod.acml.gemm(aa,bb,ress)
+
+
+export OPENCL_LIB_FILE=/opt/AMDAPPSDK-2.9-1/lib/x86_64/libOpenCL.so
+
+
+sudo apt-get install libopenblas-dev
+
+
+wget http://github.com/xianyi/OpenBLAS/tarball/v0.2.13
+tar -zxvf v0.2.13
+cd xianyi-OpenBLAS-aceee4e/
+sudo apt-get install gfortran
+make
+sudo mkdir /opt/openblas
+sudo make PREFIX=/opt/openblas/ install
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/openblas/lib

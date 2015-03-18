@@ -13,6 +13,7 @@ import util.gradientOperator
 #import svd
 acml=0
 atlas=0
+openblas=0
 try:
     import cmod.mkl as mkl
 except:
@@ -26,7 +27,12 @@ except:
             import cmod.atlas as mkl
             atlas=1
         except:
-            print "Warning: in computeRecon.py - cmod.mkl, cmod.acml and cmod.atlas not found - this may cause problems depending what functions you want - but continuing anyway"
+            print "Cannot import atlas either - trying openblas"
+            try:
+                import cmod.ob as mkl
+                openblas=1
+            except:
+                print "Warning: in computeRecon.py - cmod.mkl, cmod.acml and cmod.atlas not found - this may cause problems depending what functions you want - but continuing anyway"
 
         
 import cmod.svd,scipy.sparse
@@ -103,7 +109,7 @@ class makeRecon:
                     diagScaling=numpy.sqrt(diagScaling)
                 else:
                     diagScaling=numpy.ones((shape[1],),numpy.float32)*numpy.sqrt(diagScaling)
-            if atlas:
+            if atlas or openblas:
                 res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="C")
             else:
                 res=numpy.zeros((shape[0],shape[0]),csc.dtype,order="F")
@@ -348,13 +354,13 @@ class makeRecon:
             raise Exception("A not contiguous")
         if a.dtype!=dtype:
             a=a.astype(dtype)
-        if acml or atlas:
+        if acml or atlas or openblas:
             ipiv=numpy.zeros((min(a.shape),),numpy.int32)
         else:
             ipiv=numpy.zeros((min(a.shape),),numpy.int64)
         t1=time.time()
         mkl.ludecomp(a,ipiv)
-        if acml or atlas:
+        if acml or atlas or openblas:
             lw=1
         else:
             lw=mkl.luinv(a,ipiv,None)
@@ -475,7 +481,7 @@ class makeRecon:
                 b=b2
                 del(b2)
                 if type(res)==type(None):
-                    if atlas:
+                    if atlas or openblas:
                         res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="C")
                     else:
                         res=numpy.empty((pmxshape[0],veutshape[1]),a.dtype,order="F")
@@ -496,7 +502,7 @@ class makeRecon:
         """A simple dot product using mkl"""
         if res==None:
             if order==None:
-                if atlas:
+                if atlas or openblas:
                     order="C"
                 else:
                     order="F"
