@@ -688,9 +688,7 @@ aa=numpy.random.random((61,909)).astype("f");bb=aa.T;ress=numpy.zeros((61,61),"f
 
 export OPENCL_LIB_FILE=/opt/AMDAPPSDK-2.9-1/lib/x86_64/libOpenCL.so
 
-
-sudo apt-get install libopenblas-dev
-
+BUT IT STILL DIDN'T WORK.  So USED OPENBLAS INSTEAD (from source, not repository):
 
 wget http://github.com/xianyi/OpenBLAS/tarball/v0.2.13
 tar -zxvf v0.2.13
