@@ -39,7 +39,7 @@ aa=mr.dot(a,a,order="C")
 #include <lapacke.h>
 typedef int ATLAS_INT;
 
-static PyObject *obError;
+static PyObject *openblasError;
 
 static PyObject* ludecomp(PyObject *self,PyObject *args){
   PyArrayObject *Aarray,*ipiv;
@@ -529,7 +529,7 @@ res-numpy.dot(a[:5],a[:,:8])
 
 
 
-static PyMethodDef obMethods[] = {
+static PyMethodDef openblasMethods[] = {
   //  {"svd",svd, METH_VARARGS,"Do SVD of a square array."},
   {"gemm",gemm, METH_VARARGS,"Do matrix-matrix multiply."},
   {"ludecomp",ludecomp,METH_VARARGS,"Do LU decomposition (destroys input)"},
@@ -537,15 +537,15 @@ static PyMethodDef obMethods[] = {
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 //PyMODINIT_FUNC 
-void initob(void)
+void initopenblas(void)
 {
   PyObject *m;
-  PyImport_AddModule("ob");
-  m=Py_InitModule("ob", obMethods);
+  PyImport_AddModule("openblas");
+  m=Py_InitModule("openblas", openblasMethods);
   import_array();
-  obError = PyErr_NewException("ob.error", NULL, NULL);
-  Py_INCREF(obError);
-  PyModule_AddObject(m, "error", obError);
+  openblasError = PyErr_NewException("openblas.error", NULL, NULL);
+  Py_INCREF(openblasError);
+  PyModule_AddObject(m, "error", openblasError);
 }
 
 
@@ -559,7 +559,7 @@ main(int argc, char *argv[])
   Py_Initialize();
   
   // Add a static module 
-  initob();
+  initopenblas();
   return 0;
 }
 

@@ -560,7 +560,12 @@ Should then print out:
 If it doesn't print your python path, you may need to add it to /etc/environment
 
 So, in summary, require:
-sudo apt-get install python-scientific mpichpython mpich-bin python-netcdf python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib
+
+sudo apt-get install  python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib
+And depending on MPI package:
+sudo apt-get install python-scientific mpichpython mpich-bin python-netcdf
+OR:
+sudo apt-get install python-mpi4py
 
 
 On fedora, need ScientificPython.
