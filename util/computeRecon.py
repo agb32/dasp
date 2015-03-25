@@ -29,7 +29,7 @@ except:
         except:
             print "Cannot import atlas either - trying openblas"
             try:
-                import cmod.ob as mkl
+                import cmod.openblas as mkl
                 openblas=1
             except:
                 print "Warning: in computeRecon.py - cmod.mkl, cmod.acml and cmod.atlas not found - this may cause problems depending what functions you want - but continuing anyway"
