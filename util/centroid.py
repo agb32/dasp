@@ -2113,7 +2113,7 @@ def createAiryDisc(npup,halfwidth=1.,xoff=0.,yoff=0.):
     dist=util.dist.dist(npup,dy=center+yoff,dx=center+xoff)*3.8317/halfwidth
     disc=scipy.special.j1(dist)/dist#ignore division by zero - the nan is removed later
     disc=numpy.where(dist==0,0.5,disc)**2#remove NaN and square...
-    return disc
+    return disc.astype(numpy.float32)
 
 
 # class fpgaCentStateInformation:
