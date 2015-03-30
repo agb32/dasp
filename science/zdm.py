@@ -30,8 +30,12 @@ class dm(base.aobase.aobase):
             self.actEnd=None
             self.sourceLam=self.dmInfo.reconLam
 	    self.dmpup=self.dmObj.calcdmpup(self.idstr[0])#number of pixels to store the phase. May be >npup if not ground conjugate.
-            self.pupil=self.config.getVal("pupil")
-            self.dmpupil=self.dmInfo.computeDMPupil(self.atmosGeom,self.pupil.r2)[2]
+            self.pupil=self.config.getVal("pupil",raiseerror=0)
+            if self.pupil==None:
+                r2=0
+            else:
+                r2=self.pupil.r2
+            self.dmpupil=self.dmInfo.computeDMPupil(self.atmosGeom,r2)[2]
 	    self.conjHeight=self.dmObj.getHeight(self.idstr[0])
 	    self.actoffset=self.dmObj.getactoffset(self.idstr[0])
 
@@ -295,11 +299,12 @@ class dm(base.aobase.aobase):
                     else:
                         self.outputData[:,]=self.selectedDmPhs*this.wavelengthAdjustor
                         
-                self.outputData*=self.pupil.fn
-                #now remove piston
-                phasesum=numpy.sum(self.outputData.ravel())
-                self.outputData-=phasesum/self.pupil.sum
-                self.outputData*=self.pupil.fn
+                if self.pupil!=None:
+                    self.outputData*=self.pupil.fn
+                    #now remove piston
+                    phasesum=numpy.sum(self.outputData.ravel())
+                    self.outputData-=phasesum/self.pupil.sum
+                    self.outputData*=self.pupil.fn
                 #self.outputData += (self.dmphs*(self.wavelengthRatio))# Calculate reflected phase
         else:
             self.dataValid=0
@@ -314,7 +319,11 @@ class dm(base.aobase.aobase):
             nactsCumList=[0]
             for dm in self.dmList:
                 if dm.zonalDM:
-                    tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                    if self.pupil==None:
+                        r2=0
+                    else:
+                        r2=self.pupil.r2
+                    tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=r2,retPupil=0)
                     # tmp is dmflag,subarea (or None,None for modal DMs.)
                     #self.dmPupList.append(tmp[0])
 

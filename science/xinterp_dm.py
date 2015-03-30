@@ -39,7 +39,7 @@ class dm(base.aobase.aobase):
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
             self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             self.npup=self.config.getVal("npup")
-            self.pupil=self.config.getVal("pupil")
+            self.pupil=self.config.getVal("pupil",raiseerror=0)
             self.interpolationNthreads=self.config.getVal("interpolationNthreads", default=0)
             self.subtractTipTilt=self.config.getVal("subtractTipTilt",default=0)
             self.monteNoll=None
@@ -97,7 +97,11 @@ class dm(base.aobase.aobase):
                 self.maxStroke=self.thisdm.maxStroke*1000./self.sourceLam*2*numpy.pi/2.
                 sourceID=self.dmObj.getSourceID(self.idstr[0])
                 # need a flag telling us which actuators are valid to use (otherwise we waste time and memory reconstructing all actuators).  This flag will depend on the geometry (Freid etc) and dmpup.
-                self.dmflag=self.dmObj.computeDMPupil(self.idstr[0],centObscuration=self.pupil.r2,retPupil=0)[0]
+                if self.pupil==None:
+                    r2=0
+                else:
+                    r2=self.pupil.r2
+                self.dmflag=self.dmObj.computeDMPupil(self.idstr[0],centObscuration=r2,retPupil=0)[0]
                 self.actCoupling=self.dmObj.getcoupling(self.idstr[0])
                 self.actSlaves=self.thisdm.getSlaving()
                 self.mirrorSurface = self.thisdm.getMirrorSurface(phsOut = 1,                                                                interpolationNthreads = self.interpolationNthreads)
@@ -419,11 +423,13 @@ class dm(base.aobase.aobase):
                         else:
                             self.outputData[:,]=self.selectedDmPhs*this.wavelengthAdjustor
 
-                    self.outputData*=self.pupil.fn
-                    #now remove any piston...
-                    phasesum=numpy.sum(self.outputData.ravel())
-                    self.outputData-=phasesum/self.pupil.sum
-                    self.outputData*=self.pupil.fn
+                    if self.pupil!=None:
+                        self.outputData*=self.pupil.fn
+                        #now remove any piston... though probably not necessary.
+                        phasesum=numpy.sum(self.outputData.ravel())
+                        self.outputData-=phasesum/self.pupil.sum
+                        self.outputData*=self.pupil.fn
+
                 else:
                     if not this.parent.has_key("atmos"):
                         self.outputData[:]=0
@@ -440,7 +446,11 @@ class dm(base.aobase.aobase):
             nactsCumList=[0]
             for dm in self.dmList:
                 if dm.zonalDM:
-                    tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                    if self.pupil==None:
+                        r2=0
+                    else:
+                        r2=self.pupil.r2
+                    tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=r2,retPupil=0)
                     # tmp is dmflag,subarea (or None,None for modal DMs.)
                     #self.dmPupList.append(tmp[0])
 
@@ -553,6 +563,8 @@ class dm(base.aobase.aobase):
         actmx1d=numpy.reshape(actmx,(self.nact*self.nact,))
         self.mirrorModes=numpy.zeros((self.nacts,self.npup,self.npup),numpy.float32)
         self.mirrorScale=numpy.zeros((self.nacts),numpy.float32)
+        if self.pupil==None:
+            raise Exception("Must specify a pupil function for making mirror modes")
         pfn=self.pupil.fn
         for i in range(self.nacts):
             if modeMatrix==None:
