@@ -357,6 +357,7 @@ class AOXml:
                 except:
                     print "ERROR - in XML file, while making value."
                     print "This occured for element %s near line %d of file %s."%(attrs["name"],self.p.CurrentLineNumber,self.filename)
+                    print "Offending line: %s"%attrs["value"]
                     #print sys.exc_info()
                     #import traceback
                     #traceback.print_tb(sys.exc_info()[2])
