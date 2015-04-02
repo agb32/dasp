@@ -23,7 +23,11 @@ def run(ignoremem=0):
             if loadlist[-1]>0.1:
                 okay=0
             txt+="%.2f, "%loadlist[-1]
-        mem=top[3].split()[2::2]#total, used, free, buffers
+        ind=2
+        tt=top[3].split()
+        if tt[0]=="KiB":
+            ind+=1
+        mem=top[3].split()[ind::2]#total, used, free, buffers
         fracmem=float(mem[1][:-1])/float(mem[0][:-1])
         #if fracmem>0.5:
         #    okay=0
