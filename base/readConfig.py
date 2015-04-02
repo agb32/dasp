@@ -123,7 +123,7 @@ class AOXml:
             setattr(self.this,"filename",file)
             if file[-4:]==".xml":
                 #txt=open(file).read()
-                txt=PreFormatXML(file).txt
+                txt=PreFormatXML(file,self.this).txt
                 self.filename=file
                 self.error=0
                 self.parse(txt)
@@ -931,8 +931,9 @@ class dudFile:
 
 class PreFormatXML:
     """Used to expand modules with id tags into separate modules."""
-    def __init__(self,file,batchno=0):
+    def __init__(self,file,this,batchno=0):
         self.p=None
+        self.this=this
         self.file=file
         self.filename=None
         self.batchno=batchno
@@ -1007,7 +1008,24 @@ class PreFormatXML:
         else:#get this tag, and everything under it...
             id=[]
             if tag.name=="module" and tag.attrs.has_key("id"):
-                id=eval(tag.attrs["id"])
+                #put current module contents in local space...
+                mlist=["globals",tag.name]
+                glob={}
+                for mod in mlist:
+                    #put all the variables into the locals dictionary...
+                    if hasattr(self.this,mod):
+                        obj=getattr(self.this,mod)
+                        vars=dir(obj)
+                        for var in vars:
+                            if var[:2]!="__":
+                                glob[var]=getattr(obj,var)
+                        glob[mod]=obj
+                glob["this"]=self.this
+                glob["numpy"]=numpy
+                #glob["module"]=self.curmodule
+
+
+                id=eval(tag.attrs["id"],glob)
                 if type(id)==type(()):
                     id=list(id)#convert tuple to list.
                 if type(id)!=type([]):
