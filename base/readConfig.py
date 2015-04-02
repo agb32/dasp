@@ -1007,7 +1007,7 @@ class PreFormatXML:
         if type(tag)==type(""):#character data only...
             txt=tag
         else:#get this tag, and everything under it...
-            id=[]
+            id=None
             if tag.name=="module" and tag.attrs.has_key("id"):
                 #put current module contents in local space...
                 mlist=["globals",tag.name]
@@ -1031,7 +1031,7 @@ class PreFormatXML:
                     id=list(id)#convert tuple to list.
                 if type(id)!=type([]):
                     id=[id]
-            if len(id)==0:
+            if id==None:
                 id=[]
             
             intxt=""
