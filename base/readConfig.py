@@ -1032,7 +1032,7 @@ class PreFormatXML:
                 if type(id)!=type([]):
                     id=[id]
             if len(id)==0:
-                id=[""]
+                id=[]
             
             intxt=""
             for t in tag.tags:
