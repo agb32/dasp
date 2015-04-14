@@ -267,13 +267,13 @@ class dmInfo:
             secDiam=centObscuration*telDiam*2/atmosGeom.ntel
             if alt>0:
                 sfac=numpy.abs(alt-height)/alt
-                if sfac!=1:
+                if sfac!=1:#if statement necessary for floating point rounding
                     telDiam*=sfac#rescale to lgs cone...
                     secDiam*=sfac
             w=pxlscale*telDiam/2.#width in pixels... (radius)
             diam2=(telDiam*pxlscale)**2/4.
             secDiam2=(secDiam*pxlscale)**2/4.
-            if x-w<0 or y-w<0 or x+w>dmpup or y+w>dmpup:
+            if x-w<-1e-10 or y-w<-1e-10 or x+w>dmpup or y+w>dmpup:
                 raise Exception("util.dm.computeDMPupil - bad coords: %g %g %g %g %g source %s, height %g"%(x-w,y-w,x+w,y+w,dmpup,source, height))
             #now make a circle of this radius around x,y...
             for i in xrange(int(y-w),min(dmpup,int(numpy.ceil(y+w))+1)):
