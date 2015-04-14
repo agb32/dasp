@@ -266,8 +266,8 @@ class dmInfo:
             y=dmpup/2.+sy*pxlscale
             secDiam=centObscuration*telDiam*2/atmosGeom.ntel
             if alt>0:
-                telDiam*=numpy.fabs(alt-height)/alt#rescale to lgs cone...
-                secDiam*=numpy.fabs(alt-height)/alt
+                telDiam*=numpy.abs(alt-height)/alt#rescale to lgs cone...
+                secDiam*=numpy.abs(alt-height)/alt
             w=pxlscale*telDiam/2.#width in pixels... (radius)
             diam2=(telDiam*pxlscale)**2/4.
             secDiam2=(secDiam*pxlscale)**2/4.
