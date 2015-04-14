@@ -268,8 +268,8 @@ class dmInfo:
             if alt>0:
                 sfac=numpy.abs(alt-height)/alt
                 if sfac!=1:
-                telDiam*=sfac#rescale to lgs cone...
-                secDiam*=sfac
+                    telDiam*=sfac#rescale to lgs cone...
+                    secDiam*=sfac
             w=pxlscale*telDiam/2.#width in pixels... (radius)
             diam2=(telDiam*pxlscale)**2/4.
             secDiam2=(secDiam*pxlscale)**2/4.
