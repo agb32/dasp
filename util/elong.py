@@ -164,7 +164,7 @@ def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=Non
             psfs[isub,jsub]=gauss.make(unelong_width/pixscale,e/pixscale,phi)
             psfs[isub,jsub]*=photons/psfs[isub,jsub].sum()*pup[isub*spotsize:(isub+1)*spotsize,jsub*spotsize:(jsub+1)*spotsize].sum()/spotsize**2
             
-    img=numpy.zeros((nsubx*spotsize,nsubx*spotsize),numpy.float)
+    img=numpy.zeros((nsubx*spotsize,nsubx*spotsize),numpy.float32)
     for i in range(nsubx):
         for j in range(nsubx):
             img[i*spotsize:(i+1)*spotsize,j*spotsize:(j+1)*spotsize]=psfs[i,j]
