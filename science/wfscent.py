@@ -125,9 +125,9 @@ class wfscent(base.aobase.aobase):
 ##             if self.atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
 ##                 raise Exception("wfscent: atmosPhaseType not known %s"%self.atmosPhaseType)
             #seed here - no point seeding each resource sharing object...
-            numpy.random.seed(config.getVal("wfs_seed",default=None,raiseerror=0))
+            numpy.random.seed(config.getVal("wfs_seed",default=self.config.getVal("seed",raiseerror=0),raiseerror=0))
             #random.seed(config.getVal("wfs_seed",default=0))
-            cmod.imgnoise.seed(config.getVal("wfs_rand_seed",default=0))
+            cmod.imgnoise.seed(config.getVal("wfs_rand_seed",default=self.config.getVal("seed",default=0)))
             if args.has_key("fpprecision"):
                 if args["fpprecision"]==32:
                     self.fpDataType=numpy.float32
@@ -150,7 +150,7 @@ class wfscent(base.aobase.aobase):
                print("INFORMATION:wfscent: Using **Python** implementation")
             self.printLinearisationForcing=self.config.getVal("printLinearisationForcing",default=0)
             #self.cellseed=self.config.getVal("cellseed",default=1)
-            self.cmodcentseed=self.config.getVal("cmodcentseed",default=0)
+            self.cmodcentseed=self.config.getVal("cmodcentseed",default=self.config.getVal("seed",default=0))
             self.nthreads=self.config.getVal("nthreads",default="all")#usually an integer... or "all"
             if self.nthreads=="all":#use all available CPUs...
                 self.nthreads=self.config.getVal("ncpu")#getCpus()

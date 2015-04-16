@@ -6,6 +6,7 @@ code means that the FPGAs cannot be easily used - though you can probably
 change this easily enough if required.
 """
 import util.flip,cmod.binimg,cmod.imgnoise
+import scipy.interpolate
 import numpy,numpy.random,numpy.fft
 import util.arrayFromArray
 import util.poisson,time,os
@@ -813,14 +814,27 @@ class centroid:
         ## efficient bytecode, hence the switch only occurs once per
         ## call to reorder
         elif self.atmosPhaseType=="phaseonly":
-             def _doassign(i,j,pos,n,phs,typecode):
-                 self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)
+            #If the phase isn't the same size as expected, interpolate it.  This works best when there is no dm pupil - and its best to check that the new pupil specified for this centroid object is the right size.  i.e. have a look at (in simCtrl):  
+            #w=wfscentList[0].thisObjList[0].wfscentObj;data=w.phsInterp.copy()*w.pupfn
+            #It might be necessary to slightly oversize the pupil for atmos module, so that interpolation is okay.
+            if phs.shape!=(self.nsubx*self.phasesize,self.nsubx*self.phasesize):
+                x=numpy.arange(phs.shape[1])/float(phs.shape[1]-1)
+                if phs.shape[0]!=phs.shape[1]:
+                    raise Exception("Expected square phase")
+                b=scipy.interpolate.interp2d(x,x,phs,kind="cubic")
+                n=self.nsubx*self.phasesize
+                xnew=(numpy.arange(n)*phs.shape[1]/float(n)-(((n-1)*phs.shape[1])/float(n) - (phs.shape[1]-1))/2.)/float(phs.shape[1]-1)
+                phs=b(xnew,xnew).astype(self.reorderedPhs.dtype)
+                self.phsInterp=phs
+            def _doassign(i,j,pos,n,phs,typecode):
+                self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)
         elif self.atmosPhaseType=="phaseamp":
-             def _doassign(i,j,pos,n,phs,typecode):
-                 self.reorderedPhs[i,j,pos,:,:n,0]=phs[0,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#phase
-                 self.reorderedPhs[i,j,pos,:,:n,1]=phs[1,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#amplitude
+            #interpolating phase not yet implemented.
+            def _doassign(i,j,pos,n,phs,typecode):
+                self.reorderedPhs[i,j,pos,:,:n,0]=phs[0,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#phase
+                self.reorderedPhs[i,j,pos,:,:n,1]=phs[1,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#amplitude
         #nsubx=    self.nsubx
-        n=    self.phasesize
+        n=self.phasesize
         typecode=self.reorderedPhs.dtype
         if self.rowintegtime!=None:
             # support for rolling shutter model
