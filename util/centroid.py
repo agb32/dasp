@@ -105,7 +105,8 @@ class centroid:
           stepRangeFrac=1., phaseMultiplier=1, centWeight=None,
           correlationCentroiding=0, corrThresh=0., 
           corrPattern=None, threshType=0, imageOnly=0, calNCoeff=0,
-          useBrightest=0, printLinearisationForcing=0, rowintegtime=None):
+          useBrightest=0, printLinearisationForcing=0, rowintegtime=None,
+          preBinningFactor=1):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -160,6 +161,7 @@ class centroid:
          - imageOnly - usually 0, but can be 1 or 2 if want to compute the CCD image only.
          - calNCoeff - used if linearSteps!=0, the number of coeffencients to use in polynomial fit (if this is zero, an interpolation routine is used instead)
          - useBrightest - int or array, if want to use brightest pixels algorithm.
+         - preBinningFactor - integer to bin the FFT'd phase, before convolving with PSF.
         """
         self.nsubx=nsubx
         self.warnOverflow=warnOverflow
@@ -177,6 +179,7 @@ class centroid:
         self.threshType=threshType
         self.imageOnly=imageOnly
         self.useBrightest=useBrightest
+        self.preBinningFactor=preBinningFactor
         self.binfactor=binfactor
         self.atmosPhaseType=atmosPhaseType
         self.fpDataType=fpDataType
@@ -360,7 +363,6 @@ class centroid:
         return out
             
 
-#    def initMem(self,useFPGA,fpgaarr=None,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None,useCell=0):
     def initMem(self,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None):
         """initialise memory banks - useful if resource sharing is used in the simulation.
         Not needed if not using simulation framework.
@@ -377,95 +379,32 @@ class centroid:
         self.fittedSubaps=None
         self.shareReorderedPhs=shareReorderedPhs
         phasesize_v=self.phasesize_v
-        # if useFPGA:
-        #     if self.atmosPhaseType=="phaseonly":
-        #         atmosfactor=1#phaseonly...
-        #     else:
-        #         raise Exception("centroid: atmosphasetype...")
-        #     if type(fpgaarr)==type(None):
-        #         raise Exception("centroid: initMem called for FPGA use without passing the fpga accessible array.")
-        #     self.fpgaarr=fpgaarr
-        #     fpgaarrsize=fpgaarr.shape[0]
-        #     self.fpgaarrsize=fpgaarrsize
-        #     memNeeded=self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4*atmosfactor+self.nsubx*self.nsubx*2*4
-        #     nsubx=self.nsubx
-        #     nIntegrations=self.nIntegrations
-        #     phasesize=self.phasesize
-        #     if memNeeded>1024*1024*1024:
-        #         #cant all fit in fpga memory bank at once.
-        #         self.doPartialFPGA=1
-        #         #now see how many subaps can fit at once...
-        #         self.fittedSubaps=1024*1024*1024/(nIntegrations*phasesize*phasesize*4*atmosfactor+2*4)
-        #         self.partialFull=int(nsubx*nsubx/self.fittedSubaps)
-        #         #and the number of subaps left to do.
-        #         self.partialLeftOver=nsubx*nsubx-self.partialFull*self.fittedSubaps
-        #         self.waitLeftOver=self.partialLeftOver*nIntegrations*phasesize*phasesize*5e-9
-        #         #temporary input and output arrays for FPGA to access.
-        #         if atmosfactor==1:
-        #             self.fpgaInArr=util.arrayFromArray.arrayFromArray(fpgaarr,(self.fittedSubaps,nIntegrations,phasesize,phasesize),numpy.float32)
-        #         #create the input and output to copy from and to...
-        #         #if self.atmosPhaseType!="phaseonly":
-        #         #    pass
-        #         self.fpgaOutArr=util.arrayFromArray.arrayFromArray(fpgaarr,(self.fittedSubaps,2),numpy.float32)
-        #         if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
-        #             self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
-        #         else:
-        #             self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
-        #         if type(outputDataMem)==type(None):
-        #             if self.imageOnly==0:
-        #                 self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
-        #             elif self.imageOnly==1:
-        #                 self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
-        #             else:
-        #                 self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
-                                   
-        #         else:
-        #             if self.imageOnly==0:
-        #                 self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,2),numpy.float32)
-        #             elif self.imageOnly==1:
-        #                 self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
-        #             else:
-        #                 self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
-                        
-        #     else: #fpga can access whole array.
-        #         self.doPartialFPGA=0
-        #         #fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.Int8)
-        #         #if self.atmosPhaseType!="phaseonly":
-        #         #    pass
-        #         if shareReorderedPhs==0:
-        #             self.reorderedPhs=numpy.zeros((nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)
-        #             self.fpgaInput=util.arrayFromArray.arrayFromArray(fpgaarr,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)#copy phase to here, before running the fpga.
-        #         else:#it has to come from the fpgaarr... 
-        #             self.reorderedPhs=util.arrayFromArray.arrayFromArray(fpgaarr,(nsubx,nsubx,nIntegrations,phasesize,phasesize),numpy.float32)#fpga can access this directly.
-        #         self.outputData=util.arrayFromArray.arrayFromArray(fpgaarr[nsubx*nsubx*nIntegrations*phasesize*phasesize*4:,],(nsubx,nsubx,2),numpy.float32)
-        # else:#not using FPGA, so set up memory without it.
-        if 1:
-            if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
-                if self.atmosPhaseType=="phaseonly":
-                    self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
-                else:
-                    self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
-                self.reorder(None,numpy.nan) # fill with nan
+        if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
+            if self.atmosPhaseType=="phaseonly":
+                self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
             else:
-                if self.atmosPhaseType=="phaseonly":
-                    self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
-                else:
-                    self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
-            if type(outputDataMem)==type(None):
-                if self.imageOnly==0:
-                    self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
-                elif self.imageOnly==1:
-                    self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
-                else:
-                    self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
-                                   
+                self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
+            self.reorder(None,numpy.nan) # fill with nan
+        else:
+            if self.atmosPhaseType=="phaseonly":
+                self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
             else:
-                if self.imageOnly==0:
-                    self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,2),numpy.float32)
-                elif self.imageOnly==1:
-                    self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
-                else:
-                    self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
+                self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
+        if type(outputDataMem)==type(None):
+            if self.imageOnly==0:
+                self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
+            elif self.imageOnly==1:
+                self.outputData=numpy.zeros((nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
+            else:
+                self.outputData=numpy.zeros((nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
+
+        else:
+            if self.imageOnly==0:
+                self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,2),numpy.float32)
+            elif self.imageOnly==1:
+                self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx,nsubx,self.nimg,self.nimg),numpy.float32)
+            else:
+                self.outputData=util.arrayFromArray.arrayFromArray(outputDataMem,(nsubx*self.nimg,nsubx*self.nimg),numpy.float32)
         if self.imageOnly==0:
             self.centx=self.outputData[:,:,0]
             self.centy=self.outputData[:,:,1]
@@ -487,26 +426,10 @@ class centroid:
             self.cmodbimg=util.arrayFromArray.arrayFromArray(self.bimg,(self.nsubx,self.nsubx,self.nimg,self.nimg),numpy.float32)
         else:
             self.cmodbimg=None
-##         if type(shimgMem)==type(None):
-##             self.shimg=numpy.zeros((self.nsubx*self.nimg,self.nsubx*self.nimg),numpy.float64)# Tessalated SH image for display
-##         else:
-##             self.shimg=util.arrayFromArray.arrayFromArray(shimgMem,(self.nsubx*self.nimg,self.nsubx*self.nimg),numpy.float64)
         if type(pupsubMem)==type(None):
             self.pupsub=numpy.zeros((self.nsubx,self.nsubx,self.phasesize,self.phasesize),self.fpDataType)
         else:
             self.pupsub=util.arrayFromArray.arrayFromArray(pupsubMem,(self.nsubx,self.nsubx,self.phasesize,self.phasesize),self.fpDataType)
-        #print "centroid - initMem done"
-    # def initialiseCell(self,nspu=6,calsource=0,showCCDImg=0,allCents=1,cellseed=1):
-    #     if self.canUseCell:
-    #         self.cellObj=util.centcell.centcell(self.fftsize,self.nsubx,self.nimg,self.phasesize,
-    #                                             self.ncen,self.nIntegrations,self.reorderdPhs,self.psf,self.pup,
-    #                                             self.outputData,calsource,self.sig,self.readnoise,
-    #                                             readbg=self.readbg,noisefloor=self.noiseFloor,
-    #                                             seed=cellseed,minarea=self.wfs_minarea,
-    #                                             skybrightness=self.skybrightness,allCents=allCents,
-    #                                             shimg=None,nspu=nspu)
-    #         self.cellObj.showCCDImg=showCCDImg
-    #         self.cellObj.initialise()
 
     def initialiseCmod(self,nthreads=8,calsource=0,seed=1):
         self.nthreads=nthreads
@@ -525,71 +448,11 @@ class centroid:
                                                  self.cmodbimg,self.wfs_minarea,self.opticalBinning,
                                                  self.centWeight,self.correlationCentroiding,
                                                  self.corrThresh,self.corrPattern,self.corrimg,
-                                                 self.threshType,self.imageOnly,self.useBrightest)
+                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor)
             #print "initialised cmod - done"
         else:
             self.centcmod=None
-            
-    # def initialiseFPGA(self,fpid=None,ignoreFailure=0,fpgaInfo=None,fpgaBitFile=None):
-    #     """Load the bin file.  Not needed if not using FPGAs."""
-    #     self.fpid=fpid
-    #     self.fpgaInfo=fpgaInfo#store info about what is currently loaded in fpga - eg fft size, pupil map etc.  This should be shared by all centroid objects using the FPGA, and is an instance of fpgaCentStateInformation class.
-    #     self.fpgaBinaryLoaded=0
-    #     if self.canUseFPGA:
-    #         if self.fpid==None:
-    #             try:
-    #                 self.fpid=fpga.open(reset=0,start=0)
-    #                 self.fpgaBinaryLoaded=1
-    #             except:
-    #                 if ignoreFailure:
-    #                     self.fpgaBinaryLoaded=0
-    #                     self.fpid=None
-    #                     print "WARNING: wfscent - failed to initialise FPGA"
-    #                 else:
-    #                     raise
-    #             if self.fpgaBinaryLoaded:
-    #                 fpga.load(self.fpid,fpgaBitFile)
-    #                 if os.environ["HOSTNAME"]=="n1-c437":
-    #                     print "WARNING: wfscent FPGA module may not work correctly on node1... possibly something not quite right with the FPGA."
-    #                 fpga.reset(self.fpid)
-    #                 time.sleep(0.001)
-    #                 fpga.start(self.fpid)
-    #                 time.sleep(0.001)
-    #                 fpga.writeReg(self.fpid,0x2,6)#stop the fpga pipeline
-    #                 self.fpgaInfo=fpgaCentStateInformation()
-    #         else:
-    #             self.fpgaBinaryLoaded=1
-    #     if self.fpgaBinaryLoaded==0:
-    #         self.fpid=None
-    #         self.fpgaInfo=None
-    #         self.canUseFPGA=0
-    #     return self.fpid,self.fpgaInfo
 
-    
-    # def setupFPGAArray(self,fpid=None,fpgaarrsize=None):
-    #     """allocate FPGA memory buffer.  This assumes that phasetype is "phaseonly".
-    #     """
-    #     #fpgaarrsize,doPartialFPGA,fittedSubaps,partialLeftOver,partialFull,waitLeftOver,fpgaarr,fpgaInArr,reorderedPhs,outputData
-    #     #if self.atmosPhaseType=="phaseonly":
-    #     atmosfactor=1#phaseonly...
-    #     #else:
-    #     #    raise Exception("centroid: atmosphasetype...")
-    #     nsubx=self.nsubx
-    #     nIntegrations=self.nIntegrations
-    #     phasesize=self.phasesize
-    #     if fpgaarrsize==None:
-    #         fpgaarrsize=nsubx*nsubx*nIntegrations*phasesize*phasesize*4*atmosfactor+nsubx*nsubx*2*4
-    #     if fpid==None:
-    #         fpid=self.fpid
-    #     if fpgaarrsize<4*1024*1024:
-    #         fpgaarrsize=4*1024*1024#needs 4MB array for loading QDR memory.
-    #     if fpgaarrsize>1024*1024*1024:
-    #         print "WARNING: Pupil pixel size is too large for single FPGA array - will use multiple arrays, but speed will be reduced (FPGA can access only a 1GB buffer)."
-    #         fpgaarrsize=1024*1024*1024#might not all be used, but then we don't know that!  However, it is likely that a whole number of subaps will fit exactly since they are usually powers of two.
-        
-    #     fpgaarr=fpga.mallocHostMem(fpid,(fpgaarrsize,),numpy.int8)
-    #     return fpgaarr
-        
 
 
 

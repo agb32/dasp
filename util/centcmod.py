@@ -25,7 +25,7 @@ class centcmod:
   def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
                addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,
                phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,
-               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest):
+               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor):
     """Wrapper for the c centroid module.
     Here, sig can be a float or a float array.
     """
@@ -71,6 +71,7 @@ class centcmod:
     self.threshType=threshType
     self.imageOnly=imageOnly
     self.useBrightest=useBrightest
+    self.preBinningFactor=preBinningFactor
     if correlationCentroiding:
       if corrPattern!=None:
         if corrPattern.dtype.char!="f" or corrPattern.shape!=(nsubx,nsubx,nimg,nimg):
@@ -79,7 +80,7 @@ class centcmod:
         raise Exception("corrimg wrong shape or type")
 
     print "centcmod: cmod.cent.initialise"
-    self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest)
+    self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor)
 
   def run(self,calsource):
     if calsource!=self.calsource:

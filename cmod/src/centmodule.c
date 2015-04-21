@@ -54,6 +54,9 @@ typedef struct{
   int clipsize;//size after clipping FFT... img is then created by binning this down to nimg.
   int nimg;
   int phasesize;
+  int preBinningFactor;
+  int preBinningFactorOrig;
+  int paddedsize;//either fftsize or if not binning before convolving, can be equal to psfsize.
   int nsubaps;
   //int nsubapsLatest;//how many subaps in the latest DMA.
   //int subapCnt;//how many subaps we've completed in total.
@@ -248,6 +251,7 @@ int addPowerSpec(int fftsize,float *cdata, int psfsize,float *hll,int additive){
   //cdata should be an array of size sizeof(float)*2*fftsize*fftsize, ie containing both real and imag parts interleaved.
   //cdata should be a complex float* array cast to float*.
   //If psfsize>fftsize, data is zeropadded around the edges.
+  //If psfsize<fftsize (e.g. when not using a psf, and when clipping), then is clipped.
   int i,j,indx;
   //int ff=fftsize*fftsize;
   int c2;//=clipsize/2;
@@ -359,10 +363,10 @@ int doFFT(int fftsize,int phasesize,int forward,float *re,float *im,workstruct *
   return 0;
 }
 */
-int computeHll(float *phs,int phasesize,int niters,int fftsize,int psfsize,float *pup,float *tiltfn,complex float *fftarr,float *hll,centstruct *c){
+int computeHll(float *phs,int phasesize,int niters,int fftsize,int paddedsize,float *pup,float *tiltfn,complex float *fftarr,float *hll,centstruct *c){
   int iter,i,j,rtval=0,indx;
   float tmp;
-  memset(hll,0,sizeof(float)*psfsize*psfsize);
+  memset(hll,0,sizeof(float)*paddedsize*paddedsize);
   for(iter=0; iter<niters; iter++){
     //for each simulation iteration to be binned...
     memset(fftarr,0,fftsize*fftsize*sizeof(complex float));
@@ -386,9 +390,9 @@ int computeHll(float *phs,int phasesize,int niters,int fftsize,int psfsize,float
     }
     fftwf_execute_dft(c->fftplan,fftarr,fftarr);
     //rtval|=doFFT(fftsize,phasesize,1,workbuf->phsRe,workbuf->phsIm,workbuf);//do the 2d fft
-    rtval|=addPowerSpec(fftsize,(float*)fftarr,psfsize,hll,iter);//compute the power spectrum (ie high light level img)
+    rtval|=addPowerSpec(fftsize,(float*)fftarr,paddedsize,hll,iter);//compute the power spectrum (ie high light level img)
   }
-  rtval|=flipArray(psfsize,hll,0,NULL);
+  rtval|=flipArray(paddedsize,hll,0,NULL);
   return rtval;
 }
 void multArrArr(int datasize,float *data1,float *data2){
@@ -861,6 +865,51 @@ int selectBrightestPixels(int npxl,float *img,int useBrightest,float *sort){
   return 0;
 }
 
+int prebinImage(int paddedsize,float *hll,int preBinningFactor,int psfsize){
+  //Bin from paddedsize downto binnedsize, and then clip to psfsize.
+  //Can do the clipping by binning the correct parts...
+
+  int binnedsize;
+  int scaled=paddedsize/preBinningFactor;
+  float tmp;
+  int offset=0;
+  int i,j,ii,jj;
+  binnedsize=scaled;
+  if(scaled>psfsize){//need to clip.
+    offset=(scaled-psfsize)/2;
+    binnedsize=psfsize;
+  }
+
+  for(i=0;i<binnedsize;i++){
+    for(j=0;j<binnedsize;j++){
+      tmp=0;
+      for(ii=0;ii<preBinningFactor;ii++){
+	for(jj=0;jj<preBinningFactor;jj++){
+	  tmp+=hll[(i*preBinningFactor+ii+offset)*paddedsize+j*preBinningFactor+jj+offset];
+	}
+      }
+      hll[i*binnedsize+j]=tmp;
+    }
+  }
+  if(scaled<psfsize){//need to zero-pad: move image to centre of array.
+    offset=(psfsize-scaled)/2;
+    for(i=0;i<scaled;i++){
+      memcpy(&hll[(i+offset)*psfsize+offset],&hll[i*scaled],sizeof(float)*scaled);
+    }
+    //now clear round the edge.
+    for(i=0;i<offset;i++)//below
+      memset(&hll[i*psfsize],0,sizeof(float)*psfsize);
+    for(i=offset+scaled;i<psfsize;i++)//above
+      memset(&hll[i*psfsize],0,sizeof(float)*psfsize);
+    for(i=offset;i<offset+scaled;i++){
+      memset(&hll[i*psfsize],0,sizeof(float)*offset);//left
+      memset(&hll[i*psfsize+offset+scaled],0,sizeof(float)*(psfsize-offset-scaled));//right
+    }
+  }
+
+  return 0;
+}
+
 int centroidsFromPhase(centrunstruct *runinfo){
   centstruct *c;
   int threadno;
@@ -884,10 +933,13 @@ int centroidsFromPhase(centrunstruct *runinfo){
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
-      error|=computeHll(&(c->phs[i*c->phasepxls*c->nintegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->psfsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);
-      //if(testNan(c->fftsize*c->fftsize,c->hll[threadno])){
-      //printf("hll got nan %d\n",i);
-      //}
+      error|=computeHll(&(c->phs[i*c->phasepxls*c->nintegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);//paddedsize was psfsize.
+      //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
+      
+      if(c->preBinningFactor>1)//The binned image becomes paddedsize/prebinfact, and is then further clipped (or, usually padded) to psfsize.
+	error|=prebinImage(c->paddedsize,c->hll[threadno],c->preBinningFactor,c->psfsize);
+
+
       if(c->spotpsfDim==2){
 	error|=doConvolution(c->psfsize,c->hll[threadno],c->fftArrays[threadno],c->fftPsf,c,threadno,c->clipsize);
 	//error|=doConvolution(c->fftsize,c->hll,NULL,workbuf);//inverse already computed and stored in workbuf.
@@ -1131,16 +1183,33 @@ int setSpotPsf(centstruct *c,PyObject *spotpsfObj){
   c->spotpsfDim=0;
   c->spotpsf=NULL;
   c->psfsize=c->clipsize;
+  c->preBinningFactor=1;//no pre binning if no psf.
+  c->paddedsize=c->clipsize;//After initial fft, psf gets resized (padded or clipped) to paddedsize (which should be a multiple of preBinningFactor)
   if(PyArray_Check(spotpsfObj)==1){
     spotpsfArr=(PyArrayObject*)spotpsfObj;
     if(spotpsfArr->nd==2){
+      c->preBinningFactor=c->preBinningFactorOrig;
       c->spotpsfDim=2;
       c->psfsize=spotpsfArr->dimensions[0];
     }else if(spotpsfArr->nd==4){
+      c->preBinningFactor=c->preBinningFactorOrig;
       c->spotpsfDim=4;
       c->psfsize=spotpsfArr->dimensions[2];
     }else{
       printf("Error: centmodule - spotpsf not 2d or 4d\n");
+      return -1;
+    }
+    if(c->preBinningFactor<=1){//no prebinning
+      c->paddedsize=c->psfsize;
+    }else{
+      c->paddedsize=c->fftsize;
+    }
+    if(c->paddedsize%c->preBinningFactor!=0){
+      printf("Error: paddedsize(%d) modulo preBinningFactor(%d) should be zero\n",c->paddedsize,c->preBinningFactor);
+      return -1;
+    }
+    if(c->preBinningFactor>1 && c->psfsize>c->paddedsize){
+      printf("Error: centmodule - spotpsf dimensions should be equal to or less than paddedsize (%d)\n",c->paddedsize);
       return -1;
     }
     if(c->psfsize<c->clipsize){
@@ -1296,7 +1365,7 @@ int setupThreads(centstruct *c,int nthreads){
       subapsLeft-=subapsLeft/(nthreads-i);
       c->fsize=fftsize>c->psfsize?fftsize:c->psfsize;
       c->fftArrays[i]=fftwf_malloc(sizeof(complex float)*c->fsize*c->fsize);
-      c->hll[i]=fftwf_malloc(sizeof(float)*c->psfsize*c->psfsize);
+      c->hll[i]=fftwf_malloc(sizeof(float)*c->paddedsize*c->paddedsize);
     }
     c->subapStart[nthreads]=c->nsubaps;
     //setup random number generator...
@@ -1553,21 +1622,21 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   float readnoise,readbg,noiseFloor,sig=0.,pxlPower,tmp,corrThresh;
   //float *skybrightnessArr=NULL;
   double dval;
-  int opticalBinning,imageOnly;
+  int opticalBinning,imageOnly,preBinningFactor;
   int threshType;
   float *sigArr=NULL;
   PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj;
   PyArrayObject *phs,*pupfn,*cents,*fracSubArea,*subflag,*bimg,*sigArrObj,*aobj,*corrPattern=NULL,*corrimg=NULL;
   centstruct *c;
-  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiO",&nthreads,
+  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiOi",&nthreads,
 		       &nsubaps,&ncen,&fftsize,&clipsize,
 		       &nimg,&phasesize,&readnoise,&readbg,&addPoisson,&noiseFloor,
 		       &sigObj,&skybrightnessObj,&calsource,
 		       &pxlPower,&nintegrations,&seed,
 		       &PyArray_Type,&phs,&PyArray_Type,
 		       &pupfn,&spotpsfObj,&PyArray_Type,&cents,
-		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj)){
-    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest\n");
+		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor)){
+    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor\n");
     return NULL;
   }
   if((c=malloc(sizeof(centstruct)))==NULL){
@@ -1582,6 +1651,8 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->fftsize=fftsize;
   c->nimg=nimg;
   c->phasesize=phasesize;
+  c->preBinningFactor=preBinningFactor;
+  c->preBinningFactorOrig=preBinningFactor;
   //Now check that the arrays are okay...
   if(setSpotPsf(c,spotpsfObj)==-1){
     return NULL;

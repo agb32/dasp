@@ -42,6 +42,19 @@ class wfscent(base.aobase.aobase):
     useful for switching between open and closed loop operation, eg initially
     closed for poking, then open for running - the parent in this case would
     be a DM object and an atmos object.
+
+    For pixel scales:
+    wfs_nsubx*wfs_n does not need to be equal to npup - it will automatically be interpolated from the npup phase pixels.
+    If using a psf, it is probably necessary to zeropad (unless the psf is small).  However, some binning can be done before application of the psf, so that the psf does not need to be twice the fft size.  The basic principle is:
+    wfs_n.  Pad up to
+    fftsize.  Perform fft.
+    Optionally pre-bin.
+    pad up to psf size (typically x2).
+    convolve.
+    clip to clipsize.
+    bin to nimg.
+    
+
     
     """
 
@@ -459,6 +472,7 @@ class wfscent(base.aobase.aobase):
             corrPattern=None
             # imageOnly=this.config.getVal("imageOnly",default=0)#0 to return slopes, 1 to return image as nsubx,nsubx,nimg,nimg, and 2 to return image as a 2d image.
         useBrightest=this.config.getVal("useBrightest",default=0)
+        preBinningFactor=this.config.getVal("preBinningFactor",default=1)
 #        this.wfscentObj=util.centroid.centroid(wfs_nsubx,pup=pupil,oversamplefactor=None,readnoise=wfs_read_sigma,readbg=wfs_read_mean,addPoisson=1,noiseFloor=wfs_floor,binfactor=None,sig=sig,skybrightness=skybrightness,warnOverflow=None,atmosPhaseType=atmosPhaseType,fpDataType=self.fpDataType,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,phasesize=wfs_n,fftsize=wfs_nfft,clipsize=clipsize,nimg=wfs_nimg,ncen=wfs_ncen,tstep=tstep,integtime=wfs_int,latency=wfs_lat,wfs_minarea=wfs_minarea,spotpsf=spotpsf,opticalBinning=opticalBinning,useCell=self.control["useCell"],waitCell=1,usecmod=self.control["useCmod"],subtractTipTilt=subtractTipTilt,magicCentroiding=magicCentroiding,linearSteps=linearSteps,stepRangeFrac=stepRangeFrac,phaseMultiplier=phaseMultiplier,centWeight=centWeight,correlationCentroiding=correlationCentroiding,corrThresh=corrThresh,corrPattern=corrPattern,threshType=threshType,imageOnly=self.imageOnly,calNCoeff=calNCoeff,useBrightest=useBrightest)
         this.wfscentObj=util.centroid.centroid(
             wfs_nsubx,
@@ -501,6 +515,7 @@ class wfscent(base.aobase.aobase):
             usecmod=self.control["useCmod"],
             warnOverflow=None,
             wfs_minarea=wfs_minarea
+            preBinningFactor=preBinningFactor
         )
 
 
