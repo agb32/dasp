@@ -54,7 +54,7 @@ class wfscent(base.aobase.aobase):
     clip to clipsize.
     bin to nimg.
     
-
+    Note, psfsize must not be greater than fftsize if prebinning.
     
     """
 
@@ -514,7 +514,7 @@ class wfscent(base.aobase.aobase):
             useBrightest=useBrightest,
             usecmod=self.control["useCmod"],
             warnOverflow=None,
-            wfs_minarea=wfs_minarea
+            wfs_minarea=wfs_minarea,
             preBinningFactor=preBinningFactor
         )
 

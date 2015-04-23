@@ -893,7 +893,7 @@ int prebinImage(int paddedsize,float *hll,int preBinningFactor,int psfsize){
   }
   if(scaled<psfsize){//need to zero-pad: move image to centre of array.
     offset=(psfsize-scaled)/2;
-    for(i=0;i<scaled;i++){
+    for(i=scaled-1;i>=0;i--){
       memcpy(&hll[(i+offset)*psfsize+offset],&hll[i*scaled],sizeof(float)*scaled);
     }
     //now clear round the edge.
