@@ -165,7 +165,7 @@ class science(aobase.aobase):
         except:
             dmpupil=this.config.getVal("dmpupil",raiseerror=0,default=None) ##DM pupil
         print "todo: science - is it correct to use dmpupil here - should we not just use pupil?  dmpupil would surely be unphysical? (ask FA)"
-        usedmpup=this.config.getVal("usedmpup",default=1)
+        usedmpup=this.config.getVal("usedmpup",default=0)
         if usedmpup:
             pup=numpy.array((pupil.fn*dmpupil),numpy.int8)#.astype(numpy.int8)# Pupil seen by Science cam
         else:
@@ -204,7 +204,7 @@ class science(aobase.aobase):
         saveFileString=this.config.getVal("scisaveFileString",raiseerror=0)#an optional string that can be used to identify a given simulation in the saved results... 
         diffPsfFilename=this.config.getVal("sciDiffPsfFilename",default=None,raiseerror=0)
         keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
-        scienceListsSize=this.config.getVal("hist_list_size")
+        scienceListsSize=this.config.getVal("hist_list_size",default=this.config.getVal("AOExpTime")/tstep/scinSamp)
         inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
         #check FPGA stuff...
         useFPGA=this.config.getVal("useFPGA",default=0)#whether to use the FPGA initially (global)

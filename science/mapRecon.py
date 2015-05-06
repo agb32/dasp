@@ -1,6 +1,7 @@
 import base.aobase as aobase
 from util.flip import fliparray
-import cmod.mkimg,cmod.imgnoise,cmod.utils,cmod.binimg
+import cmod.mkimg,cmod.utils,cmod.binimg
+#import cmod.imgnoise
 import numpy as na
 import numpy.fft as fft
 import numpy.random as nara
@@ -527,7 +528,8 @@ class simpleWFS:
                 bimg*=self.sig/totsig
             bimg+=self.skybrightness
             if totsig>0 or self.skybrightness>0:
-                cmod.imgnoise.shot(bimg,bimg)
+                #cmod.imgnoise.shot(bimg,bimg)
+                bimg[:]=numpy.random.poisson(bimg)
             bimg+=nara.normal(self.wfs_read_mean,self.wfs_read_sigma,bimg.shape)
             cimg=na.where(bimg<self.wfs_floor,0,self.bimg-self.wfs_floor)*self.cenmask
             xcent,ycent=cmod.utils.centroid(cimg.astype("f"))

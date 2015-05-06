@@ -407,7 +407,7 @@ class infScrn(base.aobase.aobase):
             ##Number of previous rows or columns used to compute the new one (default value : 2)
             self.nbCol=2#config.getVal("nbCol",default=2)
             ##we extract the random number generator seed
-            self.seed=config.getVal("seed",default=None)
+            self.seed=config.getVal("seed",default=None,raiseerror=0)
             self.saveCovMat=config.getVal("saveInfPhaseCovMatrix",default=0)
             # Create the objects used to tell us how many extra cols/rows to add
             self.newCols=util.getNewCols.getNewCols(na.fabs(self.colAdd))

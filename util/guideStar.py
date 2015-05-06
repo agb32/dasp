@@ -29,11 +29,12 @@ def makeDoughnut(outer,inner,xoff,yoff):
     path=mpath.Path(vert,codes)
     return path
 
-def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None):
+def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None,sourcedir=None):
     """
     Shows a plot of guide star overlaps.
     gsList is a list of either LGS objects, NGS objects or tuples of (alt,theta,phi).
     layerList is a list of layer heights
+    sourcedir is an optional list of (theta,phi) tuples which shows where, for each layer, the phase is evaluated.
     """
     import pylab
     import matplotlib.path as mpath
@@ -127,6 +128,13 @@ def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=Fa
         pylab.xlim([-lim,lim])
         if title:
             pylab.title("%gm"%l)
+        if sourcedir!=None:
+            for s in sourcedir:
+                t,p=s
+                r=l*numpy.tan(t/3600./180.*numpy.pi)
+                x=r*numpy.cos(p/180.*numpy.pi)
+                y=r*numpy.sin(p/180.*numpy.pi)
+                ax.add_patch(pylab.Circle((x,y),telDiam/2,fill=False,fc="blue"))
     if outfile!=None:
         pylab.savefig(outfile)
         pylab.close()
@@ -178,20 +186,114 @@ def simple(paramfile=None,batchno=0,lgsAlt=15000.,gateDepth=400.,sig=None,fname=
     return lgs
 
 
+class wfsOverview:
+    def __init__(self,wfsDict):
+        self.wfsDict=wfsDict
+    def getWfsByID(self,idstr):
+        wfs=self.wfsDict[idstr]
+        if wfs.idstr!=idstr:
+            raise Exception("Inconsistency in wfsOverview")
+        return wfs
+
+
+"""
+getWfsByID(idstr)
+
+
+wfsobj needs:
+nsubx
+nimg
+phasesize (wfs_n)
+minarea
+pupil
+seed (None)
+#calSource (0)
+integSteps  (wfs_int/tstep)
+atmosPhaseType (phaseonly)   ["phaseonly","phaseamp","realimag"]
+nfft  (phasesize*2)
+clipsize (nfft)
+nimg  (clipsize/2)
+bglevel (wfs_read_mean)
+readoutNoise (wfs_read_sigma)
+rowint (None)
+threshType (0)
+latency
+skyBrightness
+ncen (nimg)
+floor
+sig
+addPoisson
+lgsPsf (was laserGuideStar)
+spotpsf
+opticalBinning
+magicCentroiding
+linearSteps
+calNCoeff
+stepRangeFrac
+centWeight (None)
+correlationCentroiding (0)
+corrThresh
+corrPattern (None)
+useBrightest (0)
+preBinningFactor (1)
+sourcelam
+"""
 
 class LGS(util.atmos.source):
-    """Simple structure for holding LGS info"""
-    def __init__(self,nsubx,theta,phi,height,minarea=0.5,wfssig=None,launchDist=0.,launchTheta=0.,idstr=None,sourcelam=None,phslam=None,reconList=None,pupil=None):
+    """Simple structure for holding LGS info.
+    Important parameters are:
+    nsubx - number of subaps
+    theta, phi - radial coords of on-sky positions, in arcsec, degrees.
+    height - the height of the laser emission (height of guide star).
+    phasesize - number of phase pixels in 1 sub-aperture.
+    minarea - fraction of vignetting before sub-aperture is no longer used.
+    sig - WFS signal in photons per subap per frame.
+    idstr - the identification string of the light path of this wfs.
+    sourcelam - wavelength (nm) of the guide star.
+    phslam - wavelength (nm) of the wavefront phase.
+    reconList - list of reconstructors which use this slope information.
+    pupil - the telescope pupil function for this guide star.
+    """
+    def __init__(self,nsubx,theta,phi,height,phasesize,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,idstr=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0):
         """pupil can be a util.tel object"""
         #Initialise the parent...
-        super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=wfssig)
+        super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=sig)
         #self.theta=theta#angle in arcsec
         #self.phi=phi#angle in degrees
         self.nsubx=nsubx
+        self.phasesize=phasesize
+        self.nimg=nimg
+        self.nfft=nfft
+        self.clipsize=clipsize
+        self.ncen=ncen
+        self.preBinningFactor=preBinningFactor
+        self.bglevel=bglevel#was wfs_read_mean
+        self.readoutNoise=readoutNoise#was wfs_read_sigma
+        self.integSteps=integSteps#in units of tstep
+        self.rowint=rowint#in units of tstep
+        self.threshType=threshType
+        self.latency=latency#in units of tstep
+        self.skyBrightness=skyBrightness
+        self.floor=floor
+        self.seed=seed
+        self.atmosPhaseType=atmosPhaseType
+        self.addPoisson=addPoisson
+        self.lgsPsf=lgsPsf
+        self.spotpsf=spotpsf
+        self.opticalBinning=opticalBinning
+        self.magicCentroiding=magicCentroiding
+        self.linearSteps=linearSteps
+        self.calNCoeff=calNCoeff
+        self.stepRangeFrac=stepRangeFrac
+        self.centWeight=centWeight
+        self.correlationCentroiding=correlationCentroiding
+        self.corrThresh=corrThresh
+        self.corrPattern=corrPattern
+        self.useBrightest=useBrightest
         #self.alt=height Now self.alt.  
         self.minarea=minarea
-        #self.wfssig=wfssig
-        self.idstr=idstr
+        #self.sig=sig
+        #self.idstr=idstr
         self.reconList=reconList
         self.launchDist=launchDist#distance of laser launch off-axis, in m.
         self.launchTheta=launchTheta#angle of launch from 3 oclock, anticlockwise
@@ -199,6 +301,19 @@ class LGS(util.atmos.source):
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
         self.pupil=pupil
+        if self.phasesize==None:
+            if self.nimg!=None:
+                self.phasesize=self.nimg
+        if self.phasesize!=None:
+            if self.nfft==None:
+                self.nfft=self.phasesize*2
+            if self.clipsize==None:
+                self.clipsize=self.nfft
+            if self.nimg==None:
+                self.nimg=self.clipsize//2
+            if self.ncen==None:
+                self.ncen=self.nimg
+
     def computeCoords(self,telDiam,height,fname=None):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height), not the height of the LGS.
@@ -228,24 +343,96 @@ class LGS(util.atmos.source):
         if fname!=None:
             f.write("\n")
             f.close()
+    def getSubapFlag(self):
+        """Compute the subap flags for a given nsubx"""
+        nsubx=self.nsubx
+        subflag=numpy.zeros((nsubx,nsubx),numpy.int32)
+        n=self.phasesize#self.npup/nsubx
+        minarea=self.minarea*n*n
+        if type(self.pupil)==numpy.ndarray:
+            pup=self.pupil
+        else:
+            pup=self.pupil.fn
+        for i in range(nsubx):
+            for j in range(nsubx):
+                subarea=pup[i*n:(i+1)*n,j*n:(j+1)*n].sum()
+                if subarea>=minarea:
+                    subflag[i,j]=1
+        return subflag
+
+
 class NGS(util.atmos.source):
-    """simple structure for holding NGS info"""
-    def __init__(self,nsubx,theta,phi,minarea=0.5,wfssig=None,idstr=None,sourcelam=None,phslam=None,reconList=None,pupil=None):
+    """simple structure for holding NGS info
+    Important parameters are:
+    nsubx - number of subaps
+    theta, phi - radial coords of on-sky positions, in arcsec, degrees.
+    phasesize - number of phase pixels in 1 sub-aperture.
+    minarea - fraction of vignetting before sub-aperture is no longer used.
+    sig - WFS signal in photons per subap per frame.
+    idstr - the identification string of the light path of this wfs.
+    sourcelam - wavelength (nm) of the guide star.
+    phslam - wavelength (nm) of the wavefront phase.
+    reconList - list of reconstructors which use this slope information.
+    pupil - the telescope pupil function for this guide star.
+    """
+    def __init__(self,nsubx,theta,phi,phasesize,minarea=0.5,sig=None,idstr=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0):
         """pupil can be a util.tel object"""
         #Initialise parent...
-        super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=wfssig)
+        super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=sig)
 
         #self.theta=theta#angle in arcsec
         #self.phi=phi#angle in degrees
         self.nsubx=nsubx
+        self.phasesize=phasesize
+        self.nimg=nimg
+        self.nfft=nfft
+        self.clipsize=clipsize
+        self.ncen=ncen
+        self.preBinningFactor=preBinningFactor
+        self.bglevel=bglevel#was wfs_read_mean
+        self.readoutNoise=readoutNoise#was wfs_read_sigma
+        self.integSteps=integSteps#in units of tstep
+        self.rowint=rowint#in units of tstep
+        self.threshType=threshType
+        self.latency=latency#in units of tstep
+        self.skyBrightness=skyBrightness
+        self.floor=floor
+        self.seed=seed
+        self.atmosPhaseType=atmosPhaseType
+        self.addPoisson=addPoisson
+        self.lgsPsf=None
+        self.spotpsf=spotpsf
+        self.opticalBinning=opticalBinning
+        self.magicCentroiding=magicCentroiding
+        self.linearSteps=linearSteps
+        self.calNCoeff=calNCoeff
+        self.stepRangeFrac=stepRangeFrac
+        self.centWeight=centWeight
+        self.correlationCentroiding=correlationCentroiding
+        self.corrThresh=corrThresh
+        self.corrPattern=corrPattern
+        self.useBrightest=useBrightest
         self.minarea=minarea
-        #self.wfssig=wfssig
-        self.idstr=idstr
+        #self.sig=sig
+        #self.idstr=idstr
         self.reconList=reconList
         self.dmheight=None#used in computeCoords
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
         self.pupil=pupil
+        if self.phasesize==None:
+            if self.nimg!=None:
+                self.phasesize=self.nimg
+        if self.phasesize!=None:
+            if self.nfft==None:
+                self.nfft=self.phasesize*2
+            if self.clipsize==None:
+                self.clipsize=self.nfft
+            if self.nimg==None:
+                self.nimg=self.clipsize//2
+            if self.ncen==None:
+                self.ncen=self.nimg
+
     def computeCoords(self,telDiam,height,fname=None):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height).
@@ -271,6 +458,23 @@ class NGS(util.atmos.source):
         if fname!=None:
             f.write("\n")
             f.close()
+
+    def getSubapFlag(self):
+        """Compute the subap flags for a given nsubx"""
+        nsubx=self.nsubx
+        subflag=numpy.zeros((nsubx,nsubx),numpy.int32)
+        n=self.phasesize#self.npup/nsubx
+        minarea=self.minarea*n*n
+        if type(self.pupil)==numpy.ndarray:
+            pup=self.pupil
+        else:
+            pup=self.pupil.fn
+        for i in range(nsubx):
+            for j in range(nsubx):
+                subarea=pup[i*n:(i+1)*n,j*n:(j+1)*n].sum()
+                if subarea>=minarea:
+                    subflag[i,j]=1
+        return subflag
 
 
 #Version 3 - analysis
@@ -731,8 +935,10 @@ class wfs:
         totsig = numpy.sum(numpy.sum(bimg))	
         if(totsig>0.):
             #img0=((bimg/totsig)*self.sig)+read*read
+            print "ERROR IN GUIDESTAR: DODGY NOISE ADDITION!!!"
             img0=bimg+read*read
-            cmod.imgnoise.shot(img0,bimg)						     # Inject shot noise
+            cmod.imgnoise.shot(img0,bimg)#inject shot noise
+
             bimg=clip(bimg,self.wfs_floor,1.e6)
             bimg = bimg-self.wfs_floor
         return bimg

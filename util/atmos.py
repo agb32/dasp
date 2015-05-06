@@ -107,7 +107,7 @@ class geom:
                 print "DEPRECIATION WARNING - atmosGeom object sourceList should be a list of util.atmos.source(), or util.guideStar.LGS or NGS objects"
                 self.sourceList.append(source(*obj))
             else:
-                if obj.nsubx!=None and isinstance(obj,source):
+                if obj.nsubx!=None and isinstance(obj,source) and not hasattr(obj,"minarea"):
                     print "DEPRECIATION WARNING - sourceList should be a util.guideStar.LGS or NGS if it is a guide star (keep util.source objects for science targets only)"
                 self.sourceList.append(obj)
         
@@ -320,7 +320,7 @@ class geom:
 ##                 fov[i]=max(self.sourceThetas().values())*2+0.1
 ##             dmlist.append(util.createPokeMx.DM(nact[i],height[i],fov[i],coupling))
 ##         return dmlist
-    def makeNGSList(self,reconID=None,minarea=0.5):#,nsubx,keylist):
+    def makeNGSList(self,reconID=None,minarea=0.5,pupil=None):#,nsubx,keylist):
         """make a list of util.guideStar.NGS objects.  nsubx can be
         int, a dict or a list of length keylist length.
         keylist is the list of keys to use for the NGS objects.  Any
@@ -352,17 +352,19 @@ class geom:
                     if type(s)==util.guideStar.NGS:
                         ngslist.append(s)
                     else:
-                        ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),minarea=minarea,wfssig=self.sig(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key)))
+                        print "Depreciated in atmos.makeNGSList"
+                        ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),phasesize=self.npup/nsubx,minarea=minarea,sig=self.sig(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key),pupil=pupil))
                 else:
                     rl=self.getSource(key).reconList
                     if rl!=None and (rl==[] or reconID in rl):
                         if type(s)==util.guideStar.NGS:
                             ngslist.append(s)
                         else:
-                            ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),minarea=minarea,wfssig=self.sig(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl))
+                            print "Depreciated in atmos.makeNGSList"
+                            ngslist.append(util.guideStar.NGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),phasesize=self.npup/nsubx,minarea=minarea,sig=self.sig(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl,pupil=pupil))
 
         return ngslist
-    def makeLGSList(self,reconID=None,minarea=0.5):#,nsubx,keylist):
+    def makeLGSList(self,reconID=None,minarea=0.5,pupil=None):#,nsubx,keylist):
 ##         if keylist==None:
 ##             if type(nsubx)==type({}):
 ##                 keylist=nsubx.keys()
@@ -389,14 +391,14 @@ class geom:
                     if type(s)==util.guideStar.LGS:
                         lgslist.append(s)
                     else:#depreciated version...
-                        lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key)))
+                        lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),phasesize=self.npup/nsubx,minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key),pupil=pupil))
                 else:
                     rl=self.getSource(key).reconList
                     if rl!=None and (rl==[] or reconID in rl):
                         if type(s)==util.guideStar.LGS:
                             lgslist.append(s)
                         else:
-                            lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl))
+                            lgslist.append(util.guideStar.LGS(nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),phasesize=self.npup/nsubx,minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),idstr=key,sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl,pupil=pupil))
                         
         return lgslist
     

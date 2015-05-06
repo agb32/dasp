@@ -94,19 +94,19 @@ class recon(base.aobase.aobase):
         else:
             self.mirrorScale=None
             self.scaleWhenPoking=self.config.getVal("scaleWhenPoking",default=0)
-            self.minarea=self.config.getVal("wfs_minarea")
+            self.minarea=self.config.getVal("wfs_minarea",raiseerror=0)
             self.pokeActMapFifo=[]
             print(("INFORMATION:**tomoRecon**: Using {0:d} DMs for "+
                   "reconstruction").format( len(self.dmList) ) )
 ##(old)            print("INFORMATION:**tomoRecon**: Using %d DMs for reconstruction."%len(self.dmList))
-            self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
-            self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea=self.minarea)
+            self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea,pupil=self.pupil)#self.nsubxDict,None)
+            self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea=self.minarea,pupil=self.pupil)
             self.subtractTipTilt=self.config.getVal("subtractTipTilt",default=0)
             self.ncents=0
             self.ncentList=[]
             indiceList=[]
             for gs in self.ngsList+self.lgsList:
-                subflag=self.pupil.getSubapFlag(gs.nsubx,gs.minarea)
+                subflag=gs.getSubapFlag()#self.pupil.getSubapFlag(gs.nsubx,gs.minarea)
                 indiceList.append(numpy.nonzero(subflag.ravel())[0])
                 self.ncentList.append(numpy.sum(subflag.ravel()))
                 #self.ncents+=2*gs.nsubx**2

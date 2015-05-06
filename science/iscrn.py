@@ -365,7 +365,7 @@ class iscrn(base.aobase.aobase):
             ##Number of previous rows or columns used to compute the new one (default value : 2)
             self.nbCol=2#config.getVal("nbCol",default=2)
             ##we extract the random number generator seed (for the additional rows/cols. At the moment, same for each layer used here.
-            self.seed=config.getVal("seed",default=None)
+            self.seed=config.getVal("seed",default=None,raiseerror=0)
             self.keepCovMat=config.getVal("keepInfPhaseCovMatrix",default=0)
             if not os.path.exists("scrn/"):
                 os.mkdir("scrn")

@@ -6,28 +6,39 @@
 <variables>
 <var name="useCmod" type="i" value="1"/><!-- Rolling Shutter approximation --><!-- NOTE: Set to '0' for Rolling Shutter -->
 <var name="wfs_nsubx" type="i" value="6"/>
-<var type="eval" name="tstep" value="1./250*(1**-1.0)" comment="time step" /><!-- Rolling Shutter approximation -->
+<var type="eval" name="tstep" value="1./250" comment="time step" /><!-- Rolling Shutter approximation -->
 <var type="f" name="l0" value="10.0"/>
 <var type="eval" name="r0" value="0.137"/>
-<var name="wfs_sig" type="f" value="1e6"/>
+<vr name="wfs_sig" type="f" value="1e6"/>
 <var name="npup" type="eval" value="wfs_nsubx*8"/>
 <var type="eval" name="telDiam" value="4.2*wfs_nsubx/6."/>
 <var type="copy" name="ntel" value="npup"/>
-<var name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
-<var name="wfs_nfft" type="eval" value="wfs_n*2"/>
-<var name="wfs_clipsize" type="eval" value="wfs_nfft"/>
-<var name="wfs_nimg" type="eval" value="wfs_clipsize/2" />
-<var name="wfs_ncen" value="wfs_nimg" type="eval"/>
+<vr name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
+<vr name="wfs_nfft" type="eval" value="wfs_n*2"/>
+<vr name="wfs_clipsize" type="eval" value="wfs_nfft"/>
+<vr name="wfs_nimg" type="eval" value="wfs_clipsize/2" />
+<vr name="wfs_ncen" value="wfs_nimg" type="eval"/>
 <var name="nAct" type="eval" value="wfs_nsubx+1"/>
 <var name="ngsLam" type="f" value="640." comment="was 640."/>
 <var name="nlayer" type="i" value="1" comment="only used in param file"/>
-<var name="ndm" type="eval" value="nlayer" comment="only used in param file"/>
 <var name="strList" type="eval" value="[1.0]"/>
 <var name="hList" type="eval" value="[0.]"/>
 <var name="vList" type="eval" value="[10.]"/>
 <var name="dirList" type="eval" value="numpy.arange(nlayer)*36"/>
 <var name="sciLam" type="f" value="1650."/>
+<var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
+<var comment="Telescope pupil function" type="code" name="pupil">
+import util.tel
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=None)
+</var>
+
 <var name="pokeSpacing" type="eval" value="(None if wfs_nsubx.__cmp__(20)==-1 else 10)"/>
+<var name="wfsOverview" type="code">
+import util.guideStar
+wfsDict={"a":util.guideStar.NGS(wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,minarea=0.5,sig=1e6,idstr="a",sourcelam=ngsLam,reconList=["ngs"],pupil=pupil)}
+wfsOverview=util.guideStar.wfsOverview(wfsDict)
+</var>
+
 <var name="atmosGeom" type="code">
 from util.atmos import geom,layer,source
 d={}
@@ -35,7 +46,8 @@ for i in range(nlayer):
  d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
 sourceList=[]
 #the wfs
-sourceList.append(source("a",0.,0.,-1,wfs_nsubx,ngsLam,reconList=["ngs"]))
+#sourceList.append(source("a",0.,0.,-1,wfs_nsubx,ngsLam,reconList=["ngs"]))
+sourceList.append(wfsOverview.getWfsByID("a"))
 #and psf
 sourceList.append(source("m",0.,0.,-1,None,sciLam,phslam=ngsLam))
 atmosGeom=geom(d,sourceList,ntel,npup,telDiam,r0,l0)
@@ -50,39 +62,28 @@ dmInfoList.append(dmInfo('dm',all,0.,nAct,minarea=0.1,closedLoop=1,actSpacing=No
 	reconstructList=reconList,pokeSpacing=pokeSpacing,interpType="spline",maxActDist=1.5,slaving="auto"))
 dmObj=dmOverview(dmInfoList,atmosGeom)
 </var>
-<var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
 <var comment="Simulation exposure time in seconds" type="f" name="AOExpTime" value="40."/>
-<var comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
-<var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
-<var comment="Telescope pupil function" type="code" name="pupil">
-import util.tel
-pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=None)
-</var>
-<var type="code" name="scrnScale">
+<vr comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
+<vr name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
+<vr type="code" name="scrnScale">
 scrnScale=this.globals.telDiam/float(this.globals.ntel)
-</var>
-<var name="calsource" type="i" value="0"/>
-<var name="timing" type="i" value="0"/>
-<var name="wfs_int" value="tstep*1" type="eval" comment="integration time"/>
+</vr>
+<vr name="calsource" type="i" value="0"/>
+<vr name="timing" type="i" value="0"/>
+<vr name="wfs_int" value="tstep*1" type="eval" comment="integration time"/>
 <!--var name="wfs_rowint" value="tstep*2" type="eval" comment="sub-aperture row integration time"/--><!-- Rolling Shutter approximation -->
-<var name="wfs_lat" value="0.0" type="f" comment="latency for integ time"/>
-<var name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
-<var name="wfs_read_sigma" value="0" type="f" comment="WFS Read noise (e-)"/>
-<var name="wfs_floor" value="wfs_read_mean+0*wfs_read_sigma" type="eval" comment="WFS Read noise (e-)"/>
-<var name="wfs_skybrightness" type="f" value="0."/>
-<var name="nthreads" type="s" value="all"/>
+<vr name="wfs_lat" value="0.0" type="f" comment="latency for integ time"/>
+<vr name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
+<vr name="wfs_read_sigma" value="0" type="f" comment="WFS Read noise (e-)"/>
+<vr name="wfs_floor" value="wfs_read_mean+0*wfs_read_sigma" type="eval" comment="WFS Read noise (e-)"/>
+<vr name="wfs_skybrightness" type="f" value="0."/>
+<vr name="nthreads" type="s" value="all"/>
 </variables>
 </module>
 
-<module name="infAtmos">
-<variables>
-<var type="string" name="dataType" value="d"/>
-</variables>
-</module>
 
 <module name="infScrn">
 <variables>
-<var type="string" name="dataType" value="d"/>
 <var comment="random seed" type="eval" name="seed" value="None"/>
 </variables>
 </module>

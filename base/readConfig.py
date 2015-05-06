@@ -76,7 +76,7 @@ class AOXml:
     @cvar ignoreModule: Flag, whether module should be ignored (batch number mismatch)
     @type ignoreModule: Int
     """ 
-    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0,initDict=None,mpiRankSizeAbort=(0,1,None)):
+    def __init__(self,file=None,batchno=0,writeSchema=0,ignoreError=0,initDict=None,mpiRankSizeAbort=(0,1,None),verbose=0):
         """Initialise a AO XML parser object.
         @param file: Filename
         @type  file: String
@@ -85,7 +85,9 @@ class AOXml:
         @param batchno: Batch number that we're interested in
         @type  batchno: Int
         mpiRankSizeAbort is the mpi rank, worldsize, and an abort function.
+        verbose specifies the level of debug messages.  0 or 1.
         """
+        self.verbose=verbose
         self.p=None
         self.writeSchema=writeSchema
         if type(file)!=type([]):
@@ -529,13 +531,15 @@ class AOXml:
         @type searchOrder: List
         """
         self.searchOrder=searchOrder
-    def getVal(self,varname,default=None,searchOrder=None,raiseerror=1,warn=1):
+    def getVal(self,varname,default=None,searchOrder=None,raiseerror=1,warn=2):
         """Return the value of a variable stored in the XML file.
         This would be used e.g. myvar=x.getVal("myvar") where x is the
         instance of AOXml (self).  A default value can be given.  If no default
         is given and nothing is found, an error is raised if raiseerror is set.
         If the serachOrder isn't specified, the default is used.  Otherwise,
         the searchOrder must be a list of strings.
+
+        Warn:  If 2, will only print a warning when in verbose mode.  If 1, will always print a warning.  If 0 will never print a warning.  Most calls to getVal set this to 2 (the default).  However, important ones set it to 1.
         @param varname: The variable to obtain
         @type varname: String
         @param default: The value to return if variable isn't found (None means no default)
@@ -568,7 +572,7 @@ class AOXml:
                 print "ERROR: value not found %s"%str(varname)
                 raise Exception("ERROR: value not found: %s %s"%(str(varname),str(searchOrder)))
             else:
-                if warn:
+                if warn==1 or (warn==2 and self.verbose==1):
                     print "INFORMATION: using default value of **%s** for **%s**, not found in: %s"%(str(val),str(varname),str(searchOrder))
         return val
 

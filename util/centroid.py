@@ -5,7 +5,8 @@ call the "run" method, passing in your phase.  Currently, using as stand alone
 code means that the FPGAs cannot be easily used - though you can probably
 change this easily enough if required.
 """
-import util.flip,cmod.binimg,cmod.imgnoise
+import util.flip,cmod.binimg
+import cmod.imgnoise
 import scipy.interpolate
 import numpy,numpy.random,numpy.fft
 import util.arrayFromArray
@@ -846,7 +847,8 @@ class centroid:
                             bimg=bimg[:2]
                         if totsig>0. or self.skybrightness*nphs>0.:
                             # Inject shot noise
-                            cmod.imgnoise.shot(bimg,bimg)
+                            #cmod.imgnoise.shot(bimg,bimg)
+                            bimg[:]=numpy.random.poisson(bimg)
 
                         if readnoise>1e-12:
                            # Generate random read noise :
@@ -1360,7 +1362,8 @@ class centroid:
                 for k in range(ninteg):#perform several integrations...
                     tmpimg=bimg[i,j].copy()
                     if self.addPoisson:
-                        cmod.imgnoise.shot(tmpimg,tmpimg)
+                        #cmod.imgnoise.shot(tmpimg,tmpimg)
+                        tmpimg[:]=numpy.random.poisson(tmpimg)
                     if self.readnoise>0 or self.readbg>0:
                         tmpimg+=numpy.random.normal(self.readbg,self.readnoise,tmpimg.shape)
                     tmpimg[:,]=numpy.where(tmpimg<self.noiseFloor,0,tmpimg-self.noiseFloor)
@@ -1524,6 +1527,7 @@ class centroid:
     def calibrateSHSUnique(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
+        #Can we cache the information on disk?  reliably?  Depends on pupil mask, nsubx, minarea, many many things... but might be worth considering - would save a lot of time!
         print("INFORMATION:**centroid**:Calibrating centroids (all subaps "+
                "treated differently)")
         steps=self.linearSteps

@@ -70,6 +70,7 @@ class Ctrl:
         ## INITIALISATION of variables:
         self.simInitTime=time.time()
         self.debug=debug
+        self.verbose=0
         self.go=1
         self.niter=-1
         self.thisiter=0
@@ -99,7 +100,7 @@ class Ctrl:
         sys.stdout=myStdout(self.rank)
 
         ## OPTION parsing (options from the command line):
-        optlist,arglist=getopt.gnu_getopt(sys.argv[1:],"hp",["batchno=","start-paused","param-file=","help","iterations=","id=","nonice","param=","nostdin","debug-connections","user=","init="])
+        optlist,arglist=getopt.gnu_getopt(sys.argv[1:],"hp",["batchno=","start-paused","param-file=","help","iterations=","id=","nonice","param=","nostdin","debug-connections","user=","init=","verbose"])
         for o, a in optlist:
             if o=="--displaythread":
                 sys.stdout.displayThread=1
@@ -141,13 +142,18 @@ class Ctrl:
                 self.paramString=a
             if o=="--init":
                 self.initParamString=a
+            if o=="--verbose":
+                self.verbose=1
             if o in ["-h","--help"]:
-                print 'HELP:\nRun simulation with\n--batchno=xxx\n--start-paused\n--param-file=paramfile\n--iterations=niters\n--id=simulationID (string)\n--param="Text string, e.g. this.globals.nLayers=2, used to alter parameter file on the fly"\n--displaythread (to print thread identity with messages)\n--nostdin to stop listening to stdin\n-p Same as --start-paused\nfile.xml same as --param-file=paramfile\n--debug-connections to print mpiget/send messages\n--user=xxx for user specific options\n'
+                print 'HELP:\nRun simulation with\n--batchno=xxx\n--start-paused\n--param-file=paramfile\n--iterations=niters\n--id=simulationID (string)\n--param="Text string, e.g. this.globals.nLayers=2, used to alter parameter file on the fly"\n--displaythread (to print thread identity with messages)\n--nostdin to stop listening to stdin\n-p Same as --start-paused\nfile.xml same as --param-file=paramfile\n--debug-connections to print mpiget/send messages\n--verbose for verbosity\n--user=xxx for user specific options\n'
                 sys.exit(0)
 
         ## ARGUMENT parsing (from the command line):
         for a in arglist:#could be a param file, or ?
             if a[-4:]==".xml":
+                self.paramfile+=a.split(",")
+                print "INFORMATION: Using %s"%self.paramfile
+            elif a[-3:]==".py":
                 self.paramfile+=a.split(",")
                 print "INFORMATION: Using %s"%self.paramfile
             else:
@@ -166,7 +172,7 @@ class Ctrl:
             d={"numpy":numpy}
             initDict={}
             exec self.initParamString in d,initDict
-        self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno,initDict=initDict,mpiRankSizeAbort=(self.mpiComm.rank,self.mpiComm.size,self.abort))
+        self.config=base.readConfig.AOXml(self.paramfile,batchno=self.batchno,initDict=initDict,mpiRankSizeAbort=(self.mpiComm.rank,self.mpiComm.size,self.abort),verbose=self.verbose)
         if self.paramString!=None:
             tmpDict={"this":self.config.this}
             print "INFORMATION Changes to parameter file:\n%s"%self.paramString
