@@ -84,36 +84,10 @@ class science(aobase.aobase):
 
         """
         aobase.aobase.__init__(self,parent,config,args=args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
-        ##Extraction of XML parameter file
-        #self.debug=debug
-        #self.dataValid=0
-        #self.newDataWaiting=1
-        #self.outputData=None#no output data...
-        #self.generate=1
-        #self.source=0 ##to be changed. Souce should be an element of the constructor
-#        self.atmosPhaseType=config.getVal("atmosPhaseType",default="phaseonly")
-#        if self.atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
-#            raise Exception("science: atmosPhaseType not known %s"%self.atmosPhaseType)
-#        self.sci_lam=config.getVal("sourceLam")##Imaging wavelength
-        #self.plots=config.getVal("plots")
-        #self.objs=config.getVal("objs") ## not really well defined
         self.timing=config.getVal("timing",default=0) ##for debugging purpose
         self.doneFinalInit=0
         self.nimgNotNfft=0
         self.ended=1
-#        npup=self.npup=config.getVal("npup") ##number of linear pixels used to simulate  the pupil
-#        nfft=self.nfft=self.sci_nfft=config.getVal("scinfft") ##linear number of pixels used to simulate the PSF
-#        self.pupil=config.getVal("pupil") ##telescope entrance pupil
-#        self.dmpupil=config.getVal("dmpupil") ##DM pupil
-#        self.pup=self.pupil.fn*self.dmpupil# Pupil seen by Science camera
-        #self.pup=self.pup.astype("d") ##we convert it into Float64 to be compatible with mkimg C module
-#        self.pup=self.pup.astype(Numeric.Int8)
-#        self.pupsum=Numeric.sum(Numeric.sum(self.pup))        
-#        self.idxPup=Numeric.nonzero(self.pup.flat) #Flat version of the pixels belonging to the pupil#
-#        self.telDiam=config.getVal("telDiam") ##Telescope diameter 
-#        self.asRad=config.getVal("arcsecRad") ##Conversion rad-> arcsec
-#        self.L_D= ( (self.sci_lam*1.e-9)/self.telDiam )/self.asRad ##Diffraction limited resolution
-#        self.pix_scale=self.L_D*float(self.npup)/float(nfft) ##pixel scale (arcsec/pixel in the science image)
 
         self.control={}
         #leave control as global (shared between all resource sharing objects)
@@ -125,12 +99,6 @@ class science(aobase.aobase):
         self.thisiter=0
         self.sentPlotsCnt=0
 
-        #self.initFPGA=self.config.getVal("initFPGA",default=0)#whether to initialise the FPGA... (load binary, set up arrays etc).
-        useFPGA=self.config.getVal("useFPGA",default=0)#whether to use the FPGA initially (global)
-        if useFPGA:
-            self.FPGABitFile=self.config.getVal("FPGASciBitFile",default=string.join(__file__.split("/")[:-2]+["fpga","scifft.bin.ufp"],"/"))
-            self.ignoreFPGAOpenFailure=self.config.getVal("ignoreFPGAOpenFailure",default=0)
-        self.control["useFPGA"]=useFPGA
         self.fpDataType=self.config.getVal("fpDataType",default="f")
         self.cpDataType=self.fpDataType.upper()
 
@@ -206,17 +174,9 @@ class science(aobase.aobase):
         keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
         scienceListsSize=this.config.getVal("hist_list_size",default=this.config.getVal("AOExpTime")/tstep/scinSamp)
         inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
-        #check FPGA stuff...
-        useFPGA=this.config.getVal("useFPGA",default=0)#whether to use the FPGA initially (global)
-        if useFPGA:
-            waitFPGA=this.config.getVal("waitFPGA",1)
-            waitFPGATime=this.config.getVal("waitFPGATime",default=1e-6)#nfft*nfft*5e-9)
-        else:
-            waitFPGA=1
-            waitFPGATime=1e-6
         histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
         #now create the science object that will do most of the work...
-        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,useFPGA=useFPGA,waitFPGA=waitFPGA,waitFPGATime=waitFPGATime,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap)
+        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap)
 
         
 
@@ -231,10 +191,7 @@ class science(aobase.aobase):
         nfftmax=0
         npupmax=0
         pupmult=1
-        fpgarequired=0
         nimgmax=0
-        fpgaObj=None
-        fpgaarr=None
         for this in self.thisObjList:
             if this.sciObj.nfft>nfftmax:
                 nfftmax=this.sciObj.nfft
@@ -242,20 +199,11 @@ class science(aobase.aobase):
                 npupmax=this.sciObj.npup
             if this.sciObj.atmosPhaseType in ["phaseamp","realimag"]:
                 pupmult=2
-            if this.sciObj.canUseFPGA==1:
-                fpgarequired=1
-                fpgaObj=this.sciObj
             if this.sciObj.nimg>nimgmax:
                 nimgmax=this.sciObj.nimg
         npup=npupmax
         nfft=nfftmax
         nimg=nimgmax
-        if fpgarequired:
-            fpid,fpgaInfo=fpgaObj.initialiseFPGA(ignoreFailure=self.ignoreFPGAOpenFailure,fpgaBitFile=self.FPGABitFile)#load fpga binary...
-            fpgaarr=fpgaObj.setupFPGAArray(fpid,nfftmax)
-        else:
-            fpid=fpgaInfo=fpgaarr=None
-
         
         #now allocate memory at the max size needed.  These memory arrays will then be shared between all the sciObj objects.
 
@@ -267,21 +215,15 @@ class science(aobase.aobase):
             self.binimgMem=numpy.zeros((nimg,nimg),numpy.float32)#self.fpDataType)#binned image
         ##Allocation of the memory for the short exposure PSF
         ##Array storing the input phase
-        if type(fpgaarr)==type(None):
-            self.instImgMem=numpy.zeros((nimg,nimg),numpy.float32)#self.fpDataType)# Instantaneous image - dummy size since copied later - was float64
-            self.phsMem=numpy.zeros((npup*npup*pupmult,),numpy.float32)#self.fpDataType)#was float64
-            
-        else:
-            self.phsMem=fpgaarr
-            self.instImgMem=fpgaarr
+        self.instImgMem=numpy.zeros((nimg,nimg),numpy.float32)#self.fpDataType)# Instantaneous image - dummy size since copied later - was float64
+        self.phsMem=numpy.zeros((npup*npup*pupmult,),numpy.float32)#self.fpDataType)#was float64
         #self.longExpPSFMem=Numeric.zeros((nfft,nfft),Numeric.Float64)# Long exposure image array
         self.fftTmpMem=numpy.zeros((nfft**2+10*nfft,),numpy.complex64)#self.cpDataType)#was complex64
         #now initialise the science objects with this memory.
         for this in self.thisObjList:
             sciObj=this.sciObj
             sciObj.initMem(self.fftTmpMem,self.pupilAmplitudeMem,self.focusAmplitudeMem,self.tempImgMem,self.instImgMem,self.phsMem,self.binimgMem)
-            sciObj.initialiseFPGA(fpid=fpid,fpgaInfo=fpgaInfo)
-            sciObj.initProfiles(self.control["useFPGA"])
+            sciObj.initProfiles()
             f=int(0.4*this.sciObj.nimg)
             t=int(0.6*this.sciObj.nimg)
             this.sciObj.instImgView=this.sciObj.instImg[f:t,f:t]

@@ -1,0 +1,46 @@
+Installation should be relatively straight forward.
+
+First, get the packages you need, e.g.:
+make ubuntu1404
+etc.  If your particular distribution isn't in the Makefile, then install by hand, e.g.:
+
+Ubuntu:
+
+sudo apt-get install  python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib python-mpi4py
+
+Fedora:
+yum install gsl-devel fftw3-devel atlas-devel scipy openmpi 
+
+RHEL6:
+Also need openblas-devel and:
+export C_INCLUDE_PATH=/usr/include/openblas/
+ln -s libcblas.so.3 libcblas.so
+ln -s libatlas.so.3 libatlas.so
+
+
+
+Secondly, check MPI is working:
+mpirun -np 2 /usr/bin/mpipython -c "import Scientific.MPI,os;print Scientific.MPI.world.duplicate().rank,os.environ.get('PYTHONPATH','pop')"
+Should then print out:
+0 your/python/path
+1 your/python/path
+
+If you are simulating a large system, you will also benefit from a BLAS library.  DASP can support mkl, acml, openblas or atlas.  Openblas is easiest to get going with.  ACML 6 isn't yet supported (uses OpenCL).
+Install openblas in /opt/openblas and add /opt/openblas/lib to LD_LIBRARY_PATH.
+
+Now make the simulation:
+make
+
+Export the suggested things, e.g.:
+export PYTHONPATH=$PYTHONPATH:/path/to/aosim
+export PATH=$PATH:/home/ali/git/path/to/bin
+
+For Fedora/redhat systems, you also need to:
+export PYTHONPATH=$PYTHONPATH:/path/to/aosim:/usr/local/lib:/usr/local/lib64
+And may also need to add /usr/lib64/openmpi/lib
+And ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun
+
+
+Now, navigate to test/scao, and run:
+python scao.py --iterations=200
+

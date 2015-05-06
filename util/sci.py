@@ -8,12 +8,6 @@ import util.FITS
 import os
 import tempfile
 import cmod.binimg
-haveFPGA=1
-try:
-    import fpga
-except:
-    print "FPGA module not installed."
-    haveFPGA=0
 
 class science:
     """A class of utilities related to science imaging.  This can be used
@@ -24,7 +18,7 @@ class science:
     phaseMultiplier is used for cases where phase wavelength is different from the wavelength that this science object is at.
 
     """
-    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,useFPGA=0,waitFPGA=0,waitFPGATime=0,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0):
+    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0):
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
@@ -34,11 +28,6 @@ class science:
         if (self.nfft%self.nimg)!=0:
             raise Exception("WARNING: util.sci.py nfft not a multiple of nimg")
         self.phaseTilt=None
-        self.fpgaUserPrecision=4
-        if npup>=512:
-            self.fpgaUserPrecision-=1
-        if npup>=1024:
-            self.fpgaUserPrecision-=1
         self.pup=pup
         self.tstep=tstep
         self.atmosPhaseType=atmosPhaseType
@@ -66,10 +55,6 @@ class science:
             self.realPupBinned=numpy.zeros((self.npup,self.npup),numpy.float32)
             cmod.binimg.binimg(realPup.astype("f"),self.realPupBinned)
             self.realPupBinned[:,]=numpy.where(self.realPupBinned==0,1,self.realPupBinned)
-        self.useFPGA=useFPGA
-        self.waitFPGA=waitFPGA
-        self.waitFPGATime=waitFPGATime
-        self.fpgaWaitCycles=0#number of cycles waited for FPGA for - check occasionalyl to make sure we;re not waiting too long...
         self.fpDataType="f"#always float32 now (cmod.fft requires it).
         self.integratedImgDataType=fpDataType#floating point type
         self.cpDataType='F'#fpDataType.upper()#complex type
@@ -111,10 +96,6 @@ class science:
         self.luckyImgFilename=luckyImgFilename
         self.luckyImgSize=luckyImgSize
         self.luckyFile=None
-        if self.useFPGA:
-            self.testFPGAUsage()
-        else:
-            self.canUseFPGA=0
         if allocateMem:
             self.initMem()
             self.initProfiles()
@@ -142,11 +123,6 @@ class science:
         nfft=self.nfft
         npup=self.npup
         nimg=self.nimg
-        if self.canUseFPGA:#pupilAmplitude should be the fpga accessible memory.
-            if self.atmosPhaseType=="phaseonly":
-                atmosfactor=1#phaseonly...
-            else:
-                raise Exception("util.science: atmosphasetype: not phaseonly")
             
         if type(fftTmp)==type(None):#scratch area for acml FFT routine...
             self.fftTmp=numpy.zeros((nfft**2+10*nfft,),self.cpDataType)#Numeric.Complex64
@@ -215,85 +191,11 @@ class science:
 ##             self.longExpPSF=cmod.utils.arrayFromArray(longExpPSF,(nfft,nfft),Numeric.Float64)
 ##         else:
 ##             self.longExpPSF=longExpPSF
-        if self.canUseFPGA:
-            self.fpgaPupilMask=(0x7f800000*(1-self.pup)).astype(numpy.int32)
-    def initialiseFPGA(self,fpid=None,fpgaInfo=None,ignoreFailure=0,fpgaBitFile=None):
-        self.fpid=fpid
-        self.fpgaInfo=fpgaInfo
-        self.fpgaBinaryLoaded=0
-        if self.canUseFPGA:
-            if self.fpid==None:
-                try:
-                    self.fpid=fpga.open(reset=0,start=0)
-                    self.fpgaBinaryLoaded=1
-                except:
-                    if ignoreFailure:
-                        self.fpgaBinaryLoaded=0
-                        self.fpid=None
-                        print "Warning: util.science: failed to initialise FPGA"
-                    else:
-                        print "Failed to open FPGA device..."
-                        print os.environ
-                        raise
-                if self.fpgaBinaryLoaded:
-                    fpga.load(self.fpid,fpgaBitFile)
-                    fpga.reset(self.fpid)
-                    time.sleep(0.001)
-                    fpga.start(self.fpid)
-                    time.sleep(0.001)
-                    fpga.writeReg(self.fpid,0x2,6)#stop the fpga pipeline
-                    self.fpgaInfo=fpgaSciStateInformation()
-            else:
-                self.fpgaBinaryLoaded=1
-        if self.fpgaBinaryLoaded==0:
-            self.fpid=None
-            self.fpgaInfo=None
-            self.canUseFPGA=0
-        return self.fpid,self.fpgaInfo
-    def testFPGAUsage(self):
-        self.canUseFPGA=haveFPGA
-        if self.nfft not in [8,16,32,64,128,256,512,1024,2048]:
-            print "WARNING: cannot use FPGA - illegal nfft value"
-            self.canUseFPGA=0
-        if self.nimg!=self.nfft:
-            print "WARNING: cannot use FPGA - illegal nimg value"
-            self.canUseFPGA=0
-        if self.npup>1024:
-            print "WARNING: cannot use FPGA - npup>1024"
-            self.canUseFPGA=0
-        if self.fpDataType!=numpy.float32:
-            print "WARNING: cannot use FPGA - must be float32"
-            self.canUseFPGA=0
-        #if self.cpDataType!=numpy.Complex32:
-        #    self.canUseFPGA=0
-        if self.atmosPhaseType!="phaseonly":
-            print "WARNING: cannot use FPGA - atmosPhaseType must be phaseonly"
-            self.canUseFPGA=0
-        return self.canUseFPGA
-    def setupFPGAArray(self,fpid,fftsize):
-        """Set up FPGA accessible region.  The phase read into the fpga can be overwritten by the image..."""
-        if fftsize>2048:
-            raise Exception("fft size too large for science fpga (2048 max, requested %d)"%fftsize)
-        fpgaarr=fpga.mallocHostMem(fpid,(fftsize**2*4,),numpy.int8)
-        return fpgaarr
-    def fpgaLoadRegs(self):
-        fpga.writeReg(self.fpid,2,6)#stop the pipe
-        fpga.writeReg(self.fpid,self.npup,512)
-        fpga.writeReg(self.fpid,self.nfft,513)
-        fpga.writeReg(self.fpid,self.fpgaUserPrecision,514)
-        self.fpgaInfo.npup=self.npup
-        self.fpgaInfo.nfft=self.nfft
-        self.fpgaInfo.userPrecision=self.fpgaUserPrecision
-        fpga.writeAddr(self.fpid,self.phs,1)#input address
-        fpga.writeReg(self.fpid,self.npup*self.npup/2,2)#read into fpga size
-        fpga.writeAddr(self.fpid,self.instImg,3)#output addr
-        fpga.writeReg(self.fpid,self.nfft*self.nfft/2,4)#output size
-        fpga.writeReg(self.fpid,64,6)#reset the fifos.
+
         
-    def initProfiles(self,useFPGA=0):
+    def initProfiles(self):
         """This should be called after the memory has been set up..."""
-        useFPGA=useFPGA and self.canUseFPGA
-        self.diffPSF=self.computeDiffPSF(useFPGA)
+        self.diffPSF=self.computeDiffPSF()
         self.diffPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
         if self.diffPsfFilename!=None:#save the diffraction limited PSF.
             util.FITS.Write(self.diffPSF,self.diffPsfFilename)
@@ -305,20 +207,6 @@ class science:
         self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         #perform an acml FFT initialisation.
         #Actually not needed for inplace_fft2d...
-##     def initProfiles(self,useFPGA=0):
-##         """This should be called after the memory has been set up..."""
-##         useFPGA=useFPGA and self.canUseFPGA
-##         self.diffPSF=self.computeDiffPSF(useFPGA)
-##         self.diffPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
-##         if self.diffPsfFilename!=None:#save the diffraction limited PSF.
-##             util.FITS.Write(self.diffPSF,self.diffPsfFilename)
-##         #self.dlPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
-##         self.diffn_core_en=float(self.diffPSF[self.nfft/2,self.nfft/2])
-##         print "todo - return from computeEnsquaredEnergy - allocate once"
-##         self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
-##         #perform an acml FFT initialisation.
-##         #Actually not needed for inplace_fft2d...
-        
 
     def initRadialProfile(self):
         """Creates and initialises arrays to compute the radial
@@ -496,35 +384,21 @@ class science:
 ##             rms=Numeric.sqrt(p2/s-m*m)
 ##         return rms
 
-    def computeDiffPSF(self,useFPGA=0):
+    def computeDiffPSF(self):
         """computeDiffPSF function : computes the diffraction limited PSF
         Function written  by FA, heavily modified by AGB"""
-        useFPGA=(useFPGA and self.canUseFPGA)
         if self.atmosPhaseType=="phaseamp":
-            self.computeShortExposurePSF(numpy.array([1,1],self.fpDataType),useFPGA)#places result into instImg
+            self.computeShortExposurePSF(numpy.array([1,1],self.fpDataType))#places result into instImg
         else:
-            self.computeShortExposurePSF(numpy.array([1],self.fpDataType),useFPGA)
+            self.computeShortExposurePSF(numpy.array([1],self.fpDataType))
         if self.keepDiffPsf:
             self.diffPSF=self.instImg.copy()
         else:
             self.diffPSF=self.instImg#will be overwritten next time computeShortExposurePSF is called...
         return self.diffPSF
-##     def computeDiffPSF(self,useFPGA=0):
-##         """computeDiffPSF function : computes the diffraction limited PSF
-##         Function written  by FA, heavily modified by AGB"""
-##         useFPGA=useFPGA and self.canUseFPGA
-##         if self.atmosPhaseType=="phaseamp":
-##             self.computeShortExposurePSF(Numeric.array([1,1],self.fpDataType),useFPGA)#places result into instImg
-##         else:
-##             self.computeShortExposurePSF(Numeric.array([1],self.fpDataType),useFPGA)
-##         if self.keepDiffPsf:
-##             self.diffPSF=self.instImg.copy()
-##         else:
-##             self.diffPSF=self.instImg#will be overwritten next time computeShortExposurePSF is called...
-##         return self.diffPSF
 
 
-    def computeShortExposurePSF(self,phs,useFPGA=0):
+    def computeShortExposurePSF(self,phs):
         """computeShortExposurePSF function : computes short exposure AO corrected PSF
         Modifications made by FA"""
 
@@ -723,7 +597,6 @@ class science:
 
     def doScienceCalc(self,inputData,control,curtime=0):
         """compute the science calculation.  Here, inputData is the phase, control is a dictionary of control commands, such as useFPGA, calcRMSFile, zero_science and science_integrate."""
-        useFPGA=control["useFPGA"] and self.canUseFPGA
         ##we compute the piston and remove it into the pupil
         if self.atmosPhaseType=="phaseonly":
             if inputData.shape!=(self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
@@ -777,7 +650,7 @@ class science:
                 self.psfSamp+=1
                 if self.psfSamp>=self.sciPSFSamp:
                     self.psfSamp=0
-                    self.computeShortExposurePSF(self.phs,useFPGA)#calc short exposure PSF
+                    self.computeShortExposurePSF(self.phs)#calc short exposure PSF
                     self.longExpImg+=self.instImg# Integrate img
                     #instantaneous strehl calc...
                     self.dictScience['strehlInst']=numpy.max(self.instImg)/self.diffn_core_en
@@ -840,11 +713,6 @@ class science:
             print "science: generateNext done (debug=%s)"%str(self.debug)
         return None
 
-class fpgaSciStateInformation:
-    def __init__(self):
-        self.npup=None
-        self.nfft=None
-        self.userPrecision=None
         
 def difYorick (x, i = 0) :
 
