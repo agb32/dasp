@@ -36,6 +36,11 @@ clean:
 	rm -rf modules
 	rm -f ${DOCUMENTS:=.pdf} simapi.tex *.*~
 
+ubuntu1404:
+	sudo apt-get install texlive-latex-base texlive-latex-recommended python-epydoc
+
+
+
 # \/ below are older, explicit rules
 
 #all:  ${DOCUMENTS:=.pdf} dummiesGuide.pdf overview.pdf simctrl.pdf paramgui.pdf schema.pdf setupGUIrequirements.pdf wfsPipe.pdf fpgaMVM.pdf simsetup.pdf simnews.pdf conjugation.pdf fdpcg.pdf cellprocessor.pdf
