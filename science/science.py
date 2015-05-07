@@ -90,12 +90,15 @@ class science(aobase.aobase):
         self.ended=1
 
         self.control={}
-        #leave control as global (shared between all resource sharing objects)
-        self.control["zero_science"]=config.getVal("zero_science",default=10) ##idem - zero for 10 iterations...
-        self.control["science_integrate"]=config.getVal("science_integrate",default=1)
-        self.control["calcRMS"]=self.config.getVal("science_calcRMS",default=0)##idem
-        self.control["viewCentral"]=1#if set, the gui will only be sent the central 20% of the psfs.
-        self.control["lucky_integrate"]=config.getVal("lucky_integrate",default=0)
+        self.sciOverview=config.getVal("sciOverview",raiseerror=0)
+        if self.sciOverview==None:
+            print("DEPRECIATION WARNING: Please use util.sci.sciOverview to describe science objects in config file")
+            #leave control as global (shared between all resource sharing objts)
+            self.control["zero_science"]=config.getVal("zero_science",default=10) ##idem - zero for 10 iterations...
+            self.control["science_integrate"]=config.getVal("science_integrate",default=1)
+            self.control["calcRMS"]=self.config.getVal("science_calcRMS",default=0)##idem
+            self.control["viewCentral"]=1#if set, the gui will only be sent the central 20% of the psfs.
+            self.control["lucky_integrate"]=config.getVal("lucky_integrate",default=0)
         self.thisiter=0
         self.sentPlotsCnt=0
 
@@ -116,65 +119,139 @@ class science(aobase.aobase):
     def initialise(self,parent,idstr):
         this=aobase.resourceSharer(parent,self.config,idstr,self.moduleName)
         self.thisObjList.append(this)
-        apt=this.config.getVal("atmosPhaseType",default="phaseonly")
         tstep=this.config.getVal("tstep")
-        npup=this.config.getVal("npup") ##number of linear pixels for pupil
-        nfft=this.config.getVal("scinfft",default=int(2**numpy.ceil(numpy.log2(2*npup)))) ##linear number of pixels for PSF
-        nimg=this.config.getVal("scinimg",default=nfft)
-        if nimg!=nfft:
-            self.nimgNotNfft=1
-        pupil=this.config.getVal("pupil") ##telescope entrance pupil
-        realPupil=this.config.getVal("realPupil",default=None,raiseerror=0)
-        sciPath=this.config.getVal("sciPath",default=idstr)
-        if type(realPupil)!=type(None):
-            realPupil=realPupil.fn
-        try:
-            dmpupil=pupil.dmpupil
-        except:
-            dmpupil=this.config.getVal("dmpupil",raiseerror=0,default=None) ##DM pupil
-        print "todo: science - is it correct to use dmpupil here - should we not just use pupil?  dmpupil would surely be unphysical? (ask FA)"
-        usedmpup=this.config.getVal("usedmpup",default=0)
-        if usedmpup:
-            pup=numpy.array((pupil.fn*dmpupil),numpy.int8)#.astype(numpy.int8)# Pupil seen by Science cam
-        else:
-            pup=pupil.fn
-        #print type(pup),type(pupil.fn),type(dmpupil),pup.typecode(),pupil.fn.typecode(),dmpupil.typecode()
+        if self.sciOverview==None:
+            apt=this.config.getVal("atmosPhaseType",default="phaseonly")
+            npup=this.config.getVal("npup") ##number of linear pixels for pupil
+            nfft=this.config.getVal("scinfft",default=int(2**numpy.ceil(numpy.log2(2*npup)))) ##linear number of pixels for PSF
+            nimg=this.config.getVal("scinimg",default=nfft)
+            if nimg!=nfft:
+                self.nimgNotNfft=1
+            pupil=this.config.getVal("pupil") ##telescope entrance pupil
+            realPupil=this.config.getVal("realPupil",default=None,raiseerror=0)
+            sciPath=this.config.getVal("sciPath",default=idstr)
+            if type(realPupil)!=type(None):
+                realPupil=realPupil.fn
+            try:
+                dmpupil=pupil.dmpupil
+            except:
+                dmpupil=this.config.getVal("dmpupil",raiseerror=0,default=None) ##DM pupil
+            print "todo: science - is it correct to use dmpupil here - should we not just use pupil?  dmpupil would surely be unphysical? (ask FA)"
+            usedmpup=this.config.getVal("usedmpup",default=0)
+            if usedmpup:
+                pup=numpy.array((pupil.fn*dmpupil),numpy.int8)#.astype(numpy.int8)# Pupil seen by Science cam
+            else:
+                pup=pupil.fn
+
+            fitsFilename=this.config.getVal("scifitsFilename",default=None,raiseerror=0)
+            sciFilename=this.config.getVal("scicsvFilename",default=None,raiseerror=0)
+            sciPSFSamp=this.config.getVal("sciPSFSamp",default=1)
+            scinSamp=this.config.getVal("scinSamp")
+            luckyFilename=this.config.getVal("luckyFilename",default=None,raiseerror=0)
+            luckyImgFilename=this.config.getVal("luckyImgFilename",default=None,raiseerror=0)
+            luckyImgSize=this.config.getVal("luckyImgSize",default=None,raiseerror=0)
+            luckyNSampFrames=this.config.getVal("luckyNSampFrames",default=1)
+            luckyHistorySize=this.config.getVal("luckyHistorySize",default=None,raiseerror=0)
+            if luckyHistorySize==None:
+                luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+            luckyByteswap=this.config.getVal("luckyByteswap",default=0)
+            saveFileString=this.config.getVal("scisaveFileString",raiseerror=0)#an optional string that can be used to identify a given simulation in the saved results... 
+            diffPsfFilename=this.config.getVal("sciDiffPsfFilename",default=None,raiseerror=0)
+            keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
+            scienceListsSize=this.config.getVal("hist_list_size",default=this.config.getVal("AOExpTime")/tstep/scinSamp)
+            inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
+            histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
+
+
+
+        else:#use sciOverview.
+            this.sciInfo=self.sciOverview.getSciByID(idstr)
+            #a slight bodge - each will overwrite control...
+            self.control["zero_science"]=this.sciInfo.zeroPsf
+            self.control["science_integrate"]=this.sciInfo.integrate
+            self.control["calcRMS"]=this.sciInfo.calcRMS
+            self.control["viewCentral"]=1#if set, the gui will only be sent the central 20% of the psfs.
+            luckyObj=this.sciInfo.luckyObj
+            if luckyObj==None:
+                self.control["lucky_integrate"]=0
+            else:
+                self.control["lucky_integrate"]=luckyObj.integrate
+            apt=this.sciObj.phaseType
+            pupil=this.sciObj.pupil ##telescope entrance pupil
+            npup=pupil.shape[0]#this.config.getVal("npup") ##number of linear pixels for pupil
+            nfft=this.sciObj.nfft
+            if nfft==None:
+                nfft=int(2**numpy.ceil(numpy.log2(2*npup))) ##fft size
+            nimg=this.sciObj.nimg
+            if nimg==None:
+                nimg=nfft
+            if nimg!=nfft:
+                self.nimgNotNfft=1
+            realPupil=this.sciObj.realPupil
+            sciPath=this.sciObj.sciPath
+            if type(realPupil)!=type(None):
+                realPupil=realPupil.fn
+            try:
+                dmpupil=pupil.dmpupil
+            except:
+                dmpupil=this.sciObj.dmpupil
+            usedmpup=this.sciObj.usedmpup
+            if usedmpup:
+                pup=numpy.array((pupil.fn*dmpupil),numpy.int8)
+            else:
+                pup=pupil.fn
+
+            fitsFilename=this.sciObj.psfFilename
+            sciFilename=this.sciObj.summaryFilename
+            sciPSFSamp=this.sciObj.psfSamp#1
+            scinSamp=this.sciObj.nsamp#10
+            saveFileString=this.sciObj.saveString
+            diffPsfFilename=this.sciObj.diffPsfFilename
+            keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
+            scienceListsSize=this.sciObj.histListSize
+            if scienceListsSize==None:
+                scienceListsSize=this.config.getVal("AOExpTime")/tstep/scinSamp
+            inboxDiamList=this.sciObj.inboxDiamList
+            histFilename=this.sciObj.histFilename
+            if luckyObj!=None:
+                luckyFilename=luckyObj.filename
+                luckyImgFilename=luckyObj.imgFilename
+                luckyImgSize=luckyObj.imgSize
+                luckyNSampFrames=luckyObj.nSampFrames
+                luckyHistorySize=luckyObj.histSize
+                if luckyHistorySize==None:
+                    luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+                luckyByteswap=luckyObj.byteswap
+            else:
+                luckyFilename=luckyImgFilename=luckyImgSize=None
+                luckyNSampFrames=1
+                luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+                luckyByteswap=0
+
+
         atmosGeom=this.config.getVal("atmosGeom",default=None,raiseerror=0)
         sci_lam=None
         phsLam=None
         if atmosGeom!=None:
             sci_lam=atmosGeom.sourceLambda(sciPath)
             phsLam=atmosGeom.phaseLambda(sciPath)
+            telDiam=atmosGeom.telDiam
+        else:#depreciated
+            telDiam=this.config.getVal("telDiam") ##Telescope diameter 
         if sci_lam==None:
             sci_lam=this.config.getVal("sourceLam")##Imaging wavelength
             print "Warning - sci_lam not in atmosGeom - using %g"%sci_lam
         if phsLam==None:
             phsLam=sci_lam
         print "science - Using wavelength of %g nm (phase at %g nm)"%(sci_lam,phsLam)
+
+
+
         phaseMultiplier=phsLam/sci_lam
-        telDiam=this.config.getVal("telDiam") ##Telescope diameter 
         asRad=numpy.pi/180./3600.#this.config.getVal("arcsecRad") ##Conversion rad-> arcsec
         L_D= ( (sci_lam*1.e-9)/telDiam )/asRad ##Diffraction limited resolution
         pix_scale=L_D*float(npup)/float(nfft)*float(nfft)/float(nimg) ##pixel scale (arcsec/pixel in the science image).  
         ##name of the FITS file to store the PSF
-        fitsFilename=this.config.getVal("scifitsFilename",default=None,raiseerror=0)
-        sciFilename=this.config.getVal("scicsvFilename",default=None,raiseerror=0)
-        sciPSFSamp=this.config.getVal("sciPSFSamp",default=1)
-        scinSamp=this.config.getVal("scinSamp")
-        luckyFilename=this.config.getVal("luckyFilename",default=None,raiseerror=0)
-        luckyImgFilename=this.config.getVal("luckyImgFilename",default=None,raiseerror=0)
-        luckyImgSize=this.config.getVal("luckyImgSize",default=None,raiseerror=0)
-        luckyNSampFrames=this.config.getVal("luckyNSampFrames",default=1)
-        luckyHistorySize=this.config.getVal("luckyHistorySize",default=None,raiseerror=0)
-        if luckyHistorySize==None:
-            luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
-        luckyByteswap=this.config.getVal("luckyByteswap",default=0)
-        saveFileString=this.config.getVal("scisaveFileString",raiseerror=0)#an optional string that can be used to identify a given simulation in the saved results... 
-        diffPsfFilename=this.config.getVal("sciDiffPsfFilename",default=None,raiseerror=0)
-        keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
-        scienceListsSize=this.config.getVal("hist_list_size",default=this.config.getVal("AOExpTime")/tstep/scinSamp)
-        inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
-        histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
         #now create the science object that will do most of the work...
         this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap)
 

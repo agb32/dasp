@@ -8,6 +8,48 @@ import util.FITS
 import os
 import tempfile
 import cmod.binimg
+import util.atmos
+
+class sciOverview:
+    def __init__(self,sciDict):
+        self.sciDict=sciDict#A dictionary of sciInfo objects
+    def getSciByID(self,idstr):
+        sci=self.sciDict[idstr]
+        if sci.idstr!=idstr:
+            raise Exception("Inconsistency in sciOverview")
+        return sci
+
+class sciInfo(util.atmos.source):
+    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2]):
+        super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)
+        self.nsamp=nsamp
+        self.zeroPsf=10
+        self.psfFilename=psfFilename
+        self.summaryFilename=summaryFilename
+        self.histFilename=histFilename
+        self.integrate=integrate
+        self.calcRMS=calcRMS
+        self.phaseType=phaseType
+        self.nfft=nfft
+        self.nimg=nimg
+        self.pupil=pupil
+        self.realPupil=realPupil
+        self.dmpupil=dmpupil
+        self.usedmpup=usedmpup
+        self.psfSamp=psfSamp
+        self.luckyObj=luckyObj#a luckyInfo object.
+        self.saveString=saveString
+        self.diffPsfFilename=diffPsfFilename
+        self.histListSize=histListSize
+        self.inboxDiamList=inboxDiamList
+        self.sciPath=sciPath
+        if self.sciPath==None:
+            self.sciPath=idstr
+
+class luckyInfo:
+    def __init__(self,filename=None,imgFilename=None,imgSize=None,nSampFrames=1,byteswap=0,integrate=1,histSize=None):
+        self.filename=filename
+        etc
 
 class science:
     """A class of utilities related to science imaging.  This can be used
