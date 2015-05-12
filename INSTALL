@@ -44,3 +44,9 @@ And ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun
 Now, navigate to test/scao, and run:
 python scao.py --iterations=200
 
+
+
+DOCUMENTATION:
+Is in doc/
+To make it, navigate to the doc directory, and run "make".  You may need to install relevant packages - this can be done using:
+make ubuntu1404 (and derivatives) - in the doc directory.

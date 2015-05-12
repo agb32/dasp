@@ -1111,7 +1111,10 @@ class recon(base.aobase.aobase):
             self.outputData[:,]+=tmp
         elif self.reconType=="pcg":
             #print data.shape,self.pcgB.shape
-            b=quick.dot(self.pcgB,data)
+            if self.pcgB.shape[1]==data.shape:
+                b=quick.dot(self.pcgB,data)
+            else:
+                b=self.pcgB.T.dot(data)
             #print b.shape,self.pcgA.shape
             self.pcgX0,self.pcgIters=scipy.sparse.linalg.cg(self.pcgA,b,self.pcgX0,
                                                             self.pcgTol,self.pcgMaxiter,M=self.pcgPreconditioner)

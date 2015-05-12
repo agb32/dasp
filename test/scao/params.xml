@@ -78,19 +78,20 @@ scrnScale=this.globals.telDiam/float(this.globals.ntel)
 <vr name="wfs_floor" value="wfs_read_mean+0*wfs_read_sigma" type="eval" comment="WFS Read noise (e-)"/>
 <vr name="wfs_skybrightness" type="f" value="0."/>
 <vr name="nthreads" type="s" value="all"/>
+<var name="seed" value="1" type="i"/>
 </variables>
 </module>
 
 
 <module name="infScrn">
 <variables>
-<var comment="random seed" type="eval" name="seed" value="None"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
 </variables>
 </module>
 
 <module name="iscrn">
 <variables>
-<var comment="random seed" type="eval" name="seed" value="None"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
 </variables>
 </module>
 

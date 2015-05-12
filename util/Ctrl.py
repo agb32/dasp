@@ -88,6 +88,7 @@ class Ctrl:
         self.compList=[]
         self.compListPos=0
         self.compListNames=[]
+        self.userArgList=[]
         #broadcast a tag for SHM from rank 0 to all others...
         arr=numpy.array([time.time()],numpy.float64)
         self.mpiComm.broadcast(arr,0)
@@ -144,6 +145,8 @@ class Ctrl:
                 self.initParamString=a
             if o=="--verbose":
                 self.verbose=1
+            if o=="--user":
+                self.userArgList.append(a)
             if o in ["-h","--help"]:
                 print 'HELP:\nRun simulation with\n--batchno=xxx\n--start-paused\n--param-file=paramfile\n--iterations=niters\n--id=simulationID (string)\n--param="Text string, e.g. this.globals.nLayers=2, used to alter parameter file on the fly"\n--displaythread (to print thread identity with messages)\n--nostdin to stop listening to stdin\n-p Same as --start-paused\nfile.xml same as --param-file=paramfile\n--debug-connections to print mpiget/send messages\n--verbose for verbosity\n--user=xxx for user specific options\n'
                 sys.exit(0)

@@ -241,9 +241,7 @@ class parseSimXml:
                             #we are trying to share to a group object...
                             for ii in range(len(groupList)):#first of all find it
                                 eoltmp=expandedObjList[ii]
-                                for gotmp in groupedObjList[ii]:
-                                    print gotmp
-                                    print so
+                                for gotmp in groupedObjList:#[ii]:
                                     if so in gotmp:
                                         tmplist=eoltmp[gotmp.index(so)]#this is the expanded list
                                         for tmpobj in tmplist:

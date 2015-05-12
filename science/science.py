@@ -176,43 +176,43 @@ class science(aobase.aobase):
                 self.control["lucky_integrate"]=0
             else:
                 self.control["lucky_integrate"]=luckyObj.integrate
-            apt=this.sciObj.phaseType
-            pupil=this.sciObj.pupil ##telescope entrance pupil
+            apt=this.sciInfo.phaseType
+            pupil=this.sciInfo.pupil ##telescope entrance pupil
             npup=pupil.shape[0]#this.config.getVal("npup") ##number of linear pixels for pupil
-            nfft=this.sciObj.nfft
+            nfft=this.sciInfo.nfft
             if nfft==None:
-                nfft=int(2**numpy.ceil(numpy.log2(2*npup))) ##fft size
-            nimg=this.sciObj.nimg
+                nfft=npup*2#int(2**numpy.ceil(numpy.log2(2*npup))) ##fft size
+            nimg=this.sciInfo.nimg
             if nimg==None:
                 nimg=nfft
             if nimg!=nfft:
                 self.nimgNotNfft=1
-            realPupil=this.sciObj.realPupil
-            sciPath=this.sciObj.sciPath
+            realPupil=this.sciInfo.realPupil
+            sciPath=this.sciInfo.sciPath
             if type(realPupil)!=type(None):
                 realPupil=realPupil.fn
             try:
                 dmpupil=pupil.dmpupil
             except:
-                dmpupil=this.sciObj.dmpupil
-            usedmpup=this.sciObj.usedmpup
+                dmpupil=this.sciInfo.dmpupil
+            usedmpup=this.sciInfo.usedmpup
             if usedmpup:
                 pup=numpy.array((pupil.fn*dmpupil),numpy.int8)
             else:
                 pup=pupil.fn
 
-            fitsFilename=this.sciObj.psfFilename
-            sciFilename=this.sciObj.summaryFilename
-            sciPSFSamp=this.sciObj.psfSamp#1
-            scinSamp=this.sciObj.nsamp#10
-            saveFileString=this.sciObj.saveString
-            diffPsfFilename=this.sciObj.diffPsfFilename
+            fitsFilename=this.sciInfo.psfFilename
+            sciFilename=this.sciInfo.summaryFilename
+            sciPSFSamp=this.sciInfo.psfSamp#1
+            scinSamp=this.sciInfo.nsamp#10
+            saveFileString=this.sciInfo.saveString
+            diffPsfFilename=this.sciInfo.diffPsfFilename
             keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
-            scienceListsSize=this.sciObj.histListSize
+            scienceListsSize=this.sciInfo.histListSize
             if scienceListsSize==None:
                 scienceListsSize=this.config.getVal("AOExpTime")/tstep/scinSamp
-            inboxDiamList=this.sciObj.inboxDiamList
-            histFilename=this.sciObj.histFilename
+            inboxDiamList=this.sciInfo.inboxDiamList
+            histFilename=this.sciInfo.histFilename
             if luckyObj!=None:
                 luckyFilename=luckyObj.filename
                 luckyImgFilename=luckyObj.imgFilename

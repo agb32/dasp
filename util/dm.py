@@ -1832,8 +1832,13 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         try:
             import cmod.mkl
         except:
-            print "ERROR Unable to import cmod.mkl - using quick.dot instead"
-            res=quick.dot(rmx,v.projmx.T)
+            print "INFORMATION Unable to import cmod.mkl - using quick.dot instead"
+            if rmx.shape[1]==v.projmx.shape[1]:
+                res=quick.dot(rmx,v.projmx.T)
+            elif rmx.shape[0]==v.projmx.shape[1]:
+                res=quick.dot(v.projmx,rmx)
+            else:
+                raise Exception("Shape error in dm.dmProjectionQuick: %s, %s"%(str(rmx.shape),str(v.projmx.shape)))
         else:
             res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
             cmod.mkl.gemm(rmx,v.projmx.T,res)

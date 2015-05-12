@@ -580,7 +580,7 @@ PyObject *py_initialiseInterp(PyObject *self,PyObject *args){
       if(nthreads<1)
 	nthreads = 1;
     }
-    printf("nthreads set to %d for initialiseInterp (this will only affect the threaded version: rotShiftWrapSplineImageThreaded)\n",nthreads);
+    //printf("nthreads set to %d for initialiseInterp (this will only affect the threaded version: rotShiftWrapSplineImageThreaded)\n",nthreads);
     nblockx=1;
     nblocky=nthreads;
   }

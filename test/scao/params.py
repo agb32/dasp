@@ -19,6 +19,11 @@ wfsDict={"a":util.guideStar.NGS(wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,\
                                 reconList=["ngs"],pupil=pupil)}
 wfsOverview=util.guideStar.wfsOverview(wfsDict)
 
+#Create a Science overview.
+import util.sci
+sciDict={"m":util.sci.sciInfo("m",0.,0.,pupil,sciLam,phslam=ngsLam)}
+sciOverview=util.sci.sciOverview(sciDict)
+
 #Create the atmosphere object and source directions.
 from util.atmos import geom,layer,source
 atmosDict={}
@@ -33,7 +38,7 @@ sourceList=[]
 #the wfs
 sourceList.append(wfsOverview.getWfsByID("a"))
 #and psf
-sourceList.append(source("m",0.,0.,-1,None,sciLam,phslam=ngsLam))
+sourceList.append(sciOverview.getSciByID("m"))
 l0=10. #outer scale
 r0=0.137 #fried's parameter
 atmosGeom=geom(atmosDict,sourceList,ntel,npup,telDiam,r0,l0)
@@ -42,18 +47,10 @@ atmosGeom=geom(atmosDict,sourceList,ntel,npup,telDiam,r0,l0)
 #Create the DM object.
 from util.dm import dmOverview,dmInfo
 dmInfoList=[dmInfo('dm',['a','m'],0.,nAct,minarea=0.1,actuatorsFrom="ngs",\
-                   pokeSpacing=(None if wfs_nsubx<20 else 10))]
+                   pokeSpacing=(None if wfs_nsubx<20 else 10),maxActDist=1.5)]
 dmObj=dmOverview(dmInfoList,atmosGeom)
 
-
-#science object
-this.science=new()
-s=this.science
-s.scinSamp=10#sample the long exposure PSF every 10 iterations
-s.zero_science=10#10 iterations to allow the loop to converge
-s.scifitsFilename=None#filename for the long exposure image
-s.scicsvFilename="results.csv"#filename for results summary
-s.histFilename="resultshist.fits"#filename for PSF parameter history
+seed=1
 
 #reconstructor
 this.tomoRecon=new()

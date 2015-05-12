@@ -148,7 +148,8 @@ class AOXml:
         """Load a python configuration file.
         For more info, see example in test/scao/params.py
         """
-        self.this.globals=This()
+        if not hasattr(self.this,"globals"):
+            self.this.globals=This()
         d={"new":This,"this":self.this,"batchno":self.batchno,"batchNumber":self.batchno,"numpy":numpy,"filename":self.filename,"ncpu":self.getCpus()}
         try:
             exec txt in d
@@ -950,8 +951,8 @@ class PreFormatXML:
         self.p.returns_unicode=0
         self.open(file)
 
-    def reset(self):
-        pass
+    #def reset(self):
+    #    pass
     def open(self,file):
         """Open an XML file and parse it.  Expand any module tags with id arguments, and then save the result in self.txt
         @param file: Filename
