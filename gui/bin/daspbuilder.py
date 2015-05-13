@@ -51,18 +51,32 @@ enough.
 def printhelp():
     print("""General help and guidance:
 
-This tool will aid you in setting up simple AO simulations.  After this tool
-has been used, you should then edit the params.py file, to match the simulation
-to your requirements, for example, telescope diameter, number of sub-apertures,
-atmospheric turbulence characteristics, etc.  
+This tool will aid you in setting up simple AO simulations.  After
+this tool has been used, you should then edit the params.py file, to
+match the simulation to your requirements, for example, telescope
+diameter, number of sub-apertures, atmospheric turbulence
+characteristics, etc.  However, please note that if you change the
+number of DMs in the parameter file, in most cases, you will need to
+use daspbuilder.py to regenerate a corresponding simulation (or add
+the DMs yourself using daspsetup.py).
 
-The performance of the wide-field AO systems simulated here is generally
-fairly poor when using the parameter file as it is:  Correction on a 4.2m
-telescope using 70cm sub-apertures, with LGS on a 2 arcminute diameter
-ring, and NGS on a 3 arcminute diameter ring, is never going to be good.  
-If you want to convince yourself that the simulation is working, I suggest
-reducing the asterism diameters.  Alternatively, daspsetup.py can be used to
-add an uncorrected science source, which can then be used for comparison.
+The performance of the wide-field AO systems simulated here is
+generally fairly poor when using the parameter file as it is:
+Correction on a 4.2m telescope using 70cm sub-apertures, with LGS on a
+2 arcminute diameter ring, and NGS on a 3 arcminute diameter ring, is
+never going to be good.  If you want to convince yourself that the
+simulation is working, I suggest reducing the asterism diameters.
+Alternatively, daspsetup.py can be used to add an uncorrected science
+source, which can then be used for comparison.
+
+To view the simulation configurations, use:
+daspsetup.py SIMFILE.xml  (where SIMFILE is the generated filename)
+
+To connect to a running simulation (to view PSFs, WFSs, DMs, etc in action) use:
+daspctrl.py
+
+To get current Strehl, etc, from the commandline, use
+daspanalyse.py
 """)
 
 def printmpi():
@@ -467,7 +481,7 @@ def makepmx(nlgs=None,nngs=None,ndm=None,mpi=None,dirname="pokeSim",writeParams=
     save(pystr,dirname,fname+".py")
     if writeParams:
         txt=mcaoParamsTxt.replace("nlgs=4","nlgs=%d"%nlgs)
-        txt=txt.replace("nsci=2","nsci=0#Add some science objects if you want to increase the DM field of view beyond that of the guide stars")
+        txt=txt.replace("nsci=1","nsci=0#Add some science objects if you want to increase the DM field of view beyond that of the guide stars")
         txt=txt.replace("nngs=3","nngs=%d"%nngs)
         txt=txt.replace("ndm=3","ndm=%d"%ndm)
         txt=txt.replace("computeControl=1","computeControl=0\nr.abortAfterPoke=1")
@@ -1512,7 +1526,7 @@ lgsLam=589.#LGS wavelength
 sciLam=1650.#Science wavelength
 lgsAsterismRadius=60.#arcseconds
 ngsAsterismRadius=90.#arcseconds
-nsci=2
+nsci=1
 nlgs=4
 nngs=3
 if hasattr(this.globals,"ndm"):
