@@ -5,7 +5,6 @@ make ubuntu1404
 etc.  If your particular distribution isn't in the Makefile, then install by hand, e.g.:
 
 Ubuntu:
-
 sudo apt-get install  python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib python-mpi4py
 
 Fedora:
@@ -50,3 +49,5 @@ DOCUMENTATION:
 Is in doc/
 To make it, navigate to the doc directory, and run "make".  You may need to install relevant packages - this can be done using:
 make ubuntu1404 (and derivatives) - in the doc directory.
+
+After installation, run daspbuilder.py to get started on your first simulation.

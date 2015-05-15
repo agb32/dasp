@@ -1,16 +1,16 @@
 AO simulation tree   ($Id: README,v 1.36 2009/09/07 17:04:12 ali Exp $)
 ==================
-See at end for info about installation of all the required software...
 
-Mostly python modules, some C (in cmod directory).  Examples in example
-directory.
+For installation instructions on Linux, see INSTALL (for MacOS, they
+are below).  Remember to set the correct environment variables (as
+described in INSTALL).
 
-You will need to add the directory this file is in (the top-level aosim
-directory) into your PYTHONPATH
+To get started, after installation, run daspbuilder.py 
+This will then guide you through the process of setting up your first
+simulation.  
 
-e.g. if you are in the aosim top-level directory and running bash
 
-export PYTHONPATH=$PYTHONPATH:`pwd`
+
 
 
 Colourized output
@@ -28,7 +28,7 @@ Linux
 ~~~~~
    General build
    -------------
-   Type 'make -s' in the top-level directory.
+   Type 'make' in the top-level directory.
 
 Mac OS X 10.5 or greater
 -------------
@@ -186,25 +186,9 @@ Build process only tested on;
 
 aipc65
    Mac OS X 10.4.2, python 2.3 (Apple supplied) & python 2.4
-losastacos
-   Suse Linux 2.6, python 2.4.1 64 bit
-aipc52
-   Fedora 4 Linux 2.6 python 2.4.1 32 bit
-"""Things needed before make will work (please up this list as necessary):
-   fftw3 compiled with --enable-shared --enable-threads
-   Numeric
-   Scientific python
-"""
 
 
-TODO (not in order):
-Compile Numeric using acml on the Cray.
-Data plotting - use of pylab or custom widget
-
-simctrl gui:  beep on warning (or make prominent)
-Fix CPU burn - seems to be when process finishes, which was sending data.
-
-
+------------ OLD DEPRECIATED INFORMATION ------------------
 
 INSTALLATION OF SOFTWARE
 
@@ -542,7 +526,7 @@ Set up your BLAS and LAPACK environment variables.
 Then do a python setup.py build for scipy.
 
 
-Oct 2012 (ubuntu 12.04) (see below for a line to copy/paste):
+Oct 2012 (ubuntu 12.04 and 14.04) (see below for a line to copy/paste):
 python-scientific
 mpichpython
 mpich2
@@ -564,7 +548,7 @@ So, in summary, require:
 sudo apt-get install  python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib
 And depending on MPI package:
 sudo apt-get install python-scientific mpichpython mpich-bin python-netcdf
-OR:
+OR (this one is better):
 sudo apt-get install python-mpi4py
 
 
