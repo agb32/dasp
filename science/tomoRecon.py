@@ -1051,7 +1051,7 @@ class recon(base.aobase.aobase):
                     tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
                 else:
                     print("INFORMATION:**tomorRecon**:self.reconmx.shape,"+
-                          "data.shape"+str(self.reconmx.shape,data.shape))
+                          "data.shape"+str(self.reconmx.shape)+str(data.shape))
                     tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
             elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or \
             (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and \
