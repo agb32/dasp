@@ -105,7 +105,7 @@ class makeRecon:
             if diagScaling!=None:
                 if type(diagScaling)==numpy.ndarray:#can also be None or float.
                     if diagScaling.shape[0]!=shape[1] or len(diagScaling.shape)!=1:
-                        raise Exception("Wrong diagonal scaling, expected shape %d (pmx=%s)"%(shape[1],str(shape)))
+                        raise Exception("Wrong diagonal scaling (%s), expected shape %d (pmx=%s)"%(str(diagScaling.shape),shape[1],str(shape)))
                     diagScaling=numpy.sqrt(diagScaling)
                 else:
                     diagScaling=numpy.ones((shape[1],),numpy.float32)*numpy.sqrt(diagScaling)
