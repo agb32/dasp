@@ -35,7 +35,7 @@ pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=None)
 <var name="pokeSpacing" type="eval" value="(None if wfs_nsubx.__cmp__(20)==-1 else 10)"/>
 <var name="wfsOverview" type="code">
 import util.guideStar
-wfsDict={"a":util.guideStar.NGS(wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,minarea=0.5,sig=1e6,idstr="a",sourcelam=ngsLam,reconList=["ngs"],pupil=pupil)}
+wfsDict={"a":util.guideStar.NGS("a",wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,minarea=0.5,sig=1e6,sourcelam=ngsLam,reconList=["ngs"],pupil=pupil)}
 wfsOverview=util.guideStar.wfsOverview(wfsDict)
 </var>
 

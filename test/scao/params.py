@@ -14,8 +14,8 @@ pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam)
 
 #Create the WFS overview
 import util.guideStar
-wfsDict={"a":util.guideStar.NGS(wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,\
-                                minarea=0.5,sig=1e6,idstr="a",sourcelam=ngsLam,\
+wfsDict={"a":util.guideStar.NGS("a",wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,\
+                                minarea=0.5,sig=1e6,sourcelam=ngsLam,\
                                 reconList=["ngs"],pupil=pupil)}
 wfsOverview=util.guideStar.wfsOverview(wfsDict)
 
