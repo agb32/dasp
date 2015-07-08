@@ -113,8 +113,6 @@ class SHS(base.aobase.aobase):
                         tmppsf[0:nimg,0:nimg]=tmpdata[pupy*nimg:(pupy+1)*nimg,pupx*nimg:(pupx+1)*nimg]
                         fftc=FFT.fft2(tmppsf)*fftss
                         conv=FFT.ifft2(fftc).real
-                        #conv=interpolation.shift(conv,[-shiftvalue[:,:,1],-shiftvalue[:,:,0]],mode="wrap")
-                        #conv=interpolation.shift(conv,[ymax,xmax],mode="wrap")
                         boxy0=max(y*nsection+pupy*nbigimg-tover,nbigimg*pupy)
                         boxy1=min((y+1)*nsection+pupy*nbigimg+tover,nbigimg*(pupy+1))
                         boxx0=max(x*nsection+pupx*nbigimg-tover,nbigimg*pupx)

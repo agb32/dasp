@@ -270,31 +270,7 @@ class centroid:
         self.wfsn=8#this is changed when phase is input...
         if self.nsubx!=1 and oversamplefactor!=None and binfactor!=None:
             self.computePxlToRad(self.wfsn)
-        # self.canUseFPGA=0
-        # self.canUseCell=0
-        # if self.useFPGA:
-        #     self.sigFPGA=int(self.sig*2**7/(self.phasesize**2))&0x7ffffff#20.7 format.
-        #     if int(self.sig*2**7)>0x7ffffff:#dont divide by phasesize^2 here.
-        #         print "wfscent: Warning - SIG too large, will overflow in FPGA"
-        #     self.fpgaSkybrightness=int(self.skybrightness*2**10/self.phasesize**2)
-        #     self.fpga_readbg=int((self.readbg-self.readnoise*127/26.11)*256)
-        #     self.fpga_readnoise=int(self.readnoise/26.11*256)
-        #     self.testFPGAUsage()
-        #     self.usePupil=1
-        #     self.symtype=0
-        #     npxls=(self.nsubx*self.phasesize)**2
-        #     if npxls>4*1024*1024*8*4:
-        #         print "WARNING: can't fit pupil function into FPGA.  Assuming all pixels needed."
-        #         self.usePupil=0
-        #     elif npxls>4*1024*1024*8*2:
-        #         print "Using 2 fold symmetry for pupil function"
-        #         self.symtype=2
-        #     elif npxls>4*1024*1024*8:
-        #         print "Using 1 fold symmetry for pupil function"
-        #         self.symtype=1
-        # elif self.useCell:
-        #     self.canUseCell=haveCell
-        #     self.phasesize_v=(self.phasesize+3)&~3#vectorised version for SPUs.
+
         self.magicCentroiding=magicCentroiding
         self.linearSteps=linearSteps
         self.calNCoeff=calNCoeff
@@ -325,6 +301,12 @@ class centroid:
         self.indices=numpy.array(indices,dtype=numpy.int32)
         self.nsubaps=self.subflag.sum()
         #print "Created centroid object"
+
+    def updatePsf(self,psf):
+        self.psf=psf
+        self.centcmod.spotpsf=psf
+        self.centcmod.update(util.centcmod.SPOTPSF,psf)
+
 
     def easy(self,nthreads=2,calsource=1):
         """Prepare for single use..., eg from a python commandline.

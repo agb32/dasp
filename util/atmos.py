@@ -45,12 +45,14 @@ class source(object):
     phslam is the wavelength at which the received phase is at.  Defaults to the same as sourcelam, but can be different.
     lam in nm.
     sig, if not None, is the photons/subap(or image)/frame
+    fov is the field of view of this source.  Used for extended sources.  In arcsec.
     """
-    def __init__(self,idstr,theta,phi,alt,nsubx=None,sourcelam=None,reconList=None,phslam=None,sig=None,launchDist=None,launchTheta=None):
+    def __init__(self,idstr,theta,phi,alt,nsubx=None,sourcelam=None,reconList=None,phslam=None,sig=None,launchDist=None,launchTheta=None,fov=0.):
         self.idstr=idstr#id string
         self.theta=theta#arcsec
         self.phi=phi#degrees
         self.alt=alt#-1 or lgs alt
+        self.fov=fov
         if nsubx!=None:
             print "DEPRECIATION WARNING: nsubx specified in atmos.source.  Please use guideStar.LGS or .NGS instead"
         self.nsubx=nsubx#None or the number of subaps.
@@ -174,6 +176,8 @@ class geom:
         return self.getSource(id).phi
     def sourceAlt(self,id):
         return self.getSource(id).alt
+    def sourceFov(self,id):
+        return self.getSource(id).fov
     def sourcensubx(self,id):
         return self.getSource(id).nsubx
     def sourceLambda(self,id):
@@ -187,6 +191,11 @@ class geom:
         for key in self.sourceDict.keys():
             t[key]=self.sourceTheta(key)
         return t
+    def sourceFovs(self):
+        t={}
+        for key in self.sourceDict.keys():
+            t[key]=self.sourceFov(key)
+        return t
     def getLayerWidth(self,height):
         """computes layer width at a given height...
         NOT USED ANYWHERE - AND NOT RECOMMENDED IF ZENITH!=0
@@ -194,6 +203,8 @@ class geom:
         if self.zenith!=0:
             print "WARNING util.atmos.getLayerWidth - do not use if zenith!=0"
         fov=max(self.sourceThetas().values())/60./60./180*numpy.pi
+        if sum(self.sourceFovs().values())!=0:
+            raise Exception("getLayerWidth needs recoding for non-zero source fov")
         return numpy.tan(fov)*height*2/numpy.cos(self.zenith*numpy.pi/180.)+self.telDiam
     def getScrnSize(self,rotateDirections=0):
         """Compute the screen sizes"""
@@ -217,8 +228,9 @@ class geom:
             for key in self.sourceDict.keys():
                 #xposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.cos(self.sourcePhi(key)*degrad)))
                 #yposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.sin(self.sourcePhi(key)*degrad)))
-                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
-                yposlist.append(layerAlt*numpy.tan(self.sourceTheta(key)*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
+                #The sqrt(2) on fov is because the fov could be sampled square...  and the /2 is because fov is the total fov.
+                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)/2.*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
+                yposlist.append(layerAlt*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)/2.*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
             maxx=max(xposlist)
             minx=min(xposlist)
             maxy=max(yposlist)
@@ -266,8 +278,8 @@ class geom:
                 rotangle=(wd-0)*numpy.pi/180.+numpy.pi#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.  Also need to add 180 degrees (pi), because found that the coordinates were wrong.  
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             for sourceKey in self.sourceDict.keys():
-                xpos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
-                ypos.append(numpy.tan(self.sourceTheta(sourceKey)*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
+                xpos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)/2.*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
+                ypos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)/2.*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
             minx=min(xpos)
             miny=min(ypos)
             #print "minx,miny %g %g"%(minx,miny)
@@ -353,7 +365,7 @@ class geom:
                         ngslist.append(s)
                     else:
                         print "Depreciated in atmos.makeNGSList"
-                        ngslist.append(util.guideStar.NGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),phasesize=self.npup/nsubx,minarea=minarea,sig=self.sig(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key),pupil=pupil))
+                        ngslist.append(util.guideStar.NGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),phasesize=self.npup/nsubx,minarea=minarea,sig=self.sig(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key),pupil=pupil,fov=self.sourceFov(key)))
                 else:
                     rl=self.getSource(key).reconList
                     if rl!=None and (rl==[] or reconID in rl):
@@ -361,7 +373,7 @@ class geom:
                             ngslist.append(s)
                         else:
                             print "Depreciated in atmos.makeNGSList"
-                            ngslist.append(util.guideStar.NGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),phasesize=self.npup/nsubx,minarea=minarea,sig=self.sig(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl,pupil=pupil))
+                            ngslist.append(util.guideStar.NGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),phasesize=self.npup/nsubx,minarea=minarea,sig=self.sig(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl,pupil=pupil,fov=self.sourceFov(key)))
 
         return ngslist
     def makeLGSList(self,reconID=None,minarea=0.5,pupil=None):#,nsubx,keylist):
@@ -391,14 +403,14 @@ class geom:
                     if type(s)==util.guideStar.LGS:
                         lgslist.append(s)
                     else:#depreciated version...
-                        lgslist.append(util.guideStar.LGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),phasesize=self.npup/nsubx,minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key),pupil=pupil))
+                        lgslist.append(util.guideStar.LGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),phasesize=self.npup/nsubx,minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=self.reconList(key),pupil=pupil,fov=self.sourceFov(key)))
                 else:
                     rl=self.getSource(key).reconList
                     if rl!=None and (rl==[] or reconID in rl):
                         if type(s)==util.guideStar.LGS:
                             lgslist.append(s)
                         else:
-                            lgslist.append(util.guideStar.LGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),phasesize=self.npup/nsubx,minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl,pupil=pupil))
+                            lgslist.append(util.guideStar.LGS(key,nsubx,self.sourceTheta(key),self.sourcePhi(key),self.sourceAlt(key),phasesize=self.npup/nsubx,minarea=minarea,wfssig=self.sig(key),launchDist=self.launchDist(key),launchTheta=self.launchTheta(key),sourcelam=self.sourceLambda(key),phslam=self.phaseLambda(key),reconList=rl,pupil=pupil,fov=self.sourceFov(key)))
                         
         return lgslist
     
@@ -863,7 +875,7 @@ class iatmos:
     """A class to carry out computation of a pupil phase screen
     for a given source direction.  This can (possibly) be used stand-alone
     and is used as part of the AO simulation (iatmos module)."""
-    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=None,outputData=None):
+    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=None,outputData=None,fov=0.):
         """Source altitude, wavelength and position are given, and info about all the phase screen layers.
         storePupilLayers - if 1, a dictionary of layers along this line of sight will be created - unexpanded in the case of LGS - i.e. full pupil.
         computeUplinkTT - if 1 then uplink tip/tilt will be computed.
@@ -890,9 +902,8 @@ class iatmos:
         self.sourceLam=sourceLam
         self.sourceTheta=sourceTheta
         self.sourcePhi=sourcePhi
+        self.fov=fov#the field of view (usually 0, except when using wideField.py)
         self.intrinsicPhase=intrinsicPhase#added to the output each iteration
-        degRad=2*numpy.pi/360
-        arcsecRad=2*numpy.pi/360/3600
         self.layerList=layerList
         if self.layerList==None:
             raise Exception("LayerList shouldn't be None")
@@ -945,7 +956,12 @@ class iatmos:
         #We need to take wind direction into account, because this will rotate positions respective to the layer in memory.
 
         #We need to know the x and y shifts into the layer where we start interpolating from.  The phasescreen is always rotated about its centre.
+        self.updatePositionDict()
 
+    def updatePositionDict(self):
+        """Update positions within the layers.  This is now a separate function so that wideField.py can use it."""
+        degRad=2*numpy.pi/360
+        arcsecRad=2*numpy.pi/360/3600
         self.positionDict={}
         for key in self.layerList:
             if self.sourceAlt<0 or self.sourceAlt>=self.layerAltitude[key]:
@@ -963,12 +979,6 @@ class iatmos:
 
 
                 # #compute starting position for corner of the arrays.
-                # x=xpos*self.layerAltitude[key]/numpy.cos(self.zenithOld*numpy.pi/180.)/self.scrnScale-self.npup/numpy.cos(self.zenithOld*degRad)/2+self.layerXOffset[key]#+shape[0]/2#zenith added 090518
-                # y=ypos*self.layerAltitude[key]/self.scrnScale-self.npup/2+self.layerYOffset[key]#+shape[1]/2
-                # #if x<0 or y<0 or numpy.ceil(x+self.npup)>shape[1] or numpy.ceil(y+self.npup)>shape[0]:#agb removed +1 in x+npup and y+npup, and replaced with numpy.ceil, date 070831.
-                # if x<0 or y<0 or x+self.npup/numpy.cos(self.zenithOld*degRad)+1>shape[1] or y+self.npup+1>shape[0]:#zenith added 090518
-                #     print "ERROR: util.atmos - phasescreen %s is not large enough to contain this source %g %g %g %g %g %g"%(str(key),x,y,x+self.npup/numpy.cos(self.zenithOld*degRad)+1,y+self.npup+1,shape[1],shape[0])#agbc changed shape[0->1] and vice versa zenith added 090518
-                #     raise Exception("ERROR: util.atmos - phasescreen is not large enough to contain this source")
                 axis1=axis2=axis3=None
                 if self.sourceAlt>0:#an LGS
                     if (self.storePupilLayers or self.computeUplinkTT):
@@ -984,27 +994,9 @@ class iatmos:
                     #so we only select the central portion of the pupil
                     #since beam diverges from LGS spot.
                     scale=1.-self.layerAltitude[key]/self.sourceAlt
-                    # npup2=self.npup*(1.-self.layerAltitude[key]/self.sourceAlt)
-                    # x=x+(self.npup-npup2)/numpy.cos(self.zenithOld*degRad)/2#select central portion zenith added 090518
-                    # y=y+(self.npup-npup2)/2
-                    # width=int(npup2+0.5)#round correctly...
-                    # widthx=int(npup2/numpy.cos(self.zenithOld*degRad)+0.5)
-                    # axis2=numpy.arange(width).astype(numpy.float64)
-                    # step=(width-1)/float(self.npup-1)
-                    # axis1=numpy.arange(self.npup).astype(numpy.float64)*step
-                    # #and the axis used for binning down to width when zenith!=0
-                    # if self.zenithOld!=0:
-                    #     axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
                 else:#select a whole pupil area (collimated from NGS).
                     scale=1.
-                    #width=self.npup
-                    #widthx=int(width/numpy.cos(self.zenithOld*numpy.pi/180.)+0.5)
-                    #if self.zenithOld!=0:
-                    #    axis2=numpy.arange(width).astype(numpy.float64)
-                    #    axis3=numpy.arange(widthx).astype(numpy.float64)*((width-1.)/(widthx-1.))
-                #self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],self.windDirection[key]+90.,self.outputData,scale,1,1,1)
-                    
-                #self.positionDict[key]=(x-shape[1]/2.+0.5,y-shape[0]/2.+0.5,scale)
+
                 #Changed to +1 (was +0.5) on 7/11/2014 by agb - so that test/scao/scaoiatmos.py works.  Checked with test/iscrn and test/iatmos
                 self.positionDict[key]=(x-shape[1]/2.+self.oversize,y-shape[0]/2.+self.oversize,scale)
                 #print "positionDict %s: %s %s"%(str(key),str(self.positionDict[key]),str((self.layerXOffset[key],self.layerYOffset[key])))

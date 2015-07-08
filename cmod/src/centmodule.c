@@ -1195,6 +1195,7 @@ int setSpotPsf(centstruct *c,PyObject *spotpsfObj){
       c->preBinningFactor=c->preBinningFactorOrig;
       c->spotpsfDim=4;
       c->psfsize=spotpsfArr->dimensions[2];
+      printf("setSpotPsf got psfsize %d\n",c->psfsize);
     }else{
       printf("Error: centmodule - spotpsf not 2d or 4d\n");
       return -1;

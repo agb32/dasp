@@ -81,6 +81,7 @@ class centcmod:
 
     print "centcmod: cmod.cent.initialise"
     #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor
+    #Problem? self.seed has been a list sometimes?
     self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor)
 
   def run(self,calsource):
@@ -99,7 +100,7 @@ class centcmod:
     """what should be an int as defined at the top of this value, eg CALSOURCE=1, SIG=2, etc.  
     val is the new value.
     Note, this is not for general use - does not check that what is legal, and does not update the python values, meaning cmod and python becomes out of sync.  
-    Currently, only used when doing SHS calibration.
+    Currently, only used when doing SHS calibration, and for wideField.py objects.
     """
     cmod.cent.update(self.centstruct,what,val)
 
