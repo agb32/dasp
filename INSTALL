@@ -19,10 +19,8 @@ ln -s libatlas.so.3 libatlas.so
 
 
 Secondly, check MPI is working:
-mpirun -np 2 /usr/bin/mpipython -c "import Scientific.MPI,os;print Scientific.MPI.world.duplicate().rank,os.environ.get('PYTHONPATH','pop')"
-Should then print out:
-0 your/python/path
-1 your/python/path
+mpirun -np 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"
+Should then print out your python path 5 times.
 
 If you are simulating a large system, you will also benefit from a BLAS library.  DASP can support mkl, acml, openblas or atlas.  Openblas is easiest to get going with.  ACML 6 isn't yet supported (uses OpenCL).
 Install openblas in /opt/openblas and add /opt/openblas/lib to LD_LIBRARY_PATH.

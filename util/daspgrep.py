@@ -149,12 +149,25 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                     if indx!=None:
                         pos=1
                         val=None
+                        ll=line[indx:].strip()
+                        minus=None
+                        if ll[0]=="-":
+                            ll=ll[1:]
+                            minus=-1
+                        err=0
                         while 1:
                             try:
-                                val=eval(line[indx:indx+pos])
+                                val=eval(ll[:pos])
                                 pos+=1
-                            except:
-                                break
+                                err=0
+                            except:#err allows one extra test...
+                                if err==1:
+                                    break
+                                else:
+                                    pos+=1
+                                    err=1
+                        if minus!=None:
+                            val=minus*val
                         txt+="%s%s%s"%(fillchr,v,str(val))
                     else:
                         txt+="%s%sNone"%(fillchr,v)

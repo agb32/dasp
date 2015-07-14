@@ -29,7 +29,7 @@ def makeDoughnut(outer,inner,xoff,yoff):
     path=mpath.Path(vert,codes)
     return path
 
-def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None,sourcedir=None):
+def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=False,telCol="red",tells="solid",title=0,outfile=None,sourcedir=None,nx=None,scale=8):
     """
     Shows a plot of guide star overlaps.
     gsList is a list of either LGS objects, NGS objects or tuples of (alt,theta,phi).
@@ -56,10 +56,11 @@ def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=Fa
     if telSec!=None:
         telSec/=2.
     
-    f=pylab.figure()
     nlayers=len(layerList)
-    nx=int(numpy.ceil(numpy.sqrt(nlayers)))
+    if nx==None:
+        nx=int(numpy.ceil(numpy.sqrt(nlayers)))
     ny=(nlayers+nx-1)/nx
+    f=pylab.figure(figsize=(ny*scale,nx*scale))
     plotno=0
     maxtheta=0
     maxheight=numpy.max(layerList)
@@ -136,7 +137,7 @@ def displayGSOverlap(gsList=None,layerList=None,telDiam=None,telSec=None,fill=Fa
                 y=r*numpy.sin(p/180.*numpy.pi)
                 ax.add_patch(pylab.Circle((x,y),telDiam/2,fill=False,fc="blue"))
     if outfile!=None:
-        pylab.savefig(outfile)
+        pylab.savefig(outfile,bbox_inches="tight")
         pylab.close()
     else:
         pylab.show()
