@@ -268,6 +268,8 @@ def SerialiseToList(value,sendList=[]):
         length+=len(hdr)
         if not value.flags.contiguous:#make contiguous so can be sent...
             value=numpy.array(value)
+            if not value.flags.contiguous:
+                value=value.copy()
         #print headerByte,hdr
     elif thisType==types.IntType:#added by agb
         headerByte=translate.index(types.IntType)
