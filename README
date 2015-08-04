@@ -599,6 +599,11 @@ alias mnt='sudo mount -t nfs gig44:/home/ali/aosim /home/ali/mnt'
 Hamilton:
 module load python
 module load gsl/gcc
+module load blas/gcc
+module load lapack/gcc
+module load openmpi/gcc
+module load fftw/gcc
+
 Note - module display ...
 will show you the paths.
 

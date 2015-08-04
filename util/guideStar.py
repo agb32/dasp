@@ -684,7 +684,7 @@ class wfs:
             if self.laserType=="sodium":
                 self.lgs_return_data[i,1]=sodiumReturn[i]
             else:
-                self.lgs_return_data[i,1] = self.lgs_return(alt,depth) #This is in photons per m^2
+                self.lgs_return_data[i,1] =self.flux.rayleigh(alt,depth)#self.lgs_return(alt,depth) #This is in photons per m^2
             self.lgs_return_data[i,2] = self.lgs_diam(alt)
             test = numpy.fabs(self.LGS_alt-alt)
             if test>=(rgd/2.):
@@ -851,29 +851,6 @@ class wfs:
         # Long exposure approximation for speed
         #arcsecs = 1.
         return waist*1.17/(2.*float(self.wfs_scale))
-
-    def lgs_return(self,alt,gate_depth):
-        a = self.flux.rayleigh(alt,gate_depth)
-        #print a,alt,gate_depth
-        return a
-
-##     def pupil(self,npup,r_out,r_in):
-##         pup=numpy.zeros((npup,npup),numpy.int32)
-##         for i in range(npup):
-##             for j in range(npup):
-##                 r=numpy.sqrt((float(i-npup/2.)+0.5)**2+(float(j-npup/2.)+0.5)**2)
-##                 if (r<=r_out) and (r>=r_in):
-##                     pup[i,j]=1
-##         return pup
-
-##     def ang_size(self,gate,lgs_alt,x,y):
-##         alt1 = lgs_alt - (gate/2) #lower altitude of range gate
-##         alt2 = lgs_alt + (gate/2) #upper altitude of range gate
-##         dist_from_cent = (((x**2)+(y**2))**0.5)+0.0000000000001
-##         angle1 = atan(alt1/dist_from_cent) #In radians
-##         angle2 = atan(alt2/dist_from_cent)
-##         dif = (angle2-angle1)*206265 #puts the angle into arcseconds
-##         return dif
 
 
     def subap_pos(self,num_subap, pixels_per_ap):

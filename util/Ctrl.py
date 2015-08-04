@@ -565,7 +565,7 @@ class Ctrl:
             indx+=1
             objname=""
             for key in gkey:
-                if self.globals[key]==sciobj:
+                if self.globals[key] is sciobj:
                     objname=key
                     break
             if objname=="":#index using the list...

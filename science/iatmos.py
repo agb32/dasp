@@ -81,7 +81,7 @@ class iatmos(base.aobase.aobase):
             self.atmosGeom=self.config.getVal("atmosGeom")
             self.directPhaseScreen=self.config.getVal("directPhaseScreen",default=1)#are we allowed to access parent.screen if parent is an iscrn object?  
             self.telDiam=self.config.getVal("telDiam")
-            self.ntel=self.config.getVal("ntel")#tel diameter in pxls.  
+            self.ntel=self.config.getVal("ntel",default=self.npup)#tel diameter in pxls.  
             self.pupil=self.config.getVal("pupil")
             #self.telSec=self.config.getVal("telSec")
             self.scrnScale=self.telDiam/float(self.ntel)#self.config.getVal("scrnScale")
