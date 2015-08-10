@@ -6,6 +6,7 @@ import util.atmos
 import util.tel
 import util.FITS
 import base.readConfig
+import scipy.interpolate
 #import sor30
 #import plwf
 
@@ -547,7 +548,6 @@ class wfs:
         self.sig=0.#will hold the photons in each subap eventually.
         #paramfile ='params.py'
         self.tel_diam=tel_diam
-        
         #self.tel_alt=tel_alt
         self.subap_pix=subap_pix
         self.subap_fov=subap_fov
@@ -949,7 +949,7 @@ class wfs:
             #out = out-numpy.minimum.reduce(numpy.minimum.reduce(out))
             #out = out/(numpy.maximum.reduce(numpy.maximum.reduce(out))+1E-10)
             #Find total intensity
-            sum_out = numpy.sum(numpy.sum(out))
+            sum_out = out.sum()#numpy.sum(numpy.sum(out))
             if sum_out>0:
                 out*=flux/sum_out
             
@@ -983,7 +983,7 @@ class wfs:
         return fn
                 
 
-    def offset_gauss(self,n,d,x,y,fn):
+    def offset_gaussOrig(self,n,d,x,y,fn):
         r = d/2.34 #This sets d to be the 1/e^2 intensity point
         r2=r**2
         invr2=1/(2.*r2)
@@ -999,6 +999,19 @@ class wfs:
                     fn[i,j] = 1.0E-12
         return fn
 
+    def offset_gauss(self,n,d,x,y,fn):
+        r = d/2.34 #This sets d to be the 1/e^2 intensity point
+        r2=r**2
+        invr2=1/(2.*r2)
+        g=numpy.mgrid[:n,:n]
+        rr=(g[0]-x-n/2.+0.5)**2+(g[1]-y-n/2.+0.5)**2
+        b=-rr*invr2
+        fn[:]=numpy.exp(b)
+        #print n
+        #fn = numpy.zeros((n,n),numpy.float64)
+        return fn
+
+
     def lgs_position(self):
         # Calculates off-axis distance of LGS in terms of telescope aperture diameter
         theta = self.LGS_theta
@@ -1011,7 +1024,7 @@ class wfs:
         dist_y = dist_tel*numpy.sin(phi)
         return dist_x,dist_y
 
-    def wfs_image(self,off=0,focus=0.0,recalc=0,asInt=0,perSubap=0):
+    def wfs_image(self,off=0,focus=0.0,recalc=0,asInt=0,perSubap=0,verbose=0):
         #print 'Started offset ',off
         # Need an oversized image to allow for spots elongated outside individual subapertures
         if type(self.subapImage)!=type(None) and recalc==0:
@@ -1037,6 +1050,8 @@ class wfs:
         for i in range(self.lenslet.shape[0]):
             #print i
             #Find the polar coordinates of  the lenslet subaperture from the centre of the primary
+            if verbose==1:
+                print "%d/%d"%(i,self.lenslet.shape[0])
             if self.lenslet[i,2]>self.subap_calc_limit:#gets enough light...
                 centre = self.wfs.shape[0]/2.
                 #cent_x,cent_y = self.lgs_position()
@@ -1060,7 +1075,8 @@ class wfs:
                 # Initialise oversized subaperture image
                 subap_image*=0# numpy.zeros((self.subap_pix*2,self.subap_pix*2),numpy.float64)
                 for j in range(self.LGS_steps):
-                    #print i,j
+                    if verbose==2:
+                        print "%d/%d, %d/%d"%(i,self.lenslet.shape[0],j,self.LGS_steps)
                     # Now for each lenslet we determine the offset from lenslet centre
                     # of each range gate step that was defined when the class was initialised
                     alt = self.lgs_return_data[j,0]
@@ -1425,7 +1441,7 @@ class Flux:
     """from photon_return.py - TJM
     Calculates the flux from LGS.
     """
-    def __init__(self,wavelength=514.,tel_trans=0.67,optics_trans=0.44,power=30.,launch_trans=0.8,pulse_rate=5000.,frame_rate=300.,QE=0.87,zenith=0.,tel_alt=2269.,scale_height=7400.,sodProfileResolution=10,sodProfilePeak1=90000.,sodProfilePeak2=100000.,sodProfileWidth1=3000.,sodProfileWidth2=3000.,sodProfileStrength1=0.4,sodProfileStrength2=0.6):
+    def __init__(self,wavelength=514.,tel_trans=0.67,optics_trans=0.44,power=30.,launch_trans=0.8,pulse_rate=5000.,frame_rate=300.,QE=0.87,zenith=0.,tel_alt=2269.,scale_height=7400.,sodProfileResolution=10,sodProfilePeak1=90000.,sodProfilePeak2=100000.,sodProfileWidth1=3000.,sodProfileWidth2=3000.,sodProfileStrength1=0.4,sodProfileStrength2=0.6,numericProfile=None):
         """
         tel_alt is the altitude of the telescope (ie usually on top of a mountain somewhere!)
         wavelength is the wavelength to use, nm
@@ -1438,9 +1454,11 @@ class Flux:
         QE is WFS CCD QE (0 to 1)
         zenith is the pointing angle of telescope (degrees)
         scale_height is atmospheric scale height (decay of pressure with altitude) (ask TJM)
+        numericProfile is optional, a LGS sodium profile.  This is 2 arrays, of (heights, relative strengths).
+
 
         For sodium, the following parameters affect result:
-        tel_trans, optics_trans, power, launch_trans, QE, frame_rate, zenith, tel_alt, sodProfile*.
+        tel_trans, optics_trans, power, launch_trans, QE, frame_rate, zenith, tel_alt, *Profile*.
         """
         self.wavelength=wavelength
         self.tel_trans=tel_trans
@@ -1461,6 +1479,7 @@ class Flux:
         self.sodProfileWidth2=sodProfileWidth2
         self.sodProfileStrength1=sodProfileStrength1
         self.sodProfileStrength2=sodProfileStrength2
+        self.numericProfile=numericProfile
         self.calcSodiumFlux()
         h = 6.626068E-34 # Planck's Constant
         c = 3E8     # Speed of light
@@ -1593,7 +1612,9 @@ class Flux:
         for i in range(1,len(sliceAltList)-1):
             sliceAlt=sliceAltList[i]
             sliceDepth=(sliceAltList[i+1]-sliceAltList[i-1])/2.
-            profile.append(self.integrateSodiumProfile((sliceAlt+sliceAltList[i-1])/2.,(sliceAlt+sliceAltList[i+1])/2.))
+            fr=(sliceAlt+sliceAltList[i-1])/2.
+            to=(sliceAlt+sliceAltList[i+1])/2.
+            profile.append(self.integrateSodiumProfile(fr,to))
         profile=numpy.array(profile).astype(numpy.float64)
         profile/=numpy.sum(profile)
         profile*=self.totSodiumFlux
@@ -1605,20 +1626,41 @@ class Flux:
         rnge=to-fr
         step=rnge/resolution
         x=fr+step/2.
-        integ=0.
-        for i in range(resolution):
-            integ+=self.sodProfileStrength1*numpy.exp(-((x-self.sodProfilePeak1)/self.sodProfileWidth1)**2/2)
-            integ+=self.sodProfileStrength2*numpy.exp(-((x-self.sodProfilePeak2)/self.sodProfileWidth2)**2/2)
-            x+=step
+        if self.numericProfile==None:
+            integ=0.
+            for i in range(resolution):
+                integ+=self.sodProfileStrength1*numpy.exp(-((x-self.sodProfilePeak1)/self.sodProfileWidth1)**2/2)
+                integ+=self.sodProfileStrength2*numpy.exp(-((x-self.sodProfilePeak2)/self.sodProfileWidth2)**2/2)
+                x+=step
+        else:#Use the numeric profile.
+            
+            x=self.numericProfile[0]
+            y=self.numericProfile[1]
+            interp=scipy.interpolate.interp1d(x,y,"cubic",bounds_error=False,fill_value=0.)
+            xx=numpy.arange(resolution)*step+fr
+            yy=interp(xx)
+            yy=numpy.where(yy<0,0,yy)
+            integ=yy.sum()
+            
         return integ
+
+
     def plotSodiumProfile(self,start=0,height=120000):
         height=int(height)
         start=int(start)
         a=numpy.zeros((height-start,),"d")
-        for x in range(start,height):
-            #print x
-            a[x-start] =self.sodProfileStrength1*numpy.exp(-((x-self.sodProfilePeak1)/self.sodProfileWidth1)**2/2)
-            a[x-start]+=self.sodProfileStrength2*numpy.exp(-((x-self.sodProfilePeak2)/self.sodProfileWidth2)**2/2)
+        if self.numericProfile==None:
+            for x in range(start,height):
+                #print x
+                a[x-start] =self.sodProfileStrength1*numpy.exp(-((x-self.sodProfilePeak1)/self.sodProfileWidth1)**2/2)
+                a[x-start]+=self.sodProfileStrength2*numpy.exp(-((x-self.sodProfilePeak2)/self.sodProfileWidth2)**2/2)
+        else:
+            x=self.numericProfile[0]
+            y=self.numericProfile[1]
+            interp=scipy.interpolate.interp1d(x,y,"cubic",bounds_error=False,fill_value=0.)
+            xx=range(start,height)
+            a=interp(xx)
+            a=numpy.where(a<0,0,a)
         return a
         
 if __name__=="__main__":

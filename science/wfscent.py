@@ -455,6 +455,7 @@ class wfscent(base.aobase.aobase):
         maxnpup=0
         rpmax=0
         imgsizemax=0
+        corrimgsizemax=0
         atmosfactor=1#phaseonly...
         canSharePhs=1
         canSharePupsub=1
@@ -475,6 +476,8 @@ class wfscent(base.aobase.aobase):
                 phasesizemax=wfs.phasesize
             if wfs.nsubx*wfs.nimg>imgsizemax:
                 imgsizemax=wfs.nsubx*wfs.nimg
+            if wfs.corrPattern!=None and wfs.corrPattern.shape[2]*wfs.nsubx>corrimgsizemax:
+                corrimgsizemax=wfs.corrPattern.shape[2]*wfs.nsubx
             if wfs.nsubx*wfs.fftsize>nsubxnfftmax:
                 nsubxnfftmax=wfs.nsubx*wfs.fftsize
             if wfs.nsubx*wfs.phasesize>maxnpup:
@@ -506,6 +509,8 @@ class wfscent(base.aobase.aobase):
             arrsize=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize*4*atmosfactor+wfs.nsubx*wfs.nsubx*2*4
             if arrsize>maxarrsize:
                 maxarrsize=arrsize
+        if corrimgsizemax<imgsizemax:
+            corrimgsizemax=imgsizemax
         #now allocate memories...
         reorderedPhsMem=None
         if canSharePhs:
@@ -515,7 +520,7 @@ class wfscent(base.aobase.aobase):
         else:
             outputDataMem=numpy.zeros((nsubxmax,nsubxmax,2),numpy.float32)
         bimgMem=numpy.zeros((imgsizemax*imgsizemax,),numpy.float64)#needs 64 bits for cmod.binimg...
-        self.shimg=numpy.zeros((imgsizemax,imgsizemax),numpy.float32)
+        self.shimg=numpy.zeros((corrimgsizemax,corrimgsizemax),numpy.float32)
         subimgMem=numpy.zeros((nsubxnfftmax*nsubxnfftmax),numpy.float64) 
         if canSharePupsub:
             pupsubMem=numpy.zeros((maxnpup*maxnpup),self.fpDataType)
@@ -708,18 +713,19 @@ class wfscent(base.aobase.aobase):
             img=wfsobj.corrimg
         elif img=="corrPattern":
             img=wfsobj.corrPatternUser
+        nimg=img.shape[2]
         for i in xrange(wfsobj.nsubx):
             for j in xrange(wfsobj.nsubx):
                  # Tessalate up for WFS display:
-                self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=img[i,j]
-        result=self.shimg[:wfsobj.nimg*wfsobj.nsubx,:wfsobj.nimg*wfsobj.nsubx]
+                self.shimg[i*nimg:(i+1)*nimg,j*nimg:(j+1)*nimg]=img[i,j]
+        result=self.shimg[:nimg*wfsobj.nsubx,:nimg*wfsobj.nsubx]
         if mask!=0:
             if mask==1:
                 maskval=max(result.flat)
             else:
                 maskval=0
             ncen=wfsobj.ncen
-            nimg=wfsobj.nimg
+            #nimg=wfsobj.nimg
             if ncen<nimg:
                 s=(nimg-ncen)/2#starting point
                 e=nimg-s#end point
@@ -760,7 +766,8 @@ class wfscent(base.aobase.aobase):
                 wfs=this.wfscentObj
                 if type(this.laserGuideStar)!=type(None):
                     if type(this.laserGuideStar)==numpy.ndarray:
-                        txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].laserGuideStar" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i)
+                        #txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].laserGuideStar" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i)
+                        txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].wfscentObj.reformatImg(%s.thisObjList[%d].laserGuideStar)" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i,objname,i)
                     else:
                         txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].laserGuideStar.subapImage" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i)
             for i in range(len(self.thisObjList)):
@@ -768,7 +775,7 @@ class wfscent(base.aobase.aobase):
                 wfs=this.wfscentObj
                 if wfs.correlationCentroiding:
                     txt+="""<plot title="Correlation%s" cmd="data=%s.drawCorrelation('corrimg')" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-                    txt+="""<plot title="Correlation PSF%s" cmd="data=%s.drawCorrelation('corrPattern')" ret="data" type="pylab" when="cmd" palette="gray"/>"""%(id,objname)
+                    txt+="""<plot title="Correlation PSF%s" cmd="data=%s.drawCorrelation('corrPattern',mask=0)" ret="data" type="pylab" when="cmd" palette="gray"/>"""%(id,objname)
 
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
         return txt

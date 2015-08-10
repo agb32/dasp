@@ -775,7 +775,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
 
         self.checkerboard=arr
         return arr
-    def rescale(self,npupNew):
+    def rescale(self,npupNew,thresh=0.5):
         """Rescales by spline interpolation to new size."""
         import scipy.interpolate
         x=numpy.arange(self.fn.shape[1])/(self.fn.shape[1]-1.)
@@ -783,7 +783,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         interpfn=scipy.interpolate.RectBivariateSpline(x,y,self.fn)
         nx=numpy.arange(npupNew)/(npupNew-1.)
         ny=numpy.arange(npupNew)/(npupNew-1.)
-        newpup=numpy.array(interpfn(nx,ny)>=0.5).astype(numpy.int32)
+        newpup=numpy.array(interpfn(nx,ny)>=thresh).astype(numpy.int32)
         sf=float(npupNew)/self.npup
         pfnNew=Pupil(npupNew,self.r1*sf,self.r2*sf,self.nsubx,self.minarea,pupilMap=newpup)
         return pfnNew

@@ -11,6 +11,27 @@ import socket,util.serialise
 #         def abort(self,rt):
 #             sys.exit(0)
 #     MPIWorld=dummy()
+def init(globs):
+    """Call (in a python parameter file) with:
+    init(globals())
+    Adds things to the global dictionary, for access within the parameter file.
+    """
+    if globs.has_key("this"):
+        #print "This already exists"
+        this=globs["this"]
+    else:
+        #print "Creating this"
+        this=This()
+        this.globals=This()
+        if not globs.has_key("new"):
+            globs["new"]=This
+        if not globs.has_key("batchno"):
+            globs["batchno"]=0
+        if not globs.has_key("filename"):
+            globs["filename"]="Unspecified"
+        if not globs.has_key("ncpu"):
+            globs["ncpu"]=getCpus()
+        globs["this"]=this
 
 class AOXml:
     """A class for reading an AO XML config file.  If given, file (filename)
@@ -150,7 +171,7 @@ class AOXml:
         """
         if not hasattr(self.this,"globals"):
             self.this.globals=This()
-        d={"new":This,"this":self.this,"batchno":self.batchno,"batchNumber":self.batchno,"numpy":numpy,"filename":self.filename,"ncpu":self.getCpus()}
+        d={"new":This,"this":self.this,"batchno":self.batchno,"batchNumber":self.batchno,"numpy":numpy,"filename":self.filename,"ncpu":getCpus()}
         try:
             exec txt in d
         except:
@@ -189,7 +210,7 @@ class AOXml:
         setattr(self.this,"batchNumber",self.batchno)
         setattr(self.this,"batchno",self.batchno)
         setattr(self.this,"filename",self.filename)#parameter file name
-        setattr(self.this,"ncpu",self.getCpus())
+        setattr(self.this,"ncpu",getCpus())
         if self.initDict!=None:
             setattr(self.this,"globals",This())
             for key in self.initDict.keys():
@@ -859,30 +880,30 @@ class AOXml:
                         #except:
                         #    print "util.readConfig - Unable to post data %s - serialise failed"%name
                         conn.close()
-    def getCpus(self):
-        ncpu=None
+def getCpus():
+    ncpu=None
+    try:
+        lines=open("/proc/cpuinfo").readlines()
+        ncpu=0
+        for line in lines:
+            if ("processor" in line) and (":" in line):
+                ncpu+=1
+        if ncpu==0:
+            print "Warning - couldn't determine number of CPUs, assuming 1"
+            ncpu=1
+    except:
+        pass
+    if ncpu==None:
         try:
-            lines=open("/proc/cpuinfo").readlines()
-            ncpu=0
-            for line in lines:
-                if ("processor" in line) and (":" in line):
-                    ncpu+=1
-            if ncpu==0:
-                print "Warning - couldn't determine number of CPUs, assuming 1"
-                ncpu=1
+            cmd="sysctl -a hw | grep ncpu | tail -n 1"
+            print "/proc/cpuinfo not found - may be OSX?  Trying commandline '%s'"%cmd
+            import popen2
+            line=popen2.popen2(cmd)[0].read().strip()
+            ncpu=int(line.split("=")[1])
         except:
-            pass
-        if ncpu==None:
-            try:
-                cmd="sysctl -a hw | grep ncpu | tail -n 1"
-                print "/proc/cpuinfo not found - may be OSX?  Trying commandline '%s'"%cmd
-                import popen2
-                line=popen2.popen2(cmd)[0].read().strip()
-                ncpu=int(line.split("=")[1])
-            except:
-                ncpu=1
-                print "Cannot detemine number of CPUs - assuming 1"
-        return ncpu
+            ncpu=1
+            print "Cannot detemine number of CPUs - assuming 1"
+    return ncpu
     
 class This:
     """A class to hold values obtained fromt the XML file as it is parsed"""

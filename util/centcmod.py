@@ -74,10 +74,10 @@ class centcmod:
     self.preBinningFactor=preBinningFactor
     if correlationCentroiding:
       if corrPattern!=None:
-        if corrPattern.dtype.char!="f" or corrPattern.shape!=(nsubx,nsubx,nimg,nimg):
-          raise Exception("corrPattern wrong shape or type")
-      if corrimg.dtype.char!="f" or corrimg.shape!=(nsubx,nsubx,nimg,nimg):
-        raise Exception("corrimg wrong shape or type")
+        if corrPattern.dtype.char!="f" or corrPattern.shape[:2]!=(nsubx,nsubx) or corrPattern.shape[2]<nimg or corrPattern.shape[3]!=corrPattern.shape[2]:
+          raise Exception("corrPattern wrong shape or type: %s, %s - should be (%d,%d,>=%d,>=%d), f"%(str(corrPattern.shape),corrPattern.dtype.char,nsubx,nsubx,nimg,nimg))
+          if corrimg.dtype.char!="f" or corrimg.shape!=corrPattern.shape:
+            raise Exception("corrimg wrong shape or type")
 
     print "centcmod: cmod.cent.initialise"
     #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor

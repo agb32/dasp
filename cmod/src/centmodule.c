@@ -73,6 +73,7 @@ typedef struct{
   int spotpsfDim;
   int centWeightDim;
   float *centWeight;
+  int centWeightSize;
   float pxlPower;//not yet used.
   //int showCCDImg;
   //int allCents;
@@ -129,6 +130,8 @@ typedef struct{
   float *corrPattern;
   int correlationCentroiding;
   float *corrimg;//the output - ie what we'd be calculating centroids from.
+  int corrsize;
+  int corrPatternSize;
   fftwf_plan corrPlan;
   fftwf_plan invCorrPlan;
   float *refCents;//reference centroids
@@ -701,12 +704,12 @@ int testNan(int n,float* arr){
   return got;
   }*/
 
-#define B(y,x) corrPattern[(y)*nimg+x]
+#define B(y,x) corrPattern[(y)*corrsize+x]
 
-int calcCorrelation(int nimg,float *corrPattern,float *bimg,float *corrimg,float *tmp,fftwf_plan corrPlan,  fftwf_plan invCorrPlan){
-  /*This code has been copied from the DRAGON RTC code, for maximum efficiency.
+int calcCorrelation(int nimg,int corrsize,float *corrPattern,float *bimg,float *corrimg,float *tmp,fftwf_plan corrPlan,  fftwf_plan invCorrPlan){
+  /*This code has been copied from the DARC RTC code, for maximum efficiency.
    */
-  int i,j,n,m,neven,meven;
+  int i=0,j,n,m,neven,meven;
   float *a;
   float r1,r2,r3,r4,r5,r6,r7,r8;
   //This is how the plans should be created (elsewhere).  Will need a different plan for each different sized subap (see subapLocation).  
@@ -714,15 +717,23 @@ int calcCorrelation(int nimg,float *corrPattern,float *bimg,float *corrimg,float
   //c->invCorrPlan=fftwf_plan_r2r_2d(nimg,nimg,tmpsubap2,tmpsubap2,FFTW_HC2R, FFTW_HC2R, FFTW_ESTIMATE);
   
   //FFT the SH image.
-  memcpy(tmp,bimg,sizeof(float)*nimg*nimg);
+  if(nimg==corrsize)
+    memcpy(tmp,bimg,sizeof(float)*nimg*nimg);
+  else{
+    //copy with padding...
+    memset(tmp,0,sizeof(float)*corrsize*corrsize);
+    for(i=0;i<nimg;i++){
+      memcpy(&tmp[((corrsize-nimg)/2)*corrsize+(corrsize-nimg)/2+i*corrsize],&bimg[i*nimg],sizeof(float)*nimg);
+    }
+  }
   fftwf_execute_r2r(corrPlan,tmp,tmp);
   //memcpy(bimg,tmp,sizeof(float)*nimg*nimg);
   
   //Now multiply by the reference...
   //This is fairly complicated due to the half complex format.  If you need to edit this, make sure you know what you're doing.
   a=tmp;
-  n=nimg;
-  m=nimg;
+  n=corrsize;
+  m=corrsize;
   a[0]*=B(0,0);
   neven=(n%2==0);
   meven=(m%2==0);
@@ -776,7 +787,7 @@ int calcCorrelation(int nimg,float *corrPattern,float *bimg,float *corrimg,float
   //and now do the inverse fft...
   fftwf_execute_r2r(invCorrPlan,tmp,tmp);
   if(corrimg!=NULL)
-    memcpy(corrimg,tmp,sizeof(float)*nimg*nimg);
+    memcpy(corrimg,tmp,sizeof(float)*corrsize*corrsize);
   return 0;
 
 }
@@ -924,12 +935,13 @@ int centroidsFromPhase(centrunstruct *runinfo){
   c=(centstruct*)runinfo->centstr;
   imageOnly=c->imageOnly;
   threadno=runinfo->n;
-  npxl=c->imgpxls;
-  //printf("threadno %d\n",threadno);
+  //printf("threadno %d doing subaps %d to %d (c %p)\n",threadno,c->subapStart[threadno],c->subapStart[threadno+1],c);
   //compute the requested centroids.
   for(i=c->subapStart[threadno]; i<c->subapStart[threadno+1]; i++){
     //memset(&(c->bimg[i*npxl]),0,npxl*sizeof(float));
+    npxl=c->imgpxls;
     if(c->subflag[i]==1){//subap is full enough to use.  ie subflag[i]==1...
+
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
@@ -994,8 +1006,11 @@ int centroidsFromPhase(centrunstruct *runinfo){
       if(imageOnly==0){
 	if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation
 	  //This shouldn't be used with optical binning...
-	  bimg=&(c->corrimg[i*npxl]);
-	  calcCorrelation(c->nimg,&(c->corrPattern[i*npxl]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
+	  //The correlation image may be bigger than nimg.  So, zeropad bimg, then do the correlation.  After that, use ncen.
+	  int npxlcorr=c->corrsize*c->corrsize;
+	  bimg=&(c->corrimg[i*npxlcorr]);
+	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
+	  npxl=npxlcorr;//The subaps may have grown!!!
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
 	}else{
 	  bimg=&(c->bimg[i*npxl]);
@@ -1013,7 +1028,8 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  }else{//cog
 	    cweight=NULL;
 	  }
-	  computeCents(c->nimg,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight);
+	  //Note: corrsize==nimg unless convolving with something larger.  
+	  computeCents(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight);
 	  
 	  //and now apply the calibration...
 	  if(c->calData!=NULL){
@@ -1169,8 +1185,9 @@ int setCentWeight(centstruct *c,PyObject *centWeightObj){
       printf("Error: centmodule - centWeight array not float or contig\n");
       return -1;
     }
-    if(centWeightArr->dimensions[c->centWeightDim-2]!=c->nimg || centWeightArr->dimensions[c->centWeightDim-1]!=c->nimg){
-      printf("Error: centmodule - centweight array not correct dimensions\n");
+    c->centWeightSize=centWeightArr->dimensions[c->centWeightDim-2];
+    if(centWeightArr->dimensions[c->centWeightDim-2]!=c->corrsize || centWeightArr->dimensions[c->centWeightDim-1]!=c->corrsize){
+      printf("Error: centmodule - centweight array not correct dimensions (need to be nsubx,nsubx,corrsize,corrsize\n");
       return -1;
     }
     c->centWeight=(float*)centWeightArr->data;
@@ -1309,7 +1326,7 @@ int setupThreads(centstruct *c,int nthreads){
   for(i=0; i<c->nthreads; i++){
     if(c->runinfo!=NULL && c->runinfo[i]!=NULL){
       if(c->runinfo[i]->corr!=NULL){
-	free(c->runinfo[i]->corr);
+	fftwf_free(c->runinfo[i]->corr);
       }
       free(c->runinfo[i]);
     }
@@ -1360,7 +1377,7 @@ int setupThreads(centstruct *c,int nthreads){
       c->runinfo[i]=malloc(sizeof(centrunstruct));
       c->runinfo[i]->centstr=c;
       c->runinfo[i]->n=i;
-      c->runinfo[i]->corr=fftwf_malloc(sizeof(float)*c->nimg*c->nimg);
+      c->runinfo[i]->corr=fftwf_malloc(sizeof(float)*c->corrsize*c->corrsize);
       c->subapStart[i]=subapCnt;
       subapCnt+=subapsLeft/(nthreads-i);
       subapsLeft-=subapsLeft/(nthreads-i);
@@ -1391,6 +1408,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
   //update a value in the struct.
   int code;
   long lval;
+  //int i;
   double dval;
   centstruct *c;
   PyObject *obj;
@@ -1529,6 +1547,14 @@ PyObject *py_update(PyObject *self,PyObject *args){
 	return NULL;
       }
       c->correlationCentroiding=(int)lval;
+      if(c->correlationCentroiding)
+	c->corrsize=c->corrPatternSize;
+      else
+	c->corrsize=c->nimg;
+      if(c->centWeight!=NULL && c->centWeightSize!=c->corrsize){
+	printf("WARNING: centWeightSize INCORRECT: Ignoring centWeight until updated.\n");
+	c->centWeight=NULL;
+      }
       break;
     case CORRTHRESH:
       dval=PyFloat_AsDouble(obj);
@@ -1546,6 +1572,29 @@ PyObject *py_update(PyObject *self,PyObject *args){
 	  return NULL;
 	}
 	c->corrPattern=(float*)aobj->data;
+	if(c->corrPatternSize!=aobj->dimensions[2]){
+	  //Here, insist that the pattern doesn't change size - simply because then the corrimg doesn't change also.
+	  printf("Error - centmodule - corrPattern has changed size - please don't do that (or recode)!\n");
+	  return NULL;
+	  /*
+	  for(i=0;i<c->nthreads;i++){
+	    if(c->runinfo[i]->corr!=NULL)
+	      fftwf_free(c->runinfo[i]->corr);
+	    c->runinfo[i]->corr=fftwf_malloc(sizeof(float)*c->corrPatternSize*c->corrPatternSize);
+	  }
+	  fftwf_plan_free(c->corrPlan);
+	  fftwf_plan_free(c->invCorrPlan);
+	  c->corrPlan=fftwf_plan_r2r_2d(c->corrPatternSize,c->corrPatternSize,c->runinfo[0]->corr,c->runinfo[0]->corr,FFTW_R2HC, FFTW_R2HC, FFTW_ESTIMATE);
+	  c->invCorrPlan=fftwf_plan_r2r_2d(c->corrPatternSize,c->corrPatternSize,c->runinfo[0]->corr,c->runinfo[0]->corr,FFTW_HC2R, FFTW_HC2R, FFTW_ESTIMATE);
+	  c->corrPatternSize=aobj->dimensions[2];
+	  if(c->correlationCentroiding)
+	    c->corrsize=c->corrPatternSize;
+	  if(c->centWeight!=NULL && c->centWeightSize!=c->corrsize){
+	    printf("WARNING: centWeightSize INCORRECT: Ignoring centWeight until updated.\n");
+	    c->centWeight=NULL;
+	  }
+	  */
+	}
       }else{
 	printf("Warning - setting corrPattern to NULL\n");
 	c->corrPattern=NULL;
@@ -1658,8 +1707,6 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   if(setSpotPsf(c,spotpsfObj)==-1){
     return NULL;
   }
-  if(setCentWeight(c,centWeightObj)==-1)
-    return NULL;
   if(checkFloatContigArr(cents)!=0){
     printf("Error: centmodule - cents must be float and contiguous\n");
     return NULL;
@@ -1747,8 +1794,10 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     corrPattern=(PyArrayObject*)corrPatternObj;
     c->corrPattern=(float*)corrPattern->data;
     //printf("got corrPattern array\n");
+    c->corrsize=corrPattern->dimensions[2];
+    c->corrPatternSize=corrPattern->dimensions[2];//save it incase switch in and out of correlation mode.
     if(checkFloatContigArr(corrPattern)!=0){
-      printf("Error: centmodule - fracSubArea must be float and contiguous\n");
+      printf("Error: centmodule - corrPattern must be float and contiguous\n");
       return NULL;
     }
   }
@@ -1757,7 +1806,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     corrimg=(PyArrayObject*)corrimgObj;
     c->corrimg=(float*)corrimg->data;
     if(checkFloatContigArr(corrimg)!=0){
-      printf("Error: centmodule - fracSubArea must be float and contiguous\n");
+      printf("Error: centmodule - corrimg must be float and contiguous\n");
       return NULL;
     }
   }
@@ -1817,11 +1866,18 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     }
   }
   c->correlationCentroiding=correlationCentroiding;
+  if(correlationCentroiding){
+    c->corrsize=c->corrPatternSize;
+  }else{
+    c->corrsize=c->nimg;
+  }
+  if(setCentWeight(c,centWeightObj)==-1)
+    return NULL;
+
   setupThreads(c,nthreads);
   //setup plans for correlation...
-  c->corrPlan=fftwf_plan_r2r_2d(nimg,nimg,c->runinfo[0]->corr,c->runinfo[0]->corr,FFTW_R2HC, FFTW_R2HC, FFTW_ESTIMATE);
-  c->invCorrPlan=fftwf_plan_r2r_2d(nimg,nimg,c->runinfo[0]->corr,c->runinfo[0]->corr,FFTW_HC2R, FFTW_HC2R, FFTW_ESTIMATE);
-
+  c->corrPlan=fftwf_plan_r2r_2d(c->corrsize,c->corrsize,c->runinfo[0]->corr,c->runinfo[0]->corr,FFTW_R2HC, FFTW_R2HC, FFTW_ESTIMATE);
+  c->invCorrPlan=fftwf_plan_r2r_2d(c->corrsize,c->corrsize,c->runinfo[0]->corr,c->runinfo[0]->corr,FFTW_HC2R, FFTW_HC2R, FFTW_ESTIMATE);
   c->pthread_attr=malloc(sizeof(pthread_attr_t));
   pthread_attr_init(c->pthread_attr);
   pthread_attr_getstacksize(c->pthread_attr,&stacksize);
@@ -1857,6 +1913,8 @@ PyObject *py_free(PyObject *self,PyObject *args){
   
 
   free(c->tiltfn);
+  fftwf_destroy_plan(c->corrPlan);
+  fftwf_destroy_plan(c->invCorrPlan);
   fftwf_destroy_plan(c->fftplan);
   fftwf_destroy_plan(c->rcfftplan);
   fftwf_destroy_plan(c->crfftplan);
@@ -1864,6 +1922,8 @@ PyObject *py_free(PyObject *self,PyObject *args){
   c->spotpsfDim=0;
   prepareSpotPsf(c);
   prepareBinImage(0,0,c);
+  if(c->fftPsf!=NULL)
+    fftwf_free(c->fftPsf);
   free(c);
   Py_INCREF(Py_None);
   return Py_None;
@@ -1935,7 +1995,7 @@ PyObject *py_testcorrelation(PyObject *self,PyObject *args){
   tmp=fftwf_malloc(sizeof(float)*nimg*nimg);
   corrPlan=fftwf_plan_r2r_2d(nimg,nimg,tmp,tmp,FFTW_R2HC, FFTW_R2HC, FFTW_ESTIMATE);
   invCorrPlan=fftwf_plan_r2r_2d(nimg,nimg,tmp,tmp,FFTW_HC2R, FFTW_HC2R, FFTW_ESTIMATE);
-  calcCorrelation(nimg,(float*)corr->data,(float*)img->data,(float*)corr->data,tmp,corrPlan,invCorrPlan);
+  calcCorrelation(nimg,nimg,(float*)corr->data,(float*)img->data,(float*)corr->data,tmp,corrPlan,invCorrPlan);
   fftwf_free(tmp);
   fftwf_destroy_plan(corrPlan);
   fftwf_destroy_plan(invCorrPlan);
