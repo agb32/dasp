@@ -144,7 +144,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
             #Open a listening socket, for the darc camera and mirror to connect to.
             self.lsock=socket.socket()
             self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.port=self.config.getVal("port",8000)
+            self.port=self.config.getVal("port",8500)
             port=self.port
             while port<self.port+1000:
                 print "binding to port %d..."%port
