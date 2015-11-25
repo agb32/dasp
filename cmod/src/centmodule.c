@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_linalg.h>
 #include <complex.h>
 #include <fftw3.h>
 #include <stdio.h>
@@ -147,6 +148,12 @@ typedef struct{
   int *useBrightestArr;
   float **sortarr;
   int phaseStep;
+  float fitMx[30];
+  int fitMxParam;
+  int gaussianFit;
+  int parabolicFit;
+  float gaussianMinVal;
+  float gaussianReplaceVal;
 } centstruct;
 
 
@@ -657,40 +664,231 @@ void computeOBCents(int ncen,float *img,float *cx,float *cy){
     *cy-=(ncen-1)/2.;
   }
 }
-void computeCents(int nimg,int ncen,float const * const img,float *centx,float *centy,float *weighting){
-  int i,j,s,e;
+void computeCoG(int nimg,int ncen,float const * const img,float *centx,float *centy,float *weighting,int centreOnBrightest){
+  //If centreOnBrightest set (i.e. if correlation centroiding), the ncenxncen array will be centred around the brightest pixel.
+  int i,j,sx,sy,ex,ey,maxpos;
   float tmp;
   float sum=0.;
-  *centx=0.;
-  *centy=0.;
-  s=(nimg-ncen)/2;//starting point
-  e=nimg-s;//end point
+  float mx;
+  float cx=0,cy=0;
+  //*centx=0.;
+  //*centy=0.;
+  if(centreOnBrightest==0){
+    sx=(nimg-ncen)/2;//starting point
+    ex=nimg-sx;//end point
+    sy=sx;
+    ey=ex;
+  }else{
+    //find brightest pixel:
+    mx=0.;
+    maxpos=0;
+    for(i=0;i<nimg*nimg;i++){
+      if(img[i]>mx){
+	mx=img[i];
+	maxpos=i;
+      }
+    }
+    sx=(int)(maxpos%nimg-ncen/2.+0.5);
+    sy=(int)(maxpos/nimg-ncen/2.+0.5);
+    if(sx<0)sx=0;
+    if(sy<0)sy=0;
+    if(sx>nimg-ncen)sx=nimg-ncen;
+    if(sy>nimg-ncen)sy=nimg-ncen;
+    ex=sx+ncen;
+    ey=sy+ncen;
+    
+  }
   if(weighting==NULL){
-    for(i=s; i<e; i++){
-      for(j=s; j<e; j++){
+    for(i=sy; i<ey; i++){
+      for(j=sx; j<ex; j++){
 	tmp=img[i*nimg+j];
 	sum+=tmp;
-	*centx+=tmp*j;
-	*centy+=tmp*i;
+	cx+=tmp*j;
+	cy+=tmp*i;
       }
     }
   }else{
-    for(i=s; i<e; i++){
-      for(j=s; j<e; j++){
+    for(i=sy; i<ey; i++){
+      for(j=sx; j<ex; j++){
 	tmp=img[i*nimg+j]*weighting[i*nimg+j];
 	sum+=tmp;
-	*centx+=tmp*j;
-	*centy+=tmp*i;
+	cx+=tmp*j;
+	cy+=tmp*i;
       }
     }
   }
   if(sum>0){
-    *centx/=sum;
-    *centy/=sum;
-    *centx-=(nimg-1)/2.;
-    *centy-=(nimg-1)/2.;
+    cx/=sum;
+    cy/=sum;
+    if(centreOnBrightest!=0){
+      cx+=sx;
+      cy+=sy;
+    }
+    cx-=(nimg-1)/2.;
+    cy-=(nimg-1)/2.;
+    *centx=cx;
+    *centy=cy;
+  }else{
+    *centx=0;
+    *centy=0;
   }
 }
+
+inline void makeFitVector(float *vec,float *subap,int nimg,int ncen,int startx,int starty){
+  //vec should have size [6].
+  int x,y;
+  float val;
+  for(y=0;y<6;y++)//probably faster than memset.
+    vec[y]=0;
+  for(y=0;y<ncen;y++){
+    for(x=0;x<ncen;x++){
+      val=subap[(y+starty)*nimg + (x+startx)];
+      vec[0]+=val*x*x;
+      vec[1]+=val*x*y;
+      vec[2]+=val*y*y;
+      vec[3]+=val*x;
+      vec[4]+=val*y;
+      vec[5]+=val;
+    }
+  }
+}
+
+void makeFitMx(float *fitMx,int ncen){//fitMx is 5x6.
+  int y,x;
+  double mx[36],inva[36];
+  memset(mx,0,sizeof(double)*36);
+  for(y=0;y<ncen;y++){
+    for(x=0;x<ncen;x++){
+      mx[0*6+0]+=x*x*x*x;
+      mx[0*6+1]+=x*x*x*y;
+      mx[0*6+2]+=x*x*y*y;
+      mx[0*6+3]+=x*x*x;
+      mx[0*6+4]+=x*x*y;
+      mx[0*6+5]+=x*x;
+      mx[1*6+0]+=x*x*x*y;
+      mx[1*6+1]+=x*x*y*y;
+      mx[1*6+2]+=x*y*y*y;
+      mx[1*6+3]+=x*x*y;
+      mx[1*6+4]+=x*y*y;
+      mx[1*6+5]+=x*y;
+      mx[2*6+0]+=x*x*y*x;
+      mx[2*6+1]+=x*y*y*y;
+      mx[2*6+2]+=y*y*y*y;
+      mx[2*6+3]+=x*y*y;
+      mx[2*6+4]+=y*y*y;
+      mx[2*6+5]+=y*y;
+      mx[3*6+0]+=x*x*x;
+      mx[3*6+1]+=x*x*y;
+      mx[3*6+2]+=x*y*y;
+      mx[3*6+3]+=x*x;
+      mx[3*6+4]+=x*y;
+      mx[3*6+5]+=x;
+      mx[4*6+0]+=x*x*y;
+      mx[4*6+1]+=x*y*y;
+      mx[4*6+2]+=y*y*y;
+      mx[4*6+3]+=x*y;
+      mx[4*6+4]+=y*y;
+      mx[4*6+5]+=y;
+      mx[5*6+0]+=x*x;
+      mx[5*6+1]+=x*y;
+      mx[5*6+2]+=y*y;
+      mx[5*6+3]+=x;
+      mx[5*6+4]+=y;
+      mx[5*6+5]+=1;
+      
+    }
+  }
+  //now invert.
+  int s;
+  gsl_matrix_view m = gsl_matrix_view_array(mx, 6, 6);
+  gsl_matrix_view inv = gsl_matrix_view_array(inva,6,6);
+  gsl_permutation * p = gsl_permutation_alloc (6);
+  gsl_linalg_LU_decomp (&m.matrix, p, &s);    
+  gsl_linalg_LU_invert (&m.matrix, p, &inv.matrix);
+  gsl_permutation_free (p);
+  for(y=0;y<30;y++){//don't need the last row.
+    fitMx[y]=(float)inva[y];
+  }
+}
+void sgemv(int m,int n,float *mx, float *vec, float *res){
+  int i,j;
+  float tmp;
+  for(i=0;i<m;i++){
+    tmp=0;
+    for(j=0;j<n;j++){
+      tmp+=mx[i*n+j]*vec[j];
+    }
+    res[i]=tmp;
+  }
+}
+
+void computeFit(const int nimg,const int ncen,float *img,float *centx,float *centy, float *fitMx,int *fitMxParam,int doGaussian,float gaussianMinVal,float gaussianReplaceVal){
+  int i,mxpos=0;
+  float sum=0;
+  float mx=0;
+  int startx,starty;
+  float minflux=0;
+  //Do a parabolic/gaussian fit...
+  if(doGaussian){
+    //take the log of the data
+    for(i=0;i<nimg*nimg;i++){
+      sum+=img[i];
+      if(img[i]>mx){
+	mxpos=i;
+	mx=img[i];
+      }
+      if(img[i]<gaussianMinVal)
+	img[i]=gaussianReplaceVal;
+      else
+	img[i]=logf(img[i]);
+    }
+  }else{
+    for(i=0;i<nimg*nimg;i++){
+      sum+=img[i];
+      if(img[i]>mx){
+        mxpos=i;
+	mx=img[i];
+      }
+    }
+  }
+  if(sum>=minflux){
+    float vec[6];
+    float res[5];
+    //Should this be centred around brightest pixel, or CoG?????
+    //Since usually used with correlation images, brightest pixel probably ok (and maybe best - use it for now!)
+    startx=(int)(mxpos%nimg-ncen/2.+0.5);
+    starty=(int)(mxpos/nimg-ncen/2.+0.5);
+    if(startx<0)startx=0;
+    if(starty<0)starty=0;
+    if(startx>nimg-ncen)startx=nimg-ncen;
+    if(starty>nimg-ncen)starty=nimg-ncen;
+    makeFitVector(vec,img,nimg,ncen,startx,starty);
+    //dot the matrix with the vector.
+    if(*fitMxParam!=ncen){
+      printf("centmodule: Creating fit matrix size %d\n",ncen);
+      makeFitMx(fitMx,ncen);//shape of matrix doens't change, but contents does.
+      *fitMxParam=ncen;
+    }
+    sgemv(5,6,fitMx,vec,res);
+    if(doGaussian){
+      *centx=-res[3]/(2*res[0]);
+      *centy=-res[4]/(2*res[2]);
+    }else{
+      *centx=(res[1]*res[4]/(2*res[2])-res[3])/(2.*res[0]-res[1]*res[1]/(2.*res[2]));
+      *centy=-(res[4]+res[1]*(*centx))/(2.*res[2]);
+    }
+    (*centy)-=ncen/2.-0.5;
+    (*centx)-=ncen/2.-0.5;
+    (*centx)+=startx+ncen/2.-nimg/2.;
+    (*centy)+=starty+ncen/2.-nimg/2.;
+  }else{
+    *centx=0;
+    *centy=0;
+  }
+  //printf("parabolicFit: %d %d %d %g %g %g %g\n",startx,starty,mxpos,mxpos%nimg-nimg/2.-0.5,mxpos/nimg-nimg/2.-0.5,*centx,*centy);
+}
+
+
 /*
 int testNan(int n,float* arr){
   int i;
@@ -794,6 +992,17 @@ int calcCorrelation(int nimg,int corrsize,float *corrPattern,float *bimg,float *
 #undef B
 int thresholdCorrelation(int npxl,float thresh,float *img){
   int i;
+  float mx;
+  if(thresh<=1. && thresh>0.){
+    //threshold as a fraction of maximum.
+    //So - find the maximum.
+    mx=0;
+    for(i=0; i<npxl; i++){
+      if(img[i]>mx)
+	mx=img[i];
+    }
+    thresh=mx*thresh;
+  }
   for(i=0; i<npxl; i++){
     img[i]=img[i]<thresh?0:img[i]-thresh;
   }
@@ -1018,37 +1227,38 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	//now apply the centroid mask and compute the centroids.
 	if(c->opticalBinning==1){
 	  computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
-	}else{
+	}else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
+	  computeFit(c->corrsize,c->ncen,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal);
+
+	}else{//do a CoG
 	  if(c->centWeightDim==2){//weighted CoG
 	    cweight=c->centWeight;
-	    //computeCents(c->nimg,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),c->centWeight);
 	  }else if(c->centWeightDim==4 && c->centWeight!=NULL){//weighted CoG
 	    cweight=&c->centWeight[i*npxl];
-	    //computeCents(c->nimg,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),&c->centWeight[i*c->nimg*c->nimg]);
 	  }else{//cog
 	    cweight=NULL;
 	  }
 	  //Note: corrsize==nimg unless convolving with something larger.  
-	  computeCents(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight);
+	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
+	}
+	//and now apply the calibration... (linearisation)
+	if(c->calData!=NULL){
+	  indx=c->calBounds[i*2];//c->calBounds[0,i,j,0];
+	  n=c->calBounds[i*2+1]-indx;
+	  applyCentroidCalibration(&(c->cents[i*2]),n,&c->calData[i*c->calNSteps+indx],&c->calSteps[indx]);//calData[0,i,j,indx]
+	  indx=c->calBounds[(c->nsubaps+i)*2];//[1,i,j,0];
+	  n=c->calBounds[(c->nsubaps+i)*2+1]-indx;
+	  applyCentroidCalibration(&(c->cents[i*2+1]),n,&c->calData[(c->nsubaps+i)*c->calNSteps+indx],&c->calSteps[indx]);
+	}else if(c->calCoeff!=NULL){//calibrate using a polynomial...
 	  
-	  //and now apply the calibration...
-	  if(c->calData!=NULL){
-	    indx=c->calBounds[i*2];//c->calBounds[0,i,j,0];
-	    n=c->calBounds[i*2+1]-indx;
-	    applyCentroidCalibration(&(c->cents[i*2]),n,&c->calData[i*c->calNSteps+indx],&c->calSteps[indx]);//calData[0,i,j,indx]
-	    indx=c->calBounds[(c->nsubaps+i)*2];//[1,i,j,0];
-	    n=c->calBounds[(c->nsubaps+i)*2+1]-indx;
-	    applyCentroidCalibration(&(c->cents[i*2+1]),n,&c->calData[(c->nsubaps+i)*c->calNSteps+indx],&c->calSteps[indx]);
-	  }else if(c->calCoeff!=NULL){//calibrate using a polynomial...
-
-	      applyCentroidCalibrationInterpolation(&(c->cents[i*2]),c->calNCoeff,&c->calCoeff[i*2*c->calNCoeff]);
-	      applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
-	  }
-	  //and now subtract reference centroids...
-	  if(c->refCents!=NULL){
-	    c->cents[i*2]-=c->refCents[i*2];
-	    c->cents[i*2+1]-=c->refCents[i*2+1];
-	  }
+	  applyCentroidCalibrationInterpolation(&(c->cents[i*2]),c->calNCoeff,&c->calCoeff[i*2*c->calNCoeff]);
+	  applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
+	}
+	//and now subtract reference centroids...
+	if(c->refCents!=NULL){
+	  c->cents[i*2]-=c->refCents[i*2];
+	  c->cents[i*2+1]-=c->refCents[i*2+1];
+	  //printf("%g %g - after refsub\n",c->refCents[i*2],c->refCents[i*2+1]);
 	}
       }
     }else{
@@ -1559,7 +1769,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
     case CORRTHRESH:
       dval=PyFloat_AsDouble(obj);
       if(PyErr_Occurred()){
-	printf("centmodule: Error extracting int value for corrThresh\n");
+	printf("centmodule: Error extracting float value for corrThresh\n");
 	return NULL;
       }
       c->corrThresh=(float)dval;
@@ -1673,20 +1883,22 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   //float *skybrightnessArr=NULL;
   double dval;
   int opticalBinning,imageOnly,preBinningFactor;
+  int gaussianFit,parabolicFit;
+  float gaussianMinVal,gaussianReplaceVal;
   int threshType;
   float *sigArr=NULL;
   PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj;
   PyArrayObject *phs,*pupfn,*cents,*fracSubArea,*subflag,*bimg,*sigArrObj,*aobj,*corrPattern=NULL,*corrimg=NULL;
   centstruct *c;
-  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiOi",&nthreads,
+  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiOiiiff",&nthreads,
 		       &nsubaps,&ncen,&fftsize,&clipsize,
 		       &nimg,&phasesize,&readnoise,&readbg,&addPoisson,&noiseFloor,
 		       &sigObj,&skybrightnessObj,&calsource,
 		       &pxlPower,&nintegrations,&seed,
 		       &PyArray_Type,&phs,&PyArray_Type,
 		       &pupfn,&spotpsfObj,&PyArray_Type,&cents,
-		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor)){
-    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor\n");
+		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor,&parabolicFit,&gaussianFit,&gaussianMinVal,&gaussianReplaceVal)){
+    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\n");
     return NULL;
   }
   if((c=malloc(sizeof(centstruct)))==NULL){
@@ -1703,6 +1915,11 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->phasesize=phasesize;
   c->preBinningFactor=preBinningFactor;
   c->preBinningFactorOrig=preBinningFactor;
+  c->parabolicFit=parabolicFit;
+  c->gaussianFit=gaussianFit;
+  c->gaussianMinVal=gaussianMinVal;
+  c->gaussianReplaceVal=gaussianReplaceVal;
+    
   //Now check that the arrays are okay...
   if(setSpotPsf(c,spotpsfObj)==-1){
     return NULL;

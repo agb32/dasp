@@ -1,5 +1,3 @@
-#import math
-#import Numeric
 import numpy
 import cmod.imgnoise
 import util.atmos 
@@ -256,7 +254,7 @@ class LGS(util.atmos.source):
     reconList - list of reconstructors which use this slope information.
     pupil - the telescope pupil function for this guide star.
     """
-    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.):
+    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None):
         """pupil can be a util.tel object"""
         #Initialise the parent...
         super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=sig)
@@ -292,6 +290,8 @@ class LGS(util.atmos.source):
         self.correlationCentroiding=correlationCentroiding
         self.corrThresh=corrThresh
         self.corrPattern=corrPattern
+        self.parabolicFit=parabolicFit
+        self.gaussianFitVals=gaussianFitVals#None, or a tuple of (gaussianMinVal, gaussianReplaceVal)
         self.useBrightest=useBrightest
         #self.alt=height Now self.alt.  
         self.minarea=minarea
@@ -378,7 +378,7 @@ class NGS(util.atmos.source):
     reconList - list of reconstructors which use this slope information.
     pupil - the telescope pupil function for this guide star.
     """
-    def __init__(self,idstr,nsubx,theta,phi,phasesize,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.):
+    def __init__(self,idstr,nsubx,theta,phi,phasesize,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None):
         """pupil can be a util.tel object"""
         #Initialise parent...
         super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=sig)
@@ -415,6 +415,8 @@ class NGS(util.atmos.source):
         self.correlationCentroiding=correlationCentroiding
         self.corrThresh=corrThresh
         self.corrPattern=corrPattern
+        self.parabolicFit=parabolicFit
+        self.gaussianFitVals=gaussianFitVals#None, or a tuple of (gaussianMinVal, gaussianReplaceVal)
         self.useBrightest=useBrightest
         self.minarea=minarea
         #self.sig=sig
@@ -505,7 +507,7 @@ class wfs:
     Note, subap_fov = nsubx * lenslet_pitch**2 / ( 2 * tel_diam * lenslet_fl )
     """
 
-    def __init__(self,pup=None,nsubx=8,subap_pix=8,subap_fov=2.8,tel_diam=4.2,wavelength=None,LGS_alt=34000.,max_vignette=0.3,LGS_gate_depth=5000.,LGS_vert_res=10.,launch_quality=0.8,r0=0.11,launch_ap=0.5,trunc=0.83,m_squared=1.2,tel_fl=46.2,subap_pitch=None,subap_fl=209.,LGS_theta=0.,LGS_phi=0.,gauss=1,tel_sec=None,wfs_addnoise=0,wfs_read=10.,wfs_floor=None,contrast_ratio=500.,fluxObj=None,lgsDefault=None):
+    def __init__(self,pup=None,nsubx=8,subap_pix=8,subap_fov=2.8,tel_diam=4.2,wavelength=None,LGS_alt=34000.,max_vignette=0.3,LGS_gate_depth=5000.,LGS_vert_res=10.,launch_quality=0.8,r0=0.11,launch_ap=0.5,trunc=0.83,m_squared=1.2,tel_fl=46.2,subap_pitch=None,subap_fl=209.,LGS_theta=0.,LGS_phi=0.,gauss=1,tel_sec=None,wfs_addnoise=0,wfs_read=10.,wfs_floor=None,contrast_ratio=500.,fluxObj=None,lgsDefault=None,laserType=None):
         """pupfn is the pupil transmission function (util.tel.Pupil)
         nsubx is number of subaps in 1 direction
         subap_pix is number of pixels to use per subap (wfs_clipsize)
@@ -553,12 +555,15 @@ class wfs:
         self.subap_fov=subap_fov
         self.nsubx=nsubx
         self.LGS_alt=LGS_alt
-        if LGS_alt>75000.:
-            print "INFORMATION Assuming Sodium laser"
-            self.laserType="sodium"
+        if laserType==None:
+            if LGS_alt>75000.:
+                print "INFORMATION Assuming Sodium laser"
+                self.laserType="sodium"
+            else:
+                print "INFORMATION Assuming Rayleigh laser"
+                self.laserType="rayleigh"
         else:
-            print "INFORMATION Assuming Rayleigh laser"
-            self.laserType="rayleigh"
+            self.laserType=laserType
         npup=subap_pix*nsubx
         if type(pup)==type(None):
             if tel_sec==None:
@@ -574,7 +579,7 @@ class wfs:
         self.max_vignette=max_vignette
         self.LGS_gate_depth=LGS_gate_depth
         self.LGS_vert_res=LGS_vert_res
-        self.launch_quality=0.8
+        self.launch_quality=launch_quality
         self.r0=r0
         if wavelength==None:
             if wavelength=="sodium":
@@ -700,14 +705,17 @@ class wfs:
         max_alt = dist/tan(max_ang/206265.)
         return max_alt, min_alt
 
-    def blt_res(self):
+    def blt_res(self,atmosBlurring=1):
         """calculate fwhm of lgs spot"""
         # First calculate radians^2 of error in optical path
         var_qual = -numpy.log(self.launch_quality)
         # Calculate r0 at laser wavelength
         r0_las = self.r0*((self.wavelength/500.)**(6/5.))
-        # Now calculate short-exposure Strehl ratio
-        rho = float(r0_las*(1+(0.37*(r0_las/self.launch_ap)**(1/3.))))
+        if atmosBlurring:
+            # Now calculate short-exposure Strehl ratio
+            rho = float(r0_las*(1+(0.37*(r0_las/self.launch_ap)**(1/3.))))
+        else:
+            rho=1.
         #ex = exp(-qual)
         Drho = float(1.+(self.launch_ap/rho)**2)
         # Calculate variance due to tilt removed turbulence

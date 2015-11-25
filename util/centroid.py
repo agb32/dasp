@@ -107,7 +107,7 @@ class centroid:
           correlationCentroiding=0, corrThresh=0., 
           corrPattern=None, threshType=0, imageOnly=0, calNCoeff=0,
           useBrightest=0, printLinearisationForcing=0, rowintegtime=None,
-          preBinningFactor=1):
+                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
@@ -234,6 +234,8 @@ class centroid:
         self.psf=spotpsf#eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)
         self.centroidPower=centroidPower
         self.opticalBinning=opticalBinning
+        self.parabolicFit=parabolicFit
+        self.gaussianFitVals=gaussianFitVals
         self.centWeight=centWeight
 
         #stuff for correlation centroiding...
@@ -431,7 +433,7 @@ class centroid:
                                                  self.cmodbimg,self.wfs_minarea,self.opticalBinning,
                                                  self.centWeight,self.correlationCentroiding,
                                                  self.corrThresh,self.corrPattern,self.corrimg,
-                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor)
+                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor,self.parabolicFit,self.gaussianFitVals)
             #print "initialised cmod - done"
         else:
             self.centcmod=None
@@ -456,9 +458,7 @@ class centroid:
         for i in xrange(self.nsubx):        
             for j in xrange(self.nsubx):
                 self.pupsub[i][j]=pfn[i*n:(i+1)*n,j*n:(j+1)*n]    # Get pupil fn over subaps
-
-        self.cenmask=numpy.zeros((self.nimg,self.nimg),numpy.float32)             # Define centroiding mask
-        self.cenmask[self.nimg/2-self.ncen/2:self.nimg/2+self.ncen/2,self.nimg/2-self.ncen/2:self.nimg/2+self.ncen/2]=1.
+        self.cenmask=None
         self.tilt_indx = (numpy.array(range(self.nimg),numpy.float64))-float(self.nimg/2)+0.5#Index fns for centroiding
         #print "centroid - finishInit done"
 
@@ -854,6 +854,10 @@ class centroid:
         #self.centx=zeros((nsubx,nsubx),float)
         #self.centy=zeros((nsubx,nsubx),float)
         #self.shimg*=0.#reset...=zeros((nsubx*nimg,nsubx*nimg),float)
+        if self.cenmask==None:
+            self.cenmask=numpy.zeros((self.nimg,self.nimg),numpy.float32)             # Define centroiding mask
+            self.cenmask[self.nimg/2-self.ncen/2:self.nimg/2+self.ncen/2,self.nimg/2-self.ncen/2:self.nimg/2+self.ncen/2]=1.
+
         cenmask=self.cenmask
         if self.opticalBinning:
             cenmask=1

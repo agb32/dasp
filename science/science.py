@@ -154,11 +154,15 @@ class science(aobase.aobase):
             luckyHistorySize=this.config.getVal("luckyHistorySize",default=None,raiseerror=0)
             if luckyHistorySize==None:
                 luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+                if luckyHistorySize==0:
+                    luckyHistorySize=100
             luckyByteswap=this.config.getVal("luckyByteswap",default=0)
             saveFileString=this.config.getVal("scisaveFileString",raiseerror=0)#an optional string that can be used to identify a given simulation in the saved results... 
             diffPsfFilename=this.config.getVal("sciDiffPsfFilename",default=None,raiseerror=0)
             keepDiffPsf=this.config.getVal("keepDiffPsf",default=0)#overwrite mem?
             scienceListsSize=this.config.getVal("hist_list_size",default=this.config.getVal("AOExpTime")/tstep/scinSamp)
+            if scienceListsSize==0:
+                scienceListsSize=100
             inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
             histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
 
@@ -211,6 +215,8 @@ class science(aobase.aobase):
             scienceListsSize=this.sciInfo.histListSize
             if scienceListsSize==None:
                 scienceListsSize=this.config.getVal("AOExpTime")/tstep/scinSamp
+                if scienceListsSize==0:
+                    scienceListsSize=100
             inboxDiamList=this.sciInfo.inboxDiamList
             histFilename=this.sciInfo.histFilename
             if luckyObj!=None:
@@ -221,11 +227,15 @@ class science(aobase.aobase):
                 luckyHistorySize=luckyObj.histSize
                 if luckyHistorySize==None:
                     luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+                    if luckyHistorySize==0:
+                        luckyHistorySize=100
                 luckyByteswap=luckyObj.byteswap
             else:
                 luckyFilename=luckyImgFilename=luckyImgSize=None
                 luckyNSampFrames=1
                 luckyHistorySize=int(this.config.getVal("AOExpTime")/(tstep*sciPSFSamp*luckyNSampFrames))
+                if luckyHistorySize==0:
+                    luckyHistorySize=100
                 luckyByteswap=0
 
 
