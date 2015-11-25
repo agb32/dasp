@@ -43,43 +43,27 @@ except ImportError:
 ## 
 
 
-#ctrl=util.Ctrl.Ctrl(globals=globals())
 ## start of instance creation and setup
 
-config=base.readConfig.AOXml("../scao/params.xml") # read the configuration file
-#aobase=base.aobase.aobase(None,config,idstr="a")
-#aobase.dataValid=1
+config=base.readConfig.AOXml("recon.xml") # read the configuration file
 
 scrn=science.iscrn.iscrn(None,config,idstr="L0") # create one phase screen
 scrn.finalInitialisation()
-#scrn.doNextIter()
-#phaseScreen = scrn.unwrapPhase("L0")
 
-
-atmos=science.iatmos.iatmos({"L0":scrn},config,idstr="a") # create one atmosphere (with one phase screen)
-#atmos=science.iatmos.iatmos({"L0":scrn},config,idstr="a")
+atmos=science.iatmos.iatmos({"L0":scrn},config,idstr="a") # create one atmosphere, connected to one phase screen
 atmos.finalInitialisation()
-#atmos.doNextIter()
-#pupilPhase = atmos.outputData
-
 
 dm=science.xinterp_dm.dm(atmos,config,idstr="dma") # create one dm
 dm.finalInitialisation()
  
-
-wfscent=science.wfscent.wfscent(dm,config,idstr="a") # create one WFS
-#wfscent.initialise(aobase,"a")
+wfscent=science.wfscent.wfscent(dm,config,idstr="a") # create one WFS, connected to the DM
 wfscent.finalInitialisation()
-#wfscent.wfscentObj=wfscent.thisObjList[0].wfscentObj
-#wfscent.doNextIter()
-#shsImg = wfscent.drawCents(0)
 
-
-recon=science.tomoRecon.recon({"a":wfscent,},config,idstr="ngs") # create one reconstructor
+recon=science.tomoRecon.recon({"a":wfscent,},config,idstr="ngs") # create one reconstructor, connected to the WFS
 recon.finalInitialisation()
 
-
 dm.newParent({"1":atmos,"2":recon,},"dma") # connect the DM to the atmosphere *and* the reconstructor
+# then screen->atmos->DM<-recon, & DM->WFS->recon
 
 
 ## ----------------------------------------------------------
@@ -103,7 +87,7 @@ for obj in ctrl.compList:
 
 
 
-for i in range(50):
+for i in range(50): # iterate 50 times to make the PMX
     for obj in ctrl.compList:
         obj.doNextIter()
 
@@ -115,14 +99,6 @@ for i in range(50):
 
 
 for obj in ctrl.compList:
-# if obj.control.has_key("poke"):
-#  obj.control["poke"]=0
-# if obj.control.has_key("science_integrate"):
-#  obj.control["science_integrate"]=1
-# if obj.control.has_key("zero_dm"):
-#  obj.control["zero_dm"]=0
-# if obj.control.has_key("cal_source"):
-#  obj.control["cal_source"]=0
     if obj.control.has_key("zero_dm"):
         obj.control["zero_dm"]=1
     if obj.control.has_key("zero_science"):
@@ -142,24 +118,20 @@ for obj in ctrl.compList:
 dmShapes = []
 print("[ ",end="")
 for i in range(1000):
-    print("\r[ "+"-"*(int(i/1000.0*70)) + " "*(70-int(i/1000.0*70)) + " ]",end="")
+    print("\r[ "+"-"*(int(i/1000.0*70)) + " "*(70-int(i/1000.0*70)) + " ]",end="") # print a progress bar
     sys.stdout.flush()
     scrn.doNextIter()
-    #phaseScreen = scrn.unwrapPhase("L0")#optional
-    #pylab.figure(1)
-    #pylab.imshow(phaseScreen)
+    #phaseScreen = scrn.unwrapPhase("L0")#optional: phase in the screen
     atmos.doNextIter()
-    #pupilPhase = atmos.outputData#optional
+    #pupilPhase = atmos.outputData#optional: phase in the pupil
     dm.doNextIter()
-    if i%100==0:
+    if i%100==0: # every 100th iteration, save the atmosphere and DM surface
         dmShapes.append(
                 [ i, atmos.outputData.copy(), dm.mirrorSurface.phsOut.copy() ]
             )
     
     wfscent.doNextIter()
-    #shsImg = wfscent.drawCents(0)#optional
-    #pylab.figure(2)
-    #pylab.imshow(shsImg)
+    #shsImg = wfscent.drawCents(0)#optional: SH spot images
     recon.doNextIter()
 
 print()
