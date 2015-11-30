@@ -450,16 +450,8 @@ class dm(base.aobase.aobase):
                         r2=0
                     else:
                         r2=self.pupil.r2
-                    tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=r2,retPupil=0)
-                    # tmp is dmflag,subarea (or None,None for modal DMs.)
-                    #self.dmPupList.append(tmp[0])
-
-                    nactsList.append(int(numpy.sum(tmp[0].ravel())))
-                    #if dm.pokeSpacing!=None:
-                    #    self.npokesList.append(dm.pokeSpacing**2)
-                    #else:
-                    #    self.npokesList.append(self.nactsList[-1])
-                    #self.npokesCumList.append(self.npokesCumList[-1]+self.npokesList[-1])
+                    tmp=dm.getDMFlag(self.atmosGeom,centObscuration=r2)
+                    nactsList.append(int(tmp.sum()))
                 else:#a modal DM
                     #self.dmPupList.append(None)
                     nactsList.append(dm.nact)#nact is the number of modes

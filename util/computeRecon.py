@@ -842,8 +842,8 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     laplist=[]
     for dm in dmList:
         if dm.zonalDM:
-            tmp=dm.computeDMPupil(atmosGeom,centObscuration=pup.r2,retPupil=0)
-            nacts=int(tmp[0].sum())
+            tmp=dm.getDMFlag(atmosGeom,centObscuration=pup.r2)
+            nacts=int(tmp.sum())
         else:
             nacts=dm.nact
         print nacts

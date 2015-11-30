@@ -254,7 +254,7 @@ class LGS(util.atmos.source):
     reconList - list of reconstructors which use this slope information.
     pupil - the telescope pupil function for this guide star.
     """
-    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None):
+    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None):
         """pupil can be a util.tel object"""
         #Initialise the parent...
         super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=sig)
@@ -304,12 +304,13 @@ class LGS(util.atmos.source):
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
         self.pupil=pupil
+        self.subapFlag=subapFlag#use getSubapFlag() to get this.
         if self.phasesize==None:
             if self.nimg!=None:
                 self.phasesize=self.nimg
         if self.phasesize!=None:
             if self.nfft==None:
-                self.nfft=self.phasesize*2
+               self.nfft=self.phasesize*2
             if self.clipsize==None:
                 self.clipsize=self.nfft
             if self.nimg==None:
@@ -348,6 +349,8 @@ class LGS(util.atmos.source):
             f.close()
     def getSubapFlag(self):
         """Compute the subap flags for a given nsubx"""
+        if self.subapFlag!=None:
+            return self.subapFlag
         nsubx=self.nsubx
         subflag=numpy.zeros((nsubx,nsubx),numpy.int32)
         n=self.phasesize#self.npup/nsubx
@@ -378,7 +381,7 @@ class NGS(util.atmos.source):
     reconList - list of reconstructors which use this slope information.
     pupil - the telescope pupil function for this guide star.
     """
-    def __init__(self,idstr,nsubx,theta,phi,phasesize,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None):
+    def __init__(self,idstr,nsubx,theta,phi,phasesize,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None):
         """pupil can be a util.tel object"""
         #Initialise parent...
         super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=sig)
@@ -426,6 +429,7 @@ class NGS(util.atmos.source):
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
         self.pupil=pupil
+        self.subapFlag=subapFlag#use getSubapFlag() to get this.
         if self.phasesize==None:
             if self.nimg!=None:
                 self.phasesize=self.nimg
@@ -467,6 +471,8 @@ class NGS(util.atmos.source):
 
     def getSubapFlag(self):
         """Compute the subap flags for a given nsubx"""
+        if self.subapFlag!=None:
+            return self.subapFlag
         nsubx=self.nsubx
         subflag=numpy.zeros((nsubx,nsubx),numpy.int32)
         n=self.phasesize#self.npup/nsubx

@@ -49,11 +49,11 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
         self.npokesCumList=[0]
         for dm in self.dmList:
             if dm.zonalDM:
-                tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                dmflag=dm.getDMFlag(self.atmosGeom,centObscuration=self.pupil.r2)
                 # tmp is dmflag,subarea (or None,None for modal DMs.)
-                self.dmPupList.append(tmp[0])
+                self.dmPupList.append(dmflag)
             
-                self.nactsList.append(int(numpy.sum(tmp[0].ravel())))
+                self.nactsList.append(int(dmflag.sum()))
                 if dm.pokeSpacing!=None:
                     self.npokesList.append(dm.pokeSpacing**2)
                 else:
