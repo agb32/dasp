@@ -33,6 +33,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
         if type(parent)!=type({}):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
+        darcPortNumber = self.config.getVal( "darcPortNumber", default=8500 )
         self.pupil=self.config.getVal("pupil")
         self.atmosGeom=self.config.getVal("atmosGeom")
         self.dmObj=self.config.getVal("dmObj")
@@ -158,7 +159,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
             #Open a listening socket, for the darc camera and mirror to connect to.
             self.lsock=socket.socket()
             self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.port=self.config.getVal("port",8500)
+            self.port=self.config.getVal( "port", darcPortNumber )
             port=self.port
             while port<self.port+1000:
                 print "binding to port %d..."%port
