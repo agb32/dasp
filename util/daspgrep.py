@@ -61,6 +61,11 @@ def getArgs(args):
             space=1
             if a=="--space=0":
                 space=0
+        elif a[:7]=="--comma":
+            if a=="--comma=0":
+                pass
+            else:
+                space=2
         elif a[:11]=="--precision":
             precision=1
         elif a[:10]=="--exclude=":
@@ -90,8 +95,10 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
     pretxt=""
     cnt=0
     fillchr="\t"
-    if space:
+    if space==1:
         fillchr=" "
+    elif space==2:
+        fillchr=","
     for f in flist:
         lines=open(f).readlines()
         for line in lines:
