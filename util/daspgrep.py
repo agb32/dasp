@@ -98,7 +98,7 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
     if space==1:
         fillchr=" "
     elif space==2:
-        fillchr=","
+        fillchr=", "
     for f in flist:
         lines=open(f).readlines()
         for line in lines:
@@ -210,8 +210,13 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                                 txt+="%s%g"%(fillchr,sciDict[key]*m)
                         except:
                             txt+="%s%s"%(fillchr,str(sciDict[key]))
+                if space==2:
+                    outtxt+="["
+                    endline="],"
+                else:
+                    endline=""
+                outtxt+="%s%s\n"%(txt[len(fillchr):],endline)
 
-                outtxt+="%s\n"%txt[len(fillchr):]
     return pretxt+outtxt
 
 
