@@ -98,7 +98,7 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
     if space==1:
         fillchr=" "
     elif space==2:
-        fillchr=", "
+        fillchr=",\t"
     for f in flist:
         lines=open(f).readlines()
         for line in lines:
