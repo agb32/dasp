@@ -9,6 +9,7 @@ import os
 import tempfile
 import cmod.binimg
 import util.atmos
+import util.calcPxlScale
 
 class sciOverview:
     def __init__(self,sciDict):
