@@ -25,15 +25,16 @@ class dm(base.aobase.aobase):
         if type(parent)!=type({}):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
+        self.datatype=self.config.getVal("xinterpdmDataType",default=numpy.float32)
         if forGUISetup==1:
             npup=self.config.getVal("npup")
-            self.outputData=[(npup,npup),numpy.float64]
+            self.outputData=[(npup,npup),self.datatype]
         else: # set up for simulation.
-            self.control={"dm_update":1,"zoffset":None,"phaseCovariance":0}#,"zpoke":numpy.zeros((self.nact*self.nact,),numpy.float64)}#,"poke":0}
+            self.control={"dm_update":1,"zoffset":None,"phaseCovariance":0}#,"zpoke":numpy.zeros((self.nact*self.nact,),self.datatype)}#,"poke":0}
             
             # Extra data for interpolated DM 
-            #self.actmap_1d=numpy.zeros((self.nact*self.nact),numpy.float64)
-            #self.pokemap=numpy.zeros((self.nact*self.nact),numpy.float64)
+            #self.actmap_1d=numpy.zeros((self.nact*self.nact),self.datatype)
+            #self.pokemap=numpy.zeros((self.nact*self.nact),self.datatype)
             #self.pokeval=self.config.getVal("pokeval")
 
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
@@ -113,16 +114,16 @@ class dm(base.aobase.aobase):
                 
             if self.subpxlInterp or self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
                 self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
-                self.yaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
+                self.yaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)#Must be float 64 because of gsl restriction (spline functions require it)
                 self.xaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
-            self.actmap=numpy.zeros((self.nact,self.nact),numpy.float64)
+            self.actmap=numpy.zeros((self.nact,self.nact),self.datatype)
             #self.nsubx=n =self.config.getVal("wfs_nsubx")
             #self.wfsn=self.config.getVal("wfs_n")
             #self.dmminarea=self.config.getVal("dmminarea",default=0.25)
             self.dmphs=numpy.zeros((self.dmpup,self.dmpup),numpy.float32) # DM figure
             self.mirrorSurface.phsOut=self.dmphs
             #we now need to work out which part of the DM to use... this depends on conjugate height, and source location.
-            self.reconData=None#numpy.zeros(self.nact*self.nact,numpy.float64)
+            self.reconData=None#numpy.zeros(self.nact*self.nact,self.datatype)
             
 
             self.nacts=int(numpy.sum(numpy.sum(self.dmflag)))
@@ -135,7 +136,7 @@ class dm(base.aobase.aobase):
             #self.dmdata=numpy.sum(self.dmflag_1d) # Number of used actuators
             self.dmindices=numpy.nonzero(self.dmflag.ravel())[0]
             self.telDiam=self.config.getVal("telDiam")
-            self.outputData=numpy.zeros((self.npup,self.npup),numpy.float64)
+            self.outputData=numpy.zeros((self.npup,self.npup),self.datatype)
             self.lowOrderModeDict={}#dict containing low order modes which can be subtracted from the atmos phase.
             self.lowOrderModeNormDict={}
             for i in xrange(len(self.idstr)):
@@ -291,8 +292,8 @@ class dm(base.aobase.aobase):
         #this.wavelengthRatio=this.wfsLam/this.sourceLam#wfs_lam/lam
         this.wavelengthAdjustor=self.sourceLam/this.sourceLam#this.wavelengthRatio/self.wavelengthRatio#the mirror will be shaped as for self.wavelengthRatio...if this.sourceLam is longer than self.sourceLam, radians of phase P-V will be smaller, so less change needed in wavelengthAdjustor.
 
-        #self.tempphs=numpy.zeros((self.npup,self.npup),numpy.float64,savespace=1)            # DM figure      
-        #self.phs=numpy.zeros((self.npup,self.npup),numpy.float64)                # Output phase array
+        #self.tempphs=numpy.zeros((self.npup,self.npup),self.datatype,savespace=1)            # DM figure      
+        #self.phs=numpy.zeros((self.npup,self.npup),self.datatype)                # Output phase array
         #self.tilt_gain=config.getVal("tilt_gain")
 ##         self.gamma=config.getVal("gamma")
 ##         self.useVariableGamma=config.getVal("variableGamma",default=0)
