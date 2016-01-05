@@ -235,6 +235,7 @@ class vdmUser(base.aobase.aobase):
             self.nactsInput=sum(self.nactsList)
             if self.projmx!=None:
                 util.FITS.Write(self.projmx,self.projMxFilename)
+                util.FITS.Write(self.dmflag,self.projMxFilename,writeMode="a")
                 print "Saved projection matrix  as %s (shape %s)"%(self.projMxFilename,str(self.projmx.shape))
     def generateNext(self):
         """Compression main loop - compress along a line of sight to get DM actuator values."""
