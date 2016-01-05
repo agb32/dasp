@@ -80,7 +80,7 @@ class loadOutput(base.aobase.aobase):
         #self.ff.seek(self.dataOffset)
         self.map=numpy.memmap(self.filename,dtype=self.dtype,mode="r")
         self.dataOffset/=self.map.itemsize
-        self.littleEndianData=int(evalself.header.get("LITTLE_E",0)))
+        self.littleEndianData=int(eval(self.header.get("LITTLE_E",0)))
         self.doByteSwap=(self.littleEndianData!=numpy.little_endian)
         self.dataCnt=0
    
