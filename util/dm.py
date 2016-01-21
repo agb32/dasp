@@ -22,8 +22,8 @@ def calcNactList(config,batchno,reconidstr):
     nactsList=[]
     for dm in dmList:
         if dm.zonalDM:
-            tmp=dm.computeDMPupil(atmosGeom,centObscuration=pupil.r2,retPupil=0)
-            nactsList.append(int(tmp[0].sum()))
+            dmflag=dm.getDMFlag(atmosGeom,centObscuration=pupil.r2)
+            nactsList.append(int(dmflag.sum()))
         else:#modal DM
             nactsList.append(dm.nact)
     return nactsList
@@ -40,7 +40,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0,cn2=None):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0,cn2=None,dmflag=None):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -99,7 +99,9 @@ class dmInfo:
         self.subpxlInterp=subpxlInterp
         self.dmpup=None
         self.dmpupil=None
-        self.dmflag=None
+        self.dmflag=dmflag
+        if dmflag!=None:
+            self.nacts=int(dmflag.sum())
         self.subarea=None
         self.dmDiam=None
         self.cn2=cn2
@@ -214,6 +216,14 @@ class dmInfo:
                             l=1./len(l1)
                             self.slaving[y*self.nact+x]=[[xx,l] for xx in l1]
         return self.slaving
+
+    def getDMFlag(self,atmosGeom,centObscuration=0.,reconstructList=None):
+        if reconstructList==None or reconstructList==self.reconstructList:
+            if self.dmflag!=None:
+                return self.dmflag
+        dmflag=self.computeDMPupil(atmosGeom,centObscuration=centObscuration,retPupil=0,reconstructList=reconstructList)[0]
+        return dmflag
+
     def computeDMPupil(self,atmosGeom,centObscuration=0.,retPupil=1,reconstructList=None):
         """Computes the DM flag and pupil.
         centObscuration is the size of the central obscuration in pixels.  This is reduced here depending 
@@ -235,6 +245,10 @@ class dmInfo:
         if reconstructList=="all":
             self.dmflag=None
             return self.computeDMPupilAll(atmosGeom,centObscuration,retPupil)
+        if self.dmflag!=None:#don't recompute... can be useful for the user to be able to specify it...
+            computedmflag=0
+        else:
+            computedmflag=1
         dmpup=self.calcdmpup(atmosGeom)
         dmpupil=numpy.zeros((dmpup,dmpup),numpy.float32)
         if type(reconstructList)!=type([]):
@@ -243,7 +257,8 @@ class dmInfo:
         yoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.sin(self.primaryPhi*numpy.pi/180.)
         pxlscale=atmosGeom.ntel/atmosGeom.telDiam
         if self.maxActDist!=None:
-            self.dmflag=numpy.zeros((self.nact,self.nact),numpy.int32)
+            if computedmflag:
+                self.dmflag=numpy.zeros((self.nact,self.nact),numpy.int32)
             #Compute the distance of each actuator from on-axis position.
             #actDist=numpy.zeros((self.nact,self.nact),numpy.float32)
             #actDist[:]=numpy.arange(self.nact)-self.nact/2.+0.5
@@ -289,7 +304,8 @@ class dmInfo:
                 d=numpy.sqrt((actDist[numpy.newaxis]+sx)**2+(actDist[:,numpy.newaxis]+sy)**2)
                 minrad=secDiam/2.-self.maxActDist*self.actSpacing
                 maxrad=telDiam/2.+self.maxActDist*self.actSpacing
-                self.dmflag|=((d<=maxrad).astype(numpy.int32) & (d>=minrad).astype(numpy.int32))
+                if computedmflag:
+                    self.dmflag|=((d<=maxrad).astype(numpy.int32) & (d>=minrad).astype(numpy.int32))
         #now compute the subarea...
         subarea=numpy.zeros((self.nact,self.nact),numpy.float32)
         dmsubapsize=dmpup/(self.nact+2*self.actoffset-1.)
@@ -305,9 +321,10 @@ class dmInfo:
                 xpos+=dmsubapsize
             ypos+=dmsubapsize
         if self.maxActDist==None:
-            subflag=(subarea>=self.minarea).astype(numpy.int32)
-            self.dmflag=subflag
-        if fixToGradientOperator:
+            if computedmflag:
+                subflag=(subarea>=self.minarea).astype(numpy.int32)
+                self.dmflag=subflag
+        if fixToGradientOperator and computedmflag==1:
             import util.gradientOperator
             g=util.gradientOperator.gradientOperatorType1(pupilMask=self.dmflag.astype("f"),sparse=1)
             self.dmflag=(g.illuminatedCorners!=0)
@@ -557,7 +574,7 @@ class dmInfo:
         if self.zonalDM:
             if mirrorSurface==None:
                 mirrorSurface=self.getMirrorSurface()
-            dmflag=self.computeDMPupil(atmosGeom,centObscuration=r2,retPupil=0)[0]
+            dmflag=self.getDMFlag(atmosGeom,centObscuration=r2)
             nmode=numpy.sum(dmflag)
             dmindices=numpy.nonzero(dmflag.ravel())[0]
             actmap=numpy.zeros((self.nact,self.nact),numpy.float32)
@@ -589,7 +606,7 @@ class dmInfo:
         if W==None:#width as fraction of actuator spacing.  Default is 4, but actually, 8 might be better...
             W=int(4*self.actSpacing/self.dmDiam*self.dmpup+0.5)
             
-        dmflag=self.computeDMPupil(atmosGeom,centObscuration=r2,retPupil=0)[0]
+        dmflag=self.getDMFlag(atmosGeom,centObscuration=r2)
         import util.tel
         pupil=util.tel.Pupil(self.dmpup,self.dmpup/2.,self.computeEffectiveObscuration(atmosGeom.npup,atmosGeom.telDiam,r2)).fn
         nmode=numpy.sum(dmflag)

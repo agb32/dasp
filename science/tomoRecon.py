@@ -65,11 +65,11 @@ class recon(base.aobase.aobase):
         self.reconDtype=self.config.getVal("reconDtype",default=numpy.float32)
         for dm in self.dmList:
             if dm.zonalDM:
-                tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                tmp=dm.getDMFlag(self.atmosGeom,centObscuration=self.pupil.r2)
                 # tmp is dmflag,subarea (or None,None for modal DMs.)
-                self.dmPupList.append(tmp[0])
+                self.dmPupList.append(tmp)
 
-                self.nactsList.append(int(numpy.sum(tmp[0].ravel())))
+                self.nactsList.append(int(tmp.sum()))
                 if dm.pokeSpacing!=None:
                     self.npokesList.append(dm.pokeSpacing**2)
                 else:

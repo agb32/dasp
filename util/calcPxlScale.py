@@ -7,6 +7,20 @@ Diam is the subap diameter.
 """
 import numpy
 def pxlScale(lam,diam,n,nfft,binfactor):
+    """
+    Inputs:
+    lam, the wavelength in m or nm.
+    diam, the diameter of sub-aperture when projected on to telescope pupil
+    (usually telescope diameter divided by number of sub-apertures).
+    n, the number of wavefront phase points across a sub-aperture.
+    nfft, the size of the FFT array used to compute SHS spot images.
+    Typically will be >= 2*n to avoid aliasing.
+    binfactor, the number of pixels binned together to create the high light
+    level image.
+    
+    Returns result in arcseconds per pixel.
+    """
+
     if lam>1:
         lam*=1e-9
     return lam/diam*n/nfft*binfactor*180*3600/numpy.pi

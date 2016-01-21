@@ -33,6 +33,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
         if type(parent)!=type({}):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
+        darcPortNumber = self.config.getVal( "darcPortNumber", default=8500 )
         self.pupil=self.config.getVal("pupil")
         self.atmosGeom=self.config.getVal("atmosGeom")
         self.dmObj=self.config.getVal("dmObj")
@@ -49,11 +50,11 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
         self.npokesCumList=[0]
         for dm in self.dmList:
             if dm.zonalDM:
-                tmp=dm.computeDMPupil(self.atmosGeom,centObscuration=self.pupil.r2,retPupil=0)
+                dmflag=dm.getDMFlag(self.atmosGeom,centObscuration=self.pupil.r2)
                 # tmp is dmflag,subarea (or None,None for modal DMs.)
-                self.dmPupList.append(tmp[0])
+                self.dmPupList.append(dmflag)
             
-                self.nactsList.append(int(numpy.sum(tmp[0].ravel())))
+                self.nactsList.append(int(dmflag.sum()))
                 if dm.pokeSpacing!=None:
                     self.npokesList.append(dm.pokeSpacing**2)
                 else:
@@ -74,11 +75,17 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
         else:
             self.outputDataBuffer=numpy.zeros((self.nacts*4+8,),numpy.uint8)#8 byte header.
             self.outputData=self.outputDataBuffer[8:].view(numpy.float32)
-            self.minarea=self.config.getVal("wfs_minarea")
-            self.pokeActMapFifo=[]
-            print "darcsim: Using %d DMs for reconstruction."%len(self.dmList)
-            self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
-            self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea=self.minarea)
+            #self.pokeActMapFifo=[]
+            self.wfsOverview=self.config.getVal("wfsOverview",raiseerror=0)
+            if self.wfsOverview==None:
+                self.minarea=self.config.getVal("wfs_minarea")
+                print "darcsim: Using %d DMs for reconstruction."%len(self.dmList)
+                self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea=self.minarea)#self.nsubxDict,None)
+                self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea=self.minarea)
+            else:
+                self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea="Hmm!",pupil=self.pupil)#self.nsubxDict,None)
+                self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea="Hmm!",pupil=self.pupil)
+
             self.ncents=0
             self.ncentList=[]
             indiceList=[]
@@ -116,27 +123,35 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
             sl=[]
             nsubList=[]
             print "Wavefront sensors for darcsim %s: %s"%(str(self.idstr),str(self.wfsIDList))
-            for key in self.wfsIDList:
-                self.config.setSearchOrder(["wfscent_%s"%key,"wfscent","globals"])
-                pupfn=self.config.getVal("pupil")
-                if type(pupfn)!=numpy.ndarray:
-                    pupfn=pupfn.fn
-                pupfn=pupfn.astype(numpy.float32)
-                wfs_minarea=self.config.getVal("wfs_minarea")
-                nsubx=self.config.getVal("wfs_nsubx")
-                n=self.config.getVal("wfs_n")
-                nimg=self.config.getVal("wfs_nimg")
-                y,x=nsubx*nimg,nsubx*nimg
-                npxlx.append(x)
-                npxly.append(y)
-                nsub=0
-                for i in xrange(nsubx):        
-                    for j in xrange(nsubx):
-                        if pupfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()>wfs_minarea*n*n:
-                            #this is a used subap.
-                            sl.append((i*nimg,(i+1)*nimg,1,j*nimg,(j+1)*nimg,1))
-                            nsub+=1
-                nsubList.append(nsub)
+            if self.wfsOverview==None:
+                for key in self.wfsIDList:
+                    self.config.setSearchOrder(["wfscent_%s"%key,"wfscent","globals"])
+                    pupfn=self.config.getVal("pupil")
+                    if type(pupfn)!=numpy.ndarray:
+                        pupfn=pupfn.fn
+                    pupfn=pupfn.astype(numpy.float32)
+                    wfs_minarea=self.config.getVal("wfs_minarea")
+                    nsubx=self.config.getVal("wfs_nsubx")
+                    n=self.config.getVal("wfs_n")
+                    nimg=self.config.getVal("wfs_nimg")
+                    y,x=nsubx*nimg,nsubx*nimg
+                    npxlx.append(x)
+                    npxly.append(y)
+                    nsub=0
+                    for i in xrange(nsubx):        
+                        for j in xrange(nsubx):
+                            if pupfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()>wfs_minarea*n*n:
+                                #this is a used subap.
+                                sl.append((i*nimg,(i+1)*nimg,1,j*nimg,(j+1)*nimg,1))
+                                nsub+=1
+                    nsubList.append(nsub)
+            else:
+                for key in self.wfsIDList:
+                    wfs=self.wfsOverview.getWfsByID(key)
+                    nsubList.append(wfs.getSubapFlag().sum())
+                    npxlx.append(wfs.nsubx*wfs.nimg)
+                    npxly.append(wfs.nsubx*wfs.nimg)
+
             if len(self.wfsIDList)==0:#parent is probably something that combines wfs images.
                 npxlx=self.config.getVal("npxlx")
                 npxly=self.config.getVal("npxly")
@@ -144,7 +159,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
             #Open a listening socket, for the darc camera and mirror to connect to.
             self.lsock=socket.socket()
             self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.port=self.config.getVal("port",8000)
+            self.port=self.config.getVal( "port", darcPortNumber )
             port=self.port
             while port<self.port+1000:
                 print "binding to port %d..."%port

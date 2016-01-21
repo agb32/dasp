@@ -25,7 +25,7 @@ class centcmod:
   def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
                addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,
                phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,
-               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor):
+               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFitVals):
     """Wrapper for the c centroid module.
     Here, sig can be a float or a float array.
     """
@@ -72,6 +72,15 @@ class centcmod:
     self.imageOnly=imageOnly
     self.useBrightest=useBrightest
     self.preBinningFactor=preBinningFactor
+    self.parabolicFit=parabolicFit
+    if gaussianFitVals==None:
+      self.gaussianFit=0
+      self.gaussianMinVal=0.
+      self.gaussianReplaceVal=0.
+    else:
+      self.gaussianFit=1
+      self.gaussianMinVal=gaussianFitVals[0]
+      self.gaussianReplaceVal=gaussianFitVals[1]
     if correlationCentroiding:
       if corrPattern!=None:
         if corrPattern.dtype.char!="f" or corrPattern.shape[:2]!=(nsubx,nsubx) or corrPattern.shape[2]<nimg or corrPattern.shape[3]!=corrPattern.shape[2]:
@@ -82,8 +91,11 @@ class centcmod:
     print "centcmod: cmod.cent.initialise"
     #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor
     #Problem? self.seed has been a list sometimes?
-    self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor)
-
+    try:
+      self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal)
+    except:
+      print [type(x) for x in [self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal]]
+      raise
   def run(self,calsource):
     if calsource!=self.calsource:
       cmod.cent.update(self.centstruct,CALSOURCE,calsource)

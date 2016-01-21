@@ -257,7 +257,8 @@ class wfscent(base.aobase.aobase):
                 # imageOnly=this.config.getVal("imageOnly",default=0)#0 to return slopes, 1 to return image as nsubx,nsubx,nimg,nimg, and 2 to return image as a 2d image.
             useBrightest=this.config.getVal("useBrightest",default=0)
             preBinningFactor=this.config.getVal("preBinningFactor",default=1)
-
+            parabolicFit=0#use wfsObj if you want these!
+            gaussianFitVals=None
 
         else:
             atmosPhaseType=wfsobj.atmosPhaseType
@@ -294,6 +295,9 @@ class wfscent(base.aobase.aobase):
             corrPattern=wfsobj.corrPattern
             useBrightest=wfsobj.useBrightest
             preBinningFactor=wfsobj.preBinningFactor
+            parabolicFit=wfsobj.parabolicFit
+            gaussianFitVals=wfsobj.gaussianFitVals#None, or a tuple of 2 values: (gaussianMinVal, gaussianReplaceVal).
+
         this.atmosPhaseType=atmosPhaseType
         if atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
             raise Exception("wfscent: atmosPhaseType not known %s"%atmosPhaseType)
@@ -433,7 +437,9 @@ class wfscent(base.aobase.aobase):
             usecmod=self.control["useCmod"],
             warnOverflow=None,
             wfs_minarea=wfs_minarea,
-            preBinningFactor=preBinningFactor
+            preBinningFactor=preBinningFactor,
+            parabolicFit=parabolicFit,
+            gaussianFitVals=gaussianFitVals
         )
 
 

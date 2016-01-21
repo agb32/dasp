@@ -9,6 +9,7 @@ import os
 import tempfile
 import cmod.binimg
 import util.atmos
+import util.calcPxlScale
 
 class sciOverview:
     def __init__(self,sciDict):
@@ -208,10 +209,10 @@ class science:
             else:
                 self.binImg=binImg
         
-        instImg=numpy.array(instImg)#xxx
         if type(instImg)==type(None):
             self.instImg=numpy.zeros((self.nimg,self.nimg),self.fpDataType)#was Numeric.Float64
         else:
+            instImg=numpy.array(instImg)#xxx
             self.instImg=util.arrayFromArray.arrayFromArray(instImg,(nimg,nimg),self.fpDataType)#Numeric.Float64
     
         if type(phs)==type(None):
