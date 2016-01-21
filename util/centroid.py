@@ -110,59 +110,80 @@ class centroid:
           preBinningFactor=1):
         """
         Variables are:
-         - sig: is the number of photons per phase pixel if pupfn is specified, or is the number
-                of photons per subap if not (ie same...)  Or is a 2D array, with a value for each
-                subap.  If this is just a number, it will be scaled by the number of used phase
-                pixels for each subap.  If an array, assumes that this scaling has already been
-                done.  Use an array version for eg LGS spot elongation.
+         - sig: is the number of photons per phase pixel if pupfn is specified,
+           or is the number of photons per subap if not (ie same...)  Or is a
+           2D array, with a value for each subap.  If this is just a number, it
+           will be scaled by the number of used phase pixels for each subap.
+           If an array, assumes that this scaling has already been done.  Use
+           an array version for eg LGS spot elongation.
          - nsubx: number of subaps in 1 direction
-         - pupfn: pupil function array (pupil mask) or util.tel.Pupil instance (if using PS3).
-         - oversamplefactor: scaling to expand phase by when doing FFTs.  Ignored if fftsize!=None.
+         - pupfn: pupil function array (pupil mask) or util.tel.Pupil instance
+           (if using PS3).
+         - oversamplefactor: scaling to expand phase by when doing FFTs.
+           Ignored if fftsize!=None.
          - readnoise: ccd readnoise
          - readbg: mean added signal from CCD.
          - addPoisson: whether to add photon shot noise
          - noiseFloor: Floor to apply to images.
-         - binfactor: Bin factor to apply to get from FFT'd data to image.  Ignored if nimg!=None.
+         - binfactor: Bin factor to apply to get from FFT'd data to image.
+           Ignored if nimg!=None.
          - sig: signal
          - skybrightness: photons to add per pixel due to sky background
-         - warnOverflow: will warn if the CCD is about to overflow (warnOverflow holds the saturation value)
+         - warnOverflow: will warn if the CCD is about to overflow
+           (warnOverflow holds the saturation value)
          - atmosPhaseType: Type of phase from atmos module, eg phaseonly
          - fpDataType: data type used for calculations.
          - useFPGA: Whether FPGA should be used - shouldn't change.
-         - waitFPGA: whether to wait for FPGA to finish before returning from calc.
+         - waitFPGA: whether to wait for FPGA to finish before returning from
+           calc.
          - waitFPGATime: time to wait before polling begins.
          - phasesize: wfs_n - number of phase pixels per subap
-         - fftsize: wfs_nfft - number of pixels to use for FFT (zero pad phasesize...)
+         - fftsize: wfs_nfft - number of pixels to use for FFT (zero pad
+           phasesize...)
          - nimg: Number of pixels wide the subap image should be.
-         - ncen: Number of subap image pixels used to compute centroid (eg could leave a dead ring around edge etc).
+         - ncen: Number of subap image pixels used to compute centroid (eg
+           could leave a dead ring around edge etc).
          - tstep: time per iteration
          - integtime: total integration time
-         - rowintegtime: integration time per sub-aperture row (default=None), should
-               be <integtime.
-               Non-default use of this parameter is designed for *crude* simulation of
-               a rolling shutter. Properly, each pixel row of the WFS should be
-               staggered but this variable only permit staggering of each sub-aperture
-               row. Currently only implemented in the Python version.
-         - latency: latency between readout starting and centroids being returned.
-         - wfs_minarea: minimum fraction of subap receiving phase to allow it to be counted.
+         - rowintegtime: integration time per sub-aperture row (default=None),
+           should be <integtime.  Non-default use of this parameter is designed
+           for *crude* simulation of a rolling shutter. Properly, each pixel
+           row of the WFS should be staggered but this variable only permit
+           staggering of each sub-aperture row. Currently only implemented in
+           the Python version.
+         - latency: latency between readout starting and centroids being
+           returned.
+         - wfs_minarea: minimum fraction of subap receiving phase to allow it
+           to be counted.
          - spotpsf: array (2 or 4d) of spot pattern PSFs.
          - centroidPower: None, or value to raise image to before centroiding.
-         - opticalBinning: whether cylindrical lenslets are used, to do binning in 1 direction...
-         - magicCentroiding: whether to measure phase slopes directly, or use SHS
-         - linearSteps: None, or the number of steps to be used to try to use SH centroiding, but with a linear response (useful for openloop).  If None, linearisation is not carried out.
-         - stepRangeFrac: The fraction of a subap over which to calibrate using linearSteps... default 1 for all of a subap.
-         - phaseMultiplier can be non-unity if phase is at a different wavelength than you want to wfs at.
-         - centWeight - weighting factor (array, 2 or 4D) for weight CoG centroiding.
+         - opticalBinning: whether cylindrical lenslets are used, to do binning
+           in 1 direction...
+         - magicCentroiding: whether to measure phase slopes directly, or use
+           SHS
+         - linearSteps: None, or the number of steps to be used to try to use
+           SH centroiding, but with a linear response (useful for openloop).
+           If None, linearisation is not carried out.
+         - stepRangeFrac: The fraction of a subap over which to calibrate using
+           linearSteps... default 1 for all of a subap.
+         - phaseMultiplier can be non-unity if phase is at a different
+           wavelength than you want to wfs at.
+         - centWeight - weighting factor (array, 2 or 4D) for weight CoG
+           centroiding.
          - correlationCentroiding - whether correlation centroiding is used.
          - corrThresh - subtraction threshold if using correlation cnetroiding
          - corrPattern - e.g. spot PSFs.
-         - threshType - the threshold type for removing CCD read noise:
-           If ==0, where(ccd<thresh:0:ccd-thresh)
-           If ==1, where(ccd<thresh:0,ccd)
-         - imageOnly - usually 0, but can be 1 or 2 if want to compute the CCD image only.
-         - calNCoeff - used if linearSteps!=0, the number of coeffencients to use in polynomial fit (if this is zero, an interpolation routine is used instead)
-         - useBrightest - int or array, if want to use brightest pixels algorithm.
-         - preBinningFactor - integer to bin the FFT'd phase, before convolving with PSF.
+         - threshType - the threshold type for removing CCD read noise: If ==0,
+           where(ccd<thresh:0:ccd-thresh) If ==1, where(ccd<thresh:0,ccd)
+         - imageOnly - usually 0, but can be 1 or 2 if want to compute the CCD
+           image only.
+         - calNCoeff - used if linearSteps!=0, the number of coeffencients to
+           use in polynomial fit (if this is zero, an interpolation routine is
+           used instead)
+         - useBrightest - int or array, if want to use brightest pixels
+           algorithm.
+         - preBinningFactor - integer to bin the FFT'd phase, before convolving
+           with PSF.
         """
         self.nsubx=nsubx
         self.warnOverflow=warnOverflow
@@ -279,28 +300,48 @@ class centroid:
         if magicCentroiding:
             self.magicSlopes=None#self.magicSHSlopes()
 
-        self.subflag=numpy.zeros((self.nsubx,self.nsubx),numpy.int8)
-        if self.subflag.itemsize==8:
-            print("WARNING:**centroid**:untested with 8 byte longs...(wfs)")
-        self.subarea=numpy.zeros((self.nsubx,self.nsubx),numpy.float64)
-        n=self.phasesize
         #if self.pupfn==None:
         #    pfn=numpy.ones((1,1),self.fpDataType)
         #else:
-        pfn=self.pupfn.astype(self.fpDataType)
-        indices=[]
-        # This could (and would be nice to) be replaced by util.tel.pupil.getSubapFlag,
-        # but the "indeces" should be taken care of (a bit of work), so we leave like this for now:
+        self.subarea = self._calculateSubAreas()
+        ( self.nsubaps, self.indices ) = self._calculateIndices()
+        
+        #print "Created centroid object"
+    
+    def _calculateSubAreas(self):
+        subarea = numpy.zeros((self.nsubx,self.nsubx),numpy.float64)
+        n=self.phasesize
+        pfn = numpy.array( self.pupfn ).astype(self.fpDataType)
+        # This could (and would be nice to) be replaced by
+        # util.tel.pupil.getSubapFlag, but the "indeces" should be taken care
+        # of (a bit of work), so we leave like this for now:
         for i in xrange(self.nsubx):        
             for j in xrange(self.nsubx):
-                self.subarea[i,j]=pfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()    # Get pupil fn over subaps
-                if(self.subarea[i,j]>=(self.wfs_minarea*n*n)):# Flag vignetted subaps Changed to >= by agb 28th Jun 2013 (to match util.tel).
+                # Get pupil fn over subaps 
+                subarea[i,j]=pfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()
+        return subarea
+
+    def _calculateIndices(self):
+        n=self.phasesize
+        pfn = self.pupfn.astype(self.fpDataType)
+        indices=[]
+        self.subflag = numpy.zeros((self.nsubx,self.nsubx),numpy.int8)
+        if self.subflag.itemsize==8:
+            print("WARNING:**centroid**:untested with 8 byte longs...(wfs)")
+        # This could (and would be nice to) be replaced by
+        # util.tel.pupil.getSubapFlag, but the "indeces" should be taken care
+        # of (a bit of work), so we leave like this for now:
+        for i in xrange(self.nsubx):        
+            for j in xrange(self.nsubx):
+                # Flag vignetted subaps Changed to >= by agb 28th Jun 2013 (to
+                # match util.tel).
+                if(self.subarea[i,j]>=(self.wfs_minarea*n*n)):
                     self.subflag[i,j]=1
                     indices.append((i*self.nsubx+j)*2)
                     indices.append((i*self.nsubx+j)*2+1)
-        self.indices=numpy.array(indices,dtype=numpy.int32)
-        self.nsubaps=self.subflag.sum()
-        #print "Created centroid object"
+        indices = numpy.array(indices,dtype=numpy.int32) 
+        nsubaps = self.subflag.sum()
+        return( indices, nsubaps )
 
     def updatePsf(self,psf):
         self.psf=psf
@@ -423,15 +464,7 @@ class centroid:
             if type(self.sig)==numpy.ndarray:
                 sig=self.sig.ravel()
             #temporary til I get it done properly...
-            self.centcmod=util.centcmod.centcmod(nthreads,self.nsubx,self.ncen,self.fftsize,self.clipsize,
-                                                 self.nimg,self.phasesize,self.readnoise,self.readbg,
-                                                 self.addPoisson,self.noiseFloor,sig,self.skybrightness,
-                                                 calsource,self.centroidPower,self.nIntegrations,seed,
-                                                 self.reorderedPhs,self.pup,self.psf,self.outputData,
-                                                 self.cmodbimg,self.wfs_minarea,self.opticalBinning,
-                                                 self.centWeight,self.correlationCentroiding,
-                                                 self.corrThresh,self.corrPattern,self.corrimg,
-                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor)
+            self.centcmod=util.centcmod.centcmod(nthreads, self.nsubx, self.ncen, self.fftsize, self.clipsize, self.nimg, self.phasesize, self.readnoise, self.readbg, self.addPoisson, self.noiseFloor, sig, self.skybrightness, calsource, self.centroidPower, self.nIntegrations, seed, self.reorderedPhs, self.pup, self.psf, self.outputData, self.cmodbimg, self.wfs_minarea, self.opticalBinning, self.centWeight, self.correlationCentroiding, self.corrThresh, self.corrPattern, self.corrimg, self.threshType, self.imageOnly, self.useBrightest, self.preBinningFactor)
             #print "initialised cmod - done"
         else:
             self.centcmod=None
