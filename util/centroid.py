@@ -457,6 +457,7 @@ class centroid:
         pfn=self.pupfn.astype(self.fpDataType)
         for i in xrange(self.nsubx):        
             for j in xrange(self.nsubx):
+                #print "%d %d %s %s %d"%(i,j,str(self.pupsub[i][j].shape),str(pfn.shape),n)
                 self.pupsub[i][j]=pfn[i*n:(i+1)*n,j*n:(j+1)*n]    # Get pupil fn over subaps
         self.cenmask=None
         self.tilt_indx = (numpy.array(range(self.nimg),numpy.float64))-float(self.nimg/2)+0.5#Index fns for centroiding

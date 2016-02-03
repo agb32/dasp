@@ -46,6 +46,10 @@ class sciInfo(util.atmos.source):
         self.sciPath=sciPath
         if self.sciPath==None:
             self.sciPath=idstr
+    def copy(self,idstr):
+        """Copy to a new ID-string"""
+        s=sciInfo(idstr,self.theta,self.phi,self.pupil,self.sourcelam,self.phslam,self.nsamp,self.zeroPsf,self.psfFilename,self.summaryFilename,self.histFilename,self.integrate,self.calcRMS,self.phaseType,self.nfft,self.nimg,self.realPupil,self.sciPath,self.dmpupil,self.usedmpup,self.psfSamp,self.luckyObj,self.saveString,self.diffPsfFilename,self.histListSize,self.inboxDiamList)
+        return s
 
 class luckyInfo:
     def __init__(self,filename=None,imgFilename=None,imgSize=None,nSampFrames=1,byteswap=0,integrate=1,histSize=None):

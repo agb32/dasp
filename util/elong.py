@@ -103,6 +103,126 @@ class MultiGauss:
             res+=intensity*numpy.exp(-(xx**2)/(2*dd**2))
         return res,x
 
+class LineProfile:
+    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,xoff=0.,yoff=0.,unelong=1.,oversamplefactor=1):
+        """profile is the Na layer strengths, at heights.
+        xoff,yoff can be used to shift the spots by this many pixels.
+        pxlscale is arcsec per pixel.
+        centralHeight is the central height of the profile, in m.
+        profile is the profile strength in TBC
+        heights are the heights at which profile values are valid.
+        n is the number of pixels per sub-aperture required for this LGS correlation image.
+        nsubx is the number of sub-apertures.
+        launchDist in m
+        launchTheta in degrees
+        unelong is the unelongated width in arcsec.
+        oversamplefactor is a factor by which to oversample during generation, with binning by this factor before return to the user (of size n,n)
+        """
+        self.n=n
+        self.nsubx=nsubx
+        self.centralHeight=centralHeight
+        self.profile=profile
+        self.heights=heights
+        self.xoff=xoff
+        self.yoff=yoff
+        self.pxlscale=pxlscale
+        self.telDiam=telDiam
+        self.launchTheta=launchTheta*numpy.pi/180.
+        self.launchDist=launchDist
+        self.unelong=unelong
+        self.oversamplefactor=oversamplefactor
+        self.no=self.n*self.oversamplefactor
+    def fn(self,i,j):
+        """Called for pixel i,j of a given sub-aperture (for which the relevant self.... are set)."""
+        y=(i-self.no/2.)+0.5-self.xoff*self.oversamplefactor
+        x=(j-self.no/2.)+0.5-self.yoff*self.oversamplefactor
+        #Parallel to the profile, interpolate.
+        #Perpendicular to the profile, decay exponentially.
+        #Beyond the end of the profile, decay exponentially.
+        #1.  How far from the profile axis are we?
+        r=numpy.sqrt(x*x+y*y)#in pixels.
+        phi=numpy.arctan2(y,x)
+        subtendAngle=self.lineangle-numpy.pi/2-phi
+        r_perp=r*numpy.cos(subtendAngle)
+        r_along=r*numpy.sin(subtendAngle)
+        sigma=self.unelong/self.pxlscale*self.oversamplefactor
+        sigsq=2*sigma**2
+        #decay further away from the line profile.  Need to integrate across the pixel I think.
+        if self.subapLaunchDist==0:#subap is under launch location
+            scale=numpy.exp(-r**2/sigsq)/(2*self.oversamplefactor)**2
+        else:
+            scale=numpy.exp(-r_perp**2/sigsq)
+
+        #Now work out what height we are at (using r_along).
+        theta=r_along/self.oversamplefactor*self.pxlscale/3600./180.*numpy.pi
+        #0 arcsec corresponds to central height.
+        #subapLaunchDist is the launchDist from this subap.
+        #thetaOffset is elevation angle up to central height for this subap.  i.e. is arctan(centralHeight/subapLaunchDist.
+            
+        h=self.subapLaunchDist*numpy.tan(theta+self.thetaOffset)
+        #Now we know the height, interpolate along the profile.
+        if self.subapLaunchDist==0:#subap is under launch location
+            strength=self.profile.sum()
+            print "DIST:",strength,scale
+        elif h<self.heights[0]:
+            strength=0
+        elif h>self.heights[-1]:
+            strength=0
+        else:
+            strength=numpy.interp(h,self.heights,self.profile)
+        return strength*scale
+
+    def generate(self):
+        xlaunch=self.launchDist*numpy.cos(self.launchTheta)
+        ylaunch=self.launchDist*numpy.sin(self.launchTheta)
+        img=numpy.zeros((self.nsubx,self.nsubx,self.no,self.no),numpy.float32)
+        for y in range(self.nsubx):
+            for x in range(self.nsubx):
+                #compute dist/angle from launch.
+                yy=(y-self.nsubx/2.+0.5)/self.nsubx*self.telDiam
+                xx=(x-self.nsubx/2.+0.5)/self.nsubx*self.telDiam
+                r=numpy.sqrt(xx*xx+yy*yy)#distance of subap to centre in m.
+                self.subapTheta=numpy.arctan2(yy,xx)
+                self.subapR=r
+                yyl=yy+ylaunch
+                xxl=xx+xlaunch
+                rr=numpy.sqrt(xxl*xxl+yyl*yyl)#distance of subap from launch in m.
+                self.lineangle=numpy.arctan2(yyl,xxl)
+                self.subapLaunchDist=rr
+                self.thetaOffset=numpy.arctan2(self.centralHeight,self.subapLaunchDist)
+                #self.lineangle=self.launchTheta-numpy.arcsin(r/rr*numpy.sin(self.subapTheta-self.launchTheta))##angle of spot across subap.
+                print y,x,self.lineangle*180./numpy.pi,self.launchTheta*180/numpy.pi,r,rr,self.subapTheta*180/numpy.pi
+                for i in range(self.no):
+                    for j in range(self.no):
+                        img[y,x,i,j]=self.fn(i,j)
+                #img[y,x]=numpy.fromfunction(self.fn,(self.n,self.n))
+        if self.oversamplefactor!=1:
+            img.shape=self.nsubx,self.nsubx,self.n,self.oversamplefactor,self.n,self.oversamplefactor
+            img=img.sum(5).sum(3)
+        return img
+    def tile(self,img=None):
+        if img==None:
+            img=self.generate()
+        out=numpy.zeros((self.nsubx*self.n,self.nsubx*self.n),numpy.float32)
+        n=self.n
+        for i in range(self.nsubx):
+            for j in range(self.nsubx):
+                out[i*n:i*n+n,j*n:j*n+n]=img[i,j]
+        return out
+
+    def plotProfile(self,n,alt,depth,plotDepth):
+        """n is number of points to plot.  plotDepth is the depth (centred on alt) of which to display.
+        alt/depth are the mean alt/depth."""
+        x=(numpy.arange(n)-n/2.)*plotDepth/n+alt
+        res=numpy.zeros((n,),numpy.float32)
+        for i in range(len(self.peakList)):
+            off,d,intensity=self.peakList[i]
+            xx=x-alt-off
+            dd=d*depth
+            res+=intensity*numpy.exp(-(xx**2)/(2*dd**2))
+        return res,x
+
+
 def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=None,lam=640e-9,telDiam=42.,telSec=None,beacon_alt=90000.,beacon_depth=10000.,zenith=0.,photons=1e6,unelong_width=1.,fname=None,launchDist=0.,launchTheta=0.,xoff=0.,yoff=0.,pup=None):
     """
     unelong_width in arcsec is the unelongated spot width.
@@ -173,7 +293,7 @@ def make(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=Non
         util.FITS.Write(img,fname,writeMode="a")  #human-viewable version
     return psfs,img
 
-def make2(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=None,lam=640e-9,telDiam=42.,telSec=None,beacon_alt=90000.,beacon_depth=10000.,lineProfile=None,zenith=0.,photons=1e6,unelong_width=1.,fname=None):
+def make2(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=None,lam=640e-9,telDiam=42.,telSec=None,beacon_alt=90000.,beacon_depth=10000.,lineProfile=None,zenith=0.,photons=1e6,unelong_width=1.,fname=None,launchDist=0.,launchTheta=0.):
     """
     unelong_width in arcsec is the unelongated spot width.
     zenith is in degrees.
@@ -199,8 +319,8 @@ def make2(spotsize=32,nsubx=110,wfs_n=16,wfs_nfft=None,wfs_nimg=None,clipsize=No
     for isub in range(nsubx):
         for jsub in range(nsubx):
             # print isub,jsub
-            xsub=(float(isub)-float(nsubx)/2.+0.5)*telDiam/float(nsubx)
-            ysub=(float(jsub)-float(nsubx)/2.+0.5)*telDiam/float(nsubx)
+            xsub=(float(isub)-float(nsubx)/2.+0.5)*telDiam/float(nsubx)-launchDist*numpy.cos(launchTheta/180.*numpy.pi)
+            ysub=(float(jsub)-float(nsubx)/2.+0.5)*telDiam/float(nsubx)-launchDist*numpy.sin(launchTheta/180.*numpy.pi)
             r=numpy.sqrt(xsub*xsub+ysub*ysub)
             phi=numpy.arctan2(xsub,ysub)*180./numpy.pi
             

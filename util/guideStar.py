@@ -304,6 +304,12 @@ class LGS(util.atmos.source):
         self.coords=None#used in computeCoords
         self.telDiam=None#used in computeCoords
         self.pupil=pupil
+        if type(pupil)==numpy.ndarray:
+            pup=pupil
+        else:
+            pup=pupil.fn
+        if pup.shape[0]!=nsubx*phasesize:
+            raise Exception("Wrong sized pupil: %d (should be %d)"%(pup.shape[0],nsubx*phasesize))
         self.subapFlag=subapFlag#use getSubapFlag() to get this.
         if self.phasesize==None:
             if self.nimg!=None:
