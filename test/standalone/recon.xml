@@ -1,0 +1,249 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="nab"/>
+<created date="160119"/>
+<module name="globals">
+   <variables>
+      <var name="useCmod"
+        type="i" value="0"/>
+      <var name="nSubaps"
+        type="i" value="6"/>
+      <var name="tstep"
+        type="eval" value="1./250" comment="time step" />
+      <var name="ntel"
+        type="eval" value="8*nSubaps"/>
+      <var name="sciLam"
+        type="f" value="1650."/>
+      <var name="ngsLam"
+        type="f" value="640." comment="was 640."/>
+      <var name="nAct"
+        type="eval" value="nSubaps+1"/>
+
+      <!-- atmosphere section -->
+      <var name="l0"
+        type="f" value="10.0"/>
+      <var name="r0"
+        type="eval" value="0.137"/>
+      <var name="nlayer"
+        type="i" value="1" comment="only used in param file"/>
+      <var name="strList"
+        type="eval" value="[1.0]"/>
+      <var name="hList"
+        type="eval" value="[0.]"/>
+      <var name="vList"
+        type="eval" value="[10.]"/>
+      <var name="dirList"
+        type="eval" value="numpy.arange(nlayer)*36"/>
+
+      <!-- pupil definition -->
+      <var name="npup"
+        type="copy" value="ntel"/>
+      <var name="telDiam"
+        type="eval" value="4.2"/>
+      <var name="telSec"
+        comment="telescope secondary diameter" type="eval" value="telDiam/7."/>
+      <var name="pupil"
+        comment="Telescope pupil function" type="code">
+import util.tel
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=None)
+      </var>
+      <!--var name="pupilCSpider"
+        comment="Telescope pupil function with spider" type="code">
+import util.tel
+pupilCSpider=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=None)
+# spider
+number,width=4,1
+pupilCSpider.makeSpiderPhysical(
+      numpy.linspace(0,360-360*number**-1.0,number),
+      width
+   )
+      </var-->
+
+
+      <!--var name="pokeSpacing"
+        type="eval" value="(None if wfs_nsubx.__cmp__(20)==-1 else 10)"/-->
+
+      <var name="wfs_nsubx"
+        type="eval" value="nSubaps"/>
+      <var name="wfsOverview"
+        type="eval" value="None"/>
+      <var name="wfsObject"
+        type="code">
+import util.guideStar
+wfsDict={
+      "a":util.guideStar.NGS(
+         "a",
+         nSubaps,
+         0.,
+         0.,
+         phasesize=npup/nSubaps,
+         minarea=0.5,
+         sig=1e6,
+         sourcelam=ngsLam,
+         reconList=["ngs"],
+         pupil=pupil)
+   }
+wfsObject=util.guideStar.wfsOverview(wfsDict)
+      </var>
+      <!--var name="wfsOverview"
+        type="code">
+import util.guideStar
+wfsDict={
+      "a":util.guideStar.NGS(
+         "a",
+         nSubaps,
+         0.,
+         0.,
+         phasesize=npup/nSubaps,
+         minarea=0.5,
+         sig=1e6,
+         sourcelam=ngsLam,
+         reconList=["ngs"],
+         pupil=pupilCSpider)
+   }
+wfsOverview=util.guideStar.wfsOverview(wfsDict)
+      </var-->
+      <var name="atmosGeom"
+        type="code">
+from util.atmos import geom,layer,source
+d={}
+for i in range(nlayer):
+ d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+sourceList=[]
+sourceList.append(wfsObject.getWfsByID("a"))
+#(redundant?)sourceList.append(source("m",0.,0.,-1,None,sciLam,phslam=ngsLam))
+atmosGeom=geom(d,sourceList,ntel,npup,telDiam,r0,l0)
+      </var>
+      <var name="dmObj"
+        comment="dm object" type="code">
+from util.dm import dmOverview,dmInfo,calcActuators
+all=atmosGeom.sourceDict.keys()
+all.sort()
+reconList=["a"]
+dmInfoList=[]
+dmInfoList.append(
+      dmInfo(
+            'dm',
+            all,
+            0.,
+            nAct,
+            minarea=0.1,
+            closedLoop=1,
+            actSpacing=None,
+            reconLam=ngsLam,
+            actuatorsFrom=["ngs"],
+            reconstructList=reconList,
+            pokeSpacing=None,#pokeSpacing,
+            interpType="spline",
+            maxActDist=1.5,
+            slaving="auto"
+         )
+   )
+dmObj=dmOverview(dmInfoList,atmosGeom)
+      </var>
+      <var name="AOExpTime"
+        comment="Simulation exposure time in seconds" type="f" value="40."/>
+      <var name="seed"
+        value="1" type="i"/>
+   </variables>
+</module>
+
+<module name="wfscent">
+   <variables>
+      <var name="wfs_n"
+        type="eval" value="ntel/nSubaps"/>
+      <var name="wfs_sig"
+        type="f" value="1000000.0"/>
+   </variables>
+</module>
+
+<module name="xinterp_dm">
+   <variables>
+   </variables>
+</module>
+
+<module name="infScrn">
+   <variables>
+      <var comment="random seed" type="eval" name="seed"
+        value="1"/>
+   </variables>
+</module>
+
+<module name="iscrn">
+   <variables>
+      <var comment="random seed" type="eval" name="seed"
+        value="1"/>
+   </variables>
+</module>
+
+<module name="science">
+<!-- This module isn't actually present -->
+   <variables>
+      <!--var type="eval" name="simFilename"
+        value="None"/-->
+      <!--var type="i" name="science_integrate"
+        value="1"/-->
+      <!--var type="i" name="science_calcRMS"
+        value="0"/-->
+      <!--var type="i" name="zero_science"
+        value="10"/-->
+      <!--var comment="We compute science parameters everry scinSamp*sciPSFSamp iterations" type="i" name="scinSamp"
+        value="10"/-->
+
+      <!--var type="eval" name="hist_list_size"
+        value="int(AOExpTime/tstep/scinSamp)"/-->
+      <!--var type="eval" name="fitsFilename"
+        value="None"/-->
+      <!--var name="scicsvFilename"
+        value="'results.csv'" type="eval"/-->
+      <!--var name="scinfft"
+        type="eval" value="npup*2"/-->
+      <!--var type="eval" name="scinimg"
+        value="scinfft"/-->
+      <!--var name="inboxDiamList"
+        type="eval" value="[0.1]"/-->
+      <!--var name="usedmpup"
+        type="i" value="0"/-->
+      <!--var name="sourceLam"
+        type="eval" value="sciLam"/-->
+      <!--var name="histFilename"
+        type="eval" value="'resultshist.fits'"/-->
+      <!--var name="sciPSFSamp"
+        type="i" value="1" comment="Integrate the PSF every 1 iterations"/-->
+   </variables>
+</module>
+
+<module name="tomoRecon">
+   <variables>
+      <var name="rcond"
+        value="0.05" type="f"/>
+      <var name="recontype"
+        value="pinv" type="s"/>
+      <var name="pokeval"
+        value="1." type="f"/>
+      <var name="gainFactor"
+        value="0.5" type="f"/>
+      <var name="computeControl"
+        value="1" type="i"/>
+      <var name="dmModeType"
+        value="poke" type="s"/>
+      <var name="reconmxFilename"
+        value="'pmx.fits'" type="eval"/>
+      <var name="pmxFilename"
+        value="'rms.fits'" type="eval"/>
+      <var name="minEig"
+        value="0.05" type="f"/>
+      <var name="abortAfterPoke"
+        value="0" type="i"/>
+      <!--var name="decayFactorOpen"
+        value="0." type="f"/-->
+      <!--var name="pokeIgnore"
+        type="f" value="0.00001"/-->
+      <!--var name="sparsePmxType"
+        type="s" value="mmap"/-->
+      <!--var name="transposeDensePmx"
+        type="i" value="0"/-->
+   </variables>
+</module>
+
+</aosim>

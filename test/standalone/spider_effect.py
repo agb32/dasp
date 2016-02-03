@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul  3 14:26:50 2015
+Using DASP modules, build a simple closed-loop model and alter after
+forming the interaction matrix to introduce a spider to examine the
+effects.
 
-@author: yhz, nab
+Created on Mon Jan 18 13:06:00 2016
+
+@author: nab
 @email: n.a.bharmal@durham.ac.uk
 """
 
@@ -25,7 +29,12 @@ try:
 except ImportError:
    no_pylab=None
 
-
+## variables
+## \/
+spiderWidth = 4
+nLoops = 1000
+## /\
+## (end)
 
 #
 # Connections between modules are::
@@ -46,6 +55,9 @@ except ImportError:
 ## start of instance creation and setup
 
 config=base.readConfig.AOXml("recon.xml") # read the configuration file
+#wfsOverview_Cspider = config.getVal("wfsOverview")
+#wfsObject = config.getVal("wfsObject")
+config.setVal("wfsOverview", config.getVal("wfsObject") ) # alter the wfsOverview value
 
 scrn=science.iscrn.iscrn(None,config,idstr="L0") # create one phase screen
 scrn.finalInitialisation()
@@ -86,10 +98,36 @@ for obj in ctrl.compList:
   obj.control["cal_source"]=1
 
 
-
-for i in range(50): # iterate 50 times to make the PMX
+nPokeIntegrations = dm.dmflag.sum()+1
+print("\t>>>\tPOKING:: Expected for {0:d} integrations".format(
+      nPokeIntegrations)
+   ) 
+shsPokingImg = 0 
+for i in range(nPokeIntegrations): # iterate over all actuators to make the PMX
     for obj in ctrl.compList:
         obj.doNextIter()
+        shsPokingImg += wfscent.drawCents(0)*nPokeIntegrations**-1.0 
+
+## alter the centroid object's pupil to have a spider
+##
+pupil = numpy.array( wfscent.wfsobj.pupil.copy() )
+pupilShape = pupil.shape[0]
+pupil[pupilShape/2-spiderWidth/2:pupilShape/2+spiderWidth/2,:]=0
+pupil[:,pupilShape/2-spiderWidth/2:pupilShape/2+spiderWidth/2]=0
+
+## update the wfscent object to use this new spider
+##
+   # ???
+   # ?? WHICH ONE OF THE THREE BELOW IS THE CORRECT ONE TO CHANGE ??
+   # ?? -> which is necessary and which are optional ?? 
+   # ???
+wfscent.wfscentObj.pup   = pupil
+wfscent.wfscentObj.pupfn = pupil
+wfscent.wfscentObj.pupil = pupil
+##??wfscent.wfscentObj.initialiseCmod()
+wfscent.wfscentObj.finishInit() ## but this does not change the subap fluxes
+wfscent.wfscentObj.subarea = wfscent.wfscentObj._calculateSubAreas() ## this should
+
 
 
 ## ----------------------------------------------------------
@@ -97,10 +135,13 @@ for i in range(50): # iterate 50 times to make the PMX
 ## 
 ## 
 
+print("\t>>>\tCLOSED-LOOP:: Entering for {0:d} integrations".format(
+      nLoops)
+   ) 
 
 for obj in ctrl.compList:
     if obj.control.has_key("zero_dm"):
-        obj.control["zero_dm"]=1
+        obj.control["zero_dm"]=0
     if obj.control.has_key("zero_science"):
         obj.control["zero_science"]=10
     if obj.control.has_key("science_integrate"):
@@ -109,30 +150,37 @@ for obj in ctrl.compList:
         obj.control["cal_source"]=0
     if obj.control.has_key("close_dm"):
         obj.control["close_dm"]=1 # set to zero to not close the loop (!)
+    if obj.control.has_key("dm_update"):
+        obj.control["dm_update"]=1
+
 
 ## ----------------------------------------------------------
 ## Do closed loop iterations
 ## 
 ## 
 
-dmShapes = []
+dmShapes, shsImg = [],0
 print("[ ",end="")
-for i in range(1000):
-    print("\r[ "+"-"*(int(i/1000.0*70)) + " "*(70-int(i/1000.0*70)) + " ]",end="") # print a progress bar
+for i in range( nLoops ):
+    print("\r[ "+
+         "-"*(int(i*nLoops**-1.0*70)) +
+         " "*(70-int(i*nLoops**-1.0*70)) +
+         " ]",end="") # print a progress bar
     sys.stdout.flush()
     scrn.doNextIter()
-    #phaseScreen = scrn.unwrapPhase("L0")#optional: phase in the screen
     atmos.doNextIter()
-    #pupilPhase = atmos.outputData#optional: phase in the pupil
     dm.doNextIter()
-    if i%100==0: # every 100th iteration, save the atmosphere and DM surface
-        dmShapes.append(
-                [ i, atmos.outputData.copy(), dm.mirrorSurface.phsOut.copy() ]
-            )
-    
     wfscent.doNextIter()
-    #shsImg = wfscent.drawCents(0)#optional: SH spot images
     recon.doNextIter()
+    #
+    if i%10==0: # every 10th iteration, keep: atmosphere, DM sfc & centroids
+        dmShapes.append(
+                [ i, atmos.outputData.copy(), dm.mirrorSurface.phsOut.copy(),
+                  wfscent.outputData.copy() ]
+            )
+    #phaseScreen = scrn.unwrapPhase("L0")#optional: phase in the screen
+    #pupilPhase = atmos.outputData#optional: phase in the pupil
+    shsImg += wfscent.drawCents(0)*nLoops**-1.0 #optional: SH spot images
 
 print()
 
@@ -141,15 +189,24 @@ print()
 ## 
 ## 
 
+print("\t>>>\tPLOTTING:: ".format()) 
+
 import pylab
-pylab.ioff()
+pylab.ion()
 pylab.figure(1)
-for i in range(10):
+for i in range(min(4*6/2,len(dmShapes))):
     pylab.subplot(4,6,2*i+1)
     pylab.imshow( dmShapes[i][1], interpolation='nearest')
     pylab.title("Iteration no. {0:d}".format(dmShapes[i][0]))
     #
     pylab.subplot(4,6,2*i+1+1)
     pylab.imshow( dmShapes[i][2], interpolation='nearest')
-    
+
+pylab.figure(2)
+pylab.plot(
+      [ dmShapes[j][0] for j in range(len(dmShapes)) ],
+      [ dmShapes[j][3].var() for j in range(len(dmShapes)) ],
+   )
+pylab.xlabel("Iteration #")
+pylab.ylabel("WFS centroid variance")
 pylab.show()

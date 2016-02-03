@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<aosim>
+ <author name="agb"/>
+ <modified name="nab"/>
+ <created date="151125"/>
+ <module name="globals">
+ <variables>
+<!-- for aosimTemporalFilter -->
+   <var name="active"
+      value="1" type="eval"/>
+   <var name="filterM"
+      value="[[0.25,0.25,0.25,0.25],[0,0,0,0]]" type="eval"/>
+ </variables>
+ </module>
+</aosim>
