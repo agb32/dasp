@@ -1,0 +1,10 @@
+*.py?
+*.o
+*.so
+*.a
+__init__.py
+*~
+*.xml
+*.fits
+*.log
+*.egg-info
