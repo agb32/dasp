@@ -1,3 +1,4 @@
+from __future__ import print_function
 #$Id: saveOutput.py,v 1.10 2011/01/20 08:08:36 ali Exp $
 import types,os
 import numpy
@@ -50,6 +51,9 @@ class saveOutput(base.aobase.aobase):
             else:
                 ids="_%s"%self.idstr[0]
             self.filename=self.config.getVal("saveOutputFilename",default="saveOutput%sb%d.fits"%(ids,config.batchno))
+        print("INFORMATION:**saveOutput:{:s}**: filename is '{:s}'".format(
+                str(self.idstr), self.filename )
+            )
         self.doByteSwap=self.config.getVal("doByteSwap",default=0)
         self.dataValid=0#never changes... no output...
         if forGUISetup:
@@ -63,13 +67,17 @@ class saveOutput(base.aobase.aobase):
             self.ended=1
             if self.finalised==0:
                 self.finalised=1
-                print "saveOutput: Finalising FITS file %s"%self.filename
+                print(("INFORMATION:**saveOutput:{:s}**: Finalising FITS file"+
+                       " {:s}").format( str(self.idstr), self.filename )
+                    )
                 import stat
                 try:
                     s=os.stat(self.filename)
                     size=s[stat.ST_SIZE]
                 except:
-                    print "Unable to stat file %s"%self.filename
+                    print(("ERROR:**saveOutput:{:s}**: unable to stat file"+
+                           " {:s}").format( str(self.idstr), self.filename )
+                        )
                     size=0
                 #except:
                 #    size=0
@@ -78,7 +86,10 @@ class saveOutput(base.aobase.aobase):
                     try:
                         os.ftruncate(self.ff.fileno(),size+2880-tmp)
                     except:
-                        print "saveOutput: unable to finalise FITS file"
+                        print(("ERROR:**saveOutput:{:s}**: unable to "+
+                               " finalize {:s}").format(
+                                    str(self.idstr), self.filename )
+                            )
                 self.ff.close()
 
     def finalInitialisation(self):
@@ -106,7 +117,7 @@ class saveOutput(base.aobase.aobase):
             else:
                 self.shape=self.parent.outputData.shape
                 self.dtype=self.parent.outputData.dtype
-            print self.idstr,self.parent
+            print(self.idstr,self.parent)
             if type(self.dtype)!=type(""):
                 self.dtype=self.dtype.char
             if self.dtype=="f":
@@ -124,15 +135,24 @@ class saveOutput(base.aobase.aobase):
             try:
                 self.ff=open(self.filename,"wb+",buffering=4096)
             except:#there seemed to be a problem when the python code was called on a ext3 mount from a directory in a cifs mount... no idea why!  The solution is to copy files to where you run them from...
-                print "Unable to open file with buffering - trying without"
+                print(("WARNING:**saveOutput:{:s}**: "+
+                       "Unable to open file with buffering - trying without"
+                       ).format( str(self.idstr) )
+                    )
                 try:
                     self.ff=open(self.filename,"wb+")
                 except:
-                    print "Unable to open file in wb+ mode.  Trying w+."
+                    print(("WARNING:**saveOutput:{:s}**: "+
+                           "Unable to open file in wb+ mode.  Trying w+."
+                           ).format( str(self.idstr) )
+                        )
                     try:
                         self.ff=open(self.filename,"w+")
                     except:
-                        print "Unable to open file in w+ mode.  Trying w."
+                        print(("WARNING:**saveOutput:{:s}**: "+
+                               "Unable to open file in w+ mode.  Trying w."
+                               ).format( str(self.idstr) )
+                            )
                         self.ff=open(self.filename,"w")
                 
             #now write the header...
@@ -167,7 +187,10 @@ class saveOutput(base.aobase.aobase):
         @type msg: None or fwdMsg object
         """
         if self.debug!=None:
-            print "splitOutput: generateNext (debug=%s)"%str(self.debug)
+            print(("INFORMATION::**saveOutput:{:s}**: generateNext "+
+                   "(debug={:s})").format(
+                     str(self.idstr), str(self.debug) )
+                )
         if self.generate==1:
             if self.newDataWaiting:
                 if type(self.parent)==type({}):
@@ -184,7 +207,11 @@ class saveOutput(base.aobase.aobase):
                                 raise Exception("Combined output data too large... (with parent %s, becomes %d which is >%s)"%(p,outputData.size+offset,str(self.shape)))
                             if outputData.dtype.char!=self.dtype:
                                 outputData=outputData.astype(self.outputData)
-                                print "Warning: saveOutput - converting outputData[%s] to type %s"%(p,self.dtype)
+                                print(("WARNING::**saveOutput:{:s}**:"+
+                                    "converting outputData[{:s}] to type {:s}"
+                                      ).format(
+                                         str(self.idstr), p, self.dtype)
+                                    )
                             if self.doByteSwap and numpy.little_endian:
                                 outputData=outputData.byteswap()
                             self.ff.seek(0,2)#move to end of file.
@@ -198,18 +225,18 @@ class saveOutput(base.aobase.aobase):
                         newdim=int(key[10:])+1
                         util.FITS.WriteKey(self.ff,"NAXIS%d"%self.nd,str(newdim))
                     else:
-                        print "saveOutput: Not all input data valid"
+                        print("saveOutput: Not all input data valid")
                         self.dataValid=0
                 else:
 
                     if self.parent.dataValid==1:
                         outputData=self.parent.outputData
                         if outputData.shape!=self.shape:
-                            print "ERROR: saveOutput - outputdata not same as that given %s %s"%(str(outputData.shape),str(self.shape))
+                            print("ERROR: saveOutput - outputdata not same as that given %s %s"%(str(outputData.shape),str(self.shape)))
                             raise Exception("Wrong shape in splitOutput")
                         if outputData.dtype.char!=self.dtype:
                             outputData=outputData.astype(self.dtype)
-                            print "Warning: saveOutput - converting outputData to type %s"%self.dtype
+                            print("Warning: saveOutput - converting outputData to type %s"%self.dtype)
                         if self.doByteSwap and numpy.little_endian:
                             outputData=outputData.byteswap()
                         self.ff.seek(0,2)#move to end of file.
@@ -219,8 +246,11 @@ class saveOutput(base.aobase.aobase):
                         self.ff.seek(self.axisIncPos)
                         newdim=int(key[10:])+1
                         util.FITS.WriteKey(self.ff,"NAXIS%d"%self.nd,str(newdim))
-                    else:
-                        print "saveOutput: waiting for data but not valid (debug=%s)"%self.debug
+                    elif self.debug!=None:
+                        print(("INFORMATION::**saveOutput:{:s}**: waiting for "+
+                               "data but not valid (debug={:s})").format(
+                                   str(self.idstr), self.debug )
+                            )
                         self.dataValid=0
         else:
             self.dataValid=0
@@ -230,6 +260,7 @@ if __name__=="__main__":
         outputData=numpy.zeros((5,10),"i")
         dataValid=1
     class dumconfig:
+        rank,batchno=0,0
         def __init__(self):
             pass
         def getVal(self,val,default=None,raiseerror=1):

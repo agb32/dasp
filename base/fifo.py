@@ -1,3 +1,4 @@
+from __future__ import print_function
 import base.aobase
 import numpy
 class fifo(base.aobase.aobase):
@@ -47,10 +48,15 @@ class fifo(base.aobase.aobase):
                 self.shape=self.parent.outputData.shape
                 self.dtype=self.parent.outputData.dtype
                 self.initialised=1
+                print("INFORMATION::**fifo:{:s}**: delay = {:d}".format(
+                         str(self.idstr), self.delay )
+                    )
             except:
                 self.shape=None
                 self.dtype=None
-                print "base.fifo object not yet initialised"
+                print("INFORMATION::**fifoDelay:{:s}**: not yet initialized".format(
+                         str(self.idstr) )
+                    )
 
             if self.initialised:
                 if self.forGUISetup:
@@ -74,7 +80,9 @@ class fifo(base.aobase.aobase):
         @type msg: None or fwdMsg object
         """
         if self.debug!=None:
-            print "fifo: generateNext (debug=%s)"%str(self.debug)
+            print("INFORMATION::**fifo:{:s}**: generateNext (debug={:s})".format(
+                     str(self.idstr), str(self.debug) )
+                )
         if self.generate==1:
             if self.newDataWaiting:
                 self.dataValidList.append(self.parent.dataValid)
@@ -86,8 +94,10 @@ class fifo(base.aobase.aobase):
                         self.spareArray=None
                     else:
                         self.dataList.append(self.parent.outputData.copy())
-                else:
-                    print "fifo: waiting for data but not valid (debug=%s)"%self.debug
+                elif self.debug!=None:
+                    print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
+                           "(debug={:s})").format( str(self.idstr), self.debug )
+                        )
                 self.dataValid=self.dataValidList.pop(0)
                 if self.dataValid:
                     self.outputData=self.dataList.pop(0)
@@ -105,13 +115,75 @@ class fifo(base.aobase.aobase):
 
 
 if __name__=="__main__":
-    class dummy:
-        dataValid=1
-        outputData=numpy.zeros((2,2),"f")
-    d=dummy()
-    f=fifo(d,None,idstr="2")
-    for i in range(1,10):
-        d.outputData[:]=i
-        #print i,f.outputData
-        f.generateNext()
-        print i,f.outputData
+   def test1():
+       print("TEST1::")
+       class dummy:
+           dataValid=1
+           outputData=numpy.zeros((2,2),"f")
+       d=dummy()
+       f=fifo(d,None,idstr="2")
+       for i in range(1,10):
+           d.outputData[:]=i
+           #print i,f.outputData
+           f.generateNext()
+           print("\t"),
+           print(i,f.outputData)
+       #
+       print("::ENDS")
+
+   def test2():
+       print("TEST2::")
+
+#import numpy
+#import base.fifo
+       import base.readConfig
+       class parent:
+           dataValid=0
+           outputData=numpy.arange(4)
+       
+       c=base.readConfig.AOXml([])
+       p=parent()
+       f=base.fifo.fifo(p,c,idstr="2")
+       
+       
+       print("Running with a fifo delay of 2, and parent valid every 3 frames:")
+       for i in range(12):#run 12 iterations
+           p.dataValid=int((i%3)==2)
+           if p.dataValid:
+               p.outputData[:]=i
+           f.doNextIter()
+           print("\t")
+           print(p.dataValid,p.outputData,f.dataValid,f.outputData)
+       print("\n\n\nRunning with a fifo delay of 2 and parent valid every other frame:")
+       f=base.fifo.fifo(p,c,idstr="2")
+       for i in range(10):#run 10 iterations
+           p.dataValid=i%2
+           if p.dataValid:
+               p.outputData[:]=i
+           f.doNextIter()
+           print("\t")
+           print(p.dataValid,p.outputData,f.dataValid,f.outputData)
+       print("\n\n\nRunning with a fifo delay of 1 and parent valid every 3 frames:")
+       f=base.fifo.fifo(p,c,idstr="1")
+       for i in range(10):#run 10 iterations
+           p.dataValid=int((i%3)==2)
+           if p.dataValid:
+               p.outputData[:]=i
+           f.doNextIter()
+           print("\t")
+           print(p.dataValid,p.outputData,f.dataValid,f.outputData)
+       
+       print("\n\n\nRunning with a fifo delay of 1 and parent valid every 2 frames (ie every other):")
+       f=base.fifo.fifo(p,c,idstr="1")
+       for i in range(10):#run 10 iterations
+           p.dataValid=i%2
+           if p.dataValid:
+               p.outputData[:]=i
+           f.doNextIter()
+           print("\t")
+           print(p.dataValid,p.outputData,f.dataValid,f.outputData)
+       #
+       print("::ENDS")
+
+   test1()
+   test2()
