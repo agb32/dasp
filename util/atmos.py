@@ -120,10 +120,28 @@ class geom:
                 print "WARNING Changing source height to take zenith into account"
                 s.alt/=numpy.cos(self.zenith*numpy.pi/180.)
             if self.sourceDict.has_key(s.idstr):
-                print s.idstr,self.sourceDict.keys()
-                raise Exception("util.atmos.geom - source dictionary defines an idstr more than once")
-            self.sourceDict[s.idstr]=s
-            self.sourceOrder.append(s.idstr)
+                #Each idstr specifies a given direction (and altitude) at a given wavelength.
+                #If there is a science and a guide star with the same IDstr, check that they agree... and if they don't, raise an error.
+                gs=None
+                ss=None
+                orig=self.sourceDict[s.idstr]
+                if s.alt==orig.alt and s.theta==orig.theta and s.phi==orig.phi and s.sourcelam==orig.sourcelam:
+                    #Use the guide star one...
+                    if hasattr(s,"nsubx") and s.nsubx!=None:
+                        self.sourceDict[s.idstr]=s
+                    else:#science
+                        pass
+                    print "INFORMATION: Multiple sources in direction %s, using %s for definition"%(s.idstr,self.sourceDict[s.idstr])
+                    
+                else:
+                    print s.idstr,self.sourceDict.keys()
+                    print s,orig,s.alt
+                    print "%g %g %g %g"%(s.alt,s.theta,s.phi,s.sourcelam)
+                    print "%g %g %g %g"%(orig.alt,orig.theta,orig.phi,orig.sourcelam)
+                    raise Exception("util.atmos.geom - source dictionary defines an idstr more than once")
+            else:
+                self.sourceDict[s.idstr]=s
+                self.sourceOrder.append(s.idstr)
         self.npup=npup
         self.ntel=ntel
         self.telDiam=telDiam

@@ -19,7 +19,8 @@ class sciOverview:
         if sci.idstr!=idstr:
             raise Exception("Inconsistency in sciOverview")
         return sci
-
+    def values(self):
+        return self.sciDict.values()
 class sciInfo(util.atmos.source):
     def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2]):
         super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)

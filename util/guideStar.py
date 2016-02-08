@@ -194,7 +194,8 @@ class wfsOverview:
         if wfs.idstr!=idstr:
             raise Exception("Inconsistency in wfsOverview")
         return wfs
-
+    def values(self):
+        return self.wfsDict.values()
 
 """
 getWfsByID(idstr)
@@ -254,7 +255,7 @@ class LGS(util.atmos.source):
     reconList - list of reconstructors which use this slope information.
     pupil - the telescope pupil function for this guide star.
     """
-    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None):
+    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,pupil,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None):
         """pupil can be a util.tel object"""
         #Initialise the parent...
         super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=sig)
@@ -379,6 +380,7 @@ class NGS(util.atmos.source):
     nsubx - number of subaps
     theta, phi - radial coords of on-sky positions, in arcsec, degrees.
     phasesize - number of phase pixels in 1 sub-aperture.
+    pupil - the pupil function.
     minarea - fraction of vignetting before sub-aperture is no longer used.
     sig - WFS signal in photons per subap per frame.
     idstr - the identification string of the light path of this wfs.
@@ -387,7 +389,7 @@ class NGS(util.atmos.source):
     reconList - list of reconstructors which use this slope information.
     pupil - the telescope pupil function for this guide star.
     """
-    def __init__(self,idstr,nsubx,theta,phi,phasesize,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,pupil=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None):
+    def __init__(self,idstr,nsubx,theta,phi,phasesize,pupil,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None):
         """pupil can be a util.tel object"""
         #Initialise parent...
         super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=sig)
