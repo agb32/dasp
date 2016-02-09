@@ -8,7 +8,7 @@ import util.tel
 import util.zernikeMod
 class layer:
     """a holder for info about a single layer"""
-    def __init__(self,height,direction,speed,strength,seed,strtype="fraction"):
+    def __init__(self,height,direction,speed,strength,seed=0,strtype="fraction"):
         """strtype can be fraction of cn2, depending on what the values are in strength"""
 
         self.height=height#m
