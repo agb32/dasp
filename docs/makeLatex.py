@@ -33,7 +33,7 @@ def scandir(prefix):
 if __name__=="__main__":
     nolatex=os.system("latex -v >& /dev/null")
     if nolatex!=0:#no latex present
-        print "Latex needed to generate documentation.  Present on node 6 of the Cray"
+        print "Latex needed to generate documentation."
     else:
         modlist=scandir("../")
         removeList=["util.pyfits","docs.makeLatex","base.joiner2","base.splitter"]

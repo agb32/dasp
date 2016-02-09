@@ -88,7 +88,7 @@ class infAtmos(base.aobase.aobase):
             self.directPhaseScreen=self.config.getVal("directPhaseScreen",default=0)#are we allowed to access parent.screen if parent is an infScrn object?  
             self.parentSendWholeScreen=self.config.getVal("sendWholeScreen",default=0)#Is the infScrn object sending the whole screen or just the new bits?  This is similar to the directPhaseScreen but also works across MPI connections...
             self.telDiam=self.config.getVal("telDiam")
-            self.ntel=self.config.getVal("ntel")#tel diameter in pxls.  
+            self.ntel=self.config.getVal("ntel",default=self.npup)#tel diameter in pxls.  
             self.pupil=self.config.getVal("pupil")
             #self.telSec=self.config.getVal("telSec")
             self.scrnScale=self.telDiam/float(self.ntel)#self.config.getVal("scrnScale")

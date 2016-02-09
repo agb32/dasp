@@ -29,27 +29,27 @@
      \string\gdef\string\totalpages{\themypage}}}
  \makeatother
 
-\newcommand{\esofooter}{
+\newcommand{\daspfooter}{
 \includegraphics[height=1cm]{durlogo.eps}
 {\bf \large Centre for \AA dvanced Instrumentation}
 }
-\newcommand{\esoheaderl}{
+\newcommand{\daspheaderl}{
 \includegraphics[height=1cm]{durlogo.eps}
 \begin{tabularx}{9cm}{c}
-\Large {\bf \esotitle} \\ \large {\bf(\esodoctype)}\\
+\Large {\bf \dasptitle} \\ \large {\bf(\daspdoctype)}\\
 \rightmark\hspace{0.1cm}
 \end{tabularx}
 \vfill
 }
-\newcommand{\esoheaderc}{
+\newcommand{\daspheaderc}{
 }
-\newcommand{\esoheaderr}{
+\newcommand{\daspheaderr}{
 \begin{tabular}{|l|l|}\hline
-Doc. number: & \esodocno \\ \hline
-Release date: & \esoreleasedate \\ \hline
-Issue number: & \esoissue \\ \hline
+Doc. number: & \daspdocno \\ \hline
+Release date: & \daspreleasedate \\ \hline
+Issue number: & \daspissue \\ \hline
 Page number: & Page \thepage \ of \totalpages \\ \hline
-Author(s) & \esoauthorname \\ \hline
+Author(s) & \daspauthorname \\ \hline
 \end{tabular}
 
 
@@ -57,10 +57,10 @@ Author(s) & \esoauthorname \\ \hline
 
 \pagestyle{fancy}
 \cfoot[]{}
-\lfoot[\esofooter]{\esofooter}
-\lhead[\esoheaderl]{\esoheaderl}
-\chead[\esoheaderc]{\esoheaderc}
-\rhead[\esoheaderr]{\esoheaderr}
+\lfoot[\daspfooter]{\daspfooter}
+\lhead[\daspheaderl]{\daspheaderl}
+\chead[\daspheaderc]{\daspheaderc}
+\rhead[\daspheaderr]{\daspheaderr}
 \renewcommand{\sectionmark}[1]{\markboth{#1}{#1}}
 
 \newenvironment{Ventry}[1]%

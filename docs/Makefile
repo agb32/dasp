@@ -4,9 +4,8 @@
 
 PYTHON = python
    # \/ add your document filename stem here to get it made
-DOCUMENTS = dummies spatial_filter overview paramgui simctrl schema\
-   wfsPipe fpgaMVM simsetup simnews conjugation fdpcg cellprocessor\
-   setupguirequirements 
+DOCUMENTS = introduction dummies spatial_filter overview paramgui simctrl schema simsetup simnews conjugation    setupguirequirements 
+#fdpcg cellprocessor fpgaMVM wfsPipe
 
 # /\ end of user modifiable area
 
@@ -29,8 +28,8 @@ all:  ${DOCUMENTS:=.pdf}
 %.ps: %.dvi
 	dvips -Ppdf -o $@ $<
 
-%.pdf: %.ps
-	ps2pdf13 $<
+%.pdf: %.dvi
+	dvipdf $<
 
 clean: 
 	rm -rf modules
