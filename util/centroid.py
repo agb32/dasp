@@ -306,7 +306,7 @@ class centroid:
         #    pfn=numpy.ones((1,1),self.fpDataType)
         #else:
         self.subarea = self._calculateSubAreas()
-        ( self.nsubaps, self.indices ) = self._calculateIndices()
+        (  self.indices, self.nsubaps ) = self._calculateIndices()
         
         #print "Created centroid object"
     
