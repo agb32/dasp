@@ -2240,7 +2240,10 @@ if __name__=="__main__":
         config=base.readConfig.AOXml(pfile,batchno=batchno)
         npup=config.getVal("npup")
         telDiam=config.getVal("telDiam")
-        dmObj=config.getVal("dmObj")
+        dmObj=config.getVal("dmOverview",raiseerror=0)
+        if dmObj==None or type(dmObj)!=type(config):
+            print "Depreciation warning: dmObj should now be dmOverview"
+            dmObj=config.getVal("dmObj")
         pupil=config.getVal("pupil")
         config.setSearchOrder(["tomoRecon","globals",])
         if rmxfile==None:

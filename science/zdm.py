@@ -21,7 +21,10 @@ class dm(base.aobase.aobase):
         else: # set up for simulation.
             self.npup=self.config.getVal("npup")
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
-            self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
+            self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
+            if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
+                print "Depreciation warning: dmObj should now be dmOverview"
+                self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)
             self.dmInfo=self.dmObj.getDM(self.idstr[0])
             self.monteNoll=None

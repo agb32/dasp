@@ -4,7 +4,7 @@
 
 PYTHON = python
    # \/ add your document filename stem here to get it made
-DOCUMENTS = introduction dummies spatial_filter overview paramgui simctrl schema simsetup simnews conjugation    setupguirequirements 
+DOCUMENTS = introduction dummies spatial_filter overview paramgui daspctrl schema daspsetup simnews conjugation    setupguirequirements simapi-orig
 #fdpcg cellprocessor fpgaMVM wfsPipe
 
 # /\ end of user modifiable area
@@ -12,6 +12,8 @@ DOCUMENTS = introduction dummies spatial_filter overview paramgui simctrl schema
 all:  ${DOCUMENTS:=.pdf}
 	echo ">>>"$<
 	${PYTHON} makeLatex.py make
+	(cd modules/ && latex api.tex && latex api.tex && makeindex api && latex api.tex && latex api.tex && dvipdf api)
+	cp modules/api.pdf .
 	#echo "Available documentation in PDF format (use acroread):"
 	#ls *.pdf
 

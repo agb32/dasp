@@ -20,7 +20,10 @@ class dm(base.aobase.aobase):
         else: # set up for simulation.
             self.npup=self.config.getVal("npup")
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
-            self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
+            self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
+            if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
+                print "Depreciation warning: dmObj should now be dmOverview"
+                self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
 	    self.dmpup=self.dmObj.calcdmpup(self.idstr[0])#number of pixels to store the phase. May be >npup if not ground conjugate.
 	    self.conjHeight=self.dmObj.getHeight(self.idstr[0])
             self.pupil=self.config.getVal("pupil")

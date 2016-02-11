@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 import sys,string,os
 if len(sys.argv)<2:
    print "Usage: %s simulationfile.py"%sys.argv[0]

@@ -169,7 +169,7 @@ class Ctrl:
 
         ## DEFAULT parameter file name?
         if len(self.paramfile)==0:
-            self.paramfile=["params.xml"]
+            self.paramfile=["params.py"]
         initDict=None
         if self.initParamString!=None:
             d={"numpy":numpy}

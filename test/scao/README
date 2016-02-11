@@ -1,9 +1,11 @@
-python scao.py    for a 6x6 scao system on a 4.2m telescope.
+python scao.py    for a 6x6 scao system on a 4.2m telescope.  This
+will use the params.py parameter file by default.
 
 python scao.py --init="wfs_nsubx=64" for a 64x64 system... etc
 
-To test a python parameter file:
-python scao.py --param-file=params.py (or just python scao.py params.py)
+To test a different parameter file:
+python scao.py --param-file=NewParams.py (or just python scao.py NewParams.py)
+python scao.py --param-file=params.xml (or just python scao.py params.xml)
 
 For an iatmos/iscrn version:
 python scaoiatmos.py

@@ -18,7 +18,7 @@ class SHS(base.aobase.aobase):
     def __init__(self,parentDict,config,args={},forGUISetup=0,debug=None,idstr=None):
         base.aobase.aobase.__init__(self,parentDict,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.parentDict=parentDict
-        self.dmObj=self.config.getVal("dmObj")
+        self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
         self.gridx=self.config.getVal("shsGridX")
         self.gridy=self.config.getVal("shsGridY")
         if len(self.parentDict.keys())!=self.gridx*self.gridy:

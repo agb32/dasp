@@ -99,8 +99,11 @@ writeFailed=0
 if len(sys.argv)>8:
 	writeFailed=int(sys.argv[8])#write the failed ones?
 config=base.readConfig.AOXml(paramfile,batchno=batchno)
-dmObj=config.getVal("dmObj")
 atmosGeom=config.getVal("atmosGeom")
+dmObj=config.getVal("dmOverview",raiseerror=0)
+if dmObj==None or type(dmObj)!=type(atmosGeom):
+        print "Depreciation warning: dmObj should now be dmOverview"
+        dmObj=config.getVal("dmObj")
 pupil=config.getVal("pupil")
 dmflag,subarea,dmpupil=dmObj.computeDMPupil(dmid,pupil.r2,1)
 #wfs_n=config.getVal("wfs_n")

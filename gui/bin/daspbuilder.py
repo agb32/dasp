@@ -320,8 +320,8 @@ def makemcao(nlgs=None,nngs=None,nsci=None,ndm=None,mpi=None,dirname=None,defaul
     txt=txt.replace("nngs=3","nngs=%d"%nngs)
     txt=txt.replace("ndm=3","ndm=%d"%ndm)
     if addvdm:#for ltao
-        txt=txt.replace("dmObj=dmOverview(dmInfoList,atmosGeom)","""dmInfoList.append(dmInfo('vdm',["sci1"],0,nAct,minarea=0.1,actuatorsFrom=["dm%dpath"%x for x in range(ndm)],maxActDist=1.5,decayFactor=0.95,reconLam=lgsLam))
-dmObj=dmOverview(dmInfoList,atmosGeom)""")
+        txt=txt.replace("dmOverview=dmOverview(dmInfoList,atmosGeom)","""dmInfoList.append(dmInfo('vdm',["sci1"],0,nAct,minarea=0.1,actuatorsFrom=["dm%dpath"%x for x in range(ndm)],maxActDist=1.5,decayFactor=0.95,reconLam=lgsLam))
+dmOverview=dmOverview(dmInfoList,atmosGeom)""")
     save(txt,dirname,"params.py")
     if mpi:
         execstr="mpirun -np %d python %s.py params.py"%(ngs+nsci,fname)
@@ -654,7 +654,7 @@ def makemoao(dirname="moaoSim",fname="moao"):
     #And the physical MOAO DMs
     dmInfoList.append(dmInfo('dmsci%d'%(i+1),["sci%d"%(i+1)],0,nAct,minarea=0.1,actuatorsFrom="vdmsci%d"%(i+1),maxActDist=1.5,decayFactor=0.,reconLam=lgsLam,closedLoop=0))
 """
-    txt=txt.replace("dmObj=dmOverview(dmInfoList,atmosGeom)",vdmtxt+"dmObj=dmOverview(dmInfoList,atmosGeom)\nreconIdStr='recon'")
+    txt=txt.replace("dmOverview=dmOverview(dmInfoList,atmosGeom)",vdmtxt+"dmOverview=dmOverview(dmInfoList,atmosGeom)\nreconIdStr='recon'")
     txt=txt.replace("decayFactor=0.95)","decayFactor=0.,reconLam=lgsLam,closedLoop=0)")
     txt=txt.replace("decayFactor=0.95","decayFactor=0.")
     txt=txt.replace("gainFactor=0.5","gainFactor=1.\nr.abortAfterPoke=1")
@@ -1591,7 +1591,7 @@ else:
 dmInfoList=[]
 for i in range(ndm):
     dmInfoList.append(dmInfo('dm%dpath'%i,[x.idstr for x in sourceList],dmHeight[i],nAct,minarea=0.1,actuatorsFrom="recon",pokeSpacing=(None if wfs_nsubx<20 else 10),maxActDist=1.5,decayFactor=0.95))
-dmObj=dmOverview(dmInfoList,atmosGeom)
+dmOverview=dmOverview(dmInfoList,atmosGeom)
 
 #reconstructor
 this.tomoRecon=new()
@@ -1669,7 +1669,7 @@ atmosGeom=geom(atmosDict,sourceList,ntel,npup,telDiam,r0,l0)
 from util.dm import dmOverview,dmInfo
 dmInfoList=[dmInfo('dm',[x.idstr for x in sourceList],0.,nAct,minarea=0.1,actuatorsFrom="recon",\
                    pokeSpacing=(None if wfs_nsubx<20 else 10),maxActDist=1.5,decayFactor=0.95)]
-dmObj=dmOverview(dmInfoList,atmosGeom)
+dmOverview=dmOverview(dmInfoList,atmosGeom)
 
 #reconstructor
 this.tomoRecon=new()

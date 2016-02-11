@@ -45,7 +45,10 @@ class recon(base.aobase.aobase):
         self.dataValid=1#data is valid even before the first iteration because we assume the mirror starts zerod
         self.pupil=self.config.getVal("pupil")
         self.atmosGeom=self.config.getVal("atmosGeom")
-        self.dmObj=self.config.getVal("dmObj")
+        self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
+        if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
+            print "Depreciation warning: dmObj should now be dmOverview"
+            self.dmObj=self.config.getVal("dmObj")
         self.dmList=self.dmObj.makeDMList(self.idstr[0])
         self.reconObj=None#to aid addition of generic algorithms.  This must implement a few methods.  In 2014 only used by fewha, to be extended in the future
         if len(self.dmList)==0:

@@ -806,11 +806,14 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     if pmx==None:
         pmx=c.getVal("pmxFilename")
 
+    atmosGeom=c.getVal("atmosGeom")
+    dmObj=c.getVal("dmOverview",raiseerror=0)
+    if dmObj==None or type(dmObj)!=type(atmosGeom):
+        print "Depreciation warning: dmObj should now be dmOverview"
     dmObj=c.getVal("dmObj")
     dmList=dmObj.makeDMList(idstr)
     print dmList
     nactsCumList=[0]
-    atmosGeom=c.getVal("atmosGeom")
     pup=c.getVal("pupil")
     
     if hlist==None:

@@ -756,32 +756,32 @@ class wfscent(base.aobase.aobase):
             id=" (%s)"%this.idstr
         if self.sentPlotsCnt==0:
             #outputData is only valid for one object at a time, when that has just run...
-            txt+="""<plot title="WFS SH img%s" cmd="data=%s.drawCents(0)" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-            txt+="""<plot title="Change mask (-1,0,1) %s" cmd="data=%s.imgmask=(%s.imgmask+2)%%3-1" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname)
+            txt+="""<plot title="WFS SH img%s (the SHS images)" cmd="data=%s.drawCents(0)" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+            txt+="""<plot title="Change mask (-1,0,1) %s (to change the colour of guard pixels)" cmd="data=%s.imgmask=(%s.imgmask+2)%%3-1" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname)
             if self.imageOnly==0:
-                txt+="""<plot title="XCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-                txt+="""<plot title="YCentroids%s" cmd="data=%s.wfscentObj.outputData[:,:,1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-                txt+="""<plot title="1D centroids%s" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="XCentroids%s (display X slopes)" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="YCentroids%s (display Y slopes)" cmd="data=%s.wfscentObj.outputData[:,:,1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="1D centroids%s (display slopes as a 1D plot)" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
             elif self.imageOnly==1:
-                txt+="""<plot title="Centroids%s" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                txt+="""<plot title="Centroids%s (display slopes as a 1D plot)" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
             else:
-                txt+="""<plot title="Centroids%s" cmd="data=%s.wfscentObj.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-            txt+="""<plot title="Centroids 2D%s" cmd="data=%s.drawCents(1)" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
+                txt+="""<plot title="Centroids%s (display slopes as a 1D plot)" cmd="data=%s.wfscentObj.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+            txt+="""<plot title="Centroids 2D%s (a 2D representation of slopes)" cmd="data=%s.drawCents(1)" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
             for i in range(len(self.thisObjList)):
                 this=self.thisObjList[i]
                 wfs=this.wfscentObj
                 if type(this.laserGuideStar)!=type(None):
                     if type(this.laserGuideStar)==numpy.ndarray:
                         #txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].laserGuideStar" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i)
-                        txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].wfscentObj.reformatImg(%s.thisObjList[%d].laserGuideStar)" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i,objname,i)
+                        txt+="""<plot title="LGS elongation%s (show the LGS PSF)" cmd="data=%s.thisObjList[%d].wfscentObj.reformatImg(%s.thisObjList[%d].laserGuideStar)" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i,objname,i)
                     else:
-                        txt+="""<plot title="LGS elongation%s" cmd="data=%s.thisObjList[%d].laserGuideStar.subapImage" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i)
+                        txt+="""<plot title="LGS elongation%s (show the PSF PSF)" cmd="data=%s.thisObjList[%d].laserGuideStar.subapImage" ret="data" type="pylab" when="cmd" palette="gray"/>\n"""%(id,objname,i)
             for i in range(len(self.thisObjList)):
                 this=self.thisObjList[i]
                 wfs=this.wfscentObj
                 if wfs.correlationCentroiding:
-                    txt+="""<plot title="Correlation%s" cmd="data=%s.drawCorrelation('corrimg')" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-                    txt+="""<plot title="Correlation PSF%s" cmd="data=%s.drawCorrelation('corrPattern',mask=0)" ret="data" type="pylab" when="cmd" palette="gray"/>"""%(id,objname)
+                    txt+="""<plot title="Correlation%s (show the current correlation image)" cmd="data=%s.drawCorrelation('corrimg')" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+                    txt+="""<plot title="Correlation PSF%s (show the correlation reference image)" cmd="data=%s.drawCorrelation('corrPattern',mask=0)" ret="data" type="pylab" when="cmd" palette="gray"/>"""%(id,objname)
 
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
         return txt

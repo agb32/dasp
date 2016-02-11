@@ -31,7 +31,7 @@ def scandir(prefix):
 
 
 if __name__=="__main__":
-    nolatex=os.system("latex -v >& /dev/null")
+    nolatex=os.system("latex -v > /dev/null")
     if nolatex!=0:#no latex present
         print "Latex needed to generate documentation."
     else:
@@ -45,8 +45,9 @@ if __name__=="__main__":
         if os.system("epydoc --latex -o modules %s"%modstr)!=0:
             print "Error: epydoc not found or no modules specified"
             raise Exception("Epydoc not found or no modules specified")
-        simlines=open("simapi-orig.tex").readlines()
-                
+        sys.exit(0)
+        #simlines=open("simapi-orig.tex").readlines()
+        #os.system("make modules/api.pdf")
         inclines=open("modules/api.tex").readlines()
         f=open("simapi.tex","w")
 

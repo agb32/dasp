@@ -50,8 +50,11 @@ class dm(base.aobase.aobase):
             n=self.wfs_n=self.config.getVal("wfs_n")                  # Sub-aperture phase array size
             #we now need to work out which part of the DM to use... this depends on conjugate height, and source location.
             self.pupil=self.config.getVal("pupil")
-            self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
+            self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
+            if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
+                print "Depreciation warning: dmObj should now be dmOverview"
+                self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             if self.dmObj!=None:
                 self.conjHeight=self.dmObj.getHeight(self.idstr[0])#self.config.getVal("dmConjugateHeight",default=0.)#the height at which this pupil phase should be conjugated too.  One unique height for this (resource sharing) DM object.
                 self.dmpup=self.dmObj.calcdmpup(self.idstr[0])#self.config.getVal("dmpup",default=self.npup)#number of pixels to use to store the DM phase - this may be larger than npup if the DM is conjugated somewhere other than ground.
