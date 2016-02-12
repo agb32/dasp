@@ -82,7 +82,7 @@ class dm(base.aobase.aobase):
                                                  self.actoffset,self.actCoupling,self.actFlattening,
                                                  interpolationNthreads = self.interpolationNthreads,stuckActs=self.stuckActs)
                 self.maxStroke=0#depreciated mode dones't have max stroke.
-
+                self.dmDynamics=None
             else:
                 self.thisdm=self.dmObj.getDM(self.idstr[0])
                 self.dmTiltAngle=self.thisdm.tiltAngle
@@ -109,6 +109,9 @@ class dm(base.aobase.aobase):
                 self.actCoupling=self.dmObj.getcoupling(self.idstr[0])
                 self.actSlaves=self.thisdm.getSlaving()
                 self.mirrorSurface = self.thisdm.getMirrorSurface(phsOut = 1,                                                                interpolationNthreads = self.interpolationNthreads)
+                self.dmDynamics=self.thisdm.dmDynamics#an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.75,0.9,1.]
+            self.lastactmap=None#only used if dmDynamics are in use.
+            self.dynamicStep=0#only used if dmDynamics are in use.
             if self.subtractTipTilt:
                 self.tilt=numpy.arange(self.nact)-self.nact/2.+0.5
                 self.tilt/=numpy.sqrt((self.tilt**2).sum()*self.nact)
@@ -384,13 +387,19 @@ class dm(base.aobase.aobase):
                         self.dataValid=0
                 else:#has not atmos parent...
                     self.dataValid=1#zero output always valid...
-                if self.control["dm_update"]==1 and self.currentIdObjCnt==0 and this.parent["recon"].dataValid==1:
-                    #we are the first resource sharer, and have reconstructor commands ready...
-                    if self.actStart==None:
-                        self.getActuatorOffsets(this.parent["recon"].outputData)
-                    self.reconData=this.parent["recon"].outputData[self.actStart:self.actEnd]
-                    self.update()    # update the dm figure.
-                    self.dataValid=1 # update the output.
+                if self.control["dm_update"]==1 and self.currentIdObjCnt==0:
+                    if this.parent["recon"].dataValid==1:
+                        #we are the first resource sharer, and have reconstructor commands ready...
+                        if self.actStart==None:
+                            self.getActuatorOffsets(this.parent["recon"].outputData)
+                        self.reconData=this.parent["recon"].outputData[self.actStart:self.actEnd]
+                        self.dynamicStep=0
+                        self.update()    # update the dm figure.
+                        self.dataValid=1 # update the output.
+                    elif self.dmDynamics!=None:
+                        self.dynamicStep+=1
+                        self.update()
+                        self.dataValid=1
             if self.dataValid:
                 if not self.allZero:
                     self.selectedDmPhs=this.selectedDmPhs
@@ -505,6 +514,12 @@ class dm(base.aobase.aobase):
                     if self.actSlaves!=None:
                         self.applySlaving(self.actmap.ravel(),self.actSlaves)
                 self.geom=None#"fried"#use the actoffset instead.  If this is zero (default), same as fried.
+            if self.dmDynamics!=None:
+                #actmap has the shape we want to move to.  lastactmap has the current shape.  self.dynamicStep has the step number.
+                frac=self.dmDynamics[self.dynamicStep]
+                if self.lastactmap==None:
+                    self.lastactmap=numpy.zeros(self.actmap.shape,self.actmap.dtype)
+                self.actmap[:]=self.lastactmap+frac*(self.actmap-self.lastactmap)
             if self.subtractTipTilt:
                 #remove tip and tilt from actmap.
                 #Do this in a lazy way... which isn't totally accurate for non-square geometry (i.e. ie uses corner actuators too).
@@ -518,6 +533,8 @@ class dm(base.aobase.aobase):
                 self.actmap[:]=numpy.where(self.actmap>self.maxStroke,self.maxStroke,self.actmap)
                 self.actmap[:]=numpy.where(self.actmap<-self.maxStroke,-self.maxStroke,self.actmap)
             self.mirrorSurface.fit(self.actmap)
+            if self.dmDynamics!=None:#save the state for next time
+                self.lastactmap[:]=self.actmap
             if self.rotation==None or self.rotation==0:
                 pass
             elif type(self.rotation) in [type(0),type(0.)]:
