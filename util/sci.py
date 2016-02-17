@@ -926,12 +926,12 @@ def computeScientificParameters(img,nfft=None,nimg=None,npup=None,pupil=None,inb
 
     return dictScience
 
-def computeShortExposurePSF(phs,pup):
+def computeShortExposurePSF(phs,pup,pad=2):
     """computeShortExposurePSF function : computes short exposure AO corrected PSF
     Modifications made by FA"""
 
     npup=pup.shape[0] ##to have the dimensions of the input phase array
-    pupilAmplitude=numpy.zeros((pup.shape[0]*2,pup.shape[1]*2),numpy.complex64)
+    pupilAmplitude=numpy.zeros((int(numpy.round(pup.shape[0]*pad)),int(numpy.round(pup.shape[1]*pad))),numpy.complex64)
     pupilAmplitude.real[:npup,:npup]=pup*numpy.cos(phs)
     pupilAmplitude.imag[:npup,:npup]=pup*numpy.sin(phs)
     focAmp=numpy.fft.fft2(pupilAmplitude)

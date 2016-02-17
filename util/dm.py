@@ -79,7 +79,7 @@ class dmInfo:
 
         maxStroke is given in microns, the max Peak-Valley allowed.
         stuckActs - None, or (nstuck,clumpsize,maxRadius,minRadius,seed)
-        dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.75,0.9,1.]
+        dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be  [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.

@@ -1635,6 +1635,50 @@ def createAiryDisc(npup,halfwidth=1.,xoff=0.,yoff=0.):
     disc=numpy.where(dist==0,0.5,disc)**2#remove NaN and square...
     return disc.astype(numpy.float32)
 
+def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.):
+    """Creates an airy disc pattern using an FFT method.  With offset==0, will be centred.
+    halfwidth is the radius of the first Airy minimum
+    Widths:  For pad==2, width=5, pad==4, width=10, pad=8, width=20, pad=16 width=38, pad=32 width=79.
+    Binning then reduces this by the bin factor.
+    """
+    import util.sci
+    import util.tel
+    #compute the padding and binning required to give requested halfwidth.
+    #pxlscale = lam/diam*n/nfft*binfactor*180*3600/numpy.pi
+    #First min at 1.22lambda/d, so diameter 2.44lambda/d radians.  Therefore this is 2.44*nfft/(n*bn) pixels.  So given halfwidth, compute nfft, n, bn.
+    #i.e. halfwidth=1.22*nfft/(n*bn)
+    #Also, npup=nfft/bn (npup is the output size).  So:
+    #halfwidth=1.22*npup/n where n is the initial phase size.  bn, n, nfft and npup must be integer.
+    #Therefore, n=1.22*npup/halfwidth
+    n=1.22*npup/halfwidth
+    bn=int(n/npup)+1
+    #bn=1
+    nfft=npup*bn
+    print "createAiryDisc2:  n=%g, nfft=%d, binfactor=%d"%(n,nfft,bn)
+    pup=util.tel.Pupil(int(numpy.ceil(n)),n/2,0).fn
+    #centre on 2x2 pixels
+    yoff-=0.5/bn
+    xoff-=0.5/bn
+    #xoff,yoff of 1 will move it by a pixel in the unbinned image.  So, to move by 1 pixel in the binned image, increase this by the bin factor.
+    tilt=computePhaseTilt(pup,nfft,1,xoff*bn,yoff*bn)
+    psf=util.sci.computeShortExposurePSF(tilt,pup,pad=nfft/numpy.ceil(n))
+    if bn!=1:
+        psf.shape=psf.shape[0]/bn,bn,psf.shape[1]/bn,bn
+        psf=psf.sum(3).sum(1)
+    return psf
+def computePhaseTilt(pup,nfft,binfactor,xoff=0.,yoff=0.):
+    """A phase tilt is necessary since binning with an even number...
+    This ensures the PSF is squarely spaced before binning"""
+    npup=pup.shape[0]
+    bf=binfactor
+    tmp=float(npup)/float(nfft)*2*numpy.pi#*(bf-1)
+    tmpx=tmp*xoff
+    tmpy=tmp*yoff
+    xtiltfn=((numpy.fromfunction(lambda x,y:y,(npup,npup))-float(npup)/2.+0.5)/float(npup)).astype(numpy.float32)# subap tilt fn
+    phaseTilt=(pup*(tmpx*xtiltfn+tmpy*numpy.transpose(xtiltfn))).astype(numpy.float32)
+    return phaseTilt
+
+
 def calccentroid(data):
     x=numpy.arange(data.shape[0])-data.shape[0]/2.+0.5
     s=data.sum()

@@ -109,7 +109,7 @@ class dm(base.aobase.aobase):
                 self.actCoupling=self.dmObj.getcoupling(self.idstr[0])
                 self.actSlaves=self.thisdm.getSlaving()
                 self.mirrorSurface = self.thisdm.getMirrorSurface(phsOut = 1,                                                                interpolationNthreads = self.interpolationNthreads)
-                self.dmDynamics=self.thisdm.dmDynamics#an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.75,0.9,1.]
+                self.dmDynamics=self.thisdm.dmDynamics#an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
             self.lastactmap=None#only used if dmDynamics are in use.
             self.dynamicStep=0#only used if dmDynamics are in use.
             if self.subtractTipTilt:

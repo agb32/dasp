@@ -103,8 +103,10 @@ class MultiGauss:
             res+=intensity*numpy.exp(-(xx**2)/(2*dd**2))
         return res,x
 
+
+
 class LineProfile:
-    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,xoff=0.,yoff=0.,unelong=1.,oversamplefactor=1):
+    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1):
         """profile is the Na layer strengths, at heights.
         xoff,yoff can be used to shift the spots by this many pixels.
         pxlscale is arcsec per pixel.
@@ -117,14 +119,17 @@ class LineProfile:
         launchTheta in degrees
         unelong is the unelongated width in arcsec.
         oversamplefactor is a factor by which to oversample during generation, with binning by this factor before return to the user (of size n,n)
+
+        To include a zenith angle, just change the profile heights and centralHeight (I think)
         """
+        launchTheta=-launchTheta
         self.n=n
         self.nsubx=nsubx
         self.centralHeight=centralHeight
         self.profile=profile
         self.heights=heights
-        self.xoff=xoff
-        self.yoff=yoff
+        self.xoff=0.
+        self.yoff=0.
         self.pxlscale=pxlscale
         self.telDiam=telDiam
         self.launchTheta=launchTheta*numpy.pi/180.
@@ -132,7 +137,135 @@ class LineProfile:
         self.unelong=unelong
         self.oversamplefactor=oversamplefactor
         self.no=self.n*self.oversamplefactor
-    def fn(self,i,j):
+        self.psf=util.centroid.createAiryDisc2(self.no,unelong/self.pxlscale*oversamplefactor,0,-1)
+    def generate(self,clearPadding=0):
+        """How this works:
+        Integrates along the line profile at required resolution.
+        Puts as a single line in a 2D array.
+        Convolves with a PSF.
+        Rotates to where it should be.
+
+        LGS fires up to centralHeight being directly above the telescope (ie if launchDist!=0, plume isn't vertical).
+
+        If clearPadding is set, and oversamplefactor>1, then it will zero anything around the padding area.
+
+        """
+        xlaunch=self.launchDist*numpy.cos(self.launchTheta)
+        ylaunch=self.launchDist*numpy.sin(self.launchTheta)
+        #How many pixels along the spot? Depends on rotation (launchTheta)
+        maxspotlen=int(numpy.ceil(self.no*(1+(numpy.sqrt(2)-1)*numpy.sin(self.launchTheta*2)**2)))
+        opxlscale=self.pxlscale/self.oversamplefactor
+        tmp=numpy.zeros((maxspotlen,maxspotlen),numpy.float32)
+        distFromLaunchToCentralHeight=numpy.sqrt(self.launchDist**2+self.centralHeight**2)
+        plumeangle=numpy.arctan2(self.launchDist,self.centralHeight)
+        img=numpy.zeros((self.nsubx,self.nsubx,self.no,self.no),numpy.float32)
+        #tmpimg=numpy.zeros((self.nsubx,self.nsubx,maxspotlen,maxspotlen),"f")
+        import scipy.signal
+        import scipy.ndimage
+        for y in range(self.nsubx):
+            if self.nsubx>=20:
+                print "LGS PSF: %d/%d"%(y+1,self.nsubx)
+            for x in range(self.nsubx):
+                #compute dist/angle from launch.
+                yy=(y-self.nsubx/2.+0.5)/self.nsubx*self.telDiam
+                xx=(x-self.nsubx/2.+0.5)/self.nsubx*self.telDiam
+                r=numpy.sqrt(xx*xx+yy*yy)#distance of subap to centre in m.
+                #compute distances from centre of subap:
+                distToLaunch=numpy.sqrt((xlaunch-xx)**2+(ylaunch-yy)**2)
+                distToCentralHeight=numpy.sqrt(r**2+self.centralHeight**2)
+                #Now compute the angle subtended by the beam and from centre of subap to beam.  Cosine rule:
+                psi=numpy.arccos((distToLaunch**2-distToCentralHeight**2-distFromLaunchToCentralHeight**2)/(-2*distFromLaunchToCentralHeight*distToCentralHeight))
+                #psi=numpy.arccos(((xlaunch-xx)**2+(ylaunch-yy)**2-xx**2-yy**2-self.centralHeight**2-self.launchDist**2-self.centralHeight**2)/(-2*distFromLaunchToCentralHeight*distToCentralHeight))
+                #angle of the plume within the subap.
+                subapTheta=numpy.arctan2(ylaunch-yy,xlaunch-xx)
+                subapR=r
+                #centre pixel (maxspotlen/2) is at centralHeight.
+                for i in range(maxspotlen):
+                    #starting and ending heights for this pixel (with 0 being central height)
+                    anglestart=opxlscale*(i-maxspotlen/2.)/3600.*numpy.pi/180.
+                    angleend=anglestart+(opxlscale/3600.*numpy.pi/180.)
+                    #which corresponds to these distances in m along the beam:
+                    if anglestart>0:
+                        phi=numpy.pi-psi-anglestart#180 degrees in a triangle
+                    else:
+                        #anglestart=-anglestart
+                        phi=psi+anglestart
+                    diststart=distToCentralHeight*numpy.sin(anglestart)/numpy.sin(phi)+self.centralHeight
+                    if angleend>0:
+                        phi=numpy.pi-psi-angleend
+                    else:
+                        #angleend=-angleend
+                        phi=psi+angleend
+                    distend=distToCentralHeight*numpy.sin(angleend)/numpy.sin(phi)+self.centralHeight
+                    #if i<maxspotlen/2. and distend>self.centralHeight:
+                    #    tmp[maxspotlen/2,maxspotlen-1-i]=0
+                    #    continue
+                    if diststart>distend:
+                        diststart=0#I think this can happen if beyond infinity... so just set to zero - since distend will be small in this case.
+                    #if (y==3 or y==4) and x==3:
+                    #    print "%d %d %d %g %g %g %g %g %g"%(y,x,i,anglestart,angleend,phi,psi,diststart,distend)
+                    #and which correspond to these profile heights:
+                    diststart=diststart*numpy.cos(plumeangle)
+                    distend=distend*numpy.cos(plumeangle)
+                    #Now integrate the profile between these heights to get the flux in this pixel
+                    tmp[(maxspotlen)/2,maxspotlen-1-i]=self.integrate(diststart,distend)
+                #Now convolve with the psf
+                res=scipy.signal.convolve2d(tmp,self.psf,mode="same")
+                #tmpimg[y,x]=tmp
+                #now rotate
+                rot=scipy.ndimage.interpolation.rotate(res,-subapTheta*180/numpy.pi)
+                sh=rot.shape
+                ys=(sh[0]-self.no)/2
+                xs=(sh[1]-self.no)/2
+                #and select the rotated part
+                img[y,x]=rot[ys:ys+self.no,xs:xs+self.no]
+        img=numpy.where(img<0,0,img)
+        if clearPadding and self.oversamplefactor>1:
+            s=(self.no-self.n)/2
+            e=s+self.n
+            img[:,:,:s]=0
+            img[:,:,e:]=0
+            img[:,:,:,:s]=0
+            img[:,:,:,e:]=0
+        return img#,tmpimg
+
+    def integrate(self,h1,h2):
+        """integrate the profile from h1 to h2, using trapeziums.
+        """
+        i=0
+        p=self.profile
+        h=self.heights
+        sig=0.
+        while i<h.size and h[i]<h1:
+            i+=1
+        if i==self.heights.size:
+            return 0.#h1 is above all the profile so no flux.
+        if i==0:
+            #print "Warning: no profile specified at <=%gm"%h1
+            pass
+            #assume it to be 0.
+        else:#compute profile at h1
+            i-=1
+            p1=p[i]+(p[i+1]-p[i])/(h[i+1]-h[i])*(h1-h[i])
+            #now integrate to h[i+1]
+            sig=(p1+p[i+1])/2.*(h[i+1]-h1)
+            i+=1
+        #now integrate up to h2
+        while i<h.size-1 and h[i]<h2:
+            sig+=(p[i]+p[i+1])/2.*(h[i+1]-h[i])
+            i+=1
+        #and now do final bit
+        if i==h.size-1 or i==0:
+            #print "Warning: no profile specified at >=%gm"%h2
+            pass
+        else:
+            p2=p[i-1]+(p[i]-p[i-1])/(h[i]-h[i-1])*(h2-h[i-1])
+            sig+=(p2+p[i-1])/2.*(h2-h[i-1])
+        if sig<0:
+            print "OOOps - sig %g"%sig
+        return sig
+
+    def fnOrig(self,i,j):
         """Called for pixel i,j of a given sub-aperture (for which the relevant self.... are set)."""
         y=(i-self.no/2.)+0.5-self.xoff*self.oversamplefactor
         x=(j-self.no/2.)+0.5-self.yoff*self.oversamplefactor
@@ -172,7 +305,7 @@ class LineProfile:
             strength=numpy.interp(h,self.heights,self.profile)
         return strength*scale
 
-    def generate(self):
+    def generateOrig(self):
         xlaunch=self.launchDist*numpy.cos(self.launchTheta)
         ylaunch=self.launchDist*numpy.sin(self.launchTheta)
         img=numpy.zeros((self.nsubx,self.nsubx,self.no,self.no),numpy.float32)
@@ -186,7 +319,7 @@ class LineProfile:
                 self.subapR=r
                 yyl=yy+ylaunch
                 xxl=xx+xlaunch
-                rr=numpy.sqrt(xxl*xxl+yyl*yyl)#distance of subap from launch in m.
+                rr=numpy.sqrt(xxl*xxl+yyl*yyl)#dist of subap from launch in m.
                 self.lineangle=numpy.arctan2(yyl,xxl)
                 self.subapLaunchDist=rr
                 self.thetaOffset=numpy.arctan2(self.centralHeight,self.subapLaunchDist)
@@ -194,7 +327,7 @@ class LineProfile:
                 print y,x,self.lineangle*180./numpy.pi,self.launchTheta*180/numpy.pi,r,rr,self.subapTheta*180/numpy.pi
                 for i in range(self.no):
                     for j in range(self.no):
-                        img[y,x,i,j]=self.fn(i,j)
+                        img[y,x,i,j]=self.fnOrig(i,j)
                 #img[y,x]=numpy.fromfunction(self.fn,(self.n,self.n))
         if self.oversamplefactor!=1:
             img.shape=self.nsubx,self.nsubx,self.n,self.oversamplefactor,self.n,self.oversamplefactor
@@ -203,10 +336,11 @@ class LineProfile:
     def tile(self,img=None):
         if img==None:
             img=self.generate()
-        out=numpy.zeros((self.nsubx*self.n,self.nsubx*self.n),numpy.float32)
-        n=self.n
-        for i in range(self.nsubx):
-            for j in range(self.nsubx):
+        nsubx=img.shape[0]
+        n=img.shape[2]
+        out=numpy.zeros((nsubx*n,nsubx*n),numpy.float32)
+        for i in range(nsubx):
+            for j in range(nsubx):
                 out[i*n:i*n+n,j*n:j*n+n]=img[i,j]
         return out
 
