@@ -106,14 +106,14 @@ class MultiGauss:
 
 
 class LineProfile:
-    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1):
+    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None):
         """profile is the Na layer strengths, at heights.
         xoff,yoff can be used to shift the spots by this many pixels.
-        pxlscale is arcsec per pixel.
+        pxlscale is arcsec per pixel (of the LGS psf, not the binned final images).
         centralHeight is the central height of the profile, in m.
         profile is the profile strength in TBC
         heights are the heights at which profile values are valid.
-        n is the number of pixels per sub-aperture required for this LGS correlation image.
+        n is the number of pixels per sub-aperture required for this LGS correlation image.  If ny is specified, then n is in the x direction.  Otherwise, in both.
         nsubx is the number of sub-apertures.
         launchDist in m
         launchTheta in degrees
@@ -121,9 +121,16 @@ class LineProfile:
         oversamplefactor is a factor by which to oversample during generation, with binning by this factor before return to the user (of size n,n)
 
         To include a zenith angle, just change the profile heights and centralHeight (I think)
+
+        For 1D profiles, ny can be specified.  psfsize can also be specified, and should be at least as big as ny (or n).
+        
         """
         launchTheta=-launchTheta
         self.n=n
+        if ny==None:
+            self.ny=n
+        else:
+            self.ny=ny
         self.nsubx=nsubx
         self.centralHeight=centralHeight
         self.profile=profile
@@ -137,7 +144,12 @@ class LineProfile:
         self.unelong=unelong
         self.oversamplefactor=oversamplefactor
         self.no=self.n*self.oversamplefactor
-        self.psf=util.centroid.createAiryDisc2(self.no,unelong/self.pxlscale*oversamplefactor,0,-1)
+        self.noy=self.ny*self.oversamplefactor
+        if psfsize==None:
+            self.psfsize=self.no
+        else:
+            self.psfsize=psfsize
+        self.psf=util.centroid.createAiryDisc2(self.psfsize,unelong/self.pxlscale*oversamplefactor,0,-1)
     def generate(self,clearPadding=0):
         """How this works:
         Integrates along the line profile at required resolution.
@@ -155,16 +167,15 @@ class LineProfile:
         #How many pixels along the spot? Depends on rotation (launchTheta)
         maxspotlen=int(numpy.ceil(self.no*(1+(numpy.sqrt(2)-1)*numpy.sin(self.launchTheta*2)**2)))
         opxlscale=self.pxlscale/self.oversamplefactor
-        tmp=numpy.zeros((maxspotlen,maxspotlen),numpy.float32)
+        tmp=numpy.zeros((self.psfsize,maxspotlen),numpy.float32)
         distFromLaunchToCentralHeight=numpy.sqrt(self.launchDist**2+self.centralHeight**2)
         plumeangle=numpy.arctan2(self.launchDist,self.centralHeight)
-        img=numpy.zeros((self.nsubx,self.nsubx,self.no,self.no),numpy.float32)
+        img=numpy.zeros((self.nsubx,self.nsubx,self.noy,self.no),numpy.float32)
         #tmpimg=numpy.zeros((self.nsubx,self.nsubx,maxspotlen,maxspotlen),"f")
         import scipy.signal
         import scipy.ndimage
         for y in range(self.nsubx):
-            if self.nsubx>=20:
-                print "LGS PSF: %d/%d"%(y+1,self.nsubx)
+            print "LGS PSF: %d/%d"%(y+1,self.nsubx)
             for x in range(self.nsubx):
                 #compute dist/angle from launch.
                 yy=(y-self.nsubx/2.+0.5)/self.nsubx*self.telDiam
@@ -208,23 +219,26 @@ class LineProfile:
                     diststart=diststart*numpy.cos(plumeangle)
                     distend=distend*numpy.cos(plumeangle)
                     #Now integrate the profile between these heights to get the flux in this pixel
-                    tmp[(maxspotlen)/2,maxspotlen-1-i]=self.integrate(diststart,distend)
+                    tmp[self.psfsize/2,maxspotlen-1-i]=self.integrate(diststart,distend)
                 #Now convolve with the psf
-                res=scipy.signal.convolve2d(tmp,self.psf,mode="same")
+                res=scipy.signal.fftconvolve(tmp,self.psf,mode="same")
+
                 #tmpimg[y,x]=tmp
                 #now rotate
                 rot=scipy.ndimage.interpolation.rotate(res,-subapTheta*180/numpy.pi)
                 sh=rot.shape
-                ys=(sh[0]-self.no)/2
+                ys=(sh[0]-self.noy)/2
                 xs=(sh[1]-self.no)/2
                 #and select the rotated part
-                img[y,x]=rot[ys:ys+self.no,xs:xs+self.no]
+                img[y,x]=rot[ys:ys+self.noy,xs:xs+self.no]
         img=numpy.where(img<0,0,img)
         if clearPadding and self.oversamplefactor>1:
-            s=(self.no-self.n)/2
-            e=s+self.n
+            s=(self.noy-self.ny)/2
+            e=s+self.ny
             img[:,:,:s]=0
             img[:,:,e:]=0
+            s=(self.no-self.n)/2
+            e=s+self.n
             img[:,:,:,:s]=0
             img[:,:,:,e:]=0
         return img#,tmpimg
@@ -236,6 +250,10 @@ class LineProfile:
         p=self.profile
         h=self.heights
         sig=0.
+        if h1>h[-1]:
+            return 0
+        if h2<h[0]:
+            return 0
         while i<h.size and h[i]<h1:
             i+=1
         if i==self.heights.size:

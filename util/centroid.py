@@ -345,11 +345,17 @@ class centroid:
         nsubaps = self.subflag.sum()
         return( indices, nsubaps )
 
-    def updatePsf(self,psf):
+    def updatePsf(self,psf,updateSig=None):
+        """updateSig:  if None, nothing done.  If 1, will compute it from the summed PSF.  If an array or other value will update to this.
+        """
         self.psf=psf
         self.centcmod.spotpsf=psf
         self.centcmod.update(util.centcmod.SPOTPSF,psf)
-
+        if updateSig==1:
+            sig=psf.sum(3).sum(2).astype(numpy.float32).ravel()
+            self.centcmod.update(util.centcmod.SIG,sig)
+        elif updateSig!=None:
+            self.centcmod.update(util.centcmod.SIG,updateSig)
 
     def easy(self,nthreads=2,calsource=1):
         """Prepare for single use..., eg from a python commandline.
@@ -1661,7 +1667,7 @@ def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.):
     xoff-=0.5/bn
     #xoff,yoff of 1 will move it by a pixel in the unbinned image.  So, to move by 1 pixel in the binned image, increase this by the bin factor.
     tilt=computePhaseTilt(pup,nfft,1,xoff*bn,yoff*bn)
-    psf=util.sci.computeShortExposurePSF(tilt,pup,pad=nfft/numpy.ceil(n))
+    psf=util.sci.computeShortExposurePSF(tilt,pup,pad=nfft/numpy.ceil(n)).astype(numpy.float32)
     if bn!=1:
         psf.shape=psf.shape[0]/bn,bn,psf.shape[1]/bn,bn
         psf=psf.sum(3).sum(1)
