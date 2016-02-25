@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Jul  3 14:26:50 2015
+""" Standalone SCAO simulation using DASP modules but with full control over the feedback loop.
+Essentially replicating what the util.Ctrl class does but with the ability to interact directly within
+the feedback loop, but without MPI capability and without the ability to accept commands over a socket.
+The latter implies no ability to use simctrl.py or analyse.py to interact with the simulation.
+
+Originally created on Fri Jul  3 14:26:50 2015
 
 @author: yhz, nab
 @email: n.a.bharmal@durham.ac.uk
@@ -36,6 +40,11 @@ except ImportError:
 #                              /\                            |
 #                               |____________________________|
 
+## variables
+## \/
+nLoops = 1000
+## /\
+## (end)
 
 ## ----------------------------------------------------------
 ## start of instance creation and setup
@@ -87,7 +96,11 @@ for obj in ctrl.compList:
 
 
 
-for i in range(50): # iterate 50 times to make the PMX
+nPokeIntegrations = dm.dmflag.sum()+1
+print("\t>>>\tPOKING:: Expected for {0:d} integrations".format(
+      nPokeIntegrations)
+   ) 
+for i in range(nPokeIntegrations): # iterate over all actuators to make the PMX
     for obj in ctrl.compList:
         obj.doNextIter()
 
@@ -115,6 +128,10 @@ for obj in ctrl.compList:
 ## 
 ## 
 
+print("\t>>>\tCLOSED-LOOP:: Entering for {0:d} integrations".format(
+      nLoops)
+   ) 
+
 dmShapes = []
 print("[ ",end="")
 for i in range(1000):
@@ -127,7 +144,8 @@ for i in range(1000):
     dm.doNextIter()
     if i%100==0: # every 100th iteration, save the atmosphere and DM surface
         dmShapes.append(
-                [ i, atmos.outputData.copy(), dm.mirrorSurface.phsOut.copy() ]
+                [ i, atmos.outputData.copy(), dm.mirrorSurface.phsOut.copy(),
+                  wfscent.outputData.copy() ]
             )
     
     wfscent.doNextIter()
@@ -141,6 +159,8 @@ print()
 ## 
 ## 
 
+print("\t>>>\tPLOTTING:: ".format()) 
+
 import pylab
 pylab.ioff()
 pylab.figure(1)
@@ -151,5 +171,13 @@ for i in range(10):
     #
     pylab.subplot(4,6,2*i+1+1)
     pylab.imshow( dmShapes[i][2], interpolation='nearest')
+
+pylab.figure(2)
+pylab.plot(
+      [ dmShapes[j][0] for j in range(len(dmShapes)) ],
+      [ dmShapes[j][3].var() for j in range(len(dmShapes)) ],
+   )
+pylab.xlabel("Iteration #")
+pylab.ylabel("WFS centroid variance")
     
 pylab.show()
