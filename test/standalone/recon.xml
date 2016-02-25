@@ -228,9 +228,9 @@ dmObj=dmOverview(dmInfoList,atmosGeom)
       <var name="dmModeType"
         value="poke" type="s"/>
       <var name="reconmxFilename"
-        value="'pmx.fits'" type="eval"/>
+        value="'recon_controlMatrix.fits'" type="eval"/>
       <var name="pmxFilename"
-        value="'rms.fits'" type="eval"/>
+        value="'recon_interactionMatrix.fits'" type="eval"/>
       <var name="minEig"
         value="0.05" type="f"/>
       <var name="abortAfterPoke"

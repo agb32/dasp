@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-""" Standalone SCAO simulation using DASP modules but with full control over the feedback loop.
-Essentially replicating what the util.Ctrl class does but with the ability to interact directly within
-the feedback loop, but without MPI capability and without the ability to accept commands over a socket.
-The latter implies no ability to use simctrl.py or analyse.py to interact with the simulation.
+""" SCAO simulation using DASP modules except for control of the feedback loop.
+Essentially replicating what the util.Ctrl class does but with the ability to
+interact directly within the feedback loop, but without MPI capability and
+without the ability to accept commands over a socket.
+The latter implies no ability to use simctrl.py or analyse.py to interact with
+the simulation.
 
 Originally created on Fri Jul  3 14:26:50 2015
 
@@ -74,35 +76,40 @@ recon.finalInitialisation()
 dm.newParent({"1":atmos,"2":recon,},"dma") # connect the DM to the atmosphere *and* the reconstructor
 # then screen->atmos->DM<-recon, & DM->WFS->recon
 
+   # \/ form a dummy list that permits operation similar to how DASP operates
+class ctrl(object): pass
+ctrl.compList = [scrn,atmos,dm,wfscent,recon]
 
 ## ----------------------------------------------------------
 ## Create a poke and reconstruction matrix
+## . Only if required.
 ## 
-## 
-
-class ctrl(object): pass
-
-ctrl.compList = [scrn,atmos,dm,wfscent,recon]
-
-for obj in ctrl.compList:
- if obj.control.has_key("poke"):
-  obj.control["poke"]=1
- if obj.control.has_key("science_integrate"):
-  obj.control["science_integrate"]=0
- if obj.control.has_key("zero_dm"):
-  obj.control["zero_dm"]=1
- if obj.control.has_key("cal_source"):
-  obj.control["cal_source"]=1
 
 
+if type(recon.reconmx) is numpy.ndarray:
+   print("\t(Control Matrix has been loaded, no poking to take place)")
+else:
+   nPokeIntegrations = dm.dmflag.sum()+1
+   print("\t>>>\tPOKING:: Expected for {0:d} integrations".format(
+         nPokeIntegrations)
+      ) 
 
-nPokeIntegrations = dm.dmflag.sum()+1
-print("\t>>>\tPOKING:: Expected for {0:d} integrations".format(
-      nPokeIntegrations)
-   ) 
-for i in range(nPokeIntegrations): # iterate over all actuators to make the PMX
-    for obj in ctrl.compList:
-        obj.doNextIter()
+
+   for obj in ctrl.compList:
+       if obj.control.has_key("poke"):
+           obj.control["poke"]=1
+       if obj.control.has_key("science_integrate"):
+           obj.control["science_integrate"]=0
+       if obj.control.has_key("zero_dm"):
+           obj.control["zero_dm"]=1
+       if obj.control.has_key("cal_source"):
+           obj.control["cal_source"]=1
+
+
+
+   for i in range(nPokeIntegrations): # iterate over all actuators for the PMX
+       for obj in ctrl.compList:
+           obj.doNextIter()
 
 
 ## ----------------------------------------------------------
