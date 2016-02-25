@@ -1,0 +1,3 @@
+Run python testwidefield.py params.py
+Or
+python testwidefield.py paramsSci.py

@@ -15,9 +15,16 @@ class dm(base.aobase.aobase):
         if type(parent)!=type({}):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
+        self.sendFullDM=self.config.getVal("sendFullDM",default=0)#used if connecting to wideField.py science module
+        
         if forGUISetup==1:
-            npup=self.config.getVal("npup")
-            self.outputData=[(npup,npup),numpy.float64]
+            if self.sendFullDM:
+                self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
+                dmpup=self.dmObj.calcdmpup(self.idstr[0])#number of pixels to store the phase. May be >npup if not ground conjugate.
+                self.outputData=[(dmpup,dmpup),numpy.float32]
+            else:
+                npup=self.config.getVal("npup")
+                self.outputData=[(npup,npup),numpy.float64]
         else: # set up for simulation.
             self.npup=self.config.getVal("npup")
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
@@ -53,7 +60,10 @@ class dm(base.aobase.aobase):
                 self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
                 self.yaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
                 self.xaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
-                
+            else:
+                self.interpolated=None
+                self.yaxisInterp=None
+                self.xaxisInterp=None
             #self.gamma=config.getVal("gamma")#gain for zernikes.  Can be a float or an array length nmodes.
             #There are 2 ways of getting zernikes - the original, using RWW way, which returns circular zernikes, or FA way, which allows a pupil mask to be specified (and so zernikes aren't always orthogonal)
             #self.sourceID=self.dmObj.getSourceID(self.idstr[0])
@@ -65,7 +75,10 @@ class dm(base.aobase.aobase):
 	    self.reconData=None
             #self.wavelengthRatio=self.wfslam/self.sourcelam
             self.telDiam=self.config.getVal("telDiam")
-            self.outputData=numpy.zeros((self.npup,self.npup),numpy.float64)
+            if self.sendFullDM:
+                self.outputData=self.dmphs
+            else:
+                self.outputData=numpy.zeros((self.npup,self.npup),numpy.float64)
 
             # Make Zernike fns over DM, and
             slow=0
@@ -120,6 +133,20 @@ class dm(base.aobase.aobase):
         this=base.aobase.resourceSharer(parentDict,self.config,idstr,self.moduleName)
         npup=self.npup
         self.thisObjList.append(this)
+
+        this.sourceID=self.dmObj.getSourceID(idstr)
+        this.sourceAlt=self.atmosGeom.sourceAlt(this.sourceID)
+        this.sourceLam=self.atmosGeom.sourceLambda(this.sourceID)
+        if this.sourceLam==None:
+            this.sourceLam=this.config.getVal("sourceLam")
+            print "WARNING - DM sourceLam not found in atmosGeom, using %d"%this.sourceLam
+        this.sourceTheta=self.atmosGeom.sourceTheta(this.sourceID)*numpy.pi/180/3600.
+        this.sourcePhi=self.atmosGeom.sourcePhi(this.sourceID)*numpy.pi/180
+
+        wavelengthAdjustor=self.sourceLam/this.sourceLam#this.wavelengthRat
+        
+        this.lineOfSight=util.dm.DMLineOfSight(self.dmpup,self.npup,self.conjHeight,self.dmphs,this.sourceAlt,this.sourceTheta,this.sourcePhi,self.telDiam,wavelengthAdjustor,self.xaxisInterp,self.yaxisInterp,self.interpolated,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=self.subpxlInterp,pupil=self.pupil,nthreads=self.interpolationNthreads)
+        """
         #for a source with theta and a conjugate height c, the
         #separation at this height will be c tan(theta).  As a
         #fraction of the phasescreen width, this will be c
@@ -201,7 +228,7 @@ class dm(base.aobase.aobase):
         #this.wfsLam=this.config.getVal("wfslam",default=this.sourceLam)
         #this.wavelengthRatio=this.wfsLam/this.sourceLam#wfs_lam/lam
         this.wavelengthAdjustor=self.sourceLam/this.sourceLam#this.wavelengthRatio/self.wavelengthRatio#the mirror will be shaped as for self.wavelengthRatio... if this.sourceLam is longer than self.sourceLam, radians of phase P-V will be smaller, so less change needed in wavelengthAdjustor.
-
+        """
 
     def finalInitialisation(self):
         """Just check that there aren't 2 objects with same idstr..."""
@@ -280,7 +307,17 @@ class dm(base.aobase.aobase):
                     self.update()
                     self.dataValid=1#update the output.
             if self.dataValid:
-                self.selectedDmPhs=this.selectedDmPhs
+                if self.sendFullDM:#output full surface
+                    self.outputData=self.dmphs
+                else:
+                    if this.parent.has_key("atmos"):
+                        addToOutput=1
+                    else:
+                        addToOutput=0
+                    this.lineOfSight.selectSubPupil(self.outputData,addToOutput,removePiston=1)
+                    self.selectedDmPhs=this.lineOfSight.selectedDmPhs
+
+                """
                 if self.subpxlInterp:
                     #do the interpolation...
                     if this.xoffsub==0 and this.yoffsub==0:#no interp needed
@@ -309,6 +346,7 @@ class dm(base.aobase.aobase):
                     self.outputData-=phasesum/self.pupil.sum
                     self.outputData*=self.pupil.fn
                 #self.outputData += (self.dmphs*(self.wavelengthRatio))# Calculate reflected phase
+                """
         else:
             self.dataValid=0
 
@@ -402,7 +440,7 @@ class dm(base.aobase.aobase):
         if self.sentPlotsCnt==0:
             txt+="""<plot title="zdm output%s" cmd="data=%s.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
             txt+="""<plot title="zdm mirror%s" cmd="data=-%s.dmphs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
-        txt+="""<plot title="zdm selected mirror%s" cmd="data=-%s.thisObjList[%d].selectedDmPhs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
+        txt+="""<plot title="zdm selected mirror%s" cmd="data=-%s.thisObjList[%d].lineOfSight.selectedDmPhs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
         return txt
 

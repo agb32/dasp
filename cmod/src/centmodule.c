@@ -13,7 +13,7 @@
 #include "qsort.h"
 static PyObject *CentError;
 
-#define simmalloc malloc
+//#define simmalloc malloc
 /*
   module to convert phase to centroids...
   optionally, multithreaded (for multicore processors).
@@ -44,14 +44,14 @@ static PyObject *CentError;
 #define USEBRIGHTEST 20
 typedef struct{
   int n;
-  float *corr;
+float *corr;
   void *centstr;
 } centrunstruct;
 typedef struct{
   int nthreads;
   int fftsize;
   int psfsize;//this is the size of the spot psf, or equal to clipsize otherwise
-  int fsize;//size of fftArrays allocated.
+int fsize;//size of fftArrays allocated.
   int clipsize;//size after clipping FFT... img is then created by binning this down to nimg.
   int nimg;
   int phasesize;
@@ -97,6 +97,9 @@ typedef struct{
   //dmagetstruct *phsDmaInfo;
   //dmagetstruct *pupDmaInfo;
   //dmagetstruct *psfDmaInfo;
+int hllSize;
+int fftArraySize;
+int planSize;
   float **hll;//store the high light level image
   float *phs;//store the phase
   float *pupfn;//store the pupil
@@ -225,7 +228,7 @@ int flipArray(int clipsize,float *hll,int mirror,float *tmparr){
   }else{//swap the quadrants over.
     if(clipsize%2==0){
       if(tmparr==NULL){
-	if((tmparr=simmalloc(sizeof(float)*f2))==NULL){//temporary storage allocation failed
+	if((tmparr=malloc(sizeof(float)*f2))==NULL){//temporary storage allocation failed
 	  printf("fliparray - temporary storage allocation failed, results will be wrong.\n");
 	  rtval=-1;
 	}else{
@@ -469,9 +472,9 @@ int prepareBinImage(int clipsize,  int nimg, centstruct *c){
   c->binnextpxl=NULL;
   c->binthispxl=NULL;
   if(clipsize>0){
-    thispxl=simmalloc(sizeof(float)*clipsize);
-    nextpxl=simmalloc(sizeof(float)*clipsize);
-    indx=simmalloc(sizeof(int)*clipsize);
+    thispxl=malloc(sizeof(float)*clipsize);
+    nextpxl=malloc(sizeof(float)*clipsize);
+    indx=malloc(sizeof(int)*clipsize);
     c->binthispxl=thispxl;
     c->binnextpxl=nextpxl;
     c->binindx=indx;
@@ -1422,7 +1425,7 @@ int setSpotPsf(centstruct *c,PyObject *spotpsfObj){
       c->preBinningFactor=c->preBinningFactorOrig;
       c->spotpsfDim=4;
       c->psfsize=spotpsfArr->dimensions[2];
-      printf("setSpotPsf got psfsize %d\n",c->psfsize);
+      //printf("setSpotPsf got psfsize %d\n",c->psfsize);
     }else{
       printf("Error: centmodule - spotpsf not 2d or 4d\n");
       return -1;
@@ -1461,16 +1464,42 @@ int prepareSpotPsf(centstruct *c){
   if(c->fftPsf!=NULL)
     fftwf_free(c->fftPsf);
   c->fftPsf=NULL;
+  //printf("psfsize, fsize %d %d, %p %d %d\n",c->psfsize,c->fsize,c->fftArrays,c->spotpsfDim,c->nthreads);
   if(c->psfsize>c->fsize){
     //need to reallocate fftArrays...
-    c->fsize=c->psfsize;
-    for(i=0; i<c->nthreads; i++){
-      if(c->fftArrays!=NULL){
-	if(c->fftArrays[i]!=NULL)
-	  fftwf_free(c->fftArrays[i]);
-	c->fftArrays[i]=fftwf_malloc(sizeof(complex float)*c->fsize*c->fsize);
+    c->fsize=c->fftsize>c->psfsize?c->fftsize:c->psfsize;
+    //c->fsize=c->psfsize;
+    if(c->fftArraySize!=c->fsize){
+      for(i=0; i<c->nthreads; i++){
+	if(c->fftArrays!=NULL){
+	  if(c->fftArrays[i]!=NULL)
+	    fftwf_free(c->fftArrays[i]);
+	  c->fftArrays[i]=fftwf_malloc(sizeof(complex float)*c->fsize*c->fsize);
+	  if(c->fftArrays[i]==NULL)
+	    printf("Oops - malloc failed in prepareSpotPsf - this could be catastrophic...\n");
+	}
       }
+      c->fftArraySize=c->fsize;
     }
+  }
+  if(c->hllSize!=c->paddedsize && c->hll!=NULL){
+    if(c->paddedsize<c->psfsize)
+      printf("Oops - this could be bad... in centmodule.c - paddedsize<psfsize\n");
+    for(i=0;i<c->nthreads;i++){
+      if(c->hll[i]!=NULL)
+	free(c->hll[i]);
+      c->hll[i]=fftwf_malloc(sizeof(float)*c->paddedsize*c->paddedsize);
+      if(c->hll[i]==NULL)
+	printf("Oops - malloc failed for hll - this could be catastrophic... (centmodule.c\n");
+    }
+    c->hllSize=c->paddedsize;
+  }
+  if(c->planSize!=c->psfsize){
+    fftwf_destroy_plan(c->rcfftplan);
+    fftwf_destroy_plan(c->crfftplan);
+    c->rcfftplan=fftwf_plan_dft_r2c_2d(c->psfsize,c->psfsize,c->hll[0],c->fftArrays[0],FFTW_MEASURE);
+    c->crfftplan=fftwf_plan_dft_c2r_2d(c->psfsize,c->psfsize,c->fftArrays[0],c->hll[0],FFTW_MEASURE);
+    c->planSize=c->psfsize;
   }
   if(c->spotpsfDim==2){
     c->fftPsf=fftwf_malloc(sizeof(complex float)*psfsize*(psfsize/2+1));
@@ -1592,8 +1621,10 @@ int setupThreads(centstruct *c,int nthreads){
       subapCnt+=subapsLeft/(nthreads-i);
       subapsLeft-=subapsLeft/(nthreads-i);
       c->fsize=fftsize>c->psfsize?fftsize:c->psfsize;
+      c->fftArraySize=c->fsize;
       c->fftArrays[i]=fftwf_malloc(sizeof(complex float)*c->fsize*c->fsize);
       c->hll[i]=fftwf_malloc(sizeof(float)*c->paddedsize*c->paddedsize);
+      c->hllSize=c->paddedsize;
     }
     c->subapStart[nthreads]=c->nsubaps;
     //setup random number generator...
@@ -2107,8 +2138,8 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   //fftw_execute_dft for on different arrays for thread safty.
   c->fftplan=fftwf_plan_dft_2d(fftsize,fftsize,c->fftArrays[0], c->fftArrays[0],
 			      FFTW_FORWARD,FFTW_MEASURE);//use fftw_execute_dft(fftplan,in,out) to thread exec
-  c->rcfftplan=fftwf_plan_dft_r2c_2d(c->psfsize,c->psfsize,c->hll[0],c->fftArrays[0],FFTW_MEASURE);
-  c->crfftplan=fftwf_plan_dft_c2r_2d(c->psfsize,c->psfsize,c->fftArrays[0],c->hll[0],FFTW_MEASURE);
+  //c->rcfftplan=fftwf_plan_dft_r2c_2d(c->psfsize,c->psfsize,c->hll[0],c->fftArrays[0],FFTW_MEASURE);
+  //c->crfftplan=fftwf_plan_dft_c2r_2d(c->psfsize,c->psfsize,c->fftArrays[0],c->hll[0],FFTW_MEASURE);
 
   //now perform ffts for the spot PSFs if necessary...
   if(prepareSpotPsf(c)==-1)

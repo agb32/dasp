@@ -446,7 +446,7 @@ class iscrn(base.aobase.aobase):
     def __del__(self):
         for id in self.layerList:
             this=self.thisObjDict[id]
-            if this.cmodInfo!=None:
+            if hasattr(this,"cmodInfo") and this.cmodInfo!=None:
                 cmod.iscrn.free(this.cmodInfo)
             this.cmodInfo=None
         

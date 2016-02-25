@@ -45,7 +45,7 @@ class dmInfo:
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
         concatenating label with source ID.
-        fov is the field of view for this DM, or None in which case the minimum FOV will be computed.
+        fov is the field of view for this DM, or None in which case the minimum FOV will be computed.  Should be radius, not diameter(!!!)
         coupling is the coupling between actuators (fraction), or None.
         gainAdjustment is an adjustment factor which can be multiplied by the global gain to get the gain for this DM.
         if zonalDM==1, is a zonal DM.  Otherwise, is a modal DM, with nact modes.
@@ -79,12 +79,12 @@ class dmInfo:
 
         maxStroke is given in microns, the max Peak-Valley allowed.
         stuckActs - None, or (nstuck,clumpsize,maxRadius,minRadius,seed)
-        dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.75,0.9,1.]
+        dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be  [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
         self.nact=nact
-        self.fov=fov
+        self.fov=fov#radius.  NOT diameter.
         self.coupling=coupling
         self.minarea=minarea
         self.actoffset=actoffset
@@ -798,10 +798,19 @@ class dmOverview:
                 xoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.cos(dm.primaryPhi*numpy.pi/180.)
                 yoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.sin(dm.primaryPhi*numpy.pi/180.)
                 for dmid,sourceid in dm.idlist:
+                    sfov=atmosGeom.sourceFov(sourceid)*numpy.pi/180./3600.
                     x=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
                         numpy.cos(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-xoff
+                    if x>0:
+                        x+=dm.height*numpy.tan(sfov)
+                    else:
+                        x-=dm.height*numpy.tan(sfov)
                     y=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
                         numpy.sin(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-yoff
+                    if y>0:
+                        y+=dm.height*numpy.tan(sfov)
+                    else:
+                        y-=dm.height*numpy.tan(sfov)
                     fov=numpy.arctan2(numpy.sqrt(x**2+y**2),dm.height)/numpy.pi*180*60*60
                     dm.fov=max(fov,dm.fov)
 
@@ -927,7 +936,8 @@ class dmOverview:
         fov=self.getDM(idstr).fov
         if fov==None:
             print "Taking max fov for dm %s"%idstr
-            fov=max(self.atmosGeom.sourceThetas().values())
+            #fov=max(self.atmosGeom.sourceThetas().values())
+            fov=self.atmosGeom.calcFovWidth()
         return fov
     def getcoupling(self,idstr):
         c=self.getDM(idstr).coupling
@@ -1823,8 +1833,200 @@ class MirrorSurface:
         if overwrite:
             self.phsOut[:]=res
         return res
-
 # # # # # # # # # # #  END OF CLASS MirrorSurface  # # # # # # # # # # # # # # # # # # # 
+
+
+class DMLineOfSight:
+    def __init__(self,dmpup,npup,conjHeight,dmphs,sourceAlt,sourceTheta,sourcePhi,telDiam,wavelengthAdjustor=1.,dmxaxisInterp=None,dmyaxisInterp=None,interpolated=None,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=1,pupil=None,nthreads=2):
+        """sourcetheta,sourcephi in radians.
+        dmTiltAngle in degrees.
+        
+        dmphs is the full DM phase, of size dmpup x dmpup.
+
+        """
+        self.dmpup=dmpup# size of the dm surface
+        self.npup=npup# size of the pupil
+        #if interpolated==None:
+        #    interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+        #print "dmpup,npup=%d, %d"%(dmpup,npup)
+        self.interpolated=interpolated
+        self.telDiam=telDiam
+        self.xoff=(self.dmpup-self.npup)/2
+        self.yoff=(self.dmpup-self.npup)/2#ground conjugated.
+        self.xoffend=self.xoff+npup
+        self.yoffend=self.xoff+npup
+        self.xaxisInterp=None
+        self.dmxaxisInterp=dmxaxisInterp
+        self.dmyaxisInterp=dmyaxisInterp
+        self.wavelengthAdjustor=wavelengthAdjustor
+        self.dmphs=dmphs
+        self.pupil=pupil
+        self.conjHeight=conjHeight
+        self.dmTiltAngle=dmTiltAngle
+        self.dmTiltTheta=dmTiltTheta
+        self.sourceAlt=sourceAlt
+        self.alignmentOffset=alignmentOffset
+        self.subpxlInterp=subpxlInterp
+        self.nthreads=nthreads
+        self.sourceTheta=sourceTheta
+        self.sourcePhi=sourcePhi
+        self.xoffsub=0
+        self.yoffsub=0
+        if sourceTheta>=1:
+            raise Exception("Really?  more than 1 radian off axis? (util.dm.DMLineOfSight)")
+        if self.conjHeight!=0 or self.dmTiltAngle!=0:
+            if self.sourceAlt>0 and self.subpxlInterp==0:
+                raise Exception("xinterp_dm - finite altitude source specified but subpxlInterp==0.")
+            r=self.conjHeight*numpy.tan(self.sourceTheta)/self.telDiam*self.npup
+            self.xoff+=self.alignmentOffset[0]
+            self.xoffend+=self.alignmentOffset[0]
+            self.yoff+=self.alignmentOffset[1]
+            self.yoffend+=self.alignmentOffset[1]
+            if self.subpxlInterp:
+                if self.sourceAlt>0:
+                    if self.sourceAlt<self.conjHeight:
+                        #source is below mirror height...???
+                        #I think this just means that we need to flip the mirror actuators...
+                        print "Warning - you have a DM conjugated above a source height - is this what you expect? (actuators will be reversed!)"
+                        #Compute factors for a tilted DM...
+                    xfact=numpy.cos(self.dmTiltTheta*numpy.pi/180.)*(1/numpy.cos(self.dmTiltAngle*numpy.pi/180.)-1)+1
+                    yfact=numpy.sin(self.dmTiltTheta*numpy.pi/180.)*(1/numpy.cos(self.dmTiltAngle*numpy.pi/180.)-1)+1
+
+                    x=r*numpy.cos(self.sourcePhi)
+                    y=r*numpy.sin(self.sourcePhi)
+                    #xoff+x would be the starting point if source at infinity.
+                    #xoff+x+npup would be the ending point.
+                    #If a tilted mirror, xoff+x-(npup*xfact-npup)/2 would be starting point.
+                    #So, I need to reduce this by a factor of (alt-conj)/alt
+                    npxl=self.npup*(self.sourceAlt-self.conjHeight)/self.sourceAlt
+                    #if npxl <0, means have to flip the mirror...
+                    self.xoff=(self.xoff+x)+(npup-numpy.fabs(npxl*xfact))/2.
+                    self.yoff=(self.yoff+y)+(npup-numpy.fabs(npxl*yfact))/2.
+                    self.xoffsub=self.xoff%1
+                    self.yoffsub=self.yoff%1
+                    tol=1e-10#allow for floating point inprecision 
+                    self.xoffend=int(numpy.ceil(self.xoff+numpy.fabs(npxl)*xfact-tol))#oversize by 1pxl
+                    self.yoffend=int(numpy.ceil(self.yoff+numpy.fabs(npxl)*yfact-tol))#unless exact fit
+                    self.xoff=int(self.xoff+tol)
+                    self.yoff=int(self.yoff+tol)
+                    if npxl>0:#source above DM conjugate...
+                        self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*(npxl-1.)/(self.npup-1.)*xfact+self.xoffsub
+                        self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*(npxl-1.)/(self.npup-1.)*yfact+self.yoffsub
+                    else:#need to flip since will see mirror in reverse (I think)
+                        self.xaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)*(numpy.fabs(npxl)-1.)/(self.npup-1.)*xfact+self.xoffsub
+                        self.yaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)*(numpy.fabs(npxl)-1.)/(self.npup-1.)*yfact+self.yoffsub
+                else:#source at infinity.
+                    self.xoff+=r*numpy.cos(self.sourcePhi)
+                    self.yoff+=r*numpy.sin(self.sourcePhi)
+                    if self.dmTiltAngle==0:
+                        self.xoffsub=self.xoff%1
+                        self.yoffsub=self.yoff%1
+                        self.xoff=int(self.xoff)
+                        self.yoff=int(self.yoff)
+                        ax=ay=1
+                        if self.yoffsub==0:
+                            ay=0
+                        if self.xoffsub==0:
+                            ax=0
+                        self.yoffend=self.yoff+self.npup+ay#oversize by 1 pupil unless exact fit.
+                        self.xoffend=self.xoff+self.npup+ax
+                        self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.xoffsub
+                        self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.yoffsub
+                    else:#DM is tilted... this will change effective actuator spacing, and hence the part of the DM that we interpolate...
+                        #Instead of seeing N actuators, you will see nN actuators where n>1, ie an increased number of actuators.
+                        #The increased effective size is oldsize/cos(theta), ie this is the number of actuators that will be seen
+                        #So the additional number is oldsize(1/cos(theta)-1)
+                        #So, nact*((1/cos(theta)-1)*cosorsin(theta)+1) is the new number of actuators...
+                        xfact=numpy.cos(self.dmTiltTheta*numpy.pi/180.)*(1/numpy.cos(self.dmTiltAngle*numpy.pi/180.)-1)+1
+                        yfact=numpy.sin(self.dmTiltTheta*numpy.pi/180.)*(1/numpy.cos(self.dmTiltAngle*numpy.pi/180.)-1)+1
+                        #shift the start backwards.
+                        self.xoff-=(npup*xfact-npup)/2.
+                        self.xoffsub=self.xoff%1
+                        self.xoffend=int(numpy.ceil(self.xoff+self.npup*xfact))
+                        self.xoff=int(self.xoff)
+                        self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*xfact+self.xoffsub
+                        self.yoff-=(npup*yfact-npup)/2.
+                        self.yoffsub=self.yoff%1
+                        self.yoff=int(self.yoff)
+                        self.yoffend=self.yoff+int(numpy.ceil(self.yoffsub+self.npup*yfact))
+                        self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*yfact+self.yoffsub
+
+                #Need to check that self.xaxisInterp is big enough...
+                if self.dmyaxisInterp==None or self.dmyaxisInterp.shape[0]<(self.yoffend-self.yoff):
+                    size=max(self.npup+1,self.yoffend-self.yoff)
+                    if self.dmyaxisInterp!=None:
+                        print "Increasing dmyaxisInterp"
+                    self.dmyaxisInterp=numpy.arange(size).astype(numpy.float64)
+                if self.dmxaxisInterp==None or self.dmxaxisInterp.shape[0]<(self.xoffend-self.xoff):
+                    size=max(self.npup+1,self.xoffend-self.xoff)
+                    if self.dmxaxisInterp!=None:
+                        print "Increasing dmxaxisInterp"
+                    self.dmxaxisInterp=numpy.arange(size).astype(numpy.float64)
+            else:#not doing sub pixel interpolation
+                if self.dmTiltTheta!=0:
+                    raise Exception("not doing subpixel interpolation but tilt specified for DM")
+                self.xoff+=int(r*numpy.cos(self.sourcePhi)+0.5)#round
+                self.yoff+=int(r*numpy.sin(self.sourcePhi)+0.5)#correctly
+                self.xoffend=self.xoff+self.npup
+                self.yoffend=self.yoff+self.npup
+        if self.xaxisInterp==None:#ground conjugated...
+            if self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
+                self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.alignmentOffset[0]
+                self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.alignmentOffset[1]
+            #but don't bother with any interpolation here...
+        # select the correct part of the dm phs.
+        if self.xoff<0 or self.yoff<0 or self.xoffend>self.dmpup or self.yoffend>self.dmpup:
+            raise Exception("DM pupil not large enough to hold all the conjugated sources... %d %d %d %d %d"%(self.xoff,self.yoff,self.xoffend,self.yoffend,self.dmpup))
+
+        #print self.yoff,self.yoffend,self.xoff,self.xoffend,self.dmphs.shape
+        self.selectedDmPhs=self.dmphs[self.yoff:self.yoffend,self.xoff:self.xoffend]
+
+
+
+    def selectSubPupil(self,outputData,addToOutput=0,removePiston=1):
+        """It the DM isn't ground conjugate, or requires a shift, then not all of the DM surface will be seen by the line of sight.  Here, we select the relevant part.
+
+        OutputData can already contain phase (eg from atmos)
+        
+        """
+        out=self.selectedDmPhs
+        if self.subpxlInterp:
+            if self.xoffsub==0 and self.yoffsub==0:#no interp needed
+                pass
+            else:
+                if self.interpolated==None:
+                    print "util.dm: selectSubPupil Creating scratch array"
+                    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+                gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
+                out=self.interpolated
+        elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
+            #ground conjugate or not interplating - but we want to offset anyway.
+            if self.interpolated==None:
+                print "util.dm: selectSubPupil Creating scratch array"
+                self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+
+            gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
+            out=self.interpolated
+        #print self.selectedDmPhs.std()
+        if self.wavelengthAdjustor==1:
+            if addToOutput:#i.e. the atmosdata is already in output
+                outputData+=out
+            else:
+                outputData[:]=out
+        else:
+            if addToOutput:#i.e. the atmosdata is already in output
+                outputData+=out*self.wavelengthAdjustor
+            else:
+                outputData[:]=out*self.wavelengthAdjustor
+        if self.pupil!=None:
+            outputData*=self.pupil.fn
+            if removePiston:
+                #remove piston - though probably not necessary
+                phasesum=outputData.sum()
+                outputData-=phasesum/self.pupil.sum
+                outputData*=self.pupil.fn
+
+
 
 # # The functions below are not used anywhere in the aosim:  # # # # # # # # # # # # # # 
 

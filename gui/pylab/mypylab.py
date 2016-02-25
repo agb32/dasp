@@ -57,6 +57,7 @@ class myToolbar:
         else:
             self.replot=self.dummyreplot
         self.autoscale=1
+        self.aspect=0
         self.freeze=0
         self.logx=0
         self.mangleTxt=""
@@ -68,6 +69,10 @@ class myToolbar:
         self.freezebutton.set_active(self.freeze)
         self.freezebutton.connect("toggled",self.togglefreeze,None)
         self.tooltips.set_tip(self.freezebutton,"freeze display")
+        self.aspectbutton=gtk.CheckButton("Aspect")
+        self.aspectbutton.set_active(self.aspect)
+        self.aspectbutton.connect("toggled",self.toggleaspect,None)
+        self.tooltips.set_tip(self.aspectbutton,"aspect ratio of 2d plots")
         self.autobutton=gtk.CheckButton("Scaling")
         self.autobutton.set_active(self.autoscale)
         self.autobutton.connect("toggled",self.toggleAuto,None)
@@ -91,6 +96,7 @@ class myToolbar:
         self.dataMangleEntry.connect("activate",self.dataMangle,None)
         self.tooltips.set_tip(self.dataMangleEntry,"Formatting to perform on data prior to plotting, e.g. data=numpy.log(data) (this gets exec'd)")
         self.hbox.pack_start(self.freezebutton)
+        self.hbox.pack_start(self.aspectbutton)
         self.hbox.pack_start(self.autobutton)
         self.hbox.pack_start(self.scaleMinEntry)
         self.hbox.pack_start(self.scaleMaxEntry)
@@ -121,6 +127,10 @@ class myToolbar:
         self.freeze=self.freezebutton.get_active()
         if not self.freeze:
             self.replot()
+    def toggleaspect(self,w,data=None):
+        self.aspect=self.aspectbutton.get_active()
+        self.replot()
+
     def togglelogx(self,w,data=None):
         self.logx=self.logxbutton.get_active()
         self.replot()
@@ -163,7 +173,7 @@ class myToolbar:
                 data=numpy.where(data<self.scale[0],self.scale[0],data)
                 data=numpy.where(data>self.scale[1],self.scale[1],data)
         self.data=data
-        return self.freeze,self.logx,data,self.scale
+        return self.freeze,self.logx,data,self.scale,self.aspect
 ##     def mysave(self,toolbar=None,button=None,c=None):
 ##         print "mypylabsave"
 ##         print a,b,c
@@ -267,7 +277,7 @@ class plot:
                     self.ax.yaxis.callbacks.callbacks=dict([(s,dict()) for s in self.ax.yaxis.callbacks.signals])#needed to fix a bug!
             
             self.ax.clear()
-            freeze,logscale,data,scale=self.mytoolbar.prepare(self.data,dim=self.dims)
+            freeze,logscale,data,scale,aspect=self.mytoolbar.prepare(self.data,dim=self.dims)
             if len(data.shape)==1 or self.dims==1:
                 #1D
                 if len(data.shape)==1:
@@ -311,7 +321,7 @@ class plot:
                     data=numpy.reshape(data,(reduce(lambda x,y:x*y,data.shape[:-1]),data.shape[-1]))
                 #freeze,logscale,data,scale=self.mytoolbar.prepare(self.data)
                 if freeze==0:
-                    self.ax.imshow(data,interpolation=self.interpolation,cmap=self.cmap,vmin=scale[0],vmax=scale[1],origin="lower")
+                    self.ax.imshow(data,interpolation=self.interpolation,cmap=self.cmap,vmin=scale[0],vmax=scale[1],origin="lower",aspect=("auto" if aspect else "equal"))
             if freeze==0:
                 try:
                     self.ax.draw()

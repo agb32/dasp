@@ -1,0 +1,119 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="agb"/>
+<created date="120705"/>
+<comment>
+</comment>
+<module name="globals">
+<variables>
+<var comment="time step" type="eval" name="tstep" value="1./250"/>
+<var name="wfs_sig" type="f" value="1e6"/>
+<var name="npup" type="eval" value="80"/>
+<var type="eval" name="telDiam" value="4.2"/>
+
+
+<var type="copy" name="ntel" value="npup"/>
+<var name="wfs_nsubx" type="i" value="10"/>
+<var name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
+<var name="ngsLam" type="f" value="640"/>
+<var name="nlayer" type="i" value="3" comment="only used in param
+					       file"/>
+
+<var name="nFieldX" type="i" value="6"/>
+<var name="widefieldImageBoundary" type="i" value="4" comment="The
+  extra rows/cols added to the psf. This will ideally depend on pixel
+  scale and seeing - i.e. should be equal to likely maximum spot motion"/>
+<var name="widefieldImage" type="code">
+#shape should be
+#(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
+import util.FITS
+data=util.FITS.Read("granules.fits")[1][67:-67,67:-67]
+
+from scipy.ndimage import interpolation
+b=widefieldImageBoundary
+fftsize=wfs_n*2
+n=fftsize*(nFieldX+1.)/2
+#For a different image per subap use this one:
+#data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
+#For identical image per subap, use this one:
+data=data[:300,:300]
+data=interpolation.zoom(data,(n+2*b)/data.shape[0])
+widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
+for i in range(wfs_nsubx):
+ for j in range(wfs_nsubx):
+#  widefieldImage[i,j]=data[i*n:i*n+n+2*b,j*n:j*n+n+2*b]#use this for a different image per sub-aperture
+  widefieldImage[i,j]=data # use this for same image per subap.
+</var>
+
+<var name="strList" type="eval" value="[0.5,0.3,0.2]"/>
+<var name="hList" type="eval" value="[0.,4000.,10000.]"/>
+<var name="vList" type="eval" value="[4.55,  12.61,  8.73]"/>
+<var name="dirList" type="eval" value="numpy.arange(10)*36"/>
+<var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
+<var comment="Telescope pupil function" type="code" name="pupil">
+import util.tel
+spider=None
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
+</var>
+
+<var name="layerList" type="eval" value="{'L0-2':['L0','L1','L2']}"/>
+<var name="sendFullDM" type="i" value="1" comment="Must be selected for widefield modules"/>
+<var name="wfsOverview" type="code">
+import util.guideStar
+wfsOverview=util.guideStar.wfsOverview({"a":util.guideStar.NGS("a",wfs_nsubx,0.,0.,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=60.,pupil=pupil,spotpsf=numpy.ones((wfs_nsubx,wfs_nsubx,npup/wfs_nsubx*4,npup/wfs_nsubx*4),numpy.float32))})
+</var>
+
+<var name="atmosGeom" type="code">
+from util.atmos import geom,layer,source
+import util.compare
+d={}
+for i in range(nlayer):
+ d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+
+r0=0.106
+l0=5.
+sourceList=[]
+
+sourceList.append(wfsOverview.getWfsByID("a"))
+
+atmosGeom=geom(d,sourceList,
+	       ntel,npup,telDiam,r0,l0
+	      )
+</var>
+<var name="dmOverview" type="code">
+from util.dm import dmOverview,dmInfo
+dmInfoList=[dmInfo('dm',['a'],10000.,wfs_nsubx+1,fov=60.,minarea=0.1,actuatorsFrom="recon",                   pokeSpacing=None,maxActDist=1.5,decayFactor=0.95)]
+dmOverview=dmOverview(dmInfoList,atmosGeom)
+
+</var>
+
+<var comment="Simulation exposure time in seconds" type="f" name="AOExpTime" value="40."/>
+<var comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
+<var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
+<var name="calsource" type="i" value="0"/>
+<var name="timing" type="i" value="0"/>
+<var name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_read_sigma" value="0." type="f" comment="WFS Read noise (e-)"/>
+</variables>
+</module>
+
+
+
+<module name="iscrn">
+<variables>
+<var type="string" name="dataType" value="d"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
+</variables>
+</module>
+
+
+
+
+<module name="wfscent" comment="Default for LGS">
+<variables>
+<var name="imageOnly" type="i" value="1"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+
+</aosim>

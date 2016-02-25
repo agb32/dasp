@@ -752,6 +752,7 @@ void *rswsiWorkerNoGrad(void *threaddata){
   return NULL;
 }
 
+//#define CHECKBOUNDS
 void *rswsiWorkerNoGradLarge(void *threaddata){
   //Version without using precomputed gradients.  Slower (but doesn't need the precoputed gradients so saves memory).
   //Also assumes the phase screen is large enough that it won't reach the edge of it... (so doesn't check, thus speeding up computation times).

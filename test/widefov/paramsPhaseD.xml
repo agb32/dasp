@@ -1,0 +1,164 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="agb"/>
+<created date="160218"/>
+<comment>
+Hopefully will (when finished) give a spot pattern with pixel scales
+correct for phase D of CANARY.
+
+Thoughts.  With nfield=6, final image is 3.5x larger than the
+individual SHS image size.  (6+1.)/2.  So, if I aim for 42, which can
+then get put into 30x30 by predarc.py (allowing overlapping subaps),
+then I'm looking for lgs_nimg=12.  The pixel scale of these pixels
+should be about 0.6"/pxl.  
+clipsize has to be equal to nfft.
+So, how about lgs_n=36, nfft=72, clipsize=72, nimg=12.
+
+But with nfield=3, final image is 2x larger.  So if I aim for 40, need
+nimg=20, nfft=120, lgs_n=60
+
+If nfield=4, final image is 2.5x larger.  nimg=16, nfft=96, n=48
+
+And if I want nfield=4 with total size of 30 (so no overlapping subaps), nimg=12,
+nfft=72, n=36
+
+</comment>
+<module name="globals">
+<variables>
+<var comment="time step" type="eval" name="tstep" value="1./150"/>
+<var name="wfs_sig" type="f" value="1e6"/>
+<var name="npup" type="eval" value="224"/>
+<var type="eval" name="telDiam" value="4.2"/>
+
+
+<var type="copy" name="ntel" value="npup"/>
+<var name="lgs_nsubx" type="i" value="7"/>
+<var name="lgs_n" type="eval" value="36"/>
+<var name="lgs_nfft" type="eval" value="lgs_n*2"/>
+<var name="lgs_clipsize" type="eval" value="lgs_nfft" comment="for wideField.py, this must equal lgs_nfft"/>
+<var name="lgs_nimg" type="eval" value="12"/>
+<var name="lgs_ncen" type="eval" value="lgs_nimg"/>
+<var name="npupLGS" type="eval" value="lgs_nsubx*lgs_n"/>
+<var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
+<var name="pupilLGS" type="code">
+import util.tel
+pupilLGS=util.tel.Pupil(npupLGS,npupLGS/2,npupLGS/2.*telSec/telDiam)
+</var>
+<var name="lgsLam" type="f" value="589."/>
+<var name="nlayer" type="i" value="3" comment="only used in param
+					       file"/>
+
+<var name="lgsPsfpxlscale" type="code">
+import util.calcPxlScale
+lgsPsfpxlscale=util.calcPxlScale.pxlScale(lgsLam,telDiam/lgs_nsubx,lgs_n,lgs_nfft,1)#*(n+2.*b)/lgs_nfft#bin factor of 1
+
+</var>
+<var name="studySubap" type="eval" value="(1,1)"/>
+<var name="nFieldX" type="i" value="4"/>
+<var name="widefieldImageBoundary" type="i" value="0" comment="The
+  extra rows/cols added to the psf. This will ideally depend on pixel
+  scale and seeing - i.e. should be equal to likely maximum spot motion"/>
+<var name="widefieldImage" type="code">
+#shape should be
+#(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
+import util.elong
+import util.calcPxlScale
+import os
+import util.FITS
+b=widefieldImageBoundary
+fftsize=lgs_nfft
+n=fftsize*(nFieldX+1.)/2
+widefieldImage=None
+if os.path.exists("lgspsf.fits"):
+ print "Reading widefield image lgspsf.fits"
+ widefieldImage=util.FITS.Read("lgspsf.fits")[1]
+ if widefieldImage.shape!=(lgs_nsubx,lgs_nsubx,n+2*b,n+2*b):
+  print "lgspsf.fits wrong shape - will generate new"
+  widefieldImage=None
+if widefieldImage==None:
+ heights=numpy.arange(200)*100+80000
+ profile=(numpy.cos((heights-80000)/20000.*8*numpy.pi)+2)*(numpy.exp(-(heights-95000)**2/2000.**2)+0.3*numpy.exp(-(heights-85000)**2/3000.**2))+numpy.sin(numpy.arange(200)/199.*numpy.pi)
+ profile=profile[::-1]
+
+ launchDist=40.
+ launchTheta=20.
+ l=util.elong.LineProfile(n+2*b,lgs_nsubx,90000.,profile,heights,lgsPsfpxlscale,telDiam,launchDist,launchTheta,unelong=1.)
+
+ widefieldImage=l.generate(1)
+ print "Writing lgspsf.fits"
+ util.FITS.Write(widefieldImage,"lgspsf.fits")
+</var>
+
+<var name="strList" type="eval" value="[0.5,0.3,0.2]"/>
+<var name="hList" type="eval" value="[0.,4000.,10000.]"/>
+<var name="vList" type="eval" value="[4.55,  12.61,  8.73]"/>
+<var name="dirList" type="eval" value="numpy.arange(10)*36"/>
+<var comment="Telescope pupil function" type="code" name="pupil">
+import util.tel
+spider=None
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
+</var>
+
+<var name="layerList" type="eval" value="{'L0-2':['L0','L1','L2']}"/>
+<var name="sendFullDM" type="i" value="1" comment="Must be selected for widefield modules"/>
+<var name="wfsOverview" type="code">
+import util.guideStar
+print "WFS FoV: %g"%(lgsPsfpxlscale*nFieldX/2.)
+wfsOverview=util.guideStar.wfsOverview({"a":util.guideStar.LGS("a",lgs_nsubx,0.,0.,90000.,lgs_n,sig=wfs_sig,sourcelam=lgsLam,fov=lgsPsfpxlscale*lgs_nfft*(nFieldX-1.)/2.,pupil=pupilLGS,spotpsf=numpy.ones((lgs_nsubx,lgs_nsubx,lgs_n*4,lgs_n*4),numpy.float32),addPoisson=1,readoutNoise=0.1,nfft=lgs_nfft,clipsize=lgs_clipsize,ncen=lgs_ncen,nimg=lgs_nimg,launchDist=40.,launchTheta=20.)})
+</var>
+
+<var name="atmosGeom" type="code">
+from util.atmos import geom,layer,source
+import util.compare
+d={}
+for i in range(nlayer):
+ d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+
+r0=0.12
+l0=10.
+sourceList=[]
+
+sourceList.append(wfsOverview.getWfsByID("a"))
+
+atmosGeom=geom(d,sourceList,
+	       ntel,npup,telDiam,r0,l0
+	      )
+</var>
+<var name="dmOverview" type="code">
+from util.dm import dmOverview,dmInfo
+dmInfoList=[dmInfo('dm',['a'],10000.,lgs_nsubx+1,fov=lgsPsfpxlscale*lgs_nfft*(nFieldX-1.)/2.,minarea=0.1,actuatorsFrom="recon",pokeSpacing=None,maxActDist=1.5,decayFactor=0.95)]
+print "DM fov given as %g"%(lgsPsfpxlscale*lgs_nfft*(nFieldX-1.)/2.)
+dmOverview=dmOverview(dmInfoList,atmosGeom)
+
+</var>
+
+<var comment="Simulation exposure time in seconds" type="f" name="AOExpTime" value="40."/>
+<var comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
+<var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
+<var name="calsource" type="i" value="0"/>
+<var name="timing" type="i" value="0"/>
+<var name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_read_sigma" value="0." type="f" comment="WFS Read noise (e-)"/>
+</variables>
+</module>
+
+
+
+<module name="iscrn">
+<variables>
+<var type="string" name="dataType" value="d"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
+</variables>
+</module>
+
+
+
+
+<module name="wfscent" comment="Default for LGS">
+<variables>
+<var name="imageOnly" type="i" value="1"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+
+</aosim>

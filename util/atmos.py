@@ -45,14 +45,14 @@ class source(object):
     phslam is the wavelength at which the received phase is at.  Defaults to the same as sourcelam, but can be different.
     lam in nm.
     sig, if not None, is the photons/subap(or image)/frame
-    fov is the field of view of this source.  Used for extended sources.  In arcsec.
+    fov is the field of view of this source.  Used for extended sources.  In arcsec.  The radius, NOT diameter.
     """
     def __init__(self,idstr,theta,phi,alt,nsubx=None,sourcelam=None,reconList=None,phslam=None,sig=None,launchDist=None,launchTheta=None,fov=0.):
         self.idstr=idstr#id string
         self.theta=theta#arcsec
         self.phi=phi#degrees
         self.alt=alt#-1 or lgs alt
-        self.fov=fov
+        self.fov=fov#radius in arcsec (not diameter)
         if nsubx!=None:
             print "DEPRECIATION WARNING: nsubx specified in atmos.source.  Please use guideStar.LGS or .NGS instead"
         self.nsubx=nsubx#None or the number of subaps.
@@ -147,6 +147,16 @@ class geom:
         self.telDiam=telDiam
         self.scrnSize=None
         self.layerOffset=None
+
+    def calcFovWidth(self):
+        """Computes the width required to encompass all sources, including their fields of view.  This is called from util/dm.py."""
+        mx=0
+        for key in self.sourceDict.keys():
+            f=self.sourceTheta(key)+self.sourceFov(key)
+            if f>mx:
+                mx=f
+        return mx
+
     def getSource(self,id,raiseerror=0):
         if self.sourceDict.has_key(id):
             return self.sourceDict[id]
@@ -217,6 +227,7 @@ class geom:
     def getLayerWidth(self,height):
         """computes layer width at a given height...
         NOT USED ANYWHERE - AND NOT RECOMMENDED IF ZENITH!=0
+        May also be inconsistent with fov.
         """
         if self.zenith!=0:
             print "WARNING util.atmos.getLayerWidth - do not use if zenith!=0"
@@ -244,11 +255,21 @@ class geom:
                 wd=self.layerWind(altkey)
                 rotangle=(wd-0)*numpy.pi/180.#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.
             for key in self.sourceDict.keys():
-                #xposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.cos(self.sourcePhi(key)*degrad)))
-                #yposlist.append(layerAlt*Numeric.fabs(Numeric.tan(self.sourceTheta(key)*arcsecrad)*Numeric.sin(self.sourcePhi(key)*degrad)))
-                #The sqrt(2) on fov is because the fov could be sampled square...  and the /2 is because fov is the total fov.
-                xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)/2.*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
-                yposlist.append(layerAlt*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)/2.*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
+                x=layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle)
+                y=layerAlt*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle)
+                xfov=layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan(self.sourceFov(key)*arcsecrad)
+                yfov=layerAlt*numpy.tan(self.sourceFov(key)*arcsecrad)
+                xposlist.append(x+xfov)
+                xposlist.append(x-xfov)
+                yposlist.append(y+yfov)
+                yposlist.append(y-yfov)
+                #The sqrt(2) on fov is because the fov could be sampled square. 
+                #xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
+                #yposlist.append(layerAlt*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
+                #if self.sourceFov(key)!=0:
+                #    xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key)-self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
+                #    yposlist.append(layerAlt*numpy.tan((self.sourceTheta(key)-self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
+
             maxx=max(xposlist)
             minx=min(xposlist)
             maxy=max(yposlist)
@@ -296,8 +317,22 @@ class geom:
                 rotangle=(wd-0)*numpy.pi/180.+numpy.pi#Add 90 because they are generated going upwards, but in simulation, we define 0 to be wind travelling from right to left.  Also need to add 180 degrees (pi), because found that the coordinates were wrong.  
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             for sourceKey in self.sourceDict.keys():
-                xpos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)/2.*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
-                ypos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)/2.*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
+                x=numpy.tan((self.sourceTheta(sourceKey))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.
+                y=numpy.tan((self.sourceTheta(sourceKey))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.
+                xfov=numpy.tan((self.sourceFov(sourceKey))*arcsecrad)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel
+                yfov=numpy.tan((self.sourceFov(sourceKey))*arcsecrad)*self.layerHeight(altKey)/telDiam*ntel
+
+                xpos.append(x+xfov)
+                xpos.append(x-xfov)
+                ypos.append(y+yfov)
+                ypos.append(y-yfov)
+ 
+                #xpos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
+                #ypos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
+                #if self.sourceFov(sourceKey)!=0:
+                #    xpos.append(numpy.tan((self.sourceTheta(sourceKey)-self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
+                #    ypos.append(numpy.tan((self.sourceTheta(sourceKey)-self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
+
             minx=min(xpos)
             miny=min(ypos)
             #print "minx,miny %g %g"%(minx,miny)
@@ -920,7 +955,7 @@ class iatmos:
         self.sourceLam=sourceLam
         self.sourceTheta=sourceTheta
         self.sourcePhi=sourcePhi
-        self.fov=fov#the field of view (usually 0, except when using wideField.py)
+        self.fov=fov#the field of view (usually 0, except when using wideField.py)  The radius.  In arcsec.
         self.intrinsicPhase=intrinsicPhase#added to the output each iteration
         self.layerList=layerList
         if self.layerList==None:

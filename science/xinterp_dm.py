@@ -26,9 +26,15 @@ class dm(base.aobase.aobase):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.datatype=self.config.getVal("xinterpdmDataType",default=numpy.float32)
+        self.sendFullDM=self.config.getVal("sendFullDM",default=0)#used if connecting to wideField.py science module
         if forGUISetup==1:
-            npup=self.config.getVal("npup")
-            self.outputData=[(npup,npup),self.datatype]
+            if self.sendFullDM:
+                self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
+                dmpup=self.dmObj.calcdmpup(self.idstr[0])
+                self.outputData=[(dmpup,dmpup),"f"]
+            else:
+                npup=self.config.getVal("npup")
+                self.outputData=[(npup,npup),self.datatype]
         else: # set up for simulation.
             self.control={"dm_update":1,"zoffset":None,"phaseCovariance":0}#,"zpoke":numpy.zeros((self.nact*self.nact,),self.datatype)}#,"poke":0}
             
@@ -109,7 +115,7 @@ class dm(base.aobase.aobase):
                 self.actCoupling=self.dmObj.getcoupling(self.idstr[0])
                 self.actSlaves=self.thisdm.getSlaving()
                 self.mirrorSurface = self.thisdm.getMirrorSurface(phsOut = 1,                                                                interpolationNthreads = self.interpolationNthreads)
-                self.dmDynamics=self.thisdm.dmDynamics#an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.75,0.9,1.]
+                self.dmDynamics=self.thisdm.dmDynamics#an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
             self.lastactmap=None#only used if dmDynamics are in use.
             self.dynamicStep=0#only used if dmDynamics are in use.
             if self.subtractTipTilt:
@@ -122,6 +128,10 @@ class dm(base.aobase.aobase):
                 self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
                 self.yaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)#Must be float 64 because of gsl restriction (spline functions require it)
                 self.xaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
+            else:
+                self.yaxisInterp=None
+                self.xaxisInterp=None
+                self.interpolated=None
             self.actmap=numpy.zeros((self.nact,self.nact),self.datatype)
             #self.nsubx=n =self.config.getVal("wfs_nsubx")
             #self.wfsn=self.config.getVal("wfs_n")
@@ -142,7 +152,10 @@ class dm(base.aobase.aobase):
             #self.dmdata=numpy.sum(self.dmflag_1d) # Number of used actuators
             self.dmindices=numpy.nonzero(self.dmflag.ravel())[0]
             self.telDiam=self.config.getVal("telDiam")
-            self.outputData=numpy.zeros((self.npup,self.npup),self.datatype)
+            if self.sendFullDM:
+                self.outputData=self.dmphs
+            else:
+                self.outputData=numpy.zeros((self.npup,self.npup),self.datatype)
             self.lowOrderModeDict={}#dict containing low order modes which can be subtracted from the atmos phase.
             self.lowOrderModeNormDict={}
             for i in xrange(len(self.idstr)):
@@ -155,14 +168,30 @@ class dm(base.aobase.aobase):
         this=base.aobase.resourceSharer(parentDict,self.config,idstr,self.moduleName)
         npup=self.npup
         self.thisObjList.append(this)
+
+
+        this.sourceID=self.dmObj.getSourceID(idstr)
+        this.sourceAlt=self.atmosGeom.sourceAlt(this.sourceID)
+        this.sourceLam=self.atmosGeom.sourceLambda(this.sourceID)
+        if this.sourceLam==None:
+            this.sourceLam=this.config.getVal("sourceLam")
+            print "WARNING - DM sourceLam not found in atmosGeom, using %d"%this.sourceLam
+        this.sourceTheta=self.atmosGeom.sourceTheta(this.sourceID)*numpy.pi/180/3600.
+        this.sourcePhi=self.atmosGeom.sourcePhi(this.sourceID)*numpy.pi/180
+
+        wavelengthAdjustor=self.sourceLam/this.sourceLam#this.wavelengthRat
+        
+        this.lineOfSight=util.dm.DMLineOfSight(self.dmpup,self.npup,self.conjHeight,self.dmphs,this.sourceAlt,this.sourceTheta,this.sourcePhi,self.telDiam,wavelengthAdjustor,self.xaxisInterp,self.yaxisInterp,self.interpolated,self.dmTiltAngle,self.dmTiltTheta,self.alignmentOffset,self.subpxlInterp,self.pupil,self.interpolationNthreads)
+
+        """
         #for a source with theta and a conjugate height c, the
         #separation at this height will be c tan(theta).  As a
         #fraction of the phasescreen width, this will be c
         #tan(theta)/telDiam.  So, in pixels, this will be c
         #tan(theta)/telDiam * npup.  Multiply this by
         #cos/sin(phi), and you then have the correct offsets.
-        this.xoff=(self.dmpup-self.npup)/2#+self.alignmentOffset[0]#central in the case of
-        this.yoff=(self.dmpup-self.npup)/2#+self.alignmentOffset[1]#ground conjugated.
+        this.xoff=(self.dmpup-self.npup)/2#central in the case of
+        this.yoff=(self.dmpup-self.npup)/2#ground conjugated.
         this.xoffend=this.xoff+npup
         this.yoffend=this.xoff+npup
         if self.atmosGeom==None:
@@ -179,11 +208,6 @@ class dm(base.aobase.aobase):
                 this.sourceLam=this.config.getVal("sourceLam")          # Wavelength for this optical path
                 print "WARNING - sourceLam not found in atmosGeom, using %g"%this.sourceLam
 
-        #this.subLowOrderModeList=this.config.getVal("subLowOrderModeList",default=this.subLowOrderModeList)
-        #for mode in this.subLowOrderModeList:
-        #    if not self.lowOrderModeDict.has_key(mode):
-        #        self.lowOrderModeDict[mode]=util.zernikeMod.Zernike(self.pupil.fn,[mode],computeInv=0).zern[0]
-        #        self.lowOrderModeNormDict[mode]=numpy.sum(numpy.sum(self.lowOrderModeDict[mode]*self.lowOrderModeDict[mode]))
         this.xaxisInterp=None
         if self.conjHeight!=0 or self.dmTiltAngle!=0:
             if this.sourceAlt>0 and self.subpxlInterp==0:
@@ -318,6 +342,7 @@ class dm(base.aobase.aobase):
 ##                     s=numpy.sum(numpy.sum(self.pupil.fn[ys:ye,xs:xe]))/float(self.wfsn*self.wfsn)
 ##                     gamma[i,j]=self.gamma*s**0.
 ##             self.gamma=gamma
+        """
     def finalInitialisation(self):
         """Just check that there aren't 2 objects with same idstr..."""
         tmp=[]
@@ -401,19 +426,23 @@ class dm(base.aobase.aobase):
                         self.update()
                         self.dataValid=1
             if self.dataValid:
-                if not self.allZero:
+                if self.sendFullDM:#output full DM surface, not just along one line of sight.  Used by wideField.py science module
+                    self.outputData=self.dmphs
+                elif not self.allZero:
+                    if this.parent.has_key("atmos"):
+                        addToOutput=1
+                    else:
+                        addToOutput=0
+                    this.lineOfSight.selectSubPupil(self.outputData,addToOutput,removePiston=1)
+                    self.selectedDmPhs=this.lineOfSight.selectedDmPhs
+
+                    """
                     self.selectedDmPhs=this.selectedDmPhs
                     if self.subpxlInterp:
                         #do the interpolation...
                         if this.xoffsub==0 and this.yoffsub==0:#no interp needed
                             pass
                         else:
-                            #print this.selectedDmPhs.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,this.yaxisInterp.shape,this.xaxisInterp.shape,self.interpolated.shape
-                            #print self.yaxisInterp
-                            #print this.yaxisInterp
-                            #print self.xaxisInterp
-                            #print this.xaxisInterp
-                            #gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp[:this.selectedDmPhs.shape[0]],self.xaxisInterp[:this.selectedDmPhs.shape[1]],
                             gslCubSplineInterp(this.selectedDmPhs,self.yaxisInterp,self.xaxisInterp,
                                                   this.yaxisInterp,this.xaxisInterp,self.interpolated,
                                                   self.interpolationNthreads)
@@ -442,7 +471,7 @@ class dm(base.aobase.aobase):
                         phasesum=numpy.sum(self.outputData.ravel())
                         self.outputData-=phasesum/self.pupil.sum
                         self.outputData*=self.pupil.fn
-
+                    """
                 else:
                     if not this.parent.has_key("atmos"):
                         self.outputData[:]=0
@@ -636,8 +665,8 @@ class dm(base.aobase.aobase):
         txt=""
         if self.sentPlotsCnt==len(self.thisObjList)-1:
             txt+="""<plot title="xinterp_dm output%s" cmd="data=%s.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
-        txt+="""<plot title="xinterp_dm mirror%s" cmd="data=-%s.dmphs*%s.thisObjList[%d].wavelengthAdjustor" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,objname,self.sentPlotsCnt)
-        txt+="""<plot title="xinterp_dm selected mirror%s" cmd="data=-%s.thisObjList[%d].selectedDmPhs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
+        txt+="""<plot title="xinterp_dm mirror%s" cmd="data=-%s.dmphs*%s.thisObjList[%d].lineOfSight.wavelengthAdjustor" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,objname,self.sentPlotsCnt)
+        txt+="""<plot title="xinterp_dm selected mirror%s" cmd="data=-%s.thisObjList[%d].lineOfSight.selectedDmPhs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
         return txt
 

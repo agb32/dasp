@@ -355,7 +355,7 @@ def tomographicPokeMatrix(ngsList,lgsList,dmList,telDiam,target):
 class DM:
     """This is now depreciated - use util.dm.physicalDM instead."""
     def __init__(self,nact,height,fov,coupling=0.1):
-        self.fov=fov#field of view in arcsec (diameter, not radius).  Probably equal to GS.theta*2.
+        self.fov=fov#field of view in arcsec (radius not diam).  Probably equal to GS.theta
         self.height=height#conjugate height in m.
         self.nact=nact#number of actuators.
         self.coupling=coupling#coupling between actuators (rudimentary)
