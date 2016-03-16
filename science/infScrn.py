@@ -223,7 +223,7 @@ def computeInitialScreen(config,idstr=None):
     config.setSearchOrder(so)
     return phaseArray
 
-def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0):
+def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0):#use seed=None for random
     scrn=makeInitialScreen(dpix=npup+1,Dtel=telDiam,L0=l0,globR0=r0,seed=seed)[1:-1,1:-1]
     return scrn
 def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.):
@@ -260,7 +260,7 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
 
 
     if seed==None:
-        print "ERROR (possibly): computeInitialScreen - seed is None, so timer will be used, meaning that the initial screen cannot be replicated, so if both infScrn and infAtmos try to create, you will get a bad phasescreen.  If you wish to use a random seed, use int(time.time()) in the parameter file - though this will only work if all running in the same process."
+        print "WARNING (possibly): computeInitialScreen - seed is None, so timer will be used, meaning that the initial screen cannot be replicated, so if both infScrn and infAtmos try to create, you will get a bad phasescreen.  If you wish to use a random seed, use int(time.time()) in the parameter file - though this will only work if all running in the same process."
     if L0>=Dtel:
         scrnSize=2*L0
     elif Dtel>=2*L0:

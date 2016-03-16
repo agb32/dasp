@@ -2,7 +2,7 @@ import numpy
 import util.FITS
 import util.calcPxlScale
 import util.tel
-
+import util.centroid
 
 class Gauss:
     def __init__(self,n,peakList=None,xoff=0.,yoff=0.):
@@ -106,7 +106,7 @@ class MultiGauss:
 
 
 class LineProfile:
-    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None):
+    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None,lam=589.):
         """profile is the Na layer strengths, at heights.
         xoff,yoff can be used to shift the spots by this many pixels.
         pxlscale is arcsec per pixel (of the LGS psf, not the binned final images).
@@ -124,6 +124,7 @@ class LineProfile:
 
         For 1D profiles, ny can be specified.  psfsize can also be specified, and should be at least as big as ny (or n).
         
+        lam is the wavelength in nm, only used when includeFocus is set in generate().
         """
         launchTheta=-launchTheta
         self.n=n
@@ -143,6 +144,7 @@ class LineProfile:
         self.launchDist=launchDist
         self.unelong=unelong
         self.oversamplefactor=oversamplefactor
+        self.lam=lam
         self.no=self.n*self.oversamplefactor
         self.noy=self.ny*self.oversamplefactor
         if psfsize==None:
@@ -150,7 +152,7 @@ class LineProfile:
         else:
             self.psfsize=psfsize
         self.psf=util.centroid.createAiryDisc2(self.psfsize,unelong/self.pxlscale*oversamplefactor,0,-1)
-    def generate(self,clearPadding=0):
+    def generate(self,clearPadding=0,includeFocus=0):
         """How this works:
         Integrates along the line profile at required resolution.
         Puts as a single line in a 2D array.
@@ -160,6 +162,8 @@ class LineProfile:
         LGS fires up to centralHeight being directly above the telescope (ie if launchDist!=0, plume isn't vertical).
 
         If clearPadding is set, and oversamplefactor>1, then it will zero anything around the padding area.
+
+        includeFocus, if set, will attempt to include the defocus of the LGS.  includeFocus can be used as a scaling factor for the actual computed defocus.
 
         """
         xlaunch=self.launchDist*numpy.cos(self.launchTheta)
@@ -220,9 +224,21 @@ class LineProfile:
                     distend=distend*numpy.cos(plumeangle)
                     #Now integrate the profile between these heights to get the flux in this pixel
                     tmp[self.psfsize/2,maxspotlen-1-i]=self.integrate(diststart,distend)
-                #Now convolve with the psf
-                res=scipy.signal.fftconvolve(tmp,self.psf,mode="same")
+                    if includeFocus!=0:
+                        #broaden for focus (calc defocus in radians P-V)
+                        H=(diststart+distend)/2.
+                        r=self.telDiam/self.nsubx/2.
+                        h=self.centralHeight
+                        defocus=(H-numpy.sqrt(H**2-r**2)-(h-numpy.sqrt(h**2-r**2)))*2*numpy.pi/(self.lam*1e-9)*includeFocus
+                        print "defocus:",defocus
+                        psf=util.centroid.createAiryDisc2(self.psfsize,self.unelong/self.pxlscale*self.oversamplefactor,0,-1,defocus=defocus)
+                        tmp[:,maxspotlen-1-i]=scipy.signal.convolve(tmp[:,maxspotlen-1-i],psf[:,psf.shape[1]/2-1],mode="same")
 
+                #Now convolve with the psf
+                if includeFocus==0:
+                    res=scipy.signal.fftconvolve(tmp,self.psf,mode="same")
+                else:
+                    res=tmp
                 #tmpimg[y,x]=tmp
                 #now rotate
                 rot=scipy.ndimage.interpolation.rotate(res,-subapTheta*180/numpy.pi)

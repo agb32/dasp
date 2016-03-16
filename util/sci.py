@@ -928,15 +928,25 @@ def computeScientificParameters(img,nfft=None,nimg=None,npup=None,pupil=None,inb
 
 def computeShortExposurePSF(phs,pup,pad=2):
     """computeShortExposurePSF function : computes short exposure AO corrected PSF
-    Modifications made by FA"""
+    Modifications made by FA.
+    
+    If want this to be centred on 4 pixels, rather than 2, add a tilt function to the phs, equal to:
+    tiltfn=-(numpy.mgrid[:npup,:npup].sum(0)+1-npup)*numpy.pi/fftsize
+
+    To have a similar function without requiring fliparray2, can add 
+    tiltfn*(fftsize+1)
+    to the phase (but how does this handle vignetted subaps)
+    """
 
     npup=pup.shape[0] ##to have the dimensions of the input phase array
     pupilAmplitude=numpy.zeros((int(numpy.round(pup.shape[0]*pad)),int(numpy.round(pup.shape[1]*pad))),numpy.complex64)
     pupilAmplitude.real[:npup,:npup]=pup*numpy.cos(phs)
     pupilAmplitude.imag[:npup,:npup]=pup*numpy.sin(phs)
     focAmp=numpy.fft.fft2(pupilAmplitude)
-    img=numpy.absolute(focAmp)
-    img*=img
+    #img=numpy.absolute(focAmp)
+    #img*=img
+    #img=focAmp*focAmp.conjugate()
+    img=focAmp.real*focAmp.real+focAmp.imag*focAmp.imag
     img=fliparray2(img)
     img/=img.sum()
     return img
