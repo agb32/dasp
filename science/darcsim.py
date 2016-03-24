@@ -38,7 +38,7 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
         self.atmosGeom=self.config.getVal("atmosGeom")
         self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
         if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
-            print "Depreciation warning: dmObj should now be dmOverview"
+            print "DEPRECATION: warning: dmObj should now be dmOverview"
             self.dmObj=self.config.getVal("dmObj")
         self.dmList=self.dmObj.makeDMList(self.idstr[0])
         self.useExistingDarc=self.config.getVal("useExistingDarc",default=0)

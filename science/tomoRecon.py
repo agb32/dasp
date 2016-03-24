@@ -47,7 +47,7 @@ class recon(base.aobase.aobase):
         self.atmosGeom=self.config.getVal("atmosGeom")
         self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
         if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
-            print "Depreciation warning: dmObj should now be dmOverview"
+            print "DEPRECATION: warning: dmObj should now be dmOverview"
             self.dmObj=self.config.getVal("dmObj")
         self.dmList=self.dmObj.makeDMList(self.idstr[0])
         self.reconObj=None#to aid addition of generic algorithms.  This must implement a few methods.  In 2014 only used by fewha, to be extended in the future
@@ -1531,7 +1531,7 @@ class recon(base.aobase.aobase):
         covariance, as it doesn't take into account the spot
         broadening.  Should actually use something like
         science.centCov"""
-        print("DEPRECIATED:**tomoRecon**:tomoRecon."+
+        print("DEPRECATED:**tomoRecon**:tomoRecon."+
             "computeMonteNoiseCovariance, use science.centCov")
         if self.sumcent==None:
             print("WARNING:**tomoRecon**: computeMonteNoiseCovariance "+

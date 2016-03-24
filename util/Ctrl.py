@@ -704,7 +704,7 @@ class myStdout:
             'INFORMATION':'\x1b[1;32m\\1\x1b[0m',
             'DEBUG':      '\x1b[1;7m\\1\x1b[0m',
             'WARNING':    '\x1b[1;33m\\1\x1b[0m',
-            'DEPRECIATION':'\x1b[7;1;33m\\1\x1b[0m',
+            'DEPRECATION:':'\x1b[7;1;33m\\1\x1b[0m',
            }
         
     def write(self,txt):

@@ -54,11 +54,11 @@ class source(object):
         self.alt=alt#-1 or lgs alt
         self.fov=fov#radius in arcsec (not diameter)
         if nsubx!=None:
-            print "DEPRECIATION WARNING: nsubx specified in atmos.source.  Please use guideStar.LGS or .NGS instead"
+            print "DEPRECATION: WARNING: nsubx specified in atmos.source.  Please use guideStar.LGS or .NGS instead"
         self.nsubx=nsubx#None or the number of subaps.
         self.sig=sig
         if launchDist!=None or launchTheta!=None:
-            print "DEPRECIATION WARNING: Please use guideStar.LGS for launching instead of atmos.source."
+            print "DEPRECATION: WARNING: Please use guideStar.LGS for launching instead of atmos.source."
         self.launchDist=launchDist
         self.launchTheta=launchTheta
         self.sourcelam=sourcelam
@@ -67,7 +67,7 @@ class source(object):
         else:
             self.phslam=phslam
         if reconList!=None:
-            print "DEPRECIATION WARNING: reconList specified in atmos.source.  Please use guideStar.LGS or .NGS instead."
+            print "DEPRECATION: WARNING: reconList specified in atmos.source.  Please use guideStar.LGS or .NGS instead."
             if type(reconList)!=type([]):
                 reconList=[reconList]
         self.reconList=reconList#a list of reconstructor idstr which use this wfs.
@@ -95,7 +95,7 @@ class geom:
         self.layerDict=layerDict
         for key in self.layerDict.keys():
             if type(self.layerDict[key])==type(()):
-                print "DEPRECIATION WARNING - atmosGeom object layerDict should have values equal to util.atmos.layer() objects"
+                print "DEPRECATION: WARNING - atmosGeom object layerDict should have values equal to util.atmos.layer() objects"
                 self.layerDict[key]=layer(*self.layerDict[key])
             totstr+=self.layerDict[key].strength
             self.layerDict[key].adjustForZenith(self.zenith,self.zenithAz)
@@ -106,11 +106,11 @@ class geom:
         self.sourceList=[]#sourceList
         for obj in sourceList:
             if type(obj)==type(()):
-                print "DEPRECIATION WARNING - atmosGeom object sourceList should be a list of util.atmos.source(), or util.guideStar.LGS or NGS objects"
+                print "DEPRECATION: WARNING - atmosGeom object sourceList should be a list of util.atmos.source(), or util.guideStar.LGS or NGS objects"
                 self.sourceList.append(source(*obj))
             else:
                 if obj.nsubx!=None and isinstance(obj,source) and not hasattr(obj,"minarea"):
-                    print "DEPRECIATION WARNING - sourceList should be a util.guideStar.LGS or NGS if it is a guide star (keep util.source objects for science targets only)"
+                    print "DEPRECATION: WARNING - sourceList should be a util.guideStar.LGS or NGS if it is a guide star (keep util.source objects for science targets only)"
                 self.sourceList.append(obj)
         
         self.sourceDict={}

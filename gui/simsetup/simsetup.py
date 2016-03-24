@@ -1853,7 +1853,7 @@ class simObj:
             try:
                 args=eval(self.args)
             except NameError:#maybe just the id string... this is no longer supported.
-                print "nameerror - cannot evaluate args - (DEPRECIATION WARNING - single idstr no longer supported here)"
+                print "nameerror - cannot evaluate args - (DEPRECATION: WARNING - single idstr no longer supported here)"
                 #idstr=self.args
             except:#just ignore rest.
                 print "exception %s"%str(self.args)
@@ -1863,7 +1863,7 @@ class simObj:
         if type(args)==type({}):
             if args.has_key("idstr"):
                 idstr=args["idstr"]
-                print "DEPRECIATION WARNING - idstr no longer advised in args"
+                print "DEPRECATION: WARNING - idstr no longer advised in args"
         elif args!=None and idstr=="":
             idstr=args
         return str(idstr)

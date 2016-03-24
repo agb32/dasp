@@ -102,7 +102,7 @@ class wfscent(base.aobase.aobase):
         obj=self.config.getVal("wfsOverview",raiseerror=0)
         self.obj=obj
         if obj==None:
-            print("Depreciation warning: wfsOverview not specified")
+            print("DEPRECATION: warning: wfsOverview not specified")
         self.imageOnly=self.config.getVal("imageOnly",default=0)# 0 to return slopes, 
                                                                 # 1 to return image as nsubx,nsubx,nimg,nimg, 
                                                                 # 2 to return image as a 2d image.

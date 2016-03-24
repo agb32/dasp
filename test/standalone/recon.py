@@ -44,7 +44,7 @@ except ImportError:
 
 ## variables
 ## \/
-nLoops = 1000
+nLoops = 100
 ## /\
 ## (end)
 
@@ -141,15 +141,19 @@ print("\t>>>\tCLOSED-LOOP:: Entering for {0:d} integrations".format(
 
 dmShapes = []
 print("[ ",end="")
-for i in range(1000):
-    print("\r[ "+"-"*(int(i/1000.0*70)) + " "*(70-int(i/1000.0*70)) + " ]",end="") # print a progress bar
+for i in range(nLoops):
+    print("\r[ "
+              +"-"*(int(i*nLoops**-1.0*70))
+              +" "*(70-int(i*nLoops**-1.0*70))
+              +" ]",end="") # print a progress bar
     sys.stdout.flush()
     scrn.doNextIter()
     #phaseScreen = scrn.unwrapPhase("L0")#optional: phase in the screen
     atmos.doNextIter()
     #pupilPhase = atmos.outputData#optional: phase in the pupil
     dm.doNextIter()
-    if i%100==0: # every 100th iteration, save the atmosphere and DM surface
+    n=1
+    if i%n==0: # every nth iteration, save the atmosphere and DM surface
         dmShapes.append(
                 [ i, atmos.outputData.copy(), dm.mirrorSurface.phsOut.copy(),
                   wfscent.outputData.copy() ]
@@ -172,12 +176,15 @@ import pylab
 pylab.ioff()
 pylab.figure(1)
 for i in range(10):
-    pylab.subplot(4,6,2*i+1)
+    pylab.subplot(6,6,3*i+1)
     pylab.imshow( dmShapes[i][1], interpolation='nearest')
     pylab.title("Iteration no. {0:d}".format(dmShapes[i][0]))
     #
-    pylab.subplot(4,6,2*i+1+1)
-    pylab.imshow( dmShapes[i][2], interpolation='nearest')
+    pylab.subplot(6,6,3*i+1+1)
+    pylab.imshow( -dmShapes[i][2], interpolation='nearest', vmax=dmShapes[i][1].max(),vmin=dmShapes[i][1].min() )
+    #
+    pylab.subplot(6,6,3*i+1+1+1)
+    pylab.imshow( dmShapes[i][1]+dmShapes[i][2], interpolation='nearest', vmax=dmShapes[i][1].max(),vmin=dmShapes[i][1].min() )
 
 pylab.figure(2)
 pylab.plot(

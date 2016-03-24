@@ -2446,7 +2446,7 @@ if __name__=="__main__":
         telDiam=config.getVal("telDiam")
         dmObj=config.getVal("dmOverview",raiseerror=0)
         if dmObj==None or type(dmObj)!=type(config):
-            print "Depreciation warning: dmObj should now be dmOverview"
+            print "DEPRECATION: warning: dmObj should now be dmOverview"
             dmObj=config.getVal("dmObj")
         pupil=config.getVal("pupil")
         config.setSearchOrder(["tomoRecon","globals",])

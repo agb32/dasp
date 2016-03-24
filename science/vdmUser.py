@@ -65,7 +65,7 @@ class vdmUser(base.aobase.aobase):
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
         if self.dmObj==None or type(self.dmObj)!=type(self):
-            print "Depreciation warning: dmObj should now be dmOverview"
+            print "DEPRECATION: warning: dmObj should now be dmOverview"
             self.dmObj=self.config.getVal("dmObj")
         self.dmlabel=self.config.getVal("dmLabel",default=self.idstr[0],raiseerror=0)
         self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)

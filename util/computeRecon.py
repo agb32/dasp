@@ -809,7 +809,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     atmosGeom=c.getVal("atmosGeom")
     dmObj=c.getVal("dmOverview",raiseerror=0)
     if dmObj==None or type(dmObj)!=type(atmosGeom):
-        print "Depreciation warning: dmObj should now be dmOverview"
+        print "DEPRECATION: warning: dmObj should now be dmOverview"
     dmObj=c.getVal("dmObj")
     dmList=dmObj.makeDMList(idstr)
     print dmList

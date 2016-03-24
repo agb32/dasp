@@ -92,7 +92,7 @@ class science(aobase.aobase):
         self.control={}
         self.sciOverview=config.getVal("sciOverview",raiseerror=0)
         if self.sciOverview==None:
-            print("DEPRECIATION WARNING: Please use util.sci.sciOverview to describe science objects in config file")
+            print("DEPRECATION: WARNING: Please use util.sci.sciOverview to describe science objects in config file")
             #leave control as global (shared between all resource sharing objts)
             self.control["zero_science"]=config.getVal("zero_science",default=10) ##idem - zero for 10 iterations...
             self.control["science_integrate"]=config.getVal("science_integrate",default=1)

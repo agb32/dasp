@@ -53,7 +53,7 @@ class dm(base.aobase.aobase):
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
             self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
             if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
-                print "Depreciation warning: dmObj should now be dmOverview"
+                print "DEPRECATION: warning: dmObj should now be dmOverview"
                 self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             if self.dmObj!=None:
                 self.conjHeight=self.dmObj.getHeight(self.idstr[0])#self.config.getVal("dmConjugateHeight",default=0.)#the height at which this pupil phase should be conjugated too.  One unique height for this (resource sharing) DM object.

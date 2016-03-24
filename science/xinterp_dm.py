@@ -46,7 +46,7 @@ class dm(base.aobase.aobase):
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
             self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
             if self.dmObj==None or type(self.dmObj)!=type(self.atmosGeom):
-                print "Depreciation warning: dmObj should now be dmOverview"
+                print "DEPRECATION: warning: dmObj should now be dmOverview"
                 self.dmObj=self.config.getVal("dmObj",default=None,raiseerror=0)
             self.npup=self.config.getVal("npup")
             self.pupil=self.config.getVal("pupil",raiseerror=0)

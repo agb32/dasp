@@ -102,7 +102,7 @@ config=base.readConfig.AOXml(paramfile,batchno=batchno)
 atmosGeom=config.getVal("atmosGeom")
 dmObj=config.getVal("dmOverview",raiseerror=0)
 if dmObj==None or type(dmObj)!=type(atmosGeom):
-        print "Depreciation warning: dmObj should now be dmOverview"
+        print "DEPRECATION: warning: dmObj should now be dmOverview"
         dmObj=config.getVal("dmObj")
 pupil=config.getVal("pupil")
 dmflag,subarea,dmpupil=dmObj.computeDMPupil(dmid,pupil.r2,1)
