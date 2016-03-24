@@ -69,8 +69,8 @@ class recon(base.aobase.aobase):
         self.dmModeType=self.config.getVal("dmModeType",default="poke")# specifies what the modes of
         # the dm are - are they just pokes, or a more complicated shape fitted to the actuators?
         # Note, that zernike DMs can also be poked... at the moment, only poke is supported.
-        if self.dmModeType not in ["poke","file"]:
-            raise Exception("tomoRecon: dmModeType should be one of: poke, file")
+        if self.dmModeType not in ["poke","modalPoke"]:
+            raise Exception("tomoRecon: dmModeType should be one of: poke, modalPoke")
 
         for dm in self.dmList:
             if dm.zonalDM:
@@ -85,7 +85,7 @@ class recon(base.aobase.aobase):
                     else:
                         self.npokesList.append(self.nactsList[-1])
                     self.npokesCumList.append(self.npokesCumList[-1]+self.npokesList[-1])
-                elif self.dmModeType=="file":
+                elif self.dmModeType=="modalPoke":
                     self.npokesList.append(0)
             else:#a modal DM
                 self.dmPupList.append(None)
@@ -255,7 +255,7 @@ class recon(base.aobase.aobase):
                                 writemode="a"
                         else:
                             self.modalActuatorList.append(None)
-            elif self.dmModeType=="file":
+            elif self.dmModeType=="modalPoke":
                 self.totalLowOrderModalModes=0
                 #poke actuators from a file...
                 #This can be used for poking mirror modes or similar...
@@ -521,7 +521,7 @@ class recon(base.aobase.aobase):
                 else:
                     if self.dmModeType=="poke":
                         self.computeMirrorScale()
-                    elif self.dmModeType=="file":
+                    elif self.dmModeType=="modalPoke":
                         self.computeMirrorScale()
                         
                         
@@ -607,7 +607,7 @@ class recon(base.aobase.aobase):
                     dm.makeLocalMirrorModes(self.atmosGeom,self.pupil.r2,mirrorSurface=dm.getMirrorSurface())
                     self.mirrorScale[pos:pos+dm.mirrorScale.shape[0]]=dm.mirrorScale
                     pos+=dm.mirrorScale.shape[0]
-                elif self.dmModeType=="file":
+                elif self.dmModeType=="modalPoke":
                     print "TODO - make mirror modes in tomoRecon"
             else:
                 self.mirrorScale[pos:pos+dm.nact]=1
@@ -842,7 +842,7 @@ class recon(base.aobase.aobase):
                         else:
                             #move onto the next DM...
                             mode-=self.nLowOrderModalModes[i]
-            elif self.dmModeType=="file":
+            elif self.dmModeType=="modalPoke":
                 if self.poking<=self.nmodes:
                     self.outputData[:]=self.mirrorModes[self.poking-1]
                     self.pokingActNo+=1
