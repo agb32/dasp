@@ -393,6 +393,19 @@ control={"ncam":%d,
                     self.reopenSockets()
                 else:
                     raise Exception("Error receiving... %d (received %d)"%(r,nrec))
+        #Now, if dasp has been in a paused mode, darc timeouts might mean that socket data has still been sent?  But with a frozen mirror.  So, here we read it out.
+        self.mirsock.setblocking(0)
+        try:
+            while 1:
+                data=self.mirsock.recv(1024)#if there is no data, will raise an error
+                if len(data)==0:#socket probably closed.
+                    break
+                else:
+                    print "Received %d unexpected bytes from darc (has darc been paused - if so, will clear out the stream shortly)"%len(data)
+        except:
+            pass
+        self.mirsock.setblocking(1)
+
     def plottable(self,objname="$OBJ"):
         """Return a XML string which contains the commands to be sent
         over a socket to obtain certain data for plotting.  The $OBJ symbol

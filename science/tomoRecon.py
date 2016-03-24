@@ -66,18 +66,27 @@ class recon(base.aobase.aobase):
         self.npokesList=[]
         self.npokesCumList=[0]
         self.reconDtype=self.config.getVal("reconDtype",default=numpy.float32)
+        self.dmModeType=self.config.getVal("dmModeType",default="poke")# specifies what the modes of
+        # the dm are - are they just pokes, or a more complicated shape fitted to the actuators?
+        # Note, that zernike DMs can also be poked... at the moment, only poke is supported.
+        if self.dmModeType not in ["poke","modalPoke"]:
+            raise Exception("tomoRecon: dmModeType should be one of: poke, modalPoke")
+
         for dm in self.dmList:
             if dm.zonalDM:
                 tmp=dm.getDMFlag(self.atmosGeom,centObscuration=self.pupil.r2)
                 # tmp is dmflag,subarea (or None,None for modal DMs.)
                 self.dmPupList.append(tmp)
-
+                
                 self.nactsList.append(int(tmp.sum()))
-                if dm.pokeSpacing!=None:
-                    self.npokesList.append(dm.pokeSpacing**2)
-                else:
-                    self.npokesList.append(self.nactsList[-1])
-                self.npokesCumList.append(self.npokesCumList[-1]+self.npokesList[-1])
+                if self.dmModeType=="poke":
+                    if dm.pokeSpacing!=None:
+                        self.npokesList.append(dm.pokeSpacing**2)
+                    else:
+                        self.npokesList.append(self.nactsList[-1])
+                    self.npokesCumList.append(self.npokesCumList[-1]+self.npokesList[-1])
+                elif self.dmModeType=="modalPoke":
+                    self.npokesList.append(0)
             else:#a modal DM
                 self.dmPupList.append(None)
                 self.nactsList.append(dm.nact)#nact is the number of modes
@@ -202,11 +211,6 @@ class recon(base.aobase.aobase):
                 else:
                     self.wfsIDList.append(key)
             
-            self.dmModeType=self.config.getVal("dmModeType",default="poke")# specifies what the modes of
-            # the dm are - are they just pokes, or a more complicated shape fitted to the actuators?
-            # Note, that zernike DMs can also be poked... at the moment, only poke is supported.
-            if self.dmModeType not in ["poke","file"]:
-                raise Exception("tomoRecon: dmModeType should be one of: poke, file")
             if self.dmModeType=="poke":
                 self.nmodes=self.nacts
                 self.nLowOrderModalModes=self.config.getVal("nLowOrderModalModes",default=0)#the number
@@ -251,12 +255,18 @@ class recon(base.aobase.aobase):
                                 writemode="a"
                         else:
                             self.modalActuatorList.append(None)
-            elif self.dmModeType=="file":
+            elif self.dmModeType=="modalPoke":
+                self.totalLowOrderModalModes=0
                 #poke actuators from a file...
                 #This can be used for poking mirror modes or similar...
-                self.dmModeFile=self.config.getVal("dmModeFile")
-                self.mirrorModes=util.FITS.loadBlockMatrix(self.dmModeFile)
-                raise Exception("dmModeType file not yet finished implementing...")
+                self.mirrorModes=self.config.getVal("dmModes")
+                if type(self.mirrorModes)==type(""):
+                    self.mirrorModes=util.FITS.loadBlockMatrix(self.mirrorModes)
+                self.nmodes=self.mirrorModes.shape[0]
+                self.npokes=self.nmodes
+                #we don't know how the modes are separated out, so just assume an equal number for each dm.
+                self.npokesList=[self.npokes//len(self.dmList)]*len(self.dmList)
+                self.npokesList[-1]+=self.npokes-sum(self.npokesList)
             self.compressedBits=None#used if the rmx is compressed float format
             self.compressedShape=None
             self.compressedWork=None
@@ -511,7 +521,9 @@ class recon(base.aobase.aobase):
                 else:
                     if self.dmModeType=="poke":
                         self.computeMirrorScale()
-                            
+                    elif self.dmModeType=="modalPoke":
+                        self.computeMirrorScale()
+                        
                         
                         #for i in xrange(self.nmodes):
                         #    m=self.getMirrorMode(i)
@@ -590,10 +602,13 @@ class recon(base.aobase.aobase):
         pos=0
         for dm in self.dmList:
             if dm.zonalDM:
-                #make the mirror modes and mirror scale:
-                dm.makeLocalMirrorModes(self.atmosGeom,self.pupil.r2,mirrorSurface=dm.getMirrorSurface())
-                self.mirrorScale[pos:pos+dm.mirrorScale.shape[0]]=dm.mirrorScale
-                pos+=dm.mirrorScale.shape[0]
+                if self.dmModeType=="poke":
+                    #make the mirror modes and mirror scale:
+                    dm.makeLocalMirrorModes(self.atmosGeom,self.pupil.r2,mirrorSurface=dm.getMirrorSurface())
+                    self.mirrorScale[pos:pos+dm.mirrorScale.shape[0]]=dm.mirrorScale
+                    pos+=dm.mirrorScale.shape[0]
+                elif self.dmModeType=="modalPoke":
+                    print "TODO - make mirror modes in tomoRecon"
             else:
                 self.mirrorScale[pos:pos+dm.nact]=1
                 pos+=dm.nact
@@ -827,6 +842,15 @@ class recon(base.aobase.aobase):
                         else:
                             #move onto the next DM...
                             mode-=self.nLowOrderModalModes[i]
+            elif self.dmModeType=="modalPoke":
+                if self.poking<=self.nmodes:
+                    self.outputData[:]=self.mirrorModes[self.poking-1]
+                    self.pokingActNo+=1
+                    if self.pokingActNo==self.npokesList[self.pokingDMNo]:
+                        self.pokingDMNo+=1
+                        print("INFORMATION:**tomoRecon**: switching to DM no.="+str(self.pokingDMNo))
+                        self.pokingActNo=0
+                        
 
         if self.poking>1 and self.poking<=self.npokes+1:
             #then use the centroid values from previous poke to fill the poke matrix.

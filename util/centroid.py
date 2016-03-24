@@ -1641,11 +1641,13 @@ def createAiryDisc(npup,halfwidth=1.,xoff=0.,yoff=0.):
     disc=numpy.where(dist==0,0.5,disc)**2#remove NaN and square...
     return disc.astype(numpy.float32)
 
-def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.):
+def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.,defocus=0):
     """Creates an airy disc pattern using an FFT method.  With offset==0, will be centred.
     halfwidth is the radius of the first Airy minimum
     Widths:  For pad==2, width=5, pad==4, width=10, pad=8, width=20, pad=16 width=38, pad=32 width=79.
     Binning then reduces this by the bin factor.
+
+    Optional defocus is given in units of radians P-V of the focus zernike
     """
     import util.sci
     import util.tel
@@ -1656,6 +1658,7 @@ def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.):
     #Also, npup=nfft/bn (npup is the output size).  So:
     #halfwidth=1.22*npup/n where n is the initial phase size.  bn, n, nfft and npup must be integer.
     #Therefore, n=1.22*npup/halfwidth
+
     n=1.22*npup/halfwidth
     bn=int(n/npup)+1
     #bn=1
@@ -1667,6 +1670,14 @@ def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.):
     xoff-=0.5/bn
     #xoff,yoff of 1 will move it by a pixel in the unbinned image.  So, to move by 1 pixel in the binned image, increase this by the bin factor.
     tilt=computePhaseTilt(pup,nfft,1,xoff*bn,yoff*bn)
+    if defocus!=0:
+        #add zernike focus of strength.
+        import util.zernikeMod
+        f=util.zernikeMod.Zernike(pup,4,computeInv=0).zern[3]
+        f-=f.min()
+        f*=defocus/f.max()
+        tilt+=f
+        
     psf=util.sci.computeShortExposurePSF(tilt,pup,pad=nfft/numpy.ceil(n)).astype(numpy.float32)
     if bn!=1:
         psf.shape=psf.shape[0]/bn,bn,psf.shape[1]/bn,bn
