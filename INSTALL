@@ -23,7 +23,8 @@ mpirun -np 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;pri
 Should then print out your python path 5 times.
 
 If you are simulating a large system, you will also benefit from a BLAS library.  DASP can support mkl, acml, openblas or atlas.  Openblas is easiest to get going with.  ACML 6 isn't yet supported (uses OpenCL).
-Install openblas in /opt/openblas and add /opt/openblas/lib to LD_LIBRARY_PATH.
+Install openblas in /opt/openblas and add /opt/openblas/lib to LD_LIBRARY_PATH. 
+(make openblas should do it)
 
 Now make the simulation:
 make
