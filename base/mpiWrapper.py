@@ -16,6 +16,7 @@ try:
 except:
     pass
 
+#mpitype="DUMMY"#If want to test without an MPI library, uncomment this.
 if mpitype==None:
     try:
         import mpi4py.MPI
@@ -50,8 +51,29 @@ elif mpitype=="mpi4py.MPI":
             #    rt=1
             rt=1
             return data,rank,tag,rt
+    comm=mympi()
+elif mpitype=="DUMMY":
+    class mympi:
+        def __init__(self):
+            self.comm=None
+            self.rank=0
+            self.size=1
+            
+        def send(self,data):
+            print "Not implemented - mpi send"
 
-        #def send(self,data,rank,tag):
+        def barrier(self):
+            print "Not implemented - barrier"
+
+        def broadcast(self,data,rank):
+            print "Not implemented - broadcast"
+
+        def abort(self,data=None):
+            print "Not implemented - abort"
+
+        def receive(self,data,rank,tag):
+            print "Not implemented - receive"
+            #def send(self,data,rank,tag):
         #    #print "send data type: %s %s (rank %d, tag %d)"%(data.dtype.char,str(data.shape),rank,tag)
         #    self.comm.Send(data,rank,tag)
     comm=mympi()

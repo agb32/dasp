@@ -130,6 +130,9 @@ cont=0
 atpath=None
 if os.path.exists("/opt/openblas/lib/libopenblas.so"):
     atpath="/opt/openblas/lib/"
+elif os.path.exists("/usr/lib/libopenblas.so"):
+    atpath="/usr/lib"
+    print "Using /usr/lib/libopenblas.so (if this fails, see the README and install openblas manually)"
 else:
     print "For openblas, see README for installation instructions"
 if atpath!=None:
@@ -140,7 +143,7 @@ if atpath!=None:
         print "Using openblas/lapack"
         cont=1
 if cont==0:
-    print "ob/lapack library not found - not making openblasmodule"
+    print "openblas/lapack library not found - not making openblasmodule"
 else:
     ob=Extension('openblasmodule',
                   include_dirs=idnumpy+obinclude,

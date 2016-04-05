@@ -35,8 +35,8 @@ Used by science/iscrn.py
 
 #define nbCol 2
 
-typedef enum CBLAS_ORDER CBLAS_ORDER;
-typedef enum CBLAS_TRANSPOSE CBLAS_TRANSPOSE;
+//typedef enum CBLAS_ORDER CBLAS_ORDER;
+//typedef enum CBLAS_TRANSPOSE CBLAS_TRANSPOSE;
 
 /*Needs:
 r0 (which can change).

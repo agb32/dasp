@@ -7,7 +7,10 @@ the \"fortran\" keyword with the array, empty or zeros commands
 Calls BLAS level 2 and 3 functions stored in the scipy.lib.blas.fblas modules
 """
 
-import scipy.lib.blas.fblas as fblas
+try:
+    import scipy.lib.blas.fblas as fblas#depreciated - no longer present in 16.04
+except:
+    import scipy.linalg.blas as fblas
 import numpy,scipy.linalg
 ##General dictionary storing prefix for BLAS
 ##functions names as a function of typecode
