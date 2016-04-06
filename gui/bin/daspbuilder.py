@@ -137,7 +137,7 @@ def makescao():
     save(pystr,dirname,pyname)
     save(xmltxt,dirname,xmlname)
     save(scaoParamsTxt.replace("nsci=1","nsci=%d"%nsci),dirname,paramname)
-    print("""Simulation generated.
+    txt="""Simulation generated.
 To run in %s/, use:
 python scao.py params.py
 To view the simulation configuration, use:
@@ -161,11 +161,12 @@ Model-based reconstruction (e.g. CuReD, SOR, etc)
 If you already have a control matrix, and thus do not need to generate one, you
 can use --user=nopoke commandline option
 
-"""%dirname)
+"""%dirname
+    print(txt)
+    save(txt,dirname,"README")
 
 
-
-def makemcao(nlgs=None,nngs=None,nsci=None,ndm=None,mpi=None,dirname=None,defaultdirname="mcaoSim",fname="mcao",dopoke=1,addvdm=0):
+def makemcao(nlgs=None,nngs=None,nsci=None,ndm=None,mpi=None,dirname=None,defaultdirname="mcaoSim",fname="mcao",dopoke=1,addvdm=0,readme=1):
     if nlgs==None:
         nlgs=raw_input("Please enter the number of LGS required: [4] ")
         if len(nlgs)==0:
@@ -329,8 +330,8 @@ dmOverview=dmOverview(dmInfoList,atmosGeom)""")
     else:
         execstr="python %s.py params.py"%fname
         mpitxt=""
-
-    print("""Simulation generated.
+    if readme:
+        txt="""Simulation generated.
 To run in %s/, use:
 %s
 To view the simulation configuration, use:
@@ -356,13 +357,15 @@ Model-based reconstruction (e.g. FrIM, FEWHA, etc)
 
 If you already have a control matrix, and thus do not need to generate one, you
 can use --user=nopoke commandline option
-%s"""%(dirname,execstr,fname,mpitxt))
+%s"""%(dirname,execstr,fname,mpitxt)
+        print(txt)
+        save(txt,dirname,"README")
 
 
 
 
 
-def makepmx(nlgs=None,nngs=None,ndm=None,mpi=None,dirname="pokeSim",writeParams=1,fname="poke"):
+def makepmx(nlgs=None,nngs=None,ndm=None,mpi=None,dirname="pokeSim",writeParams=1,fname="poke",readme=1):
     if nlgs==None:
         nlgs=raw_input("Please enter the number of LGS required: [4] ")
         if len(nlgs)==0:
@@ -492,7 +495,8 @@ def makepmx(nlgs=None,nngs=None,ndm=None,mpi=None,dirname="pokeSim",writeParams=
     else:
         execstr="python %s.py paramsPoke.py"%fname
         mpitxt=""
-    print("""Simulation generated.
+    if readme:
+        txt="""Simulation generated.
 To run in %s/, use:
 %s
 To view the simulation configuration, use:
@@ -503,7 +507,9 @@ or:
 daspanalyse.py
 
 Please edit paramsPoke.py to alter the simulation to meet your requirements.
-%s"""%(dirname,execstr,fname,mpitxt))
+%s"""%(dirname,execstr,fname,mpitxt)
+        print(txt)
+        save(txt,dirname,"README")
 
 
 def makeltao(dirname="ltaoSim",fname="ltao"):
@@ -541,9 +547,9 @@ def makeltao(dirname="ltaoSim",fname="ltao"):
         os.mkdir(dirname)
 
     #Make the poke simulation:
-    makepmx(nlgs,nngs,ndm,mpi,dirname,writeParams=0,fname=fname+"Poke")
+    makepmx(nlgs,nngs,ndm,mpi,dirname,writeParams=0,fname=fname+"Poke",readme=0)
     #and a 1 DM MCAO simulation.
-    makemcao(nlgs,nngs,nsci,1,mpi,dirname,fname=fname,dopoke=0,addvdm=1)
+    makemcao(nlgs,nngs,nsci,1,mpi,dirname,fname=fname,dopoke=0,addvdm=1,readme=0)
     save(projectionTxt,dirname,"projection.py")
     ltaoscripttxt="""
 #!/bin/sh
@@ -552,7 +558,7 @@ python projection.py %d
 python ltao.py params.py
 """%(ndm,ndm)
     save(ltaoscripttxt,dirname,"run.sh")
-    print("""
+    txt="""
 
 ****************************************
 LTAO Simulation generated.  This does a tomographic reconstruction on %d DMs, and then projects the correction on-axis.
@@ -582,7 +588,9 @@ Model-based reconstruction (e.g. FrIM, FEWHA, etc)
 Once you have a suitable reconstruction matrix, you do not need to rerun the
 poking or projection parts.
 
-    """%(ndm,dirname,ndm,ndm))
+    """%(ndm,dirname,ndm,ndm)
+    print(txt)
+    save(txt,dirname,"README")
 
 
 def makemoao(dirname="moaoSim",fname="moao"):
@@ -620,7 +628,7 @@ def makemoao(dirname="moaoSim",fname="moao"):
         os.mkdir(dirname)
     ngs=nlgs+nngs
     #Make the poke simulation:
-    makepmx(nlgs,nngs,ndm,mpi,dirname,writeParams=0,fname=fname+"Poke")
+    makepmx(nlgs,nngs,ndm,mpi,dirname,writeParams=0,fname=fname+"Poke",readme=0)
     #make the moao simulation:
     wfstxt=""
     nodetxt=""
@@ -665,7 +673,7 @@ python moaoPoke.py params.py
 python moao.py params.py
 """
     save(moaoscripttxt,dirname,"run.sh")
-    print("""
+    txt="""
 To run in %s/, use (for MPI versions, adjust accordingly):
 python moaoPoke.py params.py
 python moao.py params.py
@@ -688,7 +696,9 @@ Model-based reconstruction (e.g. FrIM, FEWHA, etc)
 
 Once you have a suitable reconstruction matrix, you do not need to rerun the
 poking simulation.
-    """%(dirname))
+    """%(dirname)
+    print(txt)
+    save(txt,dirname,"README")
 
 
 
@@ -754,7 +764,7 @@ def makelearn(dirname="learnSim",fname="learn"):
 python learn.py params.py
 """
     save(learnscripttxt,dirname,"run.sh")
-    print("""
+    txt="""
 To run in %s/, use (for MPI versions, adjust accordingly):
 python learn.py params.py
 
@@ -763,7 +773,9 @@ It simply records wavefront slope measurements, into files named
 saveOutput*.fits, LGS first, then NGS.  
 
 Uncorrected science PSFs can also be generated, for comparison with other simulations.
-    """%(dirname))
+    """%(dirname)
+    print(txt)
+    save(txt,dirname,"README")
 
 
 
