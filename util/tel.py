@@ -123,7 +123,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
                 pupilMap=util.FITS.Read(pupilMap)[1]
             if pupilMap.shape!=(npup,npup):
                 raise Exception("pupilMap wrong shape (%s) in tel.py - should be %s"%(str(pupilMap.shape),str((npup,npup))))
-            self.fn=pupilMap
+            self.fn=pupilMap.astype(numpy.uint8)
             self.area=self.fn.sum()
         elif hexDiam==0:
             grid=makeCircularGrid(npup)

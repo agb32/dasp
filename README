@@ -624,6 +624,15 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/openblas
 
 Then make...
 
+without MPI, export DASPNOMPI=1
+
+Current problems: No mpi python module, no scipy.
+Installed mpi4py locally (python setup.py install --prefix=/home/hudson/staff/dph1agb )
+export PYTHONPATH=$PYTHONPATH://home/hudson/staff/dph1agb/lib/python2.7/site-packages/
+
+
+
+
 Supermicro gpu:  /etc/modprobe.d/blacklist.conf:  add blacklist mei
 nongraphical boot:  Change GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 to "text" in /etc/default/grub and then do sudo update-grub
