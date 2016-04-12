@@ -597,7 +597,7 @@ alias mnt='sudo mount -t nfs gig44:/home/ali/aosim /home/ali/mnt'
 
 
 Hamilton:
-module load python
+module load python/2.7.11
 module load gsl/gcc
 module load blas/gcc
 module load lapack/gcc
@@ -609,6 +609,19 @@ will show you the paths.
 
 export C_INCLUDE_PATH=/usr/local/Cluster-Apps/fftw/include/:/usr/local/Cluster-Apps/gsl/gcc/64/1.15/include
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Cluster-Apps/fftw/lib/
+export C_INCLUDE_PATH=$C_INCLUDE_PATH:/apps/python/2.7.1/include/python2.7/
+export C_INCLUDE_PATH=$C_INCLUDE_PATH:/apps/fftw/fftw-3.3.4_gcc-4.9.1/api/
+
+ cp /usr/local/Cluster-Apps/gsl/gcc/64/1.9/include/gsl/gsl_cblas.h cmod/src/cblas.h
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/atlas
+
+cd cmod/src
+ln -s /usr/lib64/atlas/libatlas.so.3 libatlas.so
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hudson/staff/dph1agb/git/aosim/cmod/src/
+
+cd
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/openblas
+
 
 
 Supermicro gpu:  /etc/modprobe.d/blacklist.conf:  add blacklist mei

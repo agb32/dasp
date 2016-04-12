@@ -130,16 +130,22 @@ cont=0
 atpath=None
 if os.path.exists("/opt/openblas/lib/libopenblas.so"):
     atpath="/opt/openblas/lib/"
+    atinc="/opt/openblas/include/"
 elif os.path.exists("/usr/lib/libopenblas.so"):
     atpath="/usr/lib"
+    atinc="/usr/include"
     print "Using /usr/lib/libopenblas.so (if this fails, see the README and install openblas manually)"
+elif os.path.exists(os.path.join(os.environ["HOME"],"openblas/lib/libopenblas.so")):
+    atpath=os.path.join(os.environ["HOME"],"openblas/lib/")
+    atinc=os.path.join(os.environ["HOME"],"openblas/include/")
+    print "Using %s"%atpath
 else:
     print "For openblas, see README for installation instructions"
 if atpath!=None:
     if 1:
         oblib=[atpath]
         ld=[sys.prefix+'/lib']
-        obinclude=["/opt/openblas/include/"]
+        obinclude=[atinc]
         print "Using openblas/lapack"
         cont=1
 if cont==0:

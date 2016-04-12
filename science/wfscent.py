@@ -146,7 +146,10 @@ class wfscent(base.aobase.aobase):
             useCmod=self.config.getVal("useCmod",default=1)
             self.printLinearisationForcing=self.config.getVal("printLinearisationForcing",default=0)
             self.fullOutput=self.config.getVal("fullWFSOutput",default=1)
-            seed=config.getVal("wfs_seed",default=self.config.getVal("seed",raiseerror=0,default=0),raiseerror=0)
+            if self.obj==None:
+                seed=config.getVal("wfs_seed",default=self.config.getVal("seed",raiseerror=0,default=0),raiseerror=0)
+            else:
+                seed=self.obj.seed
             calSource=self.config.getVal("calsource",default=0)
             self.fpDataType=numpy.float32#self.config.getVal("fpDataType",default=numpy.float32)
             self.doneFinalInit=0
