@@ -622,7 +622,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hudson/staff/dph1agb/git/aosim/cmo
 cd
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/openblas
 
-
+Then make...
 
 Supermicro gpu:  /etc/modprobe.d/blacklist.conf:  add blacklist mei
 nongraphical boot:  Change GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"

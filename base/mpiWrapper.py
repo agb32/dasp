@@ -16,7 +16,7 @@ try:
 except:
     pass
 
-#mpitype="DUMMY"#If want to test without an MPI library, uncomment this.
+#mpitype="DUMMY"#If want to test without an MPI library, uncomment this.  Or export DASPNOMPI=1
 if mpitype==None:
     try:
         import mpi4py.MPI
@@ -25,7 +25,11 @@ if mpitype==None:
         pass
 
 if mpitype==None:
-    raise Exception("No suitable MPI modules found")
+    import os
+    if os.environ.has_key("DASPNOMPI"):
+        mpitype="DUMMY"
+    else:
+        raise Exception("No suitable MPI modules found")
 
 if mpitype=="Scientific.MPI":
     comm=Scientific.MPI.world.duplicate()
