@@ -6,7 +6,7 @@
 #include <math.h>
 
 #include "numpy/arrayobject.h"
-#include "jose.h"
+//#include "jose.h"
 
 
 float fac(float n)
@@ -34,8 +34,8 @@ static PyObject *zernike_zern(PyObject *self,PyObject *args)
 	PyArrayObject	*pyzern;
 	int		i,j,di,dj,nx,ny,n,p1,q1,t1,s,status=0;
 	float		x,y,r,theta,a,b,c,d,exp,coeff,sum;
-	float		**zern;
-
+	//float		**zern;
+	float *zern;
 
 	if (!PyArg_ParseTuple (args, "O!iii", &PyArray_Type ,&pyzern, &p1,&q1,&t1))
 		return NULL;
@@ -58,7 +58,8 @@ static PyObject *zernike_zern(PyObject *self,PyObject *args)
 
 /* create the Zernike in a C array */
 
-	zern=alloc2d_float(n,n);
+	//zern=alloc2d_float(n,n);
+	zern=malloc(sizeof(float)*n*n);
 
 	for(i=0;i<n;++i){ 
 	   y=(float)(i-n/2)+0.5;
@@ -79,15 +80,19 @@ static PyObject *zernike_zern(PyObject *self,PyObject *args)
 			sum=sum+coeff*pow(r,exp);
 		  }
 
-		  zern[i][j] = sqrt((float)(p1+1))*sum;
+		  //zern[i][j] = sqrt((float)(p1+1))*sum;
+		  zern[i*n+j] = sqrt((float)(p1+1))*sum;
 
-		  if(q1!=0) zern[i][j] = zern[i][j]*sqrt(2.);
+		  //if(q1!=0) zern[i][j] = zern[i][j]*sqrt(2.);
+		  if(q1!=0) zern[i*n+j] = zern[i*n+j]*sqrt(2.);
 
 		  if(t1==1){
-			zern[i][j] = zern[i][j]*cos((float)(q1)*theta);
+		    //zern[i][j] = zern[i][j]*cos((float)(q1)*theta);
+		    zern[i*n+j] = zern[i*n+j]*cos((float)(q1)*theta);
 		  }
 		  else{
-			zern[i][j] = zern[i][j]*sin((float)(q1)*theta);
+		    //zern[i][j] = zern[i][j]*sin((float)(q1)*theta);
+		    zern[i*n+j] = zern[i*n+j]*sin((float)(q1)*theta);
 		  }
 		}
 
@@ -99,10 +104,12 @@ static PyObject *zernike_zern(PyObject *self,PyObject *args)
 
 	for(i=0;i<ny;++i){
 	  for(j=0;j<nx;++j){
-		*(double *)(pyzern->data+i*di+j*dj) = (double)zern[i][j]; 
+		*(double *)(pyzern->data+i*di+j*dj) = (double)zern[i*n+j]; 
+		//*(double *)(pyzern->data+i*di+j*dj) = (double)zern[i][j]; 
 	  }
 	}
-	free2d_float(zern,n,n);
+	//free2d_float(zern,n,n);
+	free(zern);
 
 /* Return the Numpy array */
 

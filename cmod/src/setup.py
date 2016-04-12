@@ -87,7 +87,7 @@ phaseCov=Extension('phaseCovmodule',
                  )
 zernike=Extension('zernikemodule',
                  include_dirs=idnumpy,
-                 sources=['zernikemodule.c','josesubs.c'],
+                 sources=['zernikemodule.c'],#,'josesubs.c'],
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
@@ -97,12 +97,12 @@ xpoke=Extension('xpokemodule',
                  library_dirs=ld,
                  extra_link_args=['-lm'],
                  )
-psfparams=Extension('psfparamsmodule',
-                 include_dirs=idnumpy,
-                 sources=['psfparamsmodule.c','josesubs.c'],
-                 library_dirs=ld,
-                 extra_link_args=['-lm'],
-                 )
+# psfparams=Extension('psfparamsmodule',
+#                  include_dirs=idnumpy,
+#                  sources=['psfparamsmodule.c','josesubs.c'],
+#                  library_dirs=ld,
+#                  extra_link_args=['-lm'],
+#                  )
 scrn=Extension('scrnmodule',
       include_dirs=idnumpy+idveclib+idgsl,
 		sources=['scrnmodule.c'],
@@ -117,4 +117,4 @@ iscrn=Extension('iscrnmodule',
 		extra_link_args=scrnmodule_extra_link_args,
 		)
 
-setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,zernike,xpoke,psfparams,scrn,iscrn])
+setup (ext_modules = [fft,cent,binimg,imgnoise,utils,sor,interp,phaseCov,scrn,iscrn,zernike])#psfparams,xpoke,zernike

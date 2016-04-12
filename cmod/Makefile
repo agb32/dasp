@@ -11,8 +11,8 @@ install:
 	(cd src/ ; make install )
 	echo "Making shmem module"
 	(cd shmem/ ; make install )
-	echo "Making svd module"
-	(cd svd/ ; make install)
+#	echo "Making svd module"
+#	(cd svd/ ; make install)
 # commented out by UB, 2012 Aug 8th:
 # (fails to build)
 	echo "Making MKL/AMD module"

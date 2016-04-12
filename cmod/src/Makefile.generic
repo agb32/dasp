@@ -9,7 +9,8 @@
 #     ( which are the "worker" functions called from modules )
 # - calls  "setup.py"  to compile modules.
 #
-OBJS = josesubs mvm interpolate
+OBJS = mvm interpolate 
+#josesubs
 
 .PHONY=clean_o clean_so
 
