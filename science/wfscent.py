@@ -441,7 +441,7 @@ class wfscent(base.aobase.aobase):
             wfs_minarea=wfs_minarea,
             preBinningFactor=preBinningFactor,
             parabolicFit=parabolicFit,
-            gaussianFitVals=gaussianFitVals
+            gaussianFitVals=gaussianFitVals,
             seed=seed
         )
 

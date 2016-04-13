@@ -9,7 +9,7 @@ import util.FITS
 import util.blockMatrix
 import util.zernikeMod
 import util.regularisation
-import cmod.svd
+#import cmod.svd
 import cmod.utils
 import util.dot as quick
 
