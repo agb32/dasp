@@ -146,20 +146,19 @@ class wfscent(base.aobase.aobase):
             useCmod=self.config.getVal("useCmod",default=1)
             self.printLinearisationForcing=self.config.getVal("printLinearisationForcing",default=0)
             self.fullOutput=self.config.getVal("fullWFSOutput",default=1)
-            if self.obj==None:
+
+            if useCmod==0:#only need a random seed if using the python version
                 seed=config.getVal("wfs_seed",default=self.config.getVal("seed",raiseerror=0,default=0),raiseerror=0)
-            else:
-                seed=self.obj.seed
+                if seed==None:
+                    seed=0
+                if seed==0:
+                    numpy.random.seed(None)
+                else:
+                    numpy.random.seed(seed)
             calSource=self.config.getVal("calsource",default=0)
             self.fpDataType=numpy.float32#self.config.getVal("fpDataType",default=numpy.float32)
             self.doneFinalInit=0
             #seed here - no point seeding each resource sharing object...
-            if seed==None:
-                seed=0
-            if seed==0:
-                numpy.random.seed(None)
-            else:
-                numpy.random.seed(seed)
             #random.seed(config.getVal("wfs_seed",default=0))
             #cmod.imgnoise.seed(config.getVal("wfs_rand_seed",default=self.config.getVal("seed",default=0)))
             #cmod.imgnoise.seed(seed)
@@ -171,7 +170,7 @@ class wfscent(base.aobase.aobase):
             self.sentPlotsCnt=0
             if not useCmod:
                print("INFORMATION:wfscent: Using **Python** implementation")
-            self.cmodcentseed=seed#self.config.getVal("cmodcentseed",default=self.config.getVal("seed",default=0))
+            #self.cmodcentseed=seed#self.config.getVal("cmodcentseed",default=self.config.getVal("seed",default=0))
             self.nthreads=self.config.getVal("nthreads",default="all")#usually an integer... or "all"
             if self.nthreads=="all":#use all available CPUs...
                 self.nthreads=self.config.getVal("ncpu")#getCpus()
@@ -262,7 +261,7 @@ class wfscent(base.aobase.aobase):
             preBinningFactor=this.config.getVal("preBinningFactor",default=1)
             parabolicFit=0#use wfsObj if you want these!
             gaussianFitVals=None
-
+            seed=this.config.getVal("wfs_seed",default=this.config.getVal("seed",default=0,raiseerror=0),raiseerror=0)
         else:
             atmosPhaseType=wfsobj.atmosPhaseType
             wfs_nsubx=wfsobj.nsubx
@@ -300,7 +299,7 @@ class wfscent(base.aobase.aobase):
             preBinningFactor=wfsobj.preBinningFactor
             parabolicFit=wfsobj.parabolicFit
             gaussianFitVals=wfsobj.gaussianFitVals#None, or a tuple of 2 values: (gaussianMinVal, gaussianReplaceVal).
-
+            seed=wfsobj.seed
         this.atmosPhaseType=atmosPhaseType
         if atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
             raise Exception("wfscent: atmosPhaseType not known %s"%atmosPhaseType)
@@ -443,6 +442,7 @@ class wfscent(base.aobase.aobase):
             preBinningFactor=preBinningFactor,
             parabolicFit=parabolicFit,
             gaussianFitVals=gaussianFitVals
+            seed=seed
         )
 
 
@@ -543,7 +543,7 @@ class wfscent(base.aobase.aobase):
             #wfs.initMem(fpgarequired,fpgaarr=fpgaarr,shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
             wfs.initMem(shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
             wfs.finishInit()
-            wfs.initialiseCmod(self.nthreads,self.control["cal_source"],self.cmodcentseed)
+            wfs.initialiseCmod(self.nthreads,self.control["cal_source"],wfs.seed)
             #Take correlation image, if don't yet have one, and if doing correlationCentroiding.
             wfs.takeCorrImage(self.control)
             #Take the centroid weighting if we're using it...

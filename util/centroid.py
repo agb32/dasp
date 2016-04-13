@@ -107,7 +107,7 @@ class centroid:
           correlationCentroiding=0, corrThresh=0., 
           corrPattern=None, threshType=0, imageOnly=0, calNCoeff=0,
           useBrightest=0, printLinearisationForcing=0, rowintegtime=None,
-                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None):
+                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None,seed=1):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified,
@@ -184,6 +184,7 @@ class centroid:
            algorithm.
          - preBinningFactor - integer to bin the FFT'd phase, before convolving
            with PSF.
+         - seed - random number seed
         """
         self.nsubx=nsubx
         self.warnOverflow=warnOverflow
@@ -307,7 +308,7 @@ class centroid:
         #else:
         self.subarea = self._calculateSubAreas()
         (  self.indices, self.nsubaps ) = self._calculateIndices()
-        
+        self.seed=seed
         #print "Created centroid object"
     
     def _calculateSubAreas(self):
