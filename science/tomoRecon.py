@@ -9,7 +9,7 @@ import util.FITS
 import util.blockMatrix
 import util.zernikeMod
 import util.regularisation
-#import cmod.svd
+#import cmod.svd #removed from dasp because probably depreciated.
 import cmod.utils
 import util.dot as quick
 
@@ -137,8 +137,6 @@ class recon(base.aobase.aobase):
             self.reconType=self.config.getVal("recontype",default="pcg")
             supportedReconTypes = ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","SVD",
                                    "MAP","pinv","reg","regSmall","regBig","regularised","dicure","fewha"]
-            if "newReconType" in dir():
-               supportReconTypes.append( newReconType )
             # check if the recontype given in the parameter file is valid:
             if self.reconType not in supportedReconTypes:
                 raise ValueError("tomoRecon: recontype must be one of:", supportedReconTypes)

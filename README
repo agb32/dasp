@@ -614,15 +614,19 @@ export C_INCLUDE_PATH=$C_INCLUDE_PATH:/apps/fftw/fftw-3.3.4_gcc-4.9.1/api/
 
  cp /usr/local/Cluster-Apps/gsl/gcc/64/1.9/include/gsl/gsl_cblas.h cmod/src/cblas.h
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/atlas
+export C_INCLUDE_PATH=$C_INCLUDE_PATH:/home/hudson/staff/dph1agb/git/aosim/cmod/src
 
 cd cmod/src
 ln -s /usr/lib64/atlas/libatlas.so.3 libatlas.so
+ln -s /usr/lib64/atlas/libcblas.so.3 libcblas.so
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hudson/staff/dph1agb/git/aosim/cmod/src/
 
 cd
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/openblas
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hudson/staff/dph1agb/openblas
 
-Then make...
+
+Then make dasp... but in cmod/src/setup.py, need to edit
+scrnmodule_extra_link_args so that it reads: ["-lm","-lcblas","-latlas","-lgsl"].
 
 without MPI, export DASPNOMPI=1
 
@@ -630,7 +634,18 @@ Current problems: No mpi python module, no scipy.
 Installed mpi4py locally (python setup.py install --prefix=/home/hudson/staff/dph1agb )
 export PYTHONPATH=$PYTHONPATH://home/hudson/staff/dph1agb/lib/python2.7/site-packages/
 
+Compiling scipy on hamilton:
+export LDFLAGS="$LDFLAGS -shared"
+setup.py build
+python setup.py install --prefix=..
 
+
+export PYTHONPATH=$PYTHONPATH:/home/hudson/staff/dph1agb/git/aosim
+export PATH=$PATH:/home/hudson/staff/dph1agb/git/aosim/gui/bin
+
+
+
+*** End of hamilton ***
 
 
 Supermicro gpu:  /etc/modprobe.d/blacklist.conf:  add blacklist mei

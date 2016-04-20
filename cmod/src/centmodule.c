@@ -405,7 +405,7 @@ int computeHll(float *phs,int phasesize,int niters,int fftsize,int paddedsize,fl
     //rtval|=doFFT(fftsize,phasesize,1,workbuf->phsRe,workbuf->phsIm,workbuf);//do the 2d fft
     rtval|=addPowerSpec(fftsize,(float*)fftarr,paddedsize,hll,iter);//compute the power spectrum (ie high light level img)
   }
-  rtval|=flipArray(paddedsize,hll,0,NULL);
+  //rtval|=flipArray(paddedsize,hll,0,NULL);//removed when extra tilt added to tiltfn.
   return rtval;
 }
 void multArrArr(int datasize,float *data1,float *data2){
@@ -2107,7 +2107,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
 
   c->tiltfn=malloc(sizeof(float)*phasesize*phasesize);
   memset(c->tiltfn,0,sizeof(float)*phasesize*phasesize);
-  tmp=M_PI/fftsize;
+  tmp=M_PI/fftsize*(fftsize+1.);//was M_PI/fftsize and a fliparray.
   for(i=0; i<phasesize; i++){
     for(j=0; j<phasesize; j++){
       c->tiltfn[i*phasesize+j]=tmp*(i+j+1-phasesize);
