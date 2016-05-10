@@ -79,7 +79,7 @@ class fifo(base.aobase.aobase):
         @param msg: The message to pass to the parent (predecessor) object
         @type msg: None or fwdMsg object
         """
-        if self.debug!=None:
+        if self.debug is not None:
             print("INFORMATION::**fifo:{:s}**: generateNext (debug={:s})".format(
                      str(self.idstr), str(self.debug) )
                 )
@@ -87,22 +87,22 @@ class fifo(base.aobase.aobase):
             if self.newDataWaiting:
                 self.dataValidList.append(self.parent.dataValid)
                 if self.parent.dataValid==1:
-                    if self.spareArray!=None and self.spareArray.shape==self.parent.outputData.shape and self.spareArray.dtype==self.parent.outputData.dtype:
+                    if (self.spareArray is not None) and self.spareArray.shape==self.parent.outputData.shape and self.spareArray.dtype==self.parent.outputData.dtype:
                         #do this to avoid an unnecessary malloc...
                         self.spareArray[:]=self.parent.outputData
                         self.dataList.append(self.spareArray)
                         self.spareArray=None
                     else:
                         self.dataList.append(self.parent.outputData.copy())
-                elif self.debug!=None:
+                elif self.debug is not None:
                     print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
                            "(debug={:s})").format( str(self.idstr), self.debug )
                         )
                 self.dataValid=self.dataValidList.pop(0)
                 if self.dataValid:
                     self.outputData=self.dataList.pop(0)
-                    if self.outputData==None:#make the array
-                        if self.spareArray!=None and self.spareArray.shape==self.shape and self.spareArray.dtype==self.dtype:
+                    if self.outputData is None:#make the array
+                        if (self.spareArray is not None) and self.spareArray.shape==self.shape and self.spareArray.dtype==self.dtype:
                             self.outputData=self.spareArray
                             self.outputData[:]=0
                         else:

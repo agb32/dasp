@@ -10,11 +10,15 @@ abort()
 """
 
 mpitype=None
-try:
-    import Scientific.MPI
-    mpitype="Scientific.MPI"
-except:
-    pass
+import os
+if os.environ.has_key("DASPNOMPI"):
+    mpitype="DUMMY"
+if mpitype==None:
+    try:
+        import Scientific.MPI
+        mpitype="Scientific.MPI"
+    except:
+        pass
 
 #mpitype="DUMMY"#If want to test without an MPI library, uncomment this.  Or export DASPNOMPI=1
 if mpitype==None:
@@ -25,11 +29,7 @@ if mpitype==None:
         pass
 
 if mpitype==None:
-    import os
-    if os.environ.has_key("DASPNOMPI"):
-        mpitype="DUMMY"
-    else:
-        raise Exception("No suitable MPI modules found")
+    raise Exception("No suitable MPI modules found")
 
 if mpitype=="Scientific.MPI":
     comm=Scientific.MPI.world.duplicate()

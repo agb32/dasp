@@ -30,6 +30,7 @@ typedef struct {
   int sx, sy;        // (i) strides of the input  array, needed for indexing in interp_first_*
                      // (ii)strides of the output array, needed for indexing in interp_second_*
   int sytmp;         // y stride of sytmp, needed in interp_first_*
+  int sxtmp;         // x stride of sxtmp, needed in interp_first_inFloatStep*
   
                      // The following two variables are used only in the interp_first_inDouble etc.
                      // functions and could hence be made local. However, by adding them to params
@@ -44,5 +45,7 @@ typedef struct {
 // function to perform the interpolation in a thread:
 void interp_first_inDouble(  interp_data_t* arguments ); // interp. in Y if input  is Double
 void interp_first_inFloat(   interp_data_t* arguments ); //  -''-      Y    -''-      Float
+void interp_first_inFloatStep(   interp_data_t* arguments ); //  -''-      Y    -''-      Float
 void interp_second_outDouble(interp_data_t* arguments ); //  -''-      X if output is Double
 void interp_second_outFloat( interp_data_t* arguments ); //  -''-      X    -''-      Float
+void interp_second_outFloatStep( interp_data_t* arguments ); //  -''-      X    -''-      Float

@@ -700,7 +700,7 @@ class atmos:
                         interpPosCol+=interpPosColDict[key]
                     else:
                         interpPosCol+=1
-                phsShiftY=numpy.floor(interpPosCol)
+                phsShiftY=int(numpy.floor(interpPosCol))
                 tmpcol=interpPosCol
                 interpPosCol-=phsShiftY
 
@@ -712,7 +712,7 @@ class atmos:
                         interpPosRow+=interpPosRowDict[key]
                     else:
                         interpPosRow+=1
-                phsShiftX=numpy.floor(interpPosRow)
+                phsShiftX=int(numpy.floor(interpPosRow))
                 tmprow=interpPosRow
                 interpPosRow-=phsShiftX
 

@@ -189,7 +189,7 @@ def computeInitialScreen(config,idstr=None):
     """
     ##we first compute the physical size of the array required to perform the FFT
     so=config.searchOrder
-    if idstr!=None:
+    if idstr is not None:
         searchOrder=["infScrn_"+idstr,"infScrn","globals"]
     else:
         searchOrder=["infScrn","globals"]
@@ -197,7 +197,7 @@ def computeInitialScreen(config,idstr=None):
     Dtel=config.getVal("telDiam")#diameter in m.
     dpix=config.getVal("npup")#diameter in pixels.
     atmosGeom=config.getVal("atmosGeom",default=None,raiseerror=0)
-    if atmosGeom==None:
+    if atmosGeom is None:
         scrnXPxls=config.getVal("scrnXPxls")#this must be large enough so that it can hold the phase for all objects viewed at a given time - ie including off axis objects.  However, even for an object 1 arcminute off axis, at 10km, they are viewed only 2.9m apart, so this won't be too huge... depreciated
         scrnYPxls=config.getVal("scrnYPxls")#depreciated
         seed=config.getVal("initPhsSeed")#depreciated
@@ -231,9 +231,9 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
     The actual number of pixels used is scrnXPxls x scrnYPxls.
     """
 
-    if scrnXPxls==None:
+    if scrnXPxls is None:
         scrnXPxls=dpix
-    if scrnYPxls==None:
+    if scrnYPxls is None:
         scrnYPxls=dpix
     if seed!=None:
         try:
@@ -259,7 +259,7 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
     rowAdd=-vWind*na.sin(windDirection*na.pi/180)/pixScale*tstep#number of pixels to step each iteration (as float).
 
 
-    if seed==None:
+    if seed is None:
         print "WARNING (possibly): computeInitialScreen - seed is None, so timer will be used, meaning that the initial screen cannot be replicated, so if both infScrn and infAtmos try to create, you will get a bad phasescreen.  If you wish to use a random seed, use int(time.time()) in the parameter file - though this will only work if all running in the same process."
     if L0>=Dtel:
         scrnSize=2*L0
@@ -387,7 +387,7 @@ class infScrn(base.aobase.aobase):
         else: ##we continue the initialisation
             ##we extract the outer scale, the global Fried Parameter
             ##and the turbulence strength in the layer
-            if self.atmosGeom==None:
+            if self.atmosGeom is None:
                 self.L0=config.getVal("l0")
                 self.globR0=config.getVal("r0")
             else:
@@ -431,7 +431,7 @@ class infScrn(base.aobase.aobase):
                     print "Unable to load covariance data... generating"
                     traceback.print_exc()
                     covMatPhix=None
-            if covMatPhix==None:
+            if covMatPhix is None:
                 print "Computation of the X phase covariance matrix"
                 covMatPhix=self.computePhaseCovarianceMatrix(self.scrnXPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
                 print "Computation of the Ax and Bx matrixes"        
@@ -459,7 +459,7 @@ class infScrn(base.aobase.aobase):
                     print "Unable to load covariance data... generating"
                     traceback.print_exc()
                     covMatPhiy=None
-            if covMatPhiy==None:
+            if covMatPhiy is None:
                 print "Computation of the Y phase covariance matrix"
                 covMatPhiy=self.computePhaseCovarianceMatrix(self.scrnYPxls+1,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
                 print "Computation of the Ay and By matrixes"        
@@ -503,7 +503,7 @@ class infScrn(base.aobase.aobase):
                 self.r0last=self.ro
                 self.xsteplast=self.xstep
                 self.ysteplast=self.ystep
-                seed=0 if self.seed==None else self.seed
+                seed=0 if self.seed is None else self.seed
                 self.cmodInfo=cmod.scrn.initialise(nthreads,self.ro,self.L0,self.scrnXPxls,self.scrnYPxls,self.sendWholeScreen,self.maxColAdd,self.maxRowAdd,self.colAdd,self.rowAdd,seed,self.screen,self.Ay,self.By,self.AStarty,self.Ax,self.Bx,self.AStartx,self.xstep,self.ystep,self.randarr,self.colOutput,self.rowOutput)
 
     def __del__(self):
@@ -949,7 +949,7 @@ class infScrn(base.aobase.aobase):
         over a socket to obtain certain data for plotting.  The $OBJ symbol
         will be replaced by the instance name of the object - e.g.
         if scrn=mkscrns.Mkscrns(...) then $OBJ would be replaced by scrn."""
-        if self.idstr==None:
+        if self.idstr is None:
             id=""
         else:
             id=" (%s)"%self.idstr

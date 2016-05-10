@@ -106,7 +106,7 @@ class MultiGauss:
 
 
 class LineProfile:
-    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None,lam=589.):
+    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None,lam=589.,sig=None):
         """profile is the Na layer strengths, at heights.
         xoff,yoff can be used to shift the spots by this many pixels.
         pxlscale is arcsec per pixel (of the LGS psf, not the binned final images).
@@ -125,6 +125,7 @@ class LineProfile:
         For 1D profiles, ny can be specified.  psfsize can also be specified, and should be at least as big as ny (or n).
         
         lam is the wavelength in nm, only used when includeFocus is set in generate().
+        sig/flux can be generated in 2 ways: either from the strength of the profile.  Or by specifying sig, which is used to scale such that the brightest sub-aperture has this flux.  If sig<0, then every sub-aperture will have -sig flux, i.e. all identical.
         """
         launchTheta=-launchTheta
         self.n=n
@@ -147,6 +148,7 @@ class LineProfile:
         self.lam=lam
         self.no=self.n*self.oversamplefactor
         self.noy=self.ny*self.oversamplefactor
+        self.sig=sig
         if psfsize==None:
             self.psfsize=self.no
         else:
@@ -257,6 +259,13 @@ class LineProfile:
             e=s+self.n
             img[:,:,:,:s]=0
             img[:,:,:,e:]=0
+        if self.sig!=None:
+            s=img.sum(3).sum(2)
+            if self.sig>=0:#scale so that max brightness is sig.
+                img*=self.sig/s.max()
+            else:#each subap to have same sig.
+                img[:]=(img.T/s.T).T*(-self.sig)
+
         return img#,tmpimg
 
     def integrate(self,h1,h2):

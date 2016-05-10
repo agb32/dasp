@@ -58,7 +58,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
     
     """
 
-    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0,pupilMap=None):
+    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0,pupilMap=None,height=0.,fov=0.,outside=0.):
         """ Constructor for the Pupil class
 
         Parameters: 
@@ -87,6 +87,10 @@ class Pupil(user_array.container):#UserArray.UserArray):
         @type symmetricHex: Int
         @param pupilMap: A filename.fits or 2d array or None.  If not None, will be used to define the pupil function.
         @type pupilMap: None, string, array
+        For use with MultiPup object:
+          height: The height of this pupil in m.
+          fov: fov of this pupil (radius, not diam), in arcsec
+          outside: value of pupil outside the fov.
         """
 ##         print "creating"
 ##         inarr=None
@@ -100,6 +104,10 @@ class Pupil(user_array.container):#UserArray.UserArray):
         self.checkerboard=None
         self.checkerboardargs=None
         self.area=0.
+        self.height=float(height)
+        self.fov=fov
+        self.outside=outside
+        self.diamIncrease=2*height*numpy.tan(fov*numpy.pi/(180*3600.))
         if r1==None:
             r1=npup/2
         self.r1=r1
@@ -118,7 +126,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         else:
             self.dmminarea=dmminarea
         ## we create a grid of x and y lines (to avoid for loops)
-        if pupilMap!=None:
+        if pupilMap is not None:
             if type(pupilMap)==type(""):
                 pupilMap=util.FITS.Read(pupilMap)[1]
             if pupilMap.shape!=(npup,npup):
@@ -859,3 +867,52 @@ def smooth(data,degree=5):
     for i in range(len(smoothed)):
         smoothed[i]=(numpy.array(data[i:i+window])*weight).sum()/sw
     return smoothed
+
+
+class MultiPupil:
+    """Class to generate pupil functions with different scalings, and where there are non-ground conjugate parts, so that looking in a different direction gives a different pupil.
+    """
+    def __init__(self,pupList,diam):
+        """pupList: is a list of Pupil objects.
+        diam: the diameter of the telescope pupil in m"""
+        self.pupList=pupList
+        self.diam=diam
+
+    def generatePupil(self,theta,phi,n,tol=0.5,kind="linear"):
+        """theta: is the off-axis direction in arcsec.
+        phi: is the polar coord in degrees.
+        n: the dimensions of the returned pupil.
+        """
+        import scipy.interpolate
+        theta*=numpy.pi/(180*3600.)
+        phi*=numpy.pi/180.
+        outarr=numpy.ones((n,n),numpy.int8)
+        for pup in self.pupList:
+            h=pup.height
+            diam=pup.diamIncrease+self.diam
+            fn=pup.fn
+            scale=pup.npup/diam#pixels per m.
+            w=scale*self.diam#Number of pixels required for the sub-pupil.
+            r=h*numpy.tan(theta)
+            x=r*numpy.cos(phi)*scale
+            y=r*numpy.sin(phi)*scale
+            #Select the correct part of this pupil and interpolate
+            xstart=x-w/2.+pup.npup/2.
+            xoff=xstart%1
+            xend=xstart+w
+            xstart=int(numpy.floor(xstart))
+            xend=int(numpy.ceil(xend))
+            ystart=y-w/2.+pup.npup/2.
+            yoff=ystart%1
+            yend=ystart+w
+            ystart=int(numpy.floor(ystart))
+            yend=int(numpy.ceil(yend))
+            inarr=fn[ystart:yend+1,xstart:xend+1]
+            print inarr.shape
+            ifn=scipy.interpolate.interp2d(numpy.arange(inarr.shape[1]),numpy.arange(inarr.shape[0]),inarr,kind=kind,copy=False,fill_value=pup.outside)
+            #Now interpolate where we want it...
+            print xstart,xend,ystart,yend,xoff,yoff
+            arr=ifn((numpy.arange(n)+xoff)*(xend-xstart)/float(n),(numpy.arange(n)+yoff)*(yend-ystart)/float(n))
+            outarr&=(arr>tol)
+        return outarr
+            

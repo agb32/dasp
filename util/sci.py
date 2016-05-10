@@ -45,7 +45,7 @@ class sciInfo(util.atmos.source):
         self.histListSize=histListSize
         self.inboxDiamList=inboxDiamList
         self.sciPath=sciPath
-        if self.sciPath==None:
+        if self.sciPath is None:
             self.sciPath=idstr
     def copy(self,idstr):
         """Copy to a new ID-string"""
@@ -70,7 +70,7 @@ class science:
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
-        if nimg==None:
+        if nimg is None:
             nimg=nfft
         self.nimg=nimg
         if (self.nfft%self.nimg)!=0:
@@ -89,7 +89,7 @@ class science:
         self.scinSamp=scinSamp
         self.sciPSFSamp=sciPSFSamp
         self.computeOTF=0#compute OTF for strehl calcs
-        self.historyListsSize=scienceListsSize
+        self.historyListsSize=int(scienceListsSize)
         self.luckyHistorySize=luckyHistorySize
         self.luckyByteswap=luckyByteswap
         self.inboxDiamList=inboxDiamList
@@ -185,7 +185,7 @@ class science:
         else:
             self.pupilAmplitude=pupilAmplitude
         #self.pupilAmplitude.savespace(1)
-        if focusAmplitude==None:#an in place FFT will be done (slower)
+        if focusAmplitude is None:#an in place FFT will be done (slower)
             self.focusAmplitude=self.pupilAmplitude
         elif focusAmplitude.shape!=(nfft,nfft):
             self.focusAmplitude=util.arrayFromArray.arrayFromArray(focusAmplitude,(nfft,nfft),self.cpDataType)#Numeric.Complex64
@@ -505,9 +505,9 @@ class science:
            Modifications made by FA
            The longExpPSF should be normalised to 1, i.e.sum()==1.
            """
-        if longExpPSF==None:
+        if longExpPSF is None:
             longExpPSF=self.longExpPSF
-        if dictScience==None:
+        if dictScience is None:
             dictScience=self.dictScience
         #window(2,wait=1)
         #fma()
@@ -712,7 +712,7 @@ class science:
                         self.computeScientificParameters()
 
                         # we update the history lists
-                        if self.history==None:
+                        if self.history is None:
                             self.historyKeys=self.dictScience.keys()
                             self.history=numpy.zeros((len(self.historyKeys),self.historyListsSize),numpy.float32)
                             self.historyCnt=0
@@ -722,7 +722,7 @@ class science:
                         self.historyCnt=(self.historyCnt+1)%self.history.shape[1]
                     if control["lucky_integrate"]:#doing lucky...
                         if self.luckyCnt==0:
-                            if self.luckyImg==None:
+                            if self.luckyImg is None:
                                 self.luckyImg=numpy.empty((self.nimg,self.nimg),self.fpDataType)
                             self.luckyRms=self.phaseRMS
                             self.luckyImg[:]=self.instImg
@@ -736,7 +736,7 @@ class science:
                             self.luckyImg/=self.luckyImg.sum()#normalise it
                             self.computeScientificParameters(self.luckyImg,self.luckyDict)
                             self.luckyDict["rms"]=self.luckyRms/self.luckyNSampFrames#the mean RMS phase that went into this image.
-                            if self.luckyHistory==None:
+                            if self.luckyHistory is None:
                                 self.luckyHistoryKeys=self.luckyDict.keys()
                                 self.luckyHistory=numpy.zeros((len(self.luckyHistoryKeys),self.luckyHistorySize),numpy.float32)
                                 self.luckyHistoryCnt=0
@@ -745,7 +745,7 @@ class science:
                                 self.luckyHistory[ik,self.luckyHistoryCnt%self.luckyHistory.shape[1]]=self.luckyDict[k]
                             self.luckyHistoryCnt+=1
                             if self.luckyImgFilename!=None and self.luckyImgSize>0:
-                                if self.luckyFile==None:
+                                if self.luckyFile is None:
                                     self.luckyFile=tempfile.TemporaryFile()
                                     self.luckyLastImg=numpy.zeros((self.luckyImgSize,self.luckyImgSize),self.luckyImg.dtype)
                                 self.luckyLastImg[:]=self.luckyImg[self.nimg/2-self.luckyImgSize/2:self.nimg/2+self.luckyImgSize/2,self.nimg/2-self.luckyImgSize/2:self.nimg/2+self.luckyImgSize/2]
@@ -804,13 +804,13 @@ def computeScientificParameters(img,nfft=None,nimg=None,npup=None,pupil=None,inb
 
     ## We calculate PSF parameters ###
     ## We start by the Strehl Ratio
-    if nfft==None:
+    if nfft is None:
         nfft=img.shape[0]
-    if nimg==None:
+    if nimg is None:
         nimg=img.shape[0]
-    if npup==None:
+    if npup is None:
         npup=nfft/2
-    if pupil==None:
+    if pupil is None:
         pupil=util.tel.Pupil(npup,npup/2,npup/2.*telSec/telDiam)
 
     #compute pixel scale.
