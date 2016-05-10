@@ -1632,11 +1632,11 @@ class MirrorSurface:
     def fitGaussian(self,actmap,phsOut=None,coords=None):
         if type(phsOut)==type(None):
             phsOut=self.phsOut
-            phsOut*=0
-            dm=self.dmCoords
-            inf=self.infCoords
-            id=self.influenceDict
-            ifk=self.influenceKey
+        phsOut*=0
+        dm=self.dmCoords
+        inf=self.infCoords
+        id=self.influenceDict
+        ifk=self.influenceKey
         if coords is None:
             for i in xrange(self.nact):
                 for j in xrange(self.nact):
