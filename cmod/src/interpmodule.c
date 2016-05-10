@@ -705,10 +705,7 @@ static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
     xin=numpy.arange(9).astype(numpy.float64)*numpy.sqrt(3)/2.
     yin=numpy.arange(8).astype(numpy.float64)
     inarr=numpy.zeros((8,9),"f")
-
     shiftY=0.5
-
-
     xout=numpy.arange(64)/63.*7
     yout=numpy.arange(64)/63.*7
     outarr=numpy.zeros((64,64),"f")
@@ -719,7 +716,7 @@ static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
     cmod.interp.gslCubSplineHex(inarr,yin,xin,yout,xout,shiftY,outarr,1)
     pylab.imshow(outarr,interpolation="nearest",cmap="gray")
     pylab.show()
-
+    #If you want the shift in the other axis, just transpose the result!
    */
   
   PyArrayObject	*pyin,    *pyout;
@@ -743,8 +740,8 @@ static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
 
   int forEach;           // m/nThreads = number of lines to be processed by each thread
   int oneMore;           // m%nThreads = number of threads that have to process one line more
+  int last;//nunmber of lines processed by last thread.
   float shiftY; //the relative shift of alternating rows.  Set one of these to 0.5 to get hexagonal.
-  int mDoing=0;
   // (1) PARSE THE INPUT arguments from python:
   if (!PyArg_ParseTuple (args, "O!OOOOfO!|i", 
 			 &PyArray_Type, &pyin, 
@@ -987,8 +984,11 @@ static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
     // (c) Determine the number of lines processed by each thread:
     //     the first 'oneMore' threads will process 'forEach+1' lines,
     //     the rest of the threads will process 'forEach' lines.
-    forEach = nInX/nThreads;
-    oneMore = nInX%nThreads;
+    //Threads should process an even number of lines (except for the last one).
+    
+    forEach = (nInX/nThreads+1)&(~1);//make it an even number
+    last=nInX-(nThreads-1)*forEach;//last thread does this many rows
+    //oneMore = nInX%nThreads;
     // (d) Loop over all the threads:
     for(i=0; i < nThreads; i++){
       // (d.1) SET THE PARAMETERS to be passed to the thread function:
@@ -1002,22 +1002,23 @@ static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
       params[i].sy   = sInY;
       params[i].sytmp= nInX;
       params[i].sxtmp=2;
-      if(i < oneMore){
-	params[i].M = (forEach+1+1)/2;  // the first oneMore threads
-      }else{
-	params[i].M = (forEach+1)/2;    // the rest of the threads:
+      if(i<nThreads-1){
+	params[i].M=forEach/2;
+      }	else{
+	params[i].M=(last+1)/2;
       }
+      //if(i < oneMore){
+      //	params[i].M = (forEach+1+1)/2;  // the first oneMore threads
+      //}else{
+      //params[i].M = (forEach+1)/2;    // the rest of the threads:
+      //}
       if(i == 0){
 	params[i].inData  = pyinData;
 	params[i].outData = (void*)ytmp;
-      }else{
-	params[i].inData  = params[i-1].inData  + mDoing*insize;
-	params[i].outData = params[i-1].outData + mDoing*sizeof(double);
+      }else{//note: insize=sizeof(float)
+	params[i].inData  = params[i-1].inData  + forEach*insize;
+	params[i].outData = params[i-1].outData + forEach*sizeof(double);
       }
-      if(i<oneMore)
-	mDoing=forEach+1;
-      else
-	mDoing=forEach;
 
       // Now all the parameters are assigned.
       pthread_create( &thread[i], NULL, (void*)interp_first_inFloatStep,  &params[i] );
@@ -1027,13 +1028,14 @@ static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
     for(i=0;i<nInY;i++)
       x1[i]+=shiftY;
     for(i=0; i < nThreads; i++){
-      if(i<oneMore)      params[i].M=(forEach+1)/2;
-      else               params[i].M=forEach/2;
+      if(i<nThreads-1)      params[i].M=forEach/2;
+      else               params[i].M=last/2;
       params[i].inData+=sInX*sizeof(float);
       params[i].outData+=sizeof(double);
       pthread_create( &thread[i], NULL, (void*)interp_first_inFloatStep,  &params[i] );
-      
     }
+    for(i=0; i < nThreads; i++)
+      pthread_join(thread[i], NULL);
     //     FOR THE SECOND DIMENSION:
     //     the first 'oneMore' threads will process 'forEach+1' lines,
     //     the rest of the threads will process 'forEach' lines.

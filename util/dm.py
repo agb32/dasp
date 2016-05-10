@@ -1,6 +1,6 @@
 import numpy
 import threading
-from cmod.interp import gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp
+from cmod.interp import gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp,gslCubSplineHex
 import util.tel,util.dist
 import util.FITS
 import scipy
@@ -1249,6 +1249,7 @@ class MirrorSurface:
         self.actoffset=actoffset
         self.calcCoords(self.npup,self.nact,self.actoffset)
         self.calcPsplineCoords()
+        
         self.actCoupling=actCoupling
         self.actFlattening=actFlattening
         self.couplingcoeff=couplingcoeff
@@ -1266,7 +1267,7 @@ class MirrorSurface:
         elif typ=="pspline":#periodic spline...
             pass
         elif typ=="hex":#hexagonal pattern...
-            pass
+            self.calcHexCoords()
         elif typ=="influence":
             self.setupInfluence()
 
@@ -1452,7 +1453,25 @@ class MirrorSurface:
         self.x2ps=(numpy.arange(nact+2*zpad)*spacing+spacing*actoffset).astype(numpy.float64)
         self.xps=(numpy.arange(npup)+0.5)/npup+zpad/(nact-1+actoffset*2)#self.x2ps[zpad]
         return self.xps,self.x2ps
-            
+
+    def calcHexCoords(self):
+        npup=self.npup
+        nact=self.nact
+        actoffset=self.actoffset
+        #assume nact is in x.
+        spacingx=(npup-1.)/(nact-1+actoffset*2.)
+        self.x2hex=((numpy.arange(self.nact)+actoffset)*spacingx).astype(numpy.float64)
+        #In y, nact will be slightly less.
+        nacty=int(numpy.round(nact*numpy.sqrt(3)/2.))
+        #because of the half row shift, there are actually nacty+0.5 actuators in y!  But the shift gets added in the interpolation.  Also, actoffsety needs computing.
+        spacingy=spacingx/numpy.sqrt(3)*2
+        actoffsety=((npup-1.)/spacingy+1-(nacty+0.5))/2.
+        self.y2hex=(numpy.arange(nacty)*spacingy+spacingy*actoffsety).astype(numpy.float64)
+        self.nacty=nacty
+        self.actoffsety=actoffsety
+        self.actStartY=(nact-nacty)//2
+        self.shifty=0.5*spacingy
+        
     def interpolateSpline(self,actmap,phsOut=None,coords=None):
         """Interpolation using bicubic spline.
         Geometry can be hudgin (actuators in centre of subaps) or fried (actuators at corners of subaps) or None, in which case actoffset is used.
@@ -1493,6 +1512,15 @@ class MirrorSurface:
         """Fits actuators in a hexagon pattern, and returns interpolated DM phase"""
         if phsOut is None:
             phsOut=self.phsOut
+        x2=self.x2hex
+        y=x=self.x
+        y2=self.y2hex
+        if coords is not None:
+            ymin,xmin,ymax,xmax=coords
+            phsOut=phsOut[:ymax-ymin,:xmax-xmin]
+            y=y[ymin:ymax]
+            x=x[xmin:xmax]
+        gslCubSplineHex(actmap[self.actStartY:self.actStartY+self.nacty],y2.copy(),x2,y,x,self.shifty,phsOut,self.interpolationNthreads)
         return phsOut
         
     
