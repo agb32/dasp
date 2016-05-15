@@ -1049,18 +1049,23 @@ class recon(base.aobase.aobase):
         #wfsdata=self.wfsdata
         data=self.inputData#numpy.zeros(wfsdata*2,numpy.Float)
         if self.multirate==0:
-            if type(self.decayFactorOpen)==numpy.ndarray and \
-               self.decayFactorOpen.shape[0]==self.outputData.shape[0]:
-                self.outputData*=self.decayFactorOpen # (decayFactorOpen is array)
-
-            else:
-                for i in range(len(self.nactsList)):
-                    dm=self.dmList[i]
-                    if dm.decayFactor!=None:
-                        self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=dm.decayFactor
-                    elif not self.closedLoopList[i]:# (open loop actuators...)
-                        self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=self.decayFactorOpen
-        else:#multirate WFS... update the specific WFSs.
+            for i in range(len(self.nactsList)):
+                dm=self.dmList[i]
+                d=self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]
+                if dm.closedLoop and (dm.polcMatrix is not None):
+                    if type(dm.polcMatrix)==type(""):
+                        print "Loading polc matrix %s"%dm.polcMatrix
+                        dm.polcMatrix=util.FITS.Read(dm.polcMatrix)[1]
+                    #With polc, we need to apply (dI +gMP) to the previous actuators, where d is decay factor, M is the rmx and P is the pmx.  
+                    #dot the d+gMP matrix with actuators
+                    d[:]=numpy.dot(dm.polcMatrix,d)
+                elif type(self.decayFactorOpen)==numpy.ndarray and self.decayFactorOpen.size==self.outputData.size:
+                    d*=self.decayFactorOpen[self.nactsCumList[i]:self.nactsCumList[i+1]]
+                elif dm.decayFactor is not None:
+                    d*=dm.decayFactor
+                elif not self.closedLoopList[i]:# (open loop actuators...)
+                    d*=self.decayFactorOpen
+        else:#multirate WFS... update the specific WFSs. (and for now, no polc)
             for i in range(len(self.wfsIDList)):
                 if self.parentDataValid[i]:
                     if type(self.decayFactorOpen)==numpy.ndarray and self.decayFactorOpen.size==self.outputData.size:
@@ -1072,6 +1077,7 @@ class recon(base.aobase.aobase):
                                 self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=dm.decayFactor
                             elif not self.closedLoopList[j]:#open loop
                                 self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=dm.decayFactorOpen
+
             
         if self.extraActs>0:
             self.outputData[-self.extraActs:]*=self.extraActsDecay
