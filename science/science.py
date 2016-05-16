@@ -35,10 +35,6 @@ import util.sci
 #import os,numarray
 
 
-##for plotting
-##animate(1)
-
-
 ## for debug purpose : creation of a function to compute psf from phase with numeric FFT
 def phi2psf(phi,pup):
     """ Create a psf from phi and pup arrays
@@ -387,6 +383,13 @@ class science(aobase.aobase):
                 idtxt=" (%s)"%self.config.this.simID
             print "INFORMATION: Science results for %s%s:"%(self.moduleName,idtxt)
             timestamp=time.strftime("%y%m%d_%H%M%S")
+            try:#try to get the git commit label...
+                commit=os.popen("(cd %s && git log -1)"%os.path.split(__file__)[0]).read().split("\n")[0][7:]
+            except:
+                commit="NOT FOUND"
+                print "git commit info not found"
+            
+            
             for this in self.thisObjList:
                 #final computation of science parameters:
                 this.sciObj.longExpPSF[:]=this.sciObj.longExpImg/numpy.sum(this.sciObj.longExpImg)##We normalise the instantaneous PSF to 1
@@ -421,6 +424,7 @@ class science(aobase.aobase):
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
                     for key in this.sciObj.dictScience.keys():
                         head.append("%-8s= %s"%(key[:8],str(this.sciObj.dictScience[key])))
                     if rmstxt!="":
@@ -431,7 +435,7 @@ class science(aobase.aobase):
                 if this.sciObj.sciFilename!=None:
                     self.mkdirForFile(this.sciObj.sciFilename)
                     f=open(this.sciObj.sciFilename,"a")
-                    f.write("%s%s%s (%dx%d iters, batchno %d %s): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,timestamp,str(this.sciObj.dictScience),rmstxt))
+                    f.write("%s%s%s (%dx%d iters, batchno %d %s commit %s): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,timestamp,commit,str(this.sciObj.dictScience),rmstxt))
                     f.close()
                 if this.sciObj.histFilename!=None and this.sciObj.history!=None:
                     self.mkdirForFile(this.sciObj.histFilename)
@@ -444,6 +448,7 @@ class science(aobase.aobase):
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
                     k=str(this.sciObj.dictScience.keys())
                     k=k.replace("'",'').replace("[","").replace("]","")
 
@@ -462,6 +467,7 @@ class science(aobase.aobase):
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
                     k=str(this.sciObj.luckyHistoryKeys)
                     k=k.replace("'",'').replace("[","").replace("]","")
 
@@ -484,6 +490,7 @@ class science(aobase.aobase):
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
                     txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=this.sciObj.luckyByteswap,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
                     f=open(this.sciObj.luckyImgFilename,"a")
                     f.write(txt)
