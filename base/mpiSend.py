@@ -128,7 +128,7 @@ class mpiSend(base.aobase.aobase):
                     data=self.outputData
                     sh=data.shape
                 else:
-                    dat=""
+                    data=""
                     sh="data=''"
             else:#self.outputData stored for next time... assuming next time, parent.dataValid will be zero.
                 self.parent.setGenerate(0)
