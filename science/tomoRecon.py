@@ -1076,7 +1076,7 @@ class recon(base.aobase.aobase):
                             if dm.decayFactor is not None:
                                 self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=dm.decayFactor
                             elif not self.closedLoopList[j]:#open loop
-                                self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=dm.decayFactorOpen
+                                self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=self.decayFactorOpen
 
             
         if self.extraActs>0:
