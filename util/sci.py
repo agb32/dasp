@@ -22,7 +22,7 @@ class sciOverview:
     def values(self):
         return self.sciDict.values()
 class sciInfo(util.atmos.source):
-    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2]):
+    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10):
         super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)
         self.nsamp=nsamp
         self.zeroPsf=10
@@ -44,6 +44,9 @@ class sciInfo(util.atmos.source):
         self.diffPsfFilename=diffPsfFilename
         self.histListSize=histListSize
         self.inboxDiamList=inboxDiamList
+        self.userFitsHeader=userFitsHeader
+        self.psfEnergyToSave=psfEnergyToSave
+        self.psfMinSize=psfMinSize
         self.sciPath=sciPath
         if self.sciPath is None:
             self.sciPath=idstr
@@ -66,7 +69,7 @@ class science:
     phaseMultiplier is used for cases where phase wavelength is different from the wavelength that this science object is at.
 
     """
-    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0):
+    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0,userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10):
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
@@ -94,6 +97,11 @@ class science:
         self.luckyByteswap=luckyByteswap
         self.inboxDiamList=inboxDiamList
         self.saveFileString=saveFileString
+        if userFitsHeader is not None and type(userFitsHeader)!=type([]):
+            userFitsHeader=[userFitsHeader]
+        self.userFitsHeader=userFitsHeader
+        self.psfEnergyToSave=psfEnergyToSave
+        self.psfMinSize=psfMinSize
         if type(self.saveFileString)!=type(""):
             self.saveFileString=""
         self.debug=debug

@@ -161,8 +161,9 @@ class science(aobase.aobase):
                 scienceListsSize=100
             inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
             histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
-
-
+            userFitsHeader=None
+            psfEnergyToSave=0.
+            psfMinSize=10
 
         else:#use sciOverview.
             this.sciInfo=self.sciOverview.getSciByID(idstr)
@@ -214,6 +215,9 @@ class science(aobase.aobase):
                 if scienceListsSize==0:
                     scienceListsSize=100
             inboxDiamList=this.sciInfo.inboxDiamList
+            userFitsHeader=this.sciInfo.userFitsHeader
+            psfEnergyToSave=this.sciInfo.psfEnergyToSave
+            psfMinSize=this.sciInfo.psfMinSize
             histFilename=this.sciInfo.histFilename
             if luckyObj!=None:
                 luckyFilename=luckyObj.filename
@@ -259,7 +263,7 @@ class science(aobase.aobase):
         pix_scale=L_D*float(npup)/float(nfft)*float(nfft)/float(nimg) ##pixel scale (arcsec/pixel in the science image).  
         ##name of the FITS file to store the PSF
         #now create the science object that will do most of the work...
-        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap)
+        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap,userFitsHeader=userFitsHeader,psfEnergyToSave=psfEnergyToSave,psfMinSize=psfMinSize)
 
         
 
@@ -411,6 +415,7 @@ class science(aobase.aobase):
                 if this.sciObj.phaseRMScnt>0:
                     m=this.sciObj.phaseRMSsum/this.sciObj.phaseRMScnt
                     rmstxt=", RMS: %g +- %g +- %g"%(m,numpy.sqrt(this.sciObj.phaseRMSsum2/this.sciObj.phaseRMScnt-m*m),numpy.sqrt((this.sciObj.phaseRMSsum2/this.sciObj.phaseRMScnt-m*m)/this.sciObj.phaseRMScnt))#note, when plotting, plot rms with error bars of the smaller one - this is the error of the mean, not the sample distribution...
+                    print rmstxt
                 if this.sciObj.fitsFilename!=None:
                     #if os.path.exists(self.fitsFilename):
                     #os.remove(self.fitsFilename);
@@ -418,7 +423,7 @@ class science(aobase.aobase):
                     head=[]
                     head.append("NAME    = '%s'"%this.objID)
                     head.append("NINTEG  = %d"%this.sciObj.n_integn)
-                    head.append("SCALE   = %g"%this.sciObj.pix_scale)
+                    head.append("SCALE   = %g /pxl scale in arcsec/pxl"%this.sciObj.pix_scale)
                     head.append("SAVESTR = '%s'"%this.sciObj.saveFileString)
                     head.append("SIMID   = '%s'"%self.config.this.simID)
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
@@ -431,7 +436,13 @@ class science(aobase.aobase):
                         head.append("RMS     = %s"%rmstxt)
                     if len(this.sciObj.saveFileString)>0:
                         head.append("SIMINFO = '%s'"%this.sciObj.saveFileString)
-                    util.FITS.Write(this.sciObj.longExpImg/this.sciObj.n_integn,this.sciObj.fitsFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
+                    img=this.sciObj.longExpImg/this.sciObj.n_integn
+                    if this.sciObj.psfEnergyToSave!=0:#shrink the psf until it contains this fraction of energy.  e.g. 0.99
+                        img,excludedEnergy=self.clipPsfToFluxFrac(img,this.sciObj.psfEnergyToSave,this.sciObj.psfMinSize)
+                        head.append("EExluded= %g"%excludedEnergy)
+                    util.FITS.Write(img,this.sciObj.fitsFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.sciFilename!=None:
                     self.mkdirForFile(this.sciObj.sciFilename)
                     f=open(this.sciObj.sciFilename,"a")
@@ -453,7 +464,9 @@ class science(aobase.aobase):
                     k=k.replace("'",'').replace("[","").replace("]","")
 
                     head.append("KEYS    = '%s'"%k)
-                    util.FITS.Write(this.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
+                    util.FITS.Write(imgthis.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFilename!=None:
                     self.mkdirForFile(this.sciObj.luckyFilename)
                     #Now write the history.
@@ -472,6 +485,8 @@ class science(aobase.aobase):
                     k=k.replace("'",'').replace("[","").replace("]","")
 
                     head.append("KEYS    = '%s'"%k)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
                     util.FITS.Write(this.sciObj.luckyHistory[:,:this.sciObj.luckyHistoryCnt],this.sciObj.luckyFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFile!=None:
                     self.mkdirForFile(this.sciObj.luckyImgFilename)
@@ -491,6 +506,8 @@ class science(aobase.aobase):
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
                     head.append("TIMSTAMP= '%s'"%timestamp)
                     head.append("COMMIT  = '%s'"%commit)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
                     txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=this.sciObj.luckyByteswap,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
                     f=open(this.sciObj.luckyImgFilename,"a")
                     f.write(txt)
@@ -506,7 +523,25 @@ class science(aobase.aobase):
                         f.write(" "*pos)
                     f.close()
                     
-
+    def clipPsfToFluxFrac(self,img,frac,minSize=10):
+        size=minSize/2
+        if size<1:
+            size=1
+        totEnergy=img.sum()
+        energy=totEnergy*frac
+        my=img.shape[0]//2
+        mx=img.shape[1]//2
+        tot=img[my-size:my+size,mx-size:mx+size].sum()
+        while size<img.shape[0]//2 and tot<energy:
+            size+=1
+            tot+=img[my-size,mx-size:mx+size].sum()
+            tot+=img[my+size-1,mx-size:mx+size].sum()
+            tot+=img[my-size+1:my+size-1,mx-size].sum()
+            tot+=img[my-size+1:my+size-1,mx+size-1].sum()
+        img=img[my-size:my+size,mx-size:mx+size]
+        excludedEnergy=totEnergy-img.sum()
+        return img,excludedEnergy
+                    
     def mkdirForFile(self,fname):
         d,f=os.path.split(fname)
         if len(d)>0:
