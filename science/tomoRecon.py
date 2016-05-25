@@ -961,6 +961,12 @@ class recon(base.aobase.aobase):
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pinv":
                     self.reconmx=numpy.linalg.pinv(self.spmx,self.rcond).T.astype(numpy.float32)
+                    if self.dmModeType=="modalPoke":
+                        #expand the rmx back
+                        if self.reconmxFilename!=None:
+                            util.FITS.Write(self.reconmx,self.reconmxFilename[:-5]+"modal.fits")
+                        self.reconmx=numpy.dot(self.mirrorModes.T,self.reconmx).astype(numpy.float32)
+                        print "reconmx shape is now: %s"%str(self.reconmx.shape)
                     if self.reconmxFilename!=None:
                         print("INFORMATION:**tomoRecon**:"+
                           "Writing reconmx to file %s"%self.reconmxFilename)
