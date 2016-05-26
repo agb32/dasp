@@ -466,7 +466,7 @@ class science(aobase.aobase):
                     head.append("KEYS    = '%s'"%k)
                     if this.sciObj.userFitsHeader is not None:
                         head+=this.sciObj.userFitsHeader
-                    util.FITS.Write(imgthis.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
+                    util.FITS.Write(this.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFilename!=None:
                     self.mkdirForFile(this.sciObj.luckyFilename)
                     #Now write the history.
