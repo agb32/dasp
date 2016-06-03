@@ -22,7 +22,7 @@ class sciOverview:
     def values(self):
         return self.sciDict.values()
 class sciInfo(util.atmos.source):
-    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10):
+    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):
         super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)
         self.nsamp=nsamp
         self.zeroPsf=10
@@ -47,6 +47,7 @@ class sciInfo(util.atmos.source):
         self.userFitsHeader=userFitsHeader
         self.psfEnergyToSave=psfEnergyToSave
         self.psfMinSize=psfMinSize
+        self.nimgLongExp=nimgLongExp
         self.sciPath=sciPath
         if self.sciPath is None:
             self.sciPath=idstr
@@ -69,13 +70,16 @@ class science:
     phaseMultiplier is used for cases where phase wavelength is different from the wavelength that this science object is at.
 
     """
-    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0,userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10):
+    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0,userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
         if nimg is None:
             nimg=nfft
         self.nimg=nimg
+        if nimgLongExp==None:
+            nimgLongExp=self.nimg
+        self.nimgLongExp=nimgLongExp
         if (self.nfft%self.nimg)!=0:
             raise Exception("WARNING: util.sci.py nfft not a multiple of nimg")
         self.phaseTilt=None
@@ -140,8 +144,8 @@ class science:
         self.psfSamp=0
         self.PSFTime=0.
         self.phaseMultiplier=phaseMultiplier
-        self.longExpPSF=numpy.zeros((nimg,nimg),self.integratedImgDataType)#was float64
-        self.longExpImg=numpy.zeros((nimg,nimg),self.integratedImgDataType)# Long exposure image array (cannot be shared)
+        #self.longExpPSF=numpy.zeros((nimg,nimg),self.integratedImgDataType)#was float64
+        self.longExpImg=numpy.zeros((nimgLongExp,nimgLongExp),self.integratedImgDataType)# Long exposure image array (cannot be shared)
         self.luckyImg=None
         self.luckyCnt=0
         self.luckyHistoryKeys={}
@@ -155,7 +159,7 @@ class science:
         if allocateMem:
             self.initMem()
             self.initProfiles()
-        self.longExpPSFView=None
+        #self.longExpPSFView=None
         self.instImgView=None
 
     def __del__(self):
@@ -172,14 +176,14 @@ class science:
         self.phaseTilt=(self.pup*tmp*(xtiltfn+numpy.transpose(xtiltfn))).astype(self.fpDataType)
 
         
-    def initMem(self,fftTmp=None,pupilAmplitude=None,focusAmplitude=None,tempImg=None,instImg=None,phs=None,binImg=None):
+    def initMem(self,fftTmp=None,pupilAmplitude=None,focusAmplitude=None,tempImg=None,instImg=None,phs=None,binImg=None,longExpPSF=None):
         """Initialise memories needed... here, if memories are passed in,
         these are used (ie when sharing resources), otherwise, new memories
         are allocated."""
         nfft=self.nfft
         npup=self.npup
         nimg=self.nimg
-            
+        nimgLongExp=self.nimgLongExp
         if type(fftTmp)==type(None):#scratch area for acml FFT routine...
             self.fftTmp=numpy.zeros((nfft**2+10*nfft,),self.cpDataType)#Numeric.Complex64
         elif fftTmp.shape!=(nfft**2+10*nfft,):
@@ -200,7 +204,12 @@ class science:
         else:
             self.focusAmplitude=focusAmplitude
 
-            
+        if longExpPSF is None:
+            self.longExpPSF=numpy.zeros((nimgLongExp,nimgLongExp),self.integratedImgDataType)
+        elif longExpPSF.shape!=(nimgLongExp,nimgLongExp):
+            self.longExpPSF=longExpPSF.view(self.integratedImgDataType)[:self.nimgLongExp,:self.nimgLongExp]
+        else:
+            self.longExpPSF=longExpPSF
 
         #initialise the FFT (fftw module)
         cmod.fft.InitialiseThreading(self.nthreads)
@@ -225,7 +234,7 @@ class science:
         if type(instImg)==type(None):
             self.instImg=numpy.zeros((self.nimg,self.nimg),self.fpDataType)#was Numeric.Float64
         else:
-            instImg=numpy.array(instImg)#xxx
+            #instImg=numpy.array(instImg)#xxx
             self.instImg=util.arrayFromArray.arrayFromArray(instImg,(nimg,nimg),self.fpDataType)#Numeric.Float64
     
         if type(phs)==type(None):
@@ -273,13 +282,15 @@ class science:
         ####  We first create a map of the square of the distances to the center of the PSF image
         ####  The map of distances is computed with the dist function (see aosim/utils/dist.py for help)
         ####  We use the square because we have then integer indexes
-        r2=dist(self.nimg,natype=self.fpDataType,sqrt=0).ravel()
+        r2=dist(self.nimgLongExp,natype=self.fpDataType,sqrt=0).ravel()
         #r2*=r2 ##no longer sqrts in dist... square : we have integer numbers
         self.nnRad=numpy.argsort(r2) ##we flatten the grid of distances and sort the values
         r2r=numpy.take(r2,self.nnRad) ## we sort the grid of distances
-        self.xRad=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        #self.xRad=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        self.xRad=numpy.nonzero(r2r[1:]-r2r[:-1])[0]
         #print self.xRad,type(self.xRad),type(self.xRad[0])
         self.tabNbPointsRad=difYorick(self.xRad) ## number of points per bin
+        self.tabNbPointsRad=self.xRad[1:]-self.xRad[:-1]
         self.rRad=numpy.take(numpy.sqrt(r2r),self.xRad) ##radius (in pixels) giving the horizontal axis for radial and encircled energy profiles
         self.rad=self.rRad*self.pix_scale
 
@@ -319,7 +330,8 @@ class science:
         #### We compute the encircled energy of the PSF
         tabEncircledEnergy=numpy.take(numpy.cumsum(psfSort),self.xRad)
         #### We compute the radial profile
-        tabEnergyPerPixBin=difYorick(tabEncircledEnergy) ##to have the energy per pixel bin
+        #tabEnergyPerPixBin=difYorick(tabEncircledEnergy) ##to have the energy per pixel bin
+        tabEnergyPerPixBin=tabEncircledEnergy[1:]-tabEncircledEnergy[:-1]
         #tabEnergyPerPixBin.savespace(1)#prevent conversion to double.
         profil=tabEnergyPerPixBin/self.tabNbPointsRad
 
@@ -369,13 +381,14 @@ class science:
         Must be called before calling computeEnsquaredEnergy
         """	
         ####  We first create a pixel map of concentric square apertures
-        tabx=numpy.arange(self.nimg)-self.nimg/2;
+        tabx=numpy.arange(self.nimgLongExp)-self.nimgLongExp/2;
         r2=numpy.maximum(numpy.absolute(tabx[:,numpy.newaxis]),numpy.absolute(tabx[numpy.newaxis,:,]))
 
         ##we flatten the grid of distances and sort the values
         self.nnSquare=numpy.argsort(r2.ravel())
         r2r=numpy.take(r2.ravel(),self.nnSquare) ## we sort the grid of distances
-        self.xSquare=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        #self.xSquare=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        self.xSquare=numpy.nonzero(r2r[1:]-r2r[:-1])[0]
         self.rSquare=numpy.take(r2r,self.xSquare)*2+1 ##aperture size (in pixels) giving the horizontal axis for the ensquared energy profile
     
 ##     def initEnsquaredEnergyProfile(self):
@@ -524,8 +537,8 @@ class science:
         ## We calculate PSF parameters ###
         ## We start by the Strehl Ratio
         nfft=self.nfft
-        nimg=self.nimg
-        strehl=longExpPSF[nimg/2,nimg/2]/self.diffn_core_en
+        nimgLongExp=self.nimgLongExp
+        strehl=longExpPSF[nimgLongExp/2,nimgLongExp/2]/self.diffn_core_en
         dictScience['strehl']=strehl
         ##print "Strehl=%g"%(strehl)
         dictScience['strehlPeak']=max(longExpPSF.flat)/self.diffn_core_en
@@ -626,7 +639,7 @@ class science:
             dictScience['inbox%g'%apSize]=inbox
 
         #now compute speckle fraction.  This is really only meaningful for high strehl cases.
-        if self.keepDiffPsf and self.nimg==self.nfft and self.nfft==2*self.npup:
+        if self.keepDiffPsf and self.nimgLongExp==self.nfft and self.nfft==2*self.npup:
             #find difference
             diff=self.diffPSF-longExpPSF
             #zero out the middle part (up to first null)
@@ -696,6 +709,7 @@ class science:
             self.psfSamp=0
             self.longExpImg[:,]=0.
             self.longExpPSF[:,]=0.
+            self.clippedEnergy=0.
             self.n_integn=0
             self.phaseRMSsum=0.
             self.phaseRMSsum2=0.
@@ -707,7 +721,16 @@ class science:
                 if self.psfSamp>=self.sciPSFSamp:
                     self.psfSamp=0
                     self.computeShortExposurePSF(self.phs)#calc short exposure PSF
-                    self.longExpImg+=self.instImg# Integrate img
+                    if self.nimgLongExp==self.nimg:
+                        self.longExpImg+=self.instImg# Integrate img
+                    else:
+                        f=(self.nimg-self.nimgLongExp)//2
+                        t=f+self.nimgLongExp
+                        self.longExpImg+=self.instImg[f:t,f:t]
+                        self.clippedEnergy+=self.instImg[:f].sum()
+                        self.clippedEnergy+=self.instImg[t:].sum()
+                        self.clippedEnergy+=self.instImg[f:t,:f].sum()
+                        self.clippedEnergy+=self.instImg[f:t,t:].sum()
                     #instantaneous strehl calc...
                     self.dictScience['strehlInst']=numpy.max(self.instImg)/self.diffn_core_en
                     self.n_integn+=1 ##We increment the number of integrations used to compute long exposure PSF
@@ -715,7 +738,7 @@ class science:
                     if (self.isamp>=self.scinSamp): #compute scientific parameters
                         self.isamp=0#we reset isamp to 0
                         # We do the average of the PSF and normalise it to 1
-                        self.longExpPSF[:,]=self.longExpImg/numpy.sum(self.longExpImg)##We normalise the instantaneous PSF to 1
+                        self.longExpPSF[:,]=self.longExpImg/(numpy.sum(self.longExpImg)+self.clippedEnergy)##We normalise the instantaneous PSF to 1
 
                         self.computeScientificParameters()
 
