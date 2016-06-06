@@ -53,7 +53,7 @@ class sciInfo(util.atmos.source):
             self.sciPath=idstr
     def copy(self,idstr):
         """Copy to a new ID-string"""
-        s=sciInfo(idstr,self.theta,self.phi,self.pupil,self.sourcelam,self.phslam,self.nsamp,self.zeroPsf,self.psfFilename,self.summaryFilename,self.histFilename,self.integrate,self.calcRMS,self.phaseType,self.nfft,self.nimg,self.realPupil,self.sciPath,self.dmpupil,self.usedmpup,self.psfSamp,self.luckyObj,self.saveString,self.diffPsfFilename,self.histListSize,self.inboxDiamList)
+        s=sciInfo(idstr,self.theta,self.phi,self.pupil,self.sourcelam,self.phslam,self.nsamp,self.zeroPsf,self.psfFilename,self.summaryFilename,self.histFilename,self.integrate,self.calcRMS,self.phaseType,self.nfft,self.nimg,self.realPupil,self.sciPath,self.dmpupil,self.usedmpup,self.psfSamp,self.luckyObj,self.saveString,self.diffPsfFilename,self.histListSize,self.inboxDiamList,self.userFitsHeader,self.psfEnergyToSave,self.psfMinSize,self.nimgLongExp)
         return s
 
 class luckyInfo:
