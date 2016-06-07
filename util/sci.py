@@ -22,7 +22,7 @@ class sciOverview:
     def values(self):
         return self.sciDict.values()
 class sciInfo(util.atmos.source):
-    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):
+    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):#Note, if change this, also update the .copy method.
         super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)
         self.nsamp=nsamp
         self.zeroPsf=10

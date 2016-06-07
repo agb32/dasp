@@ -253,7 +253,7 @@ class science(aobase.aobase):
             print "Warning - sci_lam not in atmosGeom - using %g"%sci_lam
         if phsLam==None:
             phsLam=sci_lam
-        print "science - Using wavelength of %g nm (phase at %g nm)"%(sci_lam,phsLam)
+        print "science %s - Using wavelength of %g nm (phase at %g nm)"%(idstr,sci_lam,phsLam)
 
 
 

@@ -68,6 +68,8 @@ class fifo(base.aobase.aobase):
                     #Needs to know shape and dtype so this can be returned...
                     if self.args.has_key("shape") and self.args.has_key("dtype"):
                         self.outputData=self.args["shape"],self.args["dtype"]
+                    else:
+                        self.outputData=self.config.getVal("fifoShape"),self.config.getVal("fifoDtype")
 
     def newParent(self,parent,idstr=None):
         self.parent=parent
