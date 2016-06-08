@@ -105,7 +105,7 @@ class dm(base.aobase.aobase):
                 self.sourceLam=self.thisdm.reconLam#the reconstructor wavelength - ie wavelength for which the DM is shaped.
                 #thisdm.maxStroke is in microns.  So, convert to radians, and divide by 2, so that have half in each direction.
                 self.maxStroke=self.thisdm.maxStroke*1000./self.sourceLam*2*numpy.pi/2.
-                sourceID=self.dmObj.getSourceID(self.idstr[0])
+                #sourceID=self.dmObj.getSourceID(self.idstr[0])
                 # need a flag telling us which actuators are valid to use (otherwise we waste time and memory reconstructing all actuators).  This flag will depend on the geometry (Freid etc) and dmpup.
                 if self.pupil is None:
                     r2=0

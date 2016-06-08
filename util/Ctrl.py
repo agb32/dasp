@@ -689,9 +689,12 @@ class myStdout:
                hasattr(sys.stdout,'isatty') and sys.stdout.isatty()): 
             # assume that if stdout is connected to a terminal, it can support
             # colour.
-            import curses,re
-            curses.setupterm()
-            self.colourized=(curses.tigetnum("colors")>=0)
+            try:
+                import curses,re
+                curses.setupterm()
+                self.colourized=(curses.tigetnum("colors")>=0)
+            except:
+                print "Error with curses.setupterm or tigetnum"
         # ** == bold
         # __ == blink
         # ^^ == inverse
