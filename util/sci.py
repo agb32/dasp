@@ -96,6 +96,7 @@ class science:
         self.scinSamp=scinSamp
         self.sciPSFSamp=sciPSFSamp
         self.computeOTF=0#compute OTF for strehl calcs
+        self.computeDiffPsfProfiles=0#compute radial and ensquared profiles for the diffraction limited psf.
         self.historyListsSize=int(scienceListsSize)
         self.luckyHistorySize=luckyHistorySize
         self.luckyByteswap=luckyByteswap
@@ -261,15 +262,17 @@ class science:
     def initProfiles(self):
         """This should be called after the memory has been set up..."""
         self.diffPSF=self.computeDiffPSF()
-        self.diffPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
+        self.diffn_core_en=float(self.diffPSF[self.nimg/2,self.nimg/2])
+        if self.computeDiffPsfProfiles:
+            self.diffPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
+            print "todo - return from computeEnsquaredEnergy - allocate once"
+            self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         if self.diffPsfFilename!=None:#save the diffraction limited PSF.
             util.FITS.Write(self.diffPSF,self.diffPsfFilename)
         #self.dlPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
-        self.diffn_core_en=float(self.diffPSF[self.nimg/2,self.nimg/2])
-        self.diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(self.diffPSF),s=(self.diffPSF.shape[0]*2,self.diffPSF.shape[1]*2)).sum()
+        if self.computeOTF:
+            self.diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(self.diffPSF),s=(self.diffPSF.shape[0]*2,self.diffPSF.shape[1]*2)).sum()
         #print "Diffraction OTF sum: %s"%str(self.diffOTFSum)
-        print "todo - return from computeEnsquaredEnergy - allocate once"
-        self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         #perform an acml FFT initialisation.
         #Actually not needed for inplace_fft2d...
 
