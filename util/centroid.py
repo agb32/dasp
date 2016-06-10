@@ -107,7 +107,7 @@ class centroid:
           correlationCentroiding=0, corrThresh=0., 
           corrPattern=None, threshType=0, imageOnly=0, calNCoeff=0,
           useBrightest=0, printLinearisationForcing=0, rowintegtime=None,
-                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None,seed=1):
+                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None,seed=1,integstepFn=None):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified,
@@ -185,6 +185,7 @@ class centroid:
          - preBinningFactor - integer to bin the FFT'd phase, before convolving
            with PSF.
          - seed - random number seed
+         - integstepFn - None or a function to return the number of integration steps, which is called at the start of each integration.
         """
         self.nsubx=nsubx
         self.warnOverflow=warnOverflow
@@ -225,6 +226,7 @@ class centroid:
         self.tstep=tstep
         self.integtime=integtime
         self.latency=latency
+        self.integstepFn=integstepFn#None, or a function if variable integration time is required.  
         self.nIntegrations=int(numpy.ceil(self.integtime/self.tstep))
         self.rowintegtime=None # start with this
         if rowintegtime!=None:
@@ -579,6 +581,22 @@ class centroid:
     def closeCmod(self):
         self.centcmod.free()
         self.centcmod=None
+
+    def updateIntegTime(self,steps):#this is to simulate rtc jitter.  Note, the exposure time/flux isn't changed...
+        self.integtime=steps*self.tstep
+        self.centcmod.update(util.centcmod.INTEGSTEPS,int(steps))
+            
+
+
+
+
+
+
+
+
+
+
+        
     # def runFPGA(self):
     #     """Tell the FPGA where the data is..."""
     #     if self.magicCentroiding:
@@ -741,10 +759,10 @@ class centroid:
                      self.reorderedPhs[:,:,:,:,:n], -int(r), axis=2 )
 ##(DEBUGing)                print("DEBUG:rolling back by **{0:d}**".format(-int(r)))
 
-        # If the array isn't nan (hi gramps!) then we know some of the
-        # data is valid and for rolling shutter mode, don't overwrite the first
-        # l position, so the i loop is j dependent.  If the array is nan (hi gran!)
-        # then this is the first frame.
+            # If the array isn't nan (hi gramps!) then we know some of the
+            # data is valid and for rolling shutter mode, don't overwrite the first
+            # l position, so the i loop is j dependent.  If the array is nan (hi gran!)
+            # then this is the first frame.
         for i in xrange(self.nsubx):
             for j in xrange(self.nsubx):
                 if self.rowintegtime!=None and pos<l and j==0:

@@ -42,6 +42,7 @@ static PyObject *CentError;
 #define REFCENTS 18
 #define CALCOEFF 19
 #define USEBRIGHTEST 20
+#define INTEGSTEPS 21
 typedef struct{
   int n;
 float *corr;
@@ -71,6 +72,7 @@ int fsize;//size of fftArrays allocated.
   float *skybrightnessArr;
   int calsource;
   int nintegrations;
+  int maxIntegrations;
   int spotpsfDim;
   int centWeightDim;
   float *centWeight;
@@ -1157,7 +1159,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
-      error|=computeHll(&(c->phs[i*c->phasepxls*c->nintegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);//paddedsize was psfsize.
+      error|=computeHll(&(c->phs[i*c->phasepxls*c->maxIntegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
       
       if(c->preBinningFactor>1)//The binned image becomes paddedsize/prebinfact, and is then further clipped (or, usually padded) to psfsize.
@@ -1894,6 +1896,18 @@ PyObject *py_update(PyObject *self,PyObject *args){
 	return NULL;
       }
       break;
+    case INTEGSTEPS://should always be smaller than the value this is initialised with.
+      if(PyInt_Check(obj)){
+	c->nintegrations=(int)PyInt_AsLong(obj);
+	if(c->nintegrations>c->maxIntegrations){
+	  printf("centmodule: Error - nintegrations>%d (max integrations)\n",c->maxIntegrations);
+	  return NULL;
+	}
+      }else{
+	printf("centmodule: Error in set integsteps\n");
+	return NULL;
+      }
+      break;
     default:
       printf("centmodule: Code %d not recognised, nothing updated\n",code);
       return NULL;
@@ -2089,6 +2103,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->calsource=calsource;
   c->pxlPower=pxlPower;
   c->nintegrations=nintegrations;
+  c->maxIntegrations=nintegrations;
   c->seed=seed;
   c->phs=(float*)phs->data;//can include amplitude data too (interleaved, phase first).
   c->pupfn=(float*)pupfn->data;
