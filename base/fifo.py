@@ -39,6 +39,7 @@ class fifo(base.aobase.aobase):
         self.forGUISetup=forGUISetup
         self.spareArray=None
         self.args=args
+        self.fifoDelayFn=self.config.getVal("fifoDelayFn",raiseerror=0)#a function that returns the number of iterations to delay for. Called every time the parent generates data.
         self.finalInitialisation()#this may fail...
 
     def finalInitialisation(self):
@@ -70,7 +71,7 @@ class fifo(base.aobase.aobase):
                         self.outputData=self.args["shape"],self.args["dtype"]
                     else:
                         self.outputData=self.config.getVal("fifoShape"),self.config.getVal("fifoDtype")
-
+        self.nextra=0
     def newParent(self,parent,idstr=None):
         self.parent=parent
         self.initialised=0
@@ -87,8 +88,20 @@ class fifo(base.aobase.aobase):
                 )
         if self.generate==1:
             if self.newDataWaiting:
-                self.dataValidList.append(self.parent.dataValid)
+#                self.dataValidList.append(self.parent.dataValid)
                 if self.parent.dataValid==1:
+                    if self.fifoDelayFn is None:
+                        self.dataValidList.append(1)
+                    else:
+                        delay=self.fifoDelayFn()
+                        self.dataValidList+=[0]*delay
+                        self.dataValidList.append(1)
+                        print(delay+self.nextra)
+                        self.nextra=0
+                        if len(self.dataValidList)<self.delay:
+                            nextra=(self.delay-len(self.dataValidList))
+                            self.dataValidList+=[0]*nextra
+                            self.nextra=nextra
                     if (self.spareArray is not None) and self.spareArray.shape==self.parent.outputData.shape and self.spareArray.dtype==self.parent.outputData.dtype:
                         #do this to avoid an unnecessary malloc...
                         self.spareArray[:]=self.parent.outputData
@@ -96,10 +109,13 @@ class fifo(base.aobase.aobase):
                         self.spareArray=None
                     else:
                         self.dataList.append(self.parent.outputData.copy())
-                elif self.debug is not None:
-                    print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
-                           "(debug={:s})").format( str(self.idstr), self.debug )
-                        )
+                else:
+                    if self.fifoDelayFn is None:
+                        self.dataValidList.append(0)                        
+                    if self.debug is not None:
+                        print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
+                               "(debug={:s})").format( str(self.idstr), self.debug )
+                            )
                 self.dataValid=self.dataValidList.pop(0)
                 if self.dataValid:
                     self.outputData=self.dataList.pop(0)
