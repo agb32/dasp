@@ -98,10 +98,10 @@ class fifo(base.aobase.aobase):
                         self.dataValidList.append(1)
                         print("Delay: %d"%(delay+self.nextra))
                         self.nextra=0
-                        if len(self.dataValidList)<self.delay:
-                            nextra=(self.delay-len(self.dataValidList))
-                            self.dataValidList+=[0]*nextra
-                            self.nextra=nextra
+                        #if len(self.dataValidList)<self.delay:
+                        #    nextra=(self.delay-len(self.dataValidList))
+                        #    self.dataValidList+=[0]*nextra
+                        #    self.nextra=nextra
                     if (self.spareArray is not None) and self.spareArray.shape==self.parent.outputData.shape and self.spareArray.dtype==self.parent.outputData.dtype:
                         #do this to avoid an unnecessary malloc...
                         self.spareArray[:]=self.parent.outputData
@@ -116,7 +116,10 @@ class fifo(base.aobase.aobase):
                         print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
                                "(debug={:s})").format( str(self.idstr), self.debug )
                             )
-                self.dataValid=self.dataValidList.pop(0)
+                if len(self.dataValidList)>0:
+                    self.dataValid=self.dataValidList.pop(0)
+                elif self.fifoDelayFn is not None:
+                    self.dataValid=0
                 if self.dataValid:
                     self.outputData=self.dataList.pop(0)
                     if self.outputData is None:#make the array

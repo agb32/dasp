@@ -349,35 +349,6 @@ class science:
         result[1,:,]=tabEncircledEnergy[:,]
         return result
 
-##     def computeRadialProfileAndEncircledEnergy(self,psf):
-##         """Computes radial end encircled energy profiles
-##             Inputs :
-##              - psf : the input whose profiles are wanted
-
-##             Outputs :
-##               - result : the array storing profiles
-##                 the first line, ie result[0,] stores the radial profile
-##                 the second line, ie result[1,] stores the encircled energy profile
-##         """
-##         #### We flatten the PSF and sort the values
-##         psfSort=Numeric.take(psf.flat,self.nnRad)
-##         #### We compute the encircled energy of the PSF
-##         tabEncircledEnergy=Numeric.take(Numeric.cumsum(psfSort),self.xRad)
-##         #### We compute the radial profile
-##         tabEnergyPerPixBin=dif_(tabEncircledEnergy) ##to have the energy per pixel bin
-##         tabEnergyPerPixBin.savespace(1)#prevent conversion to double.
-##         profil=tabEnergyPerPixBin/self.tabNbPointsRad
-
-##         #### Allocation of the return result
-##         result=Numeric.zeros((2,len(tabEncircledEnergy)),typecode=psf.typecode(),savespace=1)
-##         print type(profil),profil.shape,result.shape,profil.dtype.char,result.typecode()
-##         #### We first store the radial profile in line 1 of the returned array
-##         result[0,0]=psfSort[0]
-##         result[0,1:,]=profil[:,].astype("f") ##radial profile of PSF
-
-##         #### We  store the encircled energy profile in line 2 of the returned array
-##         result[1,:,]=tabEncircledEnergy[:,]
-##         return result
 
     def initEnsquaredEnergyProfile(self):
         """Creates and initialises arrays to fastly compute the ensquared energy profile
