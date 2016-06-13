@@ -39,7 +39,7 @@ class fifo(base.aobase.aobase):
         self.forGUISetup=forGUISetup
         self.spareArray=None
         self.args=args
-        self.fifoDelayFn=self.config.getVal("fifoDelayFn",raiseerror=0)#a function that returns the number of iterations to delay for. Called every time the parent generates data.
+        self.fifoDelayFn=self.config.getVal("fifoDelayFn",default=None,raiseerror=0)#a function that returns the number of iterations to delay for. Called every time the parent generates data.
         self.finalInitialisation()#this may fail...
 
     def finalInitialisation(self):
@@ -96,7 +96,7 @@ class fifo(base.aobase.aobase):
                         delay=self.fifoDelayFn()
                         self.dataValidList+=[0]*delay
                         self.dataValidList.append(1)
-                        print(delay+self.nextra)
+                        print("Delay: %d"%(delay+self.nextra))
                         self.nextra=0
                         if len(self.dataValidList)<self.delay:
                             nextra=(self.delay-len(self.dataValidList))
