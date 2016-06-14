@@ -637,9 +637,8 @@ class science:
         return convimg
         
 
-
-    def doScienceCalc(self,inputData,control,curtime=0):
-        """compute the science calculation.  Here, inputData is the phase, control is a dictionary of control commands, such as useFPGA, calcRMSFile, zero_science and science_integrate."""
+    def prepareInput(self,inputData):
+        """Optionally bins phase and scales for wavelength"""
         ##we compute the piston and remove it into the pupil
         if self.atmosPhaseType=="phaseonly":
             if inputData.shape!=(self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
@@ -648,15 +647,37 @@ class science:
                 cmod.binimg.binimg(inputData,self.phs)
                 self.phs/=self.realPupBinned
                 inputData=self.phs#now the binned version.
-            pist=numpy.sum(numpy.sum(inputData*self.pup))/self.pupsum ##computation of the piston
-            numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
+            #Don't remove piston any more (160614)
+            #pist=numpy.sum(numpy.sum(inputData*self.pup))/self.pupsum ##computation of the piston
+            #numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
+            else:
+                self.phs[:]=inputData
         else:
             raise Exception("science: todo: don't know how to remove piston")
-        nfft=self.nfft
-        t1=time.time()
         if self.phaseMultiplier!=1:
             self.phs*=self.phaseMultiplier
+        
+        
+    def doScienceCalc(self,inputData,control,curtime=0):
+        """compute the science calculation.  Here, inputData is the phase, control is a dictionary of control commands, such as useFPGA, calcRMSFile, zero_science and science_integrate."""
+        ##we compute the piston and remove it into the pupil
+        # if self.atmosPhaseType=="phaseonly":
+        #     if inputData.shape!=(self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
+        #         #This assumes that the inputData size is a power of 2 larger than phs, ie 2, 4, 8 etc times larger.
+        #         #print "Binning pupil for science calculation %d %s "%(self.npup,str(inputData.shape))
+        #         cmod.binimg.binimg(inputData,self.phs)
+        #         self.phs/=self.realPupBinned
+        #         inputData=self.phs#now the binned version.
+        #     pist=numpy.sum(numpy.sum(inputData*self.pup))/self.pupsum ##computation of the piston
+        #     numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
+        # else:
+        #     raise Exception("science: todo: don't know how to remove piston")
+        nfft=self.nfft
+        t1=time.time()
+        #if self.phaseMultiplier!=1:
+        #    self.phs*=self.phaseMultiplier
         if control["calcRMS"]:
+            self.prepareInput(inputData)
             self.phaseRMS=self.calcRMS(self.phs,self.pup)
             self.phaseRMSsum+=self.phaseRMS
             self.phaseRMSsum2+=self.phaseRMS*self.phaseRMS
@@ -693,6 +714,8 @@ class science:
             if control["zero_science"]==0:# Not zeroing science image
                 self.psfSamp+=1
                 if self.psfSamp>=self.sciPSFSamp:
+                    if not control["calcRMS"]:
+                        self.prepareInput(inputData)
                     self.psfSamp=0
                     self.computeShortExposurePSF(self.phs)#calc short exposure PSF
                     if self.nimgLongExp==self.nimg:
