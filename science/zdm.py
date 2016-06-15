@@ -2,7 +2,7 @@
 import numpy
 import util.zernikeMod
 import util.FITS
-from cmod.interp import gslCubSplineInterp
+#from cmod.interp import gslCubSplineInterp
 import base.aobase
 class dm(base.aobase.aobase):
     """
@@ -57,11 +57,11 @@ class dm(base.aobase.aobase):
             if self.conjHeight==0:
                 self.subpxlInterp=0
             if self.subpxlInterp:
-                self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
+                #self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
                 self.yaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
                 self.xaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
             else:
-                self.interpolated=None
+                #self.interpolated=None
                 self.yaxisInterp=None
                 self.xaxisInterp=None
             #self.gamma=config.getVal("gamma")#gain for zernikes.  Can be a float or an array length nmodes.
@@ -145,7 +145,7 @@ class dm(base.aobase.aobase):
 
         wavelengthAdjustor=self.sourceLam/this.sourceLam#this.wavelengthRat
         
-        this.lineOfSight=util.dm.DMLineOfSight(self.dmpup,self.npup,self.conjHeight,self.dmphs,this.sourceAlt,this.sourceTheta,this.sourcePhi,self.telDiam,wavelengthAdjustor,self.xaxisInterp,self.yaxisInterp,self.interpolated,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=self.subpxlInterp,pupil=self.pupil,nthreads=self.interpolationNthreads)
+        this.lineOfSight=util.dm.DMLineOfSight(self.dmpup,self.npup,self.conjHeight,self.dmphs,this.sourceAlt,this.sourceTheta,this.sourcePhi,self.telDiam,wavelengthAdjustor,self.xaxisInterp,self.yaxisInterp,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=self.subpxlInterp,pupil=self.pupil,nthreads=self.interpolationNthreads)
         """
         #for a source with theta and a conjugate height c, the
         #separation at this height will be c tan(theta).  As a

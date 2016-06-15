@@ -780,7 +780,7 @@ class atmos:
                     x2=posDict[8]
                     #make it square (was rectangular):
                     gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,
-                                       self.interpPhs[:posDict[3],:posDict[3]],self.interpolationNthreads)
+                                       self.interpPhs[:posDict[3],:posDict[3]],0,self.interpolationNthreads)
                 # print "atmos time4 %g"%(time.time()-t1)
 
                 if self.sourceAlt>0:
@@ -794,7 +794,7 @@ class atmos:
                     #util.FITS.Write(x,"tmp.fits",writeMode="a")
                     #util.FITS.Write(self.interpPhs,"tmp.fits",writeMode="a")
                     gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,
-                                       self.interpPhs,self.interpolationNthreads)
+                                       self.interpPhs,0,self.interpolationNthreads)
                     #print "gslCubs done"
                 #print "atmos time5 %g"%(time.time()-t1)
                 self.outputData+=self.interpPhs#and finally add the phase.
@@ -891,7 +891,7 @@ class atmos:
             x2=posDict[8]
             #make it square (was rectangular):
             gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[2]],x,x2,x,x,
-                               self.interpPhs[:posDict[3],:posDict[3]],self.interpolationNthreads)
+                               self.interpPhs[:posDict[3],:posDict[3]],0,self.interpolationNthreads)
             
         if self.sourceAlt>0:
             #this is a LGS... need to project (interpolate)
@@ -899,7 +899,7 @@ class atmos:
             x=posDict[7]
             #Bicubic interpolation (in C) for LGS projection
             gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,
-                               self.interpPhs,self.interpolationNthreads)
+                               self.interpPhs,0,self.interpolationNthreads)
         if control["fullPupil"]:
             return self.interpPhs
         else:

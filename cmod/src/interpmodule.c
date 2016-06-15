@@ -291,6 +291,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   double *x1usr=NULL, *x2usr=NULL, *x3usr=NULL, *x4usr=NULL;
 
   int nThreads = 0;      // the number of threads (provided on input)
+  int addToOutput=0;
   pthread_t*     thread; // vector of threads
   interp_data_t* params; // vector of parameters passed to the funct. executed in a thread
                          //  defined in interpolate.h
@@ -299,13 +300,14 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   int oneMore;           // m%nThreads = number of threads that have to process one line more
  
   // (1) PARSE THE INPUT arguments from python:
-  if (!PyArg_ParseTuple (args, "O!OOOOO!|i", 
+  if (!PyArg_ParseTuple (args, "O!OOOOO!i|i", 
 			 &PyArray_Type, &pyin, 
 			                &pyyin,
 			                &pyxin,
 			                &pyyout,
 			                &pyxout,
-			 &PyArray_Type, &pyout, 
+			 &PyArray_Type, &pyout,
+                 	                &addToOutput,
 			                &nThreads)){
     printf("%s, line %d: parsing the arguments failed.\n", __FILE__, __LINE__);
     printf("A working example:\nxin,  yin  = numpy.arange(5).astype(TYPE),\n");
@@ -528,7 +530,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       params->sx      = sInX;
       params->sy      = sInY;
       params->sytmp   = nInX;
-
+      params->addToOutput=0;
       // (c) Do interpolation pass in Y:
       if(insize==8) interp_first_inDouble( params );
       else          interp_first_inFloat(  params );
@@ -543,6 +545,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       params->outData = pyoutData;
       params->sx      = sOutX;
       params->sy      = sOutY;
+      params->addToOutput=addToOutput;
 
       // (e) Do interpolation pass in X and put results in output array:
       if(outsize==8) interp_second_outDouble( params );
@@ -600,7 +603,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       	  params[i].sx   = sInX;
       	  params[i].sy   = sInY;
 	  params[i].sytmp= nInX;
-
+	  params[i].addToOutput=0;
+      
       	  if(i < oneMore) params[i].M = forEach+1;  // the first oneMore threads
       	  else            params[i].M = forEach;    // the rest of the threads:
       	  if(i == 0){
@@ -644,6 +648,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       	  params[i].outX    = x4;
       	  params[i].sx      = sOutX;
       	  params[i].sy      = sOutY;
+	  params[i].addToOutput=addToOutput;
       	  if(i < oneMore) params[i].M = forEach+1;  // the first oneMore threads
       	  else            params[i].M = forEach;    // the rest of the threads:
       	  if(i == 0){

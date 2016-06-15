@@ -1490,7 +1490,7 @@ class MirrorSurface:
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
+        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,0,self.interpolationNthreads)
         return phsOut
 
     def interpolatePeriodicSpline(self,actmap,phsOut=None,coords=None):
@@ -1879,7 +1879,7 @@ class MirrorSurface:
 
 
 class DMLineOfSight:
-    def __init__(self,dmpup,npup,conjHeight,dmphs,sourceAlt,sourceTheta,sourcePhi,telDiam,wavelengthAdjustor=1.,dmxaxisInterp=None,dmyaxisInterp=None,interpolated=None,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=1,pupil=None,nthreads=2):
+    def __init__(self,dmpup,npup,conjHeight,dmphs,sourceAlt,sourceTheta,sourcePhi,telDiam,wavelengthAdjustor=1.,dmxaxisInterp=None,dmyaxisInterp=None,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=1,pupil=None,nthreads=2):
         """sourcetheta,sourcephi in radians.
         dmTiltAngle in degrees.
         
@@ -1891,7 +1891,7 @@ class DMLineOfSight:
         #if interpolated is None:
         #    interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
         #print "dmpup,npup=%d, %d"%(dmpup,npup)
-        self.interpolated=interpolated
+        #self.interpolated=interpolated
         self.telDiam=telDiam
         self.xoff=(self.dmpup-self.npup)/2
         self.yoff=(self.dmpup-self.npup)/2#ground conjugated.
@@ -2034,32 +2034,51 @@ class DMLineOfSight:
         out=self.selectedDmPhs
         if self.subpxlInterp:
             if self.xoffsub==0 and self.yoffsub==0:#no interp needed
-                pass
+                if self.wavelengthAdjustor==1:
+                    if addToOutput:#i.e. the atmosdata is already in output
+                        outputData+=out
+                    else:
+                        outputData[:]=out
+                else:
+                    if addToOutput:#i.e. the atmosdata is already in output
+                        outputData+=out*self.wavelengthAdjustor
+                    else:
+                        outputData[:]=out*self.wavelengthAdjustor
             else:
-                if self.interpolated is None:
-                    print "util.dm: selectSubPupil Creating scratch array"
-                    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
-                gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
-                out=self.interpolated
+                #if self.interpolated is None:
+                #    print "util.dm: selectSubPupil Creating scratch array"
+                #    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+                #gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
+                if self.wavelengthAdjustor!=1:
+                    phs=self.selectedDmPhs*self.wavelengthAdjustor
+                else:
+                    phs=self.selectedDmPhs
+                gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
+                #out=self.interpolated
         elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
             #ground conjugate or not interplating - but we want to offset anyway.
-            if self.interpolated is None:
-                print "util.dm: selectSubPupil Creating scratch array"
-                self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+            #if self.interpolated is None:
+            #    print "util.dm: selectSubPupil Creating scratch array"
+            #    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
 
-            gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
-            out=self.interpolated
-        #print self.selectedDmPhs.std()
-        if self.wavelengthAdjustor==1:
-            if addToOutput:#i.e. the atmosdata is already in output
-                outputData+=out
+            #gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
+            if self.wavelengthAdjustor!=1:
+                phs=self.selectedDmPhs*self.wavelengthAdjustor
             else:
-                outputData[:]=out
+                phs=self.selectedDmPhs
+            gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
+            #out=self.interpolated
         else:
-            if addToOutput:#i.e. the atmosdata is already in output
-                outputData+=out*self.wavelengthAdjustor
+            if self.wavelengthAdjustor==1:
+                if addToOutput:#i.e. the atmosdata is already in output
+                    outputData+=out
+                else:
+                    outputData[:]=out
             else:
-                outputData[:]=out*self.wavelengthAdjustor
+                if addToOutput:#i.e. the atmosdata is already in output
+                    outputData+=out*self.wavelengthAdjustor
+                else:
+                    outputData[:]=out*self.wavelengthAdjustor
         if self.pupil is not None:
             outputData*=self.pupil.fn
             if removePiston:
@@ -2432,7 +2451,7 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
                         else:
                             #   Comment, UB: ProjectionWorker is not used in aosim and is called only
                             #   interactively, therefore the number of threads is hard-coded and set to 1:
-                            cmod.interp.gslCubSplineInterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated,1)
+                            cmod.interp.gslCubSplineInterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated,0,1)
                         if pupfn is not None:
                             interpolated*=pupfn
                         #tmp=quick.dot(interpolated.ravel(),invInf[:,bstart:bend])

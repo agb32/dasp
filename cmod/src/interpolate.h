@@ -40,6 +40,7 @@ typedef struct {
 
   gsl_interp_accel* interpAcc; // interpolation accelerator
   //  double*           y1;        // tmp vector to pass the data to the interpolator
+  int addToOutput;  //whether to add the interpolation result to the output array, or just set it to the output array.
 } interp_data_t;
 
 // function to perform the interpolation in a thread:

@@ -1,5 +1,5 @@
 import numpy
-from cmod.interp import gslCubSplineInterp
+#from cmod.interp import gslCubSplineInterp
 import base.aobase
 import util.FITS,util.dist
 import util.zernikeMod
@@ -125,13 +125,13 @@ class dm(base.aobase.aobase):
                 self.subpxlInterp=0#no need for interpolation...
                 
             if self.subpxlInterp or self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
-                self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
+                #self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)
                 self.yaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)#Must be float 64 because of gsl restriction (spline functions require it)
                 self.xaxisInterp=numpy.arange(self.npup+1).astype(numpy.float64)
             else:
                 self.yaxisInterp=None
                 self.xaxisInterp=None
-                self.interpolated=None
+                #self.interpolated=None
             self.actmap=numpy.zeros((self.nact,self.nact),self.datatype)
             #self.nsubx=n =self.config.getVal("wfs_nsubx")
             #self.wfsn=self.config.getVal("wfs_n")
@@ -181,7 +181,7 @@ class dm(base.aobase.aobase):
 
         wavelengthAdjustor=self.sourceLam/this.sourceLam#this.wavelengthRat
         
-        this.lineOfSight=util.dm.DMLineOfSight(self.dmpup,self.npup,self.conjHeight,self.dmphs,this.sourceAlt,this.sourceTheta,this.sourcePhi,self.telDiam,wavelengthAdjustor,self.xaxisInterp,self.yaxisInterp,self.interpolated,self.dmTiltAngle,self.dmTiltTheta,self.alignmentOffset,self.subpxlInterp,self.pupil,self.interpolationNthreads)
+        this.lineOfSight=util.dm.DMLineOfSight(self.dmpup,self.npup,self.conjHeight,self.dmphs,this.sourceAlt,this.sourceTheta,this.sourcePhi,self.telDiam,wavelengthAdjustor,self.xaxisInterp,self.yaxisInterp,self.dmTiltAngle,self.dmTiltTheta,self.alignmentOffset,self.subpxlInterp,self.pupil,self.interpolationNthreads)
 
         """
         #for a source with theta and a conjugate height c, the

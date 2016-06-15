@@ -509,7 +509,7 @@ class quicksplinemirror(mirror):
         x = y = numpy.arange(width).astype("d")/(width-1)
 	x2 = numpy.arange(n_act).astype("d")/(n_act-1)
 	phsOut = numpy.zeros((width,width),"d")
-	gslCubSplineInterp(actuators,x2,x2,y,x,phsOut,1)
+	gslCubSplineInterp(actuators,x2,x2,y,x,phsOut,0,1)
 	return phsOut
 
 
