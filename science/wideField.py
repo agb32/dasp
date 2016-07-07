@@ -330,7 +330,7 @@ class WideField(base.aobase.aobase):
         sourceAlt=self.atmosGeom.sourceAlt(idstr)
         sourceLam=self.atmosGeom.sourceLambda(idstr)
         this.lineOfSight=[]
-        interpolate=numpy.zeros((self.npup,self.npup),numpy.float32)
+        #interpolate=numpy.zeros((self.npup,self.npup),numpy.float32)
         pitchY=this.atmosObj.fov*2*2/(self.nFieldY+1.)#fov sampling pitch.
         pitchX=this.atmosObj.fov*2*2/(self.nFieldX+1.)
         sourceTheta=self.atmosGeom.sourceTheta(idstr)#*numpy.pi/180./3600.
@@ -351,7 +351,7 @@ class WideField(base.aobase.aobase):
                     ynew=ycentre+ydiff
                     thetaNew=numpy.sqrt(xnew*xnew+ynew*ynew)*numpy.pi/180./3600.
                     phiNew=numpy.arctan2(ynew,xnew)
-                    los=util.dm.DMLineOfSight(dmpup,self.npup,dm.height,self.dmParentDict[key].outputData,sourceAlt,thetaNew,phiNew,self.telDiam,wavelengthAdjustor,nthreads=self.interpNthreads,interpolated=interpolate)
+                    los=util.dm.DMLineOfSight(dmpup,self.npup,dm.height,self.dmParentDict[key].outputData,sourceAlt,thetaNew,phiNew,self.telDiam,wavelengthAdjustor,nthreads=self.interpNthreads)#,interpolated=interpolate)
                     this.lineOfSight.append(los)
 
 
