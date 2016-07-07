@@ -130,7 +130,7 @@ class AOXml:
             self.open(f,ignoreError)
     def abort(self,rt=0):
         rank,size,abt=self.mpiRankSizeAbort
-        if abt!=None:
+        if abt is not None:
             if size==1:
                 abt()
             else:
@@ -141,7 +141,7 @@ class AOXml:
         @param file: Filename
         @type  file: String
         """
-        if file!=None:
+        if file is not None:
             print "\n%s\n\nReading param file %s\n\n%s\n"%("*"*70,file,"*"*70)
             setattr(self.this,"filename",file)
             if file[-4:]==".xml":
@@ -211,7 +211,7 @@ class AOXml:
         setattr(self.this,"batchno",self.batchno)
         setattr(self.this,"filename",self.filename)#parameter file name
         setattr(self.this,"ncpu",getCpus())
-        if self.initDict!=None:
+        if self.initDict is not None:
             setattr(self.this,"globals",This())
             for key in self.initDict.keys():
                 setattr(self.this.globals,key,self.initDict[key])
@@ -241,9 +241,9 @@ class AOXml:
         """
         #print 'Start element:', name, attrs
         self.inside.append(name)
-        if self.batchno==None:
+        if self.batchno is None:
             self.this.batchNumber=0
-        if self.curmodule!=None and self.ignoreModule==1:#already in a module
+        if self.curmodule is not None and self.ignoreModule==1:#already in a module
             self.batchInfo.append(-1)
         elif self.invar==1 and self.ignoreVariable==1:
             self.batchInfo.append(-1)
@@ -263,14 +263,14 @@ class AOXml:
             if type(b)!=types.ListType:
                 print "ERROR:  batchno value must be evaluatable to a list"
                 raise Exception("ERROR:  batchno value must be evaluatable to a list")
-            if self.batchno==None or self.batchno in b:
+            if self.batchno is None or self.batchno in b:
                 self.batchInfo.append(1)#use for this batch
             else:
                 self.batchInfo.append(-1)#ignore for this batch
-            if self.batchno==None:
+            if self.batchno is None:
                 self.this.batchNumber=b[0]
         else:
-            if self.curmodule!=None and self.batchModule==1:
+            if self.curmodule is not None and self.batchModule==1:
                 self.batchInfo.append(1)#only this batch
             elif self.invar==1 and self.batchVariable==1:
                 self.batchInfo.append(1)#only this batch
@@ -301,7 +301,7 @@ class AOXml:
                 if self.writeSchema:
                     self.prepareSchema(name,attrs)
         elif name=="variables":
-            if self.curmodule==None:
+            if self.curmodule is None:
                 print "ERROR: <variables> must be within <module>"
                 self.invar=0
                 raise "ERROR: <variables> must be within <module>"
@@ -361,7 +361,7 @@ class AOXml:
             self.curmodule=None
         elif n=="var":#ending a var, so now create it...
             attrs=self.storedattrs
-            if self.storedtxt==None:
+            if self.storedtxt is None:
                 txt=None
             else:
                 txt=self.storedtxt.strip()
@@ -418,7 +418,7 @@ class AOXml:
         if n!=name:
             print "ERROR - exiting element we weren't inside",n,name
             raise "XML ERROR - not inside element"
-        if self.batchno==None:
+        if self.batchno is None:
             self.this.batchNumber=None
 
     def char_data(self,data):
@@ -426,7 +426,7 @@ class AOXml:
         @param data: The data to be stored
         @type data: String
         """
-        if self.storedtxt==None:
+        if self.storedtxt is None:
             self.storedtxt=data
         else:
             self.storedtxt+=data
@@ -573,7 +573,7 @@ class AOXml:
         @return:  The value of variable in the XML file
         @rtype: User defined
         """
-        if searchOrder==None:
+        if searchOrder is None:
             searchOrder=self.searchOrder
         found=0
         val=default
@@ -590,7 +590,7 @@ class AOXml:
                     setattr(umod,varname,1)
                     break
         if found==0:
-            if val==None and raiseerror==1:
+            if val is None and raiseerror==1:
                 print "ERROR: value not found %s"%str(varname)
                 raise Exception("ERROR: value not found: %s %s"%(str(varname),str(searchOrder)))
             else:
@@ -610,7 +610,7 @@ class AOXml:
         @param raiseerror: Whether to raise an error if variable not found in searchPath
         @type raiseerror: Int
         """
-        if searchOrder==None:
+        if searchOrder is None:
             searchOrder=self.searchOrder
         found=0
         for module in searchOrder:
@@ -681,7 +681,7 @@ class AOXml:
             params=attrs["params"]
         if attrs.has_key("name"):
             oname=attrs["name"]
-        if oname!=None and obj!=None and mod!=None:
+        if oname is not None and obj is not None and mod is not None:
             self.schemaFile.write(oname+"="+mod+"."+obj+"("+params+")\n")
 
     def writeOut(self,filename=None):
@@ -690,7 +690,7 @@ class AOXml:
         @param filename: The filename (if None, use current filename)
         @type filename: None or String
         """
-        if filename==None:
+        if filename is None:
             filename=self.filename
         txt=self.writeXML()
         f=open(filename,"w")
@@ -755,7 +755,7 @@ class AOXml:
         @param pos: The position at which to insert the new variable
         @type pos: Int
         """
-        if moduleArgs==None:
+        if moduleArgs is None:
             moduleArgs={"name":moduleName}
         done=0
         for module in self.fileData.modules:
@@ -778,12 +778,12 @@ class AOXml:
         @param moduleArgs: Specifics of module to search
         @type moduleArgs: None or Dict
         """
-        if moduleArgs==None:
+        if moduleArgs is None:
             moduleArgs={"name":moduleName}
         done=0
         for module in self.fileData.modules:
             if module.name==moduleName and module.args==moduleArgs:#module ok
-                if attribs==None:#delete whole module
+                if attribs is None:#delete whole module
                     self.fileData.modules.remove(module)
                     done=1
                     break
@@ -807,7 +807,7 @@ class AOXml:
         @type attribs: Dict
         @param moduleArgs: Specifics of module to search
         @type moduleArgs: Dict or None"""
-        if moduleArgs==None:
+        if moduleArgs is None:
             moduleArgs={"name":moduleName}
         done=0
         for module in self.fileData.modules:
@@ -849,7 +849,7 @@ class AOXml:
         for n,d in self.postList:
             if n==name:
                 return d
-        if default==None and raiseerror==1:
+        if default is None and raiseerror==1:
             raise Exception("config.postGet could not find name %s"%name)
         return default
     
@@ -870,7 +870,7 @@ class AOXml:
                     except:
                         print "util.readConfig - Couldn't connect"
                         conn=None
-                    if conn!=None:
+                    if conn is not None:
                         lst=["add",(name,data),None,None]
                         #print "serialise.Send"
                         util.serialise.Send(lst,conn)
@@ -893,7 +893,7 @@ def getCpus():
             ncpu=1
     except:
         pass
-    if ncpu==None:
+    if ncpu is None:
         try:
             cmd="sysctl -a hw | grep ncpu | tail -n 1"
             print "/proc/cpuinfo not found - may be OSX?  Trying commandline '%s'"%cmd
@@ -1023,7 +1023,7 @@ class PreFormatXML:
         """
         tag=self.tagOpenList[-1]
         tag.tags.append(data)
-        #if tag.storedtxt==None:
+        #if tag.storedtxt is None:
         #    tag.storedtxt=data
         #else:
         #    tag.storedtxt+=data
@@ -1057,7 +1057,7 @@ class PreFormatXML:
                     id=list(id)#convert tuple to list.
                 if type(id)!=type([]):
                     id=[id]
-            if id==None:
+            if id is None:
                 id=[""]
             
             intxt=""

@@ -1,6 +1,6 @@
 import numpy
 import threading
-from cmod.interp import gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp
+from cmod.interp import gslCubSplineInterp,bicubicinterp,linearinterp,gslPeriodicCubSplineInterp,gslCubSplineHex
 import util.tel,util.dist
 import util.FITS
 import scipy
@@ -14,7 +14,8 @@ def calcNactList(config,batchno,reconidstr):
         import base.readConfig
         config=base.readConfig.AOXml(config,batchno=batchno)
     config.setSearchOrder(["tomoRecon_%s"%reconidstr,"tomoRecon","globals"])
-    dmObj=config.getVal("dmObj")
+    dmObj=config.getVal("dmOverview",raiseerror=0)
+    if dmObj is None: dmObj=config.getVal("dmObj")
     pupil=config.getVal("pupil")
     atmosGeom=config.getVal("atmosGeom")
     dmList=dmObj.makeDMList(reconidstr)
@@ -40,7 +41,7 @@ class dmInfo:
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0,cn2=None,dmflag=None,dmDynamics=None):
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0,cn2=None,dmflag=None,dmDynamics=None,polcMatrix=None):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -80,6 +81,7 @@ class dmInfo:
         maxStroke is given in microns, the max Peak-Valley allowed.
         stuckActs - None, or (nstuck,clumpsize,maxRadius,minRadius,seed)
         dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be  [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
+        polcMatrix - if using polc, should be equal to dI + gMP where d is decay factor (typically 1-g), g is gain, M is control matrix, and P is poke matrix (for this DM).
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
@@ -101,7 +103,7 @@ class dmInfo:
         self.dmpup=None
         self.dmpupil=None
         self.dmflag=dmflag
-        if dmflag!=None:
+        if dmflag is not None:
             self.nacts=int(dmflag.sum())
         self.subarea=None
         self.dmDiam=None
@@ -120,6 +122,7 @@ class dmInfo:
         self.maxActDist=maxActDist
         self.slaving=slaving
         self.dmDynamics=dmDynamics
+        self.polcMatrix=polcMatrix
         self.reconstructList=reconstructList#list of source directions to be reconstructed
         if self.zonalDM==1:# and pokeSpacing!=None and pokeSpacing>0 and pokeSpacing<self.nact:
             self.pokeSpacing=pokeSpacing
@@ -221,7 +224,7 @@ class dmInfo:
 
     def getDMFlag(self,atmosGeom,centObscuration=0.,reconstructList=None):
         if reconstructList==None or reconstructList==self.reconstructList:
-            if self.dmflag!=None:
+            if self.dmflag is not None:
                 return self.dmflag
         dmflag=self.computeDMPupil(atmosGeom,centObscuration=centObscuration,retPupil=0,reconstructList=reconstructList)[0]
         return dmflag
@@ -238,8 +241,8 @@ class dmInfo:
             reconstructList=self.reconstructList
         if self.reconstructList==reconstructList:
             #may already have computed stuff...
-            if self.dmflag!=None and self.subarea!=None:
-                if retPupil and self.dmpupil!=None:
+            if (self.dmflag is not None) and (self.subarea is not None):
+                if retPupil and (self.dmpupil is not None):
                     return self.dmflag,self.subarea,self.dmpupil
                 else:
                     return self.dmflag,self.subarea
@@ -247,7 +250,7 @@ class dmInfo:
         if reconstructList=="all":
             self.dmflag=None
             return self.computeDMPupilAll(atmosGeom,centObscuration,retPupil)
-        if self.dmflag!=None:#don't recompute... can be useful for the user to be able to specify it...
+        if self.dmflag is not None:#don't recompute... can be useful for the user to be able to specify it...
             computedmflag=0
         else:
             computedmflag=1
@@ -258,7 +261,7 @@ class dmInfo:
         xoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.cos(self.primaryPhi*numpy.pi/180.)
         yoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.sin(self.primaryPhi*numpy.pi/180.)
         pxlscale=atmosGeom.ntel/atmosGeom.telDiam
-        if self.maxActDist!=None:
+        if self.maxActDist is not None:
             if computedmflag:
                 self.dmflag=numpy.zeros((self.nact,self.nact),numpy.int32)
             #Compute the distance of each actuator from on-axis position.
@@ -299,7 +302,7 @@ class dmInfo:
                     xi2=int(j-x+0.5)**2
                     if yi2+xi2<=diam2 and yi2+xi2>=secDiam2:
                         dmpupil[i,j]=1
-            if self.maxActDist!=None:
+            if self.maxActDist is not None:
                 #for each actuator, find out how far it is from source edge.
                 #If it lies within maxActDist*actSpacing of the edge of the mirror then it is allowed.
                 #First move into the source coordinates...
@@ -322,7 +325,7 @@ class dmInfo:
                 subarea[i,j]=numpy.sum(dmpupil[ys:ye,xs:xe])/float((xe-xs)*(ye-ys))
                 xpos+=dmsubapsize
             ypos+=dmsubapsize
-        if self.maxActDist==None:
+        if self.maxActDist is None:
             if computedmflag:
                 subflag=(subarea>=self.minarea).astype(numpy.int32)
                 self.dmflag=subflag
@@ -351,10 +354,10 @@ class dmInfo:
         """
         if self.zonalDM:
             if retPupil:
-                if self.dmflag!=None and self.subarea!=None and self.dmpupil!=None:
+                if (self.dmflag is not None) and (self.subarea is not None) and (self.dmpupil is not None):
                     return self.dmflag,self.subarea,self.dmpupil
             else:
-                if self.dmflag!=None and self.subarea!=None:
+                if (self.dmflag is not None) and (self.subarea is not None):
                     return self.dmflag,self.subarea
             nAct=self.nact
             dmminarea=self.minarea # = 0.45 used for DiCuRe debugging, UB 2012 Aug 16
@@ -363,7 +366,7 @@ class dmInfo:
             subarea=numpy.zeros((nAct,nAct),numpy.float32)
         else:
             if retPupil:
-                if self.dmpupil!=None:
+                if self.dmpupil is not None:
                     return None,None,self.dmpupil
             else:
                 return None,None
@@ -384,7 +387,7 @@ class dmInfo:
                     subarea[i,j]=self.integrateArea(nAct,actOffset,dmpup,r1,r2,i,j)
                     #subarea=numpy.sum(numpy.sum(self.fn[i*n:(i+1)*n,j*n:(j+1)*n]))
 
-                    if self.maxActDist==None:
+                    if self.maxActDist is None:
                         if subarea[i,j]>dmminarea*dmsubapsize**2:
                             dmflag[i,j]=1
                             if retPupil:
@@ -401,7 +404,7 @@ class dmInfo:
                                 if y2>=dmpup:
                                     y2=dmpup
                                 dmpupil[y1:y2,x1:x2]=1
-            if self.maxActDist!=None:#have specified maxActDist.
+            if self.maxActDist is not None:#have specified maxActDist.
                 actDist=(numpy.arange(self.nact)-self.nact/2.+0.5)*self.actSpacing
                 d=numpy.sqrt(actDist[numpy.newaxis]**2+actDist[:,numpy.newaxis]**2)
                 secRad=r2*atmosGeom.telDiam/atmosGeom.ntel
@@ -444,11 +447,11 @@ class dmInfo:
         hold all sources.
         Also increased further if the DM is tilted.
         """
-        if self.dmpup!=None:
+        if self.dmpup is not None:
             return self.dmpup
         height=self.height
         fov=self.fov
-        #if fov==None:
+        #if fov is None:
         #    fov=max(self.atmosGeom.sourceThetas().values())
         npup=atmosGeom.npup
         telDiam=atmosGeom.telDiam
@@ -561,20 +564,20 @@ class dmInfo:
         else:
             return None
 ##     def getMirrorSurface(self):
-##         if self.mirrorSurface==None:
+##         if self.mirrorSurface is None:
 ##             self.mirrorSurface=MirrorSurface(typ="spline",npup=self.dmpup,nact=self.nact,phsOut=None,actoffset=self.actoffset)
 ##         return self.mirrorSurface
     def makeMirrorModes(self,atmosGeom,r2,fitpup=1,mirrorSurface=None):
         """
         r2 is pixel radius of central obscuration
         """
-        if self.mirrorModes!=None and self.mirrorModes.shape[1:]==(self.dmpup,self.dmpup):
+        if self.mirrorModes is not None and self.mirrorModes.shape[1:]==(self.dmpup,self.dmpup):
             return self.mirrorModes
 
         import util.tel
         pupil=util.tel.Pupil(self.dmpup,self.dmpup/2.,self.computeEffectiveObscuration(atmosGeom.npup,atmosGeom.telDiam,r2)).fn
         if self.zonalDM:
-            if mirrorSurface==None:
+            if mirrorSurface is None:
                 mirrorSurface=self.getMirrorSurface()
             dmflag=self.getDMFlag(atmosGeom,centObscuration=r2)
             nmode=numpy.sum(dmflag)
@@ -605,17 +608,17 @@ class dmInfo:
         """
         if not self.zonalDM:
             raise Exception("util.dm - makeLocalMirrorModes only applicable to zonal DMs")
-        if W==None:#width as fraction of actuator spacing.  Default is 4, but actually, 8 might be better...
+        if W is None:#width as fraction of actuator spacing.  Default is 4, but actually, 8 might be better...
             W=int(4*self.actSpacing/self.dmDiam*self.dmpup+0.5)
             
         dmflag=self.getDMFlag(atmosGeom,centObscuration=r2)
         import util.tel
         pupil=util.tel.Pupil(self.dmpup,self.dmpup/2.,self.computeEffectiveObscuration(atmosGeom.npup,atmosGeom.telDiam,r2)).fn
         nmode=numpy.sum(dmflag)
-        if mirrorSurface==None:
+        if mirrorSurface is None:
             mirrorSurface=self.getMirrorSurface()
 
-        if self.mirrorModes!=None and self.mirrorModes.shape==(nmode,W,W):
+        if self.mirrorModes is not None and self.mirrorModes.shape==(nmode,W,W):
             return self.mirrorModes,self.mirrorModeCoords,self.vig
 
         dmindices=numpy.nonzero(dmflag.ravel())[0]
@@ -661,17 +664,17 @@ class dmInfo:
         If width is specified, it defines the size of the mirror modes (width x width rather than dmpup x dmpup).  This is good for zonal DMs.  Set to -1 to have defined as 4* actuator spacing (this is probably quite a good value).
         rescalePhasecov should probably be 1...
         """
-        if r0!=None or l0!=None:
+        if r0 is not None or l0 is not None:
             print "WARNING util.dm.computePhaseCovariance - r0 and l0 no longer used - taken from atmosGeom."
-        if lam==None:
+        if lam is None:
             lam=self.reconLam
         import util.phaseCovariance,util.tel
-        if mirrorSurface==None:
+        if mirrorSurface is None:
             mirrorSurface=self.getMirrorSurface()
         typ="vk"
         if atmosGeom.l0<0:
             typ="kol"
-        if width==None:#do the full thing
+        if width is None:#do the full thing
             pupil=util.tel.Pupil(self.dmpup,self.dmpup/2.,self.computeEffectiveObscuration(atmosGeom.npup,atmosGeom.telDiam,r2))
             mirrorModes=self.makeMirrorModes(atmosGeom,r2,fitpup,mirrorSurface)#self.interpType,actCoupling,actFlattening)
             nmode=mirrorModes.shape[0]
@@ -760,13 +763,13 @@ class dmInfo:
     def getMirrorSurface(self,interpType=None,actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,
                          gaussianOverlapAccuracy=1e-6,phsOut=None,infFunc=None, interpolationNthreads = 0):
         """Create a MirrorSurface object for this DM"""
-        if interpType==None:
+        if interpType is None:
             interpType=self.interpType
-        if actCoupling==None:
+        if actCoupling is None:
             actCoupling=self.actCoupling
-        if actFlattening==None:
+        if actFlattening is None:
             actFlattening=self.actFlattening
-        if infFunc==None:
+        if infFunc is None:
             infFunc=self.infFunc
         return MirrorSurface(typ=interpType,npup=self.dmpup,nact=self.nact,phsOut=phsOut,actoffset=self.actoffset,
                              actCoupling=actCoupling,actFlattening=actFlattening,couplingcoeff=couplingcoeff,
@@ -789,10 +792,10 @@ class dmOverview:
         self.atmosGeom=atmosGeom
 
         for dm in dmInfoList:
-            if atmosGeom!=None and atmosGeom.zenith!=0:
+            if atmosGeom is not None and atmosGeom.zenith!=0:
                 print "INFORMATION Reconjugating dm to take zenith into account"
                 dm.height/=numpy.cos(atmosGeom.zenith*numpy.pi/180.)
-            if dm.fov==None:#atmosGeom must be specified in this case...
+            if dm.fov is None:#atmosGeom must be specified in this case...
                 dm.fov=0.
                 #need to compute the FOV.  This is done such that all sources will just fit...
                 xoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.cos(dm.primaryPhi*numpy.pi/180.)
@@ -815,27 +818,27 @@ class dmOverview:
                     dm.fov=max(fov,dm.fov)
 
                 print "FOV computed as %g for DM %s"%(dm.fov,dm.label)
-            if dm.nact==None:
+            if dm.nact is None:
                 #nact must be computed from FOV and actSpacing...
                 if dm.zonalDM==0:
                     raise Exception("Modal DM must specify nact as the number of modes")
-                if dm.actSpacing==None:
+                if dm.actSpacing is None:
                     raise Exception("actSpacing or nact must be specified")
                 dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
                 dm.nact=int(dmDiam/dm.actSpacing-2*dm.actoffset+1)
                 print "nact computed as %g for DM %s"%(dm.nact,dm.label)
-                if dm.pokeSpacing!=None and (dm.pokeSpacing<0 or dm.pokeSpacing>=dm.nact):
+                if dm.pokeSpacing is not None and (dm.pokeSpacing<0 or dm.pokeSpacing>=dm.nact):
                     dm.pokeSpacing=None
                 #note, due to rounding, actspacing will now be inconsistent with nact.  Maybe it would be better to change actoffset in this case?
                 old=dm.actoffset
                 dm.actoffset=(dmDiam/dm.actSpacing-(dm.nact-1))/2.
                 print "Recomputed actoffset to be %g (was %g)"%(dm.actoffset,old)
             else:
-                if dm.actSpacing!=None:
+                if dm.actSpacing is not None:
                     print "WARNING: Overriding user defined actSpacing with something that works..."
                 dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
                 dm.actSpacing=dmDiam/(dm.nact+2*dm.actoffset-1.)
-            if dm.reconLam==None:#use the wavelength at which the phase is at.
+            if dm.reconLam is None:#use the wavelength at which the phase is at.
                 dm.reconLam=atmosGeom.sourceLambda(dm.idlist[0][1])
                 print "INFORMATION Assuming reconstructor wavelength of %s for DM %s"%(dm.reconLam,dm.label)
             dm.dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
@@ -903,7 +906,7 @@ class dmOverview:
         return None
     def getHeight(self,idstr):
         dm=self.getDM(idstr)
-        if dm==None:
+        if dm is None:
             print "ERROR dm idstr %s not found"%idstr
             idstr=self.dmInfoList[0].idlist[0][0]
             dm=self.getDM(idstr)
@@ -934,26 +937,26 @@ class dmOverview:
         return dm.nact
     def getfov(self,idstr):
         fov=self.getDM(idstr).fov
-        if fov==None:
+        if fov is None:
             print "Taking max fov for dm %s"%idstr
             #fov=max(self.atmosGeom.sourceThetas().values())
             fov=self.atmosGeom.calcFovWidth()
         return fov
     def getcoupling(self,idstr):
         c=self.getDM(idstr).coupling
-        if c==None:
+        if c is None:
             c=0.1
         return c
     def getminarea(self,idstr):
-        if self.maxActDist!=None:
+        if self.maxActDist is not None:
             raise Exception("Call to dm.getminarea when maxActDist not None")
         c=self.getDM(idstr).minarea
-        if c==None:
+        if c is None:
             c=0.25
         return c
     def getactoffset(self,idstr):
         c=self.getDM(idstr).actoffset
-        if c==None:
+        if c is None:
             c=0.
         return c
     def getClosedLoopFlag(self,idstr):
@@ -974,7 +977,7 @@ class dmOverview:
         """
         height=self.getHeight(idstr)
         fov=self.getfov(idstr)
-        #if fov==None:
+        #if fov is None:
         #    fov=max(self.atmosGeom.sourceThetas().values())
         npup=self.atmosGeom.npup
         telDiam=self.atmosGeom.telDiam
@@ -992,10 +995,10 @@ class dmOverview:
         reconstructor idstr, and DM labels.
 
         This can then be put into
-        createPokeMx stuff.  If actsFrom==None, will scan through all dmInfo
+        createPokeMx stuff.  If actsFrom is None, will scan through all dmInfo
         objects, and use those who have actuatorsFrom==["reconstructor"].
         """
-        if actsFrom==None:
+        if actsFrom is None:
             actsFrom=["reconstructor"]
         if type(actsFrom)!=type([]):
             actsFrom=[actsFrom]
@@ -1041,7 +1044,7 @@ class dmOverview:
     #                return key
     #            else:
     #                poss=key
-    #    if poss!=None:
+    #    if poss is not None:
     #        print "WARNING: util.dm - DM at correct height found but not of correct type (virtual/physical)"
     #        return poss
     #    raise Exception("DM at height %g not found"%height)
@@ -1214,7 +1217,7 @@ class dmOverview:
 ##         self.fov=fov#field of view in arcsec (diameter, not radius).  Probably equal to max(GS.theta).
 ##         self.height=height#conjugate height in m.
 ##         self.nact=nact#number of actuators.
-##         if coupling==None:
+##         if coupling is None:
 ##             coupling=0.1
 ##         self.coupling=coupling#coupling between actuators (rudimentary)
 ##         self.offset=offset
@@ -1224,7 +1227,7 @@ class MirrorSurface:
     """A class for interpolating actuators onto a mirror surface.
     """
     def __init__(self,typ,npup,nact,phsOut=None,actoffset="fried",actCoupling=None,actFlattening=None,couplingcoeff=0.1,gaussianIndex=2.,gaussianOverlapAccuracy=1e-6,infFunc=None, interpolationNthreads=0,stuckActs=None):
-        """typ can be spline, bicubic, gaussian, linear, influence or pspline.  Others can be added as necessary.
+        """typ can be spline, bicubic, gaussian, linear, influence,  pspline or hex.  Others can be added as necessary.
         actCoupling and actFlattening are used for bicubic only.
         actCoupling is also used for spline and pspline
         couplingcoeff, gaussianIndex and gaussianOverlapAccuracy are used for gaussian only.
@@ -1238,7 +1241,7 @@ class MirrorSurface:
         self.infFunc=infFunc
         self.stuckActs=stuckActs
         self.stuckActsMask,self.stuckActsValue,self.coupledActsList=self.makeStuckActPattern(stuckActs)
-        if phsOut==None:
+        if phsOut is None:
             self.phsOut=numpy.zeros((self.npup,self.npup),numpy.float32)
         else:
             self.phsOut=phsOut
@@ -1249,6 +1252,7 @@ class MirrorSurface:
         self.actoffset=actoffset
         self.calcCoords(self.npup,self.nact,self.actoffset)
         self.calcPsplineCoords()
+        
         self.actCoupling=actCoupling
         self.actFlattening=actFlattening
         self.couplingcoeff=couplingcoeff
@@ -1265,13 +1269,15 @@ class MirrorSurface:
             pass
         elif typ=="pspline":#periodic spline...
             pass
+        elif typ=="hex":#hexagonal pattern...
+            self.calcHexCoords()
         elif typ=="influence":
             self.setupInfluence()
 
     def fit(self,actmap,phsOut=None,coords=None):
         """coords here can be a tuple of (ymin,xmin,ymax,xmax) over which the data is fitted.
         """
-        if self.stuckActsMask!=None:
+        if self.stuckActsMask is not None:
             actmap=actmap*self.stuckActsMask+self.stuckActsValue
             for c in self.coupledActsList:
                 y,x=c
@@ -1310,6 +1316,8 @@ class MirrorSurface:
             return self.interpolatePeriodicSpline(actmap,phsOut,coords=coords)
         elif self.typ=="influence":
             return self.fitInfluence(actmap,phsOut,coords=coords)
+        elif self.typ=="hex":
+            return self.fitHex(actmap,phsOut,coords=coords)
         else:
             print "WARNING: mirror surface unknown type - not fitting"
 
@@ -1318,7 +1326,7 @@ class MirrorSurface:
         stuckActs is int, or tuple of (nstuck,clumpsize,maxRadius,minRadius,seed, fraction high, high value,frac low, low value, fraction coupled)
         OR, [mask array, value array, coupled list]
         """
-        if stuckActs==None or stuckActs==0:
+        if stuckActs is None or stuckActs==0:
             return None,None,None
         seed=None
         onCircle=0
@@ -1355,7 +1363,7 @@ class MirrorSurface:
             if len(stuckActs)>9:
                 fracCoupled=stuckActs[9]
 
-        if seed!=None:
+        if seed is not None:
             numpy.random.seed(seed)
         mask=numpy.zeros((self.nact,self.nact),numpy.float32)
         hiVals=numpy.zeros((self.nact,self.nact),numpy.float32)
@@ -1383,7 +1391,7 @@ class MirrorSurface:
             pos=numpy.random.randint(self.nact*self.nact)
             posx=pos%self.nact
             posy=pos//self.nact
-            if maxRadius!=None and maxRadius>0:
+            if maxRadius is not None and maxRadius>0:
                 if numpy.sqrt((posx-self.nact/2.+0.5)**2+(posy-self.nact/2.+0.5)**2)>maxRadius:
                     ignore=1
             if minRadius>0:
@@ -1415,11 +1423,11 @@ class MirrorSurface:
                 
 
     def calcCoords(self,npup=None,nact=None,actoffset=None):
-        if npup==None:
+        if npup is None:
             npup=self.npup
-        if nact==None:
+        if nact is None:
             nact=self.nact
-        if actoffset==None:
+        if actoffset is None:
             actoffset=self.actoffset
         #spacing=(npup-1.)/(nact-1+actoffset*2.)
         #self.x=numpy.arange(npup).astype(numpy.float64)
@@ -1448,23 +1456,41 @@ class MirrorSurface:
         self.x2ps=(numpy.arange(nact+2*zpad)*spacing+spacing*actoffset).astype(numpy.float64)
         self.xps=(numpy.arange(npup)+0.5)/npup+zpad/(nact-1+actoffset*2)#self.x2ps[zpad]
         return self.xps,self.x2ps
-            
+
+    def calcHexCoords(self):
+        npup=self.npup
+        nact=self.nact
+        actoffset=self.actoffset
+        #assume nact is in x.
+        spacingx=(npup-1.)/(nact-1+actoffset*2.)
+        self.x2hex=((numpy.arange(self.nact)+actoffset)*spacingx).astype(numpy.float64)
+        #In y, nact will be slightly less.
+        nacty=int(numpy.round(nact*numpy.sqrt(3)/2.))
+        #because of the half row shift, there are actually nacty+0.5 actuators in y!  But the shift gets added in the interpolation.  Also, actoffsety needs computing.
+        spacingy=spacingx/numpy.sqrt(3)*2
+        actoffsety=((npup-1.)/spacingy+1-(nacty+0.5))/2.
+        self.y2hex=(numpy.arange(nacty)*spacingy+spacingy*actoffsety).astype(numpy.float64)
+        self.nacty=nacty
+        self.actoffsety=actoffsety
+        self.actStartY=(nact-nacty)//2
+        self.shifty=0.5*spacingy
+        
     def interpolateSpline(self,actmap,phsOut=None,coords=None):
         """Interpolation using bicubic spline.
         Geometry can be hudgin (actuators in centre of subaps) or fried (actuators at corners of subaps) or None, in which case actoffset is used.
         If actoffset==0, and nact==nsubx+1, same as fried (actuators in corners of subaps).  If actoffset=0.5 and nact=nsubx, actuators in centre of subaps - same as hudgin.
         """
         actmap=self.fudge(actmap,self.actCoupling)
-        if phsOut==None:
+        if phsOut is None:
             phsOut=self.phsOut
         x2=self.x2
         y=x=self.x
-        if coords!=None:
+        if coords is not None:
             ymin,xmin,ymax,xmax=coords
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,self.interpolationNthreads)
+        gslCubSplineInterp(actmap,x2,x2,y,x,phsOut,0,self.interpolationNthreads)
         return phsOut
 
     def interpolatePeriodicSpline(self,actmap,phsOut=None,coords=None):
@@ -1473,11 +1499,11 @@ class MirrorSurface:
         If actoffset==0, and nact==nsubx+1, same as fried (actuators in corners of subaps).  If actoffset=0.5 and nact=nsubx, actuators in centre of subaps - same as hudgin.
         """
         actmap=self.fudge(actmap,self.actCoupling)
-        if phsOut==None:
+        if phsOut is None:
             phsOut=self.phsOut
         x2=self.x2ps
         y=x=self.xps
-        if coords!=None:
+        if coords is not None:
             ymin,xmin,ymax,xmax=coords
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
@@ -1485,29 +1511,45 @@ class MirrorSurface:
         gslPeriodicCubSplineInterp(actmap,x2,x2,y,x,phsOut)
         return phsOut
 
-    def interpolateLinear(self,actmap,phsOut=None,coords=None):
-        """Interpolation using linear.
-        If actoffset==0, and nact==nsubx+1, same as fried (actuators in corners of subaps).  If actoffset=0.5 and nact=nsubx, actuators in centre of subaps - same as hudgin.
-        """
-        if phsOut==None:
+    def fitHex(self,actmap,phsOut=None,coords=None):
+        """Fits actuators in a hexagon pattern, and returns interpolated DM phase"""
+        if phsOut is None:
             phsOut=self.phsOut
-        x2=self.x2.astype("f")
-        y=x=self.x.astype("f")
-        if coords!=None:
+        x2=self.x2hex
+        y=x=self.x
+        y2=self.y2hex
+        if coords is not None:
             ymin,xmin,ymax,xmax=coords
             phsOut=phsOut[:ymax-ymin,:xmax-xmin]
             y=y[ymin:ymax]
             x=x[xmin:xmax]
-        linearinterp(actmap.astype("f"),x2,x2,y,x,phsOut)
+        gslCubSplineHex(actmap[self.actStartY:self.actStartY+self.nacty],y2.copy(),x2,y,x,self.shifty,phsOut,self.interpolationNthreads)
+        return phsOut
+        
+    
+    def interpolateLinear(self,actmap,phsOut=None,coords=None):
+        """Interpolation using linear.
+        If actoffset==0, and nact==nsubx+1, same as fried (actuators in corners of subaps).  If actoffset=0.5 and nact=nsubx, actuators in centre of subaps - same as hudgin.
+        """
+        if phsOut is None:
+            phsOut=self.phsOut
+            x2=self.x2.astype("f")
+            y=x=self.x.astype("f")
+        if coords is not None:
+            ymin,xmin,ymax,xmax=coords
+            phsOut=phsOut[:ymax-ymin,:xmax-xmin]
+            y=y[ymin:ymax]
+            x=x[xmin:xmax]
+            linearinterp(actmap.astype("f"),x2,x2,y,x,phsOut)
         return phsOut
 
         # Replace this with what ever interpolation routine you want to use
         # The input is an nact*nact array corresponding to the actuator values (in radians of phase?)
         # The output is a npup*npup array corresponding to the phase change after reflection from the DM
-##         if type(phs_out)==type(None):
-##             phs_out  = numpy.zeros((npup,npup),numpy.float32)
-##         # May want to oversize interpolated map by a few pixels then truncate to npup*npup to match Fried geometry
-##         phs_in = actmap
+        ##         if type(phs_out)==type(None):
+        ##             phs_out  = numpy.zeros((npup,npup),numpy.float32)
+        ##         # May want to oversize interpolated map by a few pixels then truncate to npup*npup to match Fried geometry
+        ##         phs_in = actmap
 
 ##         if geom=="fried":
 ##             step=(actmap.shape[0]-1)/float(npup-1)
@@ -1536,16 +1578,16 @@ class MirrorSurface:
         actFlattening=self.actFlattening
         if type(phsOut)==type(None):
             phsOut  = self.phsOut#numpy.zeros((npup,npup),numpy.float32)
-        actmap2=self.fudge(actmap,fiddle=actCoupling)#adjust actuators slightly.
-        actmap2=self.fudge(actmap2,fiddle=actCoupling)
-        dx,dy,dxy=self.gradients(actmap2,flatten=actFlattening)#compute gradients.
-        if coords!=None:
+            actmap2=self.fudge(actmap,fiddle=actCoupling)#adjust actuators slightly.
+            actmap2=self.fudge(actmap2,fiddle=actCoupling)
+            dx,dy,dxy=self.gradients(actmap2,flatten=actFlattening)#compute gradients.
+        if coords is not None:
             print "WARNING: util.dm - interpolateBicubic coords parameter not yet implemented"
-        bicubicinterp(actmap2,dy,dx,dxy,phsOut)
+            bicubicinterp(actmap2,dy,dx,dxy,phsOut)
         return phsOut
 
     def setupInfluence(self):
-        if self.infFunc==None:
+        if self.infFunc is None:
             raise Exception("Influence functions not specified")
         elif type(self.infFunc)==type(""):
             self.infFunc=util.FITS.Read(self.infFunc)[1]
@@ -1555,8 +1597,8 @@ class MirrorSurface:
     def fitInfluence(self,actmap,phsOut=None,coords=None):
         if type(phsOut)==type(None):
             phsOut=self.phsOut
-        phsOut[:]=0
-        am=actmap.ravel()
+            phsOut[:]=0
+            am=actmap.ravel()
         for i in range(am.shape[0]):#for each actuator value...
             phsOut+=am[i]*self.infFunc[i]
         return phsOut
@@ -1588,10 +1630,10 @@ class MirrorSurface:
                     dists=util.dist.dist(actrange+1,dy=y%1,dx=x%1)/actspacing
                     self.influenceDict[key]=numpy.exp(lnw*dists**gaussianIndex)
                     actvaltmp=self.influenceDict[key]
-                ys=int(numpy.floor(y))-actrange/2
-                ye=ys+actrange+1
-                xs=int(numpy.floor(x))-actrange/2
-                xe=xs+actrange+1
+                    ys=int(numpy.floor(y))-actrange/2
+                    ye=ys+actrange+1
+                    xs=int(numpy.floor(x))-actrange/2
+                    xe=xs+actrange+1
                 if ys<0:
                     self.infCoords[i,j,0]=-ys
                     self.dmCoords[i,j,0]=0
@@ -1626,7 +1668,7 @@ class MirrorSurface:
         inf=self.infCoords
         id=self.influenceDict
         ifk=self.influenceKey
-        if coords==None:
+        if coords is None:
             for i in xrange(self.nact):
                 for j in xrange(self.nact):
                     key=(ifk[i,j,0],ifk[i,j,1])
@@ -1638,7 +1680,7 @@ class MirrorSurface:
 
     def fudge(self,actmap,fiddle=0.1):
         """Alter actuator values depending on nearest neighbours."""
-        if fiddle==0 or fiddle==None:
+        if fiddle==0 or fiddle is None:
             return actmap
         nact=actmap.shape[0]
         diff=numpy.zeros(actmap.shape,actmap.dtype)
@@ -1678,7 +1720,7 @@ class MirrorSurface:
     def gradients(self,actmap,flatten=1.):
         """Compute the x, y and xy gradients of actmap.
         """
-        if flatten==None:
+        if flatten is None:
             flatten=1
         x=numpy.zeros(actmap.shape,actmap.dtype)
         y=numpy.zeros(actmap.shape,actmap.dtype)
@@ -1721,13 +1763,13 @@ class MirrorSurface:
                 xpos+=actsize
             ypos+=actsize
         #Now do fitting step...
-        if subflag!=None:
+        if subflag is not None:
             actmap*=subflag
         converged=0
         while converged==0:
             for i in xrange(self.nact):
                 for j in xrange(self.nact):
-                    if subflag!=None and subflag[i,j]==0:
+                    if subflag is not None and subflag[i,j]==0:
                         continue
                     dm=self.fit(actmap)
                     rms=self.calcRMS(dm-phase,pupmask)
@@ -1762,7 +1804,7 @@ class MirrorSurface:
         print "Rotating by %g (util.dm)"%angle
         overwrite=0
         res=None
-        if phase==None:
+        if phase is None:
             phase=self.phsOut
             overwrite=1
         else:
@@ -1770,7 +1812,7 @@ class MirrorSurface:
         if phase.dtype!=numpy.float32:
             print "Copying phase to float32"
             phase=phase.astype(numpy.float32)
-        if res==None:#rotate inplace
+        if res is None:#rotate inplace
             cmod.utils.rotateArray(phase,angle)
             res=phase
         else:
@@ -1784,7 +1826,7 @@ class MirrorSurface:
         #return scipy.misc.pilutil.imrotate(phase,angle)
         #So, write my own version... which works well...
         overwrite=0
-        if phase==None:
+        if phase is None:
             phase=self.phsOut
             overwrite=1
         yr=numpy.arange(phase.shape[0])#-phase.shape[0]/2.+0.5
@@ -1837,7 +1879,7 @@ class MirrorSurface:
 
 
 class DMLineOfSight:
-    def __init__(self,dmpup,npup,conjHeight,dmphs,sourceAlt,sourceTheta,sourcePhi,telDiam,wavelengthAdjustor=1.,dmxaxisInterp=None,dmyaxisInterp=None,interpolated=None,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=1,pupil=None,nthreads=2):
+    def __init__(self,dmpup,npup,conjHeight,dmphs,sourceAlt,sourceTheta,sourcePhi,telDiam,wavelengthAdjustor=1.,dmxaxisInterp=None,dmyaxisInterp=None,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=1,pupil=None,nthreads=2):
         """sourcetheta,sourcephi in radians.
         dmTiltAngle in degrees.
         
@@ -1846,10 +1888,10 @@ class DMLineOfSight:
         """
         self.dmpup=dmpup# size of the dm surface
         self.npup=npup# size of the pupil
-        #if interpolated==None:
+        #if interpolated is None:
         #    interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
         #print "dmpup,npup=%d, %d"%(dmpup,npup)
-        self.interpolated=interpolated
+        #self.interpolated=interpolated
         self.telDiam=telDiam
         self.xoff=(self.dmpup-self.npup)/2
         self.yoff=(self.dmpup-self.npup)/2#ground conjugated.
@@ -1952,14 +1994,14 @@ class DMLineOfSight:
                         self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*yfact+self.yoffsub
 
                 #Need to check that self.xaxisInterp is big enough...
-                if self.dmyaxisInterp==None or self.dmyaxisInterp.shape[0]<(self.yoffend-self.yoff):
+                if self.dmyaxisInterp is None or self.dmyaxisInterp.shape[0]<(self.yoffend-self.yoff):
                     size=max(self.npup+1,self.yoffend-self.yoff)
-                    if self.dmyaxisInterp!=None:
+                    if self.dmyaxisInterp is not None:
                         print "Increasing dmyaxisInterp"
                     self.dmyaxisInterp=numpy.arange(size).astype(numpy.float64)
-                if self.dmxaxisInterp==None or self.dmxaxisInterp.shape[0]<(self.xoffend-self.xoff):
+                if self.dmxaxisInterp is None or self.dmxaxisInterp.shape[0]<(self.xoffend-self.xoff):
                     size=max(self.npup+1,self.xoffend-self.xoff)
-                    if self.dmxaxisInterp!=None:
+                    if self.dmxaxisInterp is not None:
                         print "Increasing dmxaxisInterp"
                     self.dmxaxisInterp=numpy.arange(size).astype(numpy.float64)
             else:#not doing sub pixel interpolation
@@ -1969,7 +2011,7 @@ class DMLineOfSight:
                 self.yoff+=int(r*numpy.sin(self.sourcePhi)+0.5)#correctly
                 self.xoffend=self.xoff+self.npup
                 self.yoffend=self.yoff+self.npup
-        if self.xaxisInterp==None:#ground conjugated...
+        if self.xaxisInterp is None:#ground conjugated...
             if self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
                 self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.alignmentOffset[0]
                 self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.alignmentOffset[1]
@@ -1992,33 +2034,52 @@ class DMLineOfSight:
         out=self.selectedDmPhs
         if self.subpxlInterp:
             if self.xoffsub==0 and self.yoffsub==0:#no interp needed
-                pass
+                if self.wavelengthAdjustor==1:
+                    if addToOutput:#i.e. the atmosdata is already in output
+                        outputData+=out
+                    else:
+                        outputData[:]=out
+                else:
+                    if addToOutput:#i.e. the atmosdata is already in output
+                        outputData+=out*self.wavelengthAdjustor
+                    else:
+                        outputData[:]=out*self.wavelengthAdjustor
             else:
-                if self.interpolated==None:
-                    print "util.dm: selectSubPupil Creating scratch array"
-                    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
-                gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
-                out=self.interpolated
+                #if self.interpolated is None:
+                #    print "util.dm: selectSubPupil Creating scratch array"
+                #    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+                #gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
+                if self.wavelengthAdjustor!=1:
+                    phs=self.selectedDmPhs*self.wavelengthAdjustor
+                else:
+                    phs=self.selectedDmPhs
+                gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
+                #out=self.interpolated
         elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
             #ground conjugate or not interplating - but we want to offset anyway.
-            if self.interpolated==None:
-                print "util.dm: selectSubPupil Creating scratch array"
-                self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
+            #if self.interpolated is None:
+            #    print "util.dm: selectSubPupil Creating scratch array"
+            #    self.interpolated=numpy.zeros((self.npup,self.npup),numpy.float32)#scratch space
 
-            gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
-            out=self.interpolated
-        #print self.selectedDmPhs.std()
-        if self.wavelengthAdjustor==1:
-            if addToOutput:#i.e. the atmosdata is already in output
-                outputData+=out
+            #gslCubSplineInterp(self.selectedDmPhs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,self.interpolated,self.nthreads)
+            if self.wavelengthAdjustor!=1:
+                phs=self.selectedDmPhs*self.wavelengthAdjustor
             else:
-                outputData[:]=out
+                phs=self.selectedDmPhs
+            gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
+            #out=self.interpolated
         else:
-            if addToOutput:#i.e. the atmosdata is already in output
-                outputData+=out*self.wavelengthAdjustor
+            if self.wavelengthAdjustor==1:
+                if addToOutput:#i.e. the atmosdata is already in output
+                    outputData+=out
+                else:
+                    outputData[:]=out
             else:
-                outputData[:]=out*self.wavelengthAdjustor
-        if self.pupil!=None:
+                if addToOutput:#i.e. the atmosdata is already in output
+                    outputData+=out*self.wavelengthAdjustor
+                else:
+                    outputData[:]=out*self.wavelengthAdjustor
+        if self.pupil is not None:
             outputData*=self.pupil.fn
             if removePiston:
                 #remove piston - though probably not necessary
@@ -2032,14 +2093,14 @@ class DMLineOfSight:
 
 def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=None,reconIdStr=None,initDict=None):
     """Uses vdmUser to do a geometrical projection"""
-    if config==None:
+    if config is None:
         config="params.xml"
     if type(config) in [type(""),type([]),type(())]:
         import base.readConfig
         config=base.readConfig.AOXml(config,batchno=batchno,initDict=initDict)
-    if config.getVal("projMxFilename",raiseerror=0)==None:
+    if config.getVal("projMxFilename",raiseerror=0) is None:
         config.this.globals.projMxFilename="projmx%d.fits"%batchno
-    if reconIdStr!=None:#should be specified in config file, but if not, can specify here...
+    if reconIdStr is not None:#should be specified in config file, but if not, can specify here...
                         #(though may still be overwritten by config file one)
         config.this.globals.reconIdStr=reconIdStr
     import science.vdmUser
@@ -2048,7 +2109,7 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
     if type(rmx)==type(""):
         import util.FITS
         rmx=util.FITS.Read(rmx)[1]
-    if rmx!=None:#apply projection matrix to create specific reconstructor.
+    if rmx is not None:#apply projection matrix to create specific reconstructor.
         #res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
         try:
             import cmod.mkl
@@ -2063,18 +2124,18 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
         else:
             res=numpy.empty((rmx.shape[0],v.projmx.shape[0]),numpy.float32,order='F')
             cmod.mkl.gemm(rmx,v.projmx.T,res)
-        if rmxOutName==None:
+        if rmxOutName is None:
             rmxOutName="rmxProjected%d.fits"%batchno
         util.FITS.Write(res,rmxOutName)
     return v.projmx
 
 def calcActuators(hlist,fov,telDiam,r0list=None,strList=None):
     """Computes the ideal ratio of number of actuators for multi-DMs.
-    r0list is computed from globalRo*strLayer**(-3./5) I think.  Or maybe is just the strengths of the layers.  Or 1/strength of layers.  Oops - I forget!!!  Use strlayer**-0.6.  If r0List==None, then strList is used and assumes this.
+    r0list is computed from globalRo*strLayer**(-3./5) I think.  Or maybe is just the strengths of the layers.  Or 1/strength of layers.  Oops - I forget!!!  Use strlayer**-0.6.  If r0List is None, then strList is used and assumes this.
     This is taken from a 2 page paper by Don Gavel (google deformable mirror fitting error)
     returns the ratios of number of actuators in 1 dimension (nact) required.
     """
-    if r0list==None:#strList cannot be None in this case.
+    if r0list is None:#strList cannot be None in this case.
         r0list=map(lambda x:x**-0.6,strList)
     mu=1.
     sigma2=1.
@@ -2164,7 +2225,7 @@ def dmProjection(dm,vdmList,npup,telDiam,interpolate=1,rcond=1e-15,usemkl=0,usem
                     if dm.dmflag[i,j]:
                         actmap[i,j]=1.
                         ms.fit(actmap,phs)
-                        if pupfn!=None:
+                        if pupfn is not None:
                             phs*=pupfn
                         #Here, we just select all of the phase since we assume that this true DM is of size npup anyway.  If this is too restrictive, will have to think a bit and recode slightly.
                         influence[pos]=phs.ravel()
@@ -2187,7 +2248,7 @@ def dmProjection(dm,vdmList,npup,telDiam,interpolate=1,rcond=1e-15,usemkl=0,usem
                             if dm.dmflag[i,j]:
                                 actmap[i,j]=1.
                                 ms.fit(actmap,phs)
-                                if pupfn!=None:
+                                if pupfn is not None:
                                     phs*=pupfn
                                 #Here, we just select all of the phase since we assume that this true DM is of size npup anyway.  If this is too restrictive, will have to think a bit and recode slightly.
                                 influence[pos]=phs.ravel()
@@ -2390,8 +2451,8 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
                         else:
                             #   Comment, UB: ProjectionWorker is not used in aosim and is called only
                             #   interactively, therefore the number of threads is hard-coded and set to 1:
-                            cmod.interp.gslCubSplineInterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated,1)
-                        if pupfn!=None:
+                            cmod.interp.gslCubSplineInterp(phs[yf:yt,xf:xt],xin,xin,yout,xout,interpolated,0,1)
+                        if pupfn is not None:
                             interpolated*=pupfn
                         #tmp=quick.dot(interpolated.ravel(),invInf[:,bstart:bend])
                         #print max(tmp)
@@ -2445,12 +2506,12 @@ if __name__=="__main__":
         npup=config.getVal("npup")
         telDiam=config.getVal("telDiam")
         dmObj=config.getVal("dmOverview",raiseerror=0)
-        if dmObj==None or type(dmObj)!=type(config):
+        if dmObj is None or type(dmObj)!=type(config):
             print "DEPRECATION: warning: dmObj should now be dmOverview"
             dmObj=config.getVal("dmObj")
         pupil=config.getVal("pupil")
         config.setSearchOrder(["tomoRecon","globals",])
-        if rmxfile==None:
+        if rmxfile is None:
             rmxfile=config.getVal("reconmxFilename",raiseerror=0)
         if rmxfile=="":
             rmxfile=None
@@ -2468,7 +2529,7 @@ if __name__=="__main__":
         if nthreads!=1:
             print "Warning - dones't work with >1 thread"
         projmx=dmProjection(dm,vdmList,npup,telDiam,interpolate,rcond,usemkl,usemmap,stage,basefilename,nthreads,pupfn)
-        if rmxfile!=None:
+        if rmxfile is not None:
             print "Producing reconstructor..."
             if usemkl:
                 import util.computeRecon

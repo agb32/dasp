@@ -22,7 +22,7 @@ class sciOverview:
     def values(self):
         return self.sciDict.values()
 class sciInfo(util.atmos.source):
-    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2]):
+    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):#Note, if change this, also update the .copy method.
         super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)
         self.nsamp=nsamp
         self.zeroPsf=10
@@ -44,12 +44,16 @@ class sciInfo(util.atmos.source):
         self.diffPsfFilename=diffPsfFilename
         self.histListSize=histListSize
         self.inboxDiamList=inboxDiamList
+        self.userFitsHeader=userFitsHeader
+        self.psfEnergyToSave=psfEnergyToSave
+        self.psfMinSize=psfMinSize
+        self.nimgLongExp=nimgLongExp
         self.sciPath=sciPath
-        if self.sciPath==None:
+        if self.sciPath is None:
             self.sciPath=idstr
     def copy(self,idstr):
         """Copy to a new ID-string"""
-        s=sciInfo(idstr,self.theta,self.phi,self.pupil,self.sourcelam,self.phslam,self.nsamp,self.zeroPsf,self.psfFilename,self.summaryFilename,self.histFilename,self.integrate,self.calcRMS,self.phaseType,self.nfft,self.nimg,self.realPupil,self.sciPath,self.dmpupil,self.usedmpup,self.psfSamp,self.luckyObj,self.saveString,self.diffPsfFilename,self.histListSize,self.inboxDiamList)
+        s=sciInfo(idstr,self.theta,self.phi,self.pupil,self.sourcelam,self.phslam,self.nsamp,self.zeroPsf,self.psfFilename,self.summaryFilename,self.histFilename,self.integrate,self.calcRMS,self.phaseType,self.nfft,self.nimg,self.realPupil,self.sciPath,self.dmpupil,self.usedmpup,self.psfSamp,self.luckyObj,self.saveString,self.diffPsfFilename,self.histListSize,self.inboxDiamList,self.userFitsHeader,self.psfEnergyToSave,self.psfMinSize,self.nimgLongExp)
         return s
 
 class luckyInfo:
@@ -66,13 +70,16 @@ class science:
     phaseMultiplier is used for cases where phase wavelength is different from the wavelength that this science object is at.
 
     """
-    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0):
+    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0,userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
-        if nimg==None:
+        if nimg is None:
             nimg=nfft
         self.nimg=nimg
+        if nimgLongExp==None:
+            nimgLongExp=self.nimg
+        self.nimgLongExp=nimgLongExp
         if (self.nfft%self.nimg)!=0:
             raise Exception("WARNING: util.sci.py nfft not a multiple of nimg")
         self.phaseTilt=None
@@ -89,11 +96,17 @@ class science:
         self.scinSamp=scinSamp
         self.sciPSFSamp=sciPSFSamp
         self.computeOTF=0#compute OTF for strehl calcs
-        self.historyListsSize=scienceListsSize
+        self.computeDiffPsfProfiles=0#compute radial and ensquared profiles for the diffraction limited psf.
+        self.historyListsSize=int(scienceListsSize)
         self.luckyHistorySize=luckyHistorySize
         self.luckyByteswap=luckyByteswap
         self.inboxDiamList=inboxDiamList
         self.saveFileString=saveFileString
+        if userFitsHeader is not None and type(userFitsHeader)!=type([]):
+            userFitsHeader=[userFitsHeader]
+        self.userFitsHeader=userFitsHeader
+        self.psfEnergyToSave=psfEnergyToSave
+        self.psfMinSize=psfMinSize
         if type(self.saveFileString)!=type(""):
             self.saveFileString=""
         self.debug=debug
@@ -132,8 +145,8 @@ class science:
         self.psfSamp=0
         self.PSFTime=0.
         self.phaseMultiplier=phaseMultiplier
-        self.longExpPSF=numpy.zeros((nimg,nimg),self.integratedImgDataType)#was float64
-        self.longExpImg=numpy.zeros((nimg,nimg),self.integratedImgDataType)# Long exposure image array (cannot be shared)
+        #self.longExpPSF=numpy.zeros((nimg,nimg),self.integratedImgDataType)#was float64
+        self.longExpImg=numpy.zeros((nimgLongExp,nimgLongExp),self.integratedImgDataType)# Long exposure image array (cannot be shared)
         self.luckyImg=None
         self.luckyCnt=0
         self.luckyHistoryKeys={}
@@ -147,7 +160,7 @@ class science:
         if allocateMem:
             self.initMem()
             self.initProfiles()
-        self.longExpPSFView=None
+        #self.longExpPSFView=None
         self.instImgView=None
 
     def __del__(self):
@@ -164,14 +177,14 @@ class science:
         self.phaseTilt=(self.pup*tmp*(xtiltfn+numpy.transpose(xtiltfn))).astype(self.fpDataType)
 
         
-    def initMem(self,fftTmp=None,pupilAmplitude=None,focusAmplitude=None,tempImg=None,instImg=None,phs=None,binImg=None):
+    def initMem(self,fftTmp=None,pupilAmplitude=None,focusAmplitude=None,tempImg=None,instImg=None,phs=None,binImg=None,longExpPSF=None):
         """Initialise memories needed... here, if memories are passed in,
         these are used (ie when sharing resources), otherwise, new memories
         are allocated."""
         nfft=self.nfft
         npup=self.npup
         nimg=self.nimg
-            
+        nimgLongExp=self.nimgLongExp
         if type(fftTmp)==type(None):#scratch area for acml FFT routine...
             self.fftTmp=numpy.zeros((nfft**2+10*nfft,),self.cpDataType)#Numeric.Complex64
         elif fftTmp.shape!=(nfft**2+10*nfft,):
@@ -185,14 +198,19 @@ class science:
         else:
             self.pupilAmplitude=pupilAmplitude
         #self.pupilAmplitude.savespace(1)
-        if focusAmplitude==None:#an in place FFT will be done (slower)
+        if focusAmplitude is None:#an in place FFT will be done (slower)
             self.focusAmplitude=self.pupilAmplitude
         elif focusAmplitude.shape!=(nfft,nfft):
             self.focusAmplitude=util.arrayFromArray.arrayFromArray(focusAmplitude,(nfft,nfft),self.cpDataType)#Numeric.Complex64
         else:
             self.focusAmplitude=focusAmplitude
 
-            
+        if longExpPSF is None:
+            self.longExpPSF=numpy.zeros((nimgLongExp,nimgLongExp),self.integratedImgDataType)
+        elif longExpPSF.shape!=(nimgLongExp,nimgLongExp):
+            self.longExpPSF=longExpPSF.view(self.integratedImgDataType)[:self.nimgLongExp,:self.nimgLongExp]
+        else:
+            self.longExpPSF=longExpPSF
 
         #initialise the FFT (fftw module)
         cmod.fft.InitialiseThreading(self.nthreads)
@@ -217,7 +235,7 @@ class science:
         if type(instImg)==type(None):
             self.instImg=numpy.zeros((self.nimg,self.nimg),self.fpDataType)#was Numeric.Float64
         else:
-            instImg=numpy.array(instImg)#xxx
+            #instImg=numpy.array(instImg)#xxx
             self.instImg=util.arrayFromArray.arrayFromArray(instImg,(nimg,nimg),self.fpDataType)#Numeric.Float64
     
         if type(phs)==type(None):
@@ -244,15 +262,17 @@ class science:
     def initProfiles(self):
         """This should be called after the memory has been set up..."""
         self.diffPSF=self.computeDiffPSF()
-        self.diffPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
+        self.diffn_core_en=float(self.diffPSF[self.nimg/2,self.nimg/2])
+        if self.computeDiffPsfProfiles:
+            self.diffPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
+            print "todo - return from computeEnsquaredEnergy - allocate once"
+            self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         if self.diffPsfFilename!=None:#save the diffraction limited PSF.
             util.FITS.Write(self.diffPSF,self.diffPsfFilename)
         #self.dlPsfRadialProfile=self.computeRadialProfileAndEncircledEnergy(self.diffPSF)[0,:,]
-        self.diffn_core_en=float(self.diffPSF[self.nimg/2,self.nimg/2])
-        self.diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(self.diffPSF),s=(self.diffPSF.shape[0]*2,self.diffPSF.shape[1]*2)).sum()
+        if self.computeOTF:
+            self.diffOTFSum=numpy.fft.fft2(numpy.fft.fftshift(self.diffPSF),s=(self.diffPSF.shape[0]*2,self.diffPSF.shape[1]*2)).sum()
         #print "Diffraction OTF sum: %s"%str(self.diffOTFSum)
-        print "todo - return from computeEnsquaredEnergy - allocate once"
-        self.diffPsfEnsquaredProfile=self.computeEnsquaredEnergy(self.diffPSF)
         #perform an acml FFT initialisation.
         #Actually not needed for inplace_fft2d...
 
@@ -265,13 +285,15 @@ class science:
         ####  We first create a map of the square of the distances to the center of the PSF image
         ####  The map of distances is computed with the dist function (see aosim/utils/dist.py for help)
         ####  We use the square because we have then integer indexes
-        r2=dist(self.nimg,natype=self.fpDataType,sqrt=0).ravel()
+        r2=dist(self.nimgLongExp,natype=self.fpDataType,sqrt=0).ravel()
         #r2*=r2 ##no longer sqrts in dist... square : we have integer numbers
         self.nnRad=numpy.argsort(r2) ##we flatten the grid of distances and sort the values
         r2r=numpy.take(r2,self.nnRad) ## we sort the grid of distances
-        self.xRad=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        #self.xRad=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        self.xRad=numpy.nonzero(r2r[1:]-r2r[:-1])[0]
         #print self.xRad,type(self.xRad),type(self.xRad[0])
         self.tabNbPointsRad=difYorick(self.xRad) ## number of points per bin
+        self.tabNbPointsRad=self.xRad[1:]-self.xRad[:-1]
         self.rRad=numpy.take(numpy.sqrt(r2r),self.xRad) ##radius (in pixels) giving the horizontal axis for radial and encircled energy profiles
         self.rad=self.rRad*self.pix_scale
 
@@ -311,7 +333,8 @@ class science:
         #### We compute the encircled energy of the PSF
         tabEncircledEnergy=numpy.take(numpy.cumsum(psfSort),self.xRad)
         #### We compute the radial profile
-        tabEnergyPerPixBin=difYorick(tabEncircledEnergy) ##to have the energy per pixel bin
+        #tabEnergyPerPixBin=difYorick(tabEncircledEnergy) ##to have the energy per pixel bin
+        tabEnergyPerPixBin=tabEncircledEnergy[1:]-tabEncircledEnergy[:-1]
         #tabEnergyPerPixBin.savespace(1)#prevent conversion to double.
         profil=tabEnergyPerPixBin/self.tabNbPointsRad
 
@@ -326,48 +349,20 @@ class science:
         result[1,:,]=tabEncircledEnergy[:,]
         return result
 
-##     def computeRadialProfileAndEncircledEnergy(self,psf):
-##         """Computes radial end encircled energy profiles
-##             Inputs :
-##              - psf : the input whose profiles are wanted
-
-##             Outputs :
-##               - result : the array storing profiles
-##                 the first line, ie result[0,] stores the radial profile
-##                 the second line, ie result[1,] stores the encircled energy profile
-##         """
-##         #### We flatten the PSF and sort the values
-##         psfSort=Numeric.take(psf.flat,self.nnRad)
-##         #### We compute the encircled energy of the PSF
-##         tabEncircledEnergy=Numeric.take(Numeric.cumsum(psfSort),self.xRad)
-##         #### We compute the radial profile
-##         tabEnergyPerPixBin=dif_(tabEncircledEnergy) ##to have the energy per pixel bin
-##         tabEnergyPerPixBin.savespace(1)#prevent conversion to double.
-##         profil=tabEnergyPerPixBin/self.tabNbPointsRad
-
-##         #### Allocation of the return result
-##         result=Numeric.zeros((2,len(tabEncircledEnergy)),typecode=psf.typecode(),savespace=1)
-##         print type(profil),profil.shape,result.shape,profil.dtype.char,result.typecode()
-##         #### We first store the radial profile in line 1 of the returned array
-##         result[0,0]=psfSort[0]
-##         result[0,1:,]=profil[:,].astype("f") ##radial profile of PSF
-
-##         #### We  store the encircled energy profile in line 2 of the returned array
-##         result[1,:,]=tabEncircledEnergy[:,]
-##         return result
 
     def initEnsquaredEnergyProfile(self):
         """Creates and initialises arrays to fastly compute the ensquared energy profile
         Must be called before calling computeEnsquaredEnergy
         """	
         ####  We first create a pixel map of concentric square apertures
-        tabx=numpy.arange(self.nimg)-self.nimg/2;
+        tabx=numpy.arange(self.nimgLongExp)-self.nimgLongExp/2;
         r2=numpy.maximum(numpy.absolute(tabx[:,numpy.newaxis]),numpy.absolute(tabx[numpy.newaxis,:,]))
 
         ##we flatten the grid of distances and sort the values
         self.nnSquare=numpy.argsort(r2.ravel())
         r2r=numpy.take(r2.ravel(),self.nnSquare) ## we sort the grid of distances
-        self.xSquare=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        #self.xSquare=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
+        self.xSquare=numpy.nonzero(r2r[1:]-r2r[:-1])[0]
         self.rSquare=numpy.take(r2r,self.xSquare)*2+1 ##aperture size (in pixels) giving the horizontal axis for the ensquared energy profile
     
 ##     def initEnsquaredEnergyProfile(self):
@@ -505,9 +500,9 @@ class science:
            Modifications made by FA
            The longExpPSF should be normalised to 1, i.e.sum()==1.
            """
-        if longExpPSF==None:
+        if longExpPSF is None:
             longExpPSF=self.longExpPSF
-        if dictScience==None:
+        if dictScience is None:
             dictScience=self.dictScience
         #window(2,wait=1)
         #fma()
@@ -516,8 +511,8 @@ class science:
         ## We calculate PSF parameters ###
         ## We start by the Strehl Ratio
         nfft=self.nfft
-        nimg=self.nimg
-        strehl=longExpPSF[nimg/2,nimg/2]/self.diffn_core_en
+        nimgLongExp=self.nimgLongExp
+        strehl=longExpPSF[nimgLongExp/2,nimgLongExp/2]/self.diffn_core_en
         dictScience['strehl']=strehl
         ##print "Strehl=%g"%(strehl)
         dictScience['strehlPeak']=max(longExpPSF.flat)/self.diffn_core_en
@@ -618,7 +613,7 @@ class science:
             dictScience['inbox%g'%apSize]=inbox
 
         #now compute speckle fraction.  This is really only meaningful for high strehl cases.
-        if self.keepDiffPsf and self.nimg==self.nfft and self.nfft==2*self.npup:
+        if self.keepDiffPsf and self.nimgLongExp==self.nfft and self.nfft==2*self.npup:
             #find difference
             diff=self.diffPSF-longExpPSF
             #zero out the middle part (up to first null)
@@ -642,9 +637,8 @@ class science:
         return convimg
         
 
-
-    def doScienceCalc(self,inputData,control,curtime=0):
-        """compute the science calculation.  Here, inputData is the phase, control is a dictionary of control commands, such as useFPGA, calcRMSFile, zero_science and science_integrate."""
+    def prepareInput(self,inputData):
+        """Optionally bins phase and scales for wavelength"""
         ##we compute the piston and remove it into the pupil
         if self.atmosPhaseType=="phaseonly":
             if inputData.shape!=(self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
@@ -653,15 +647,37 @@ class science:
                 cmod.binimg.binimg(inputData,self.phs)
                 self.phs/=self.realPupBinned
                 inputData=self.phs#now the binned version.
-            pist=numpy.sum(numpy.sum(inputData*self.pup))/self.pupsum ##computation of the piston
-            numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
+            #Don't remove piston any more (160614)
+            #pist=numpy.sum(numpy.sum(inputData*self.pup))/self.pupsum ##computation of the piston
+            #numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
+            else:
+                self.phs[:]=inputData
         else:
             raise Exception("science: todo: don't know how to remove piston")
-        nfft=self.nfft
-        t1=time.time()
         if self.phaseMultiplier!=1:
             self.phs*=self.phaseMultiplier
+        
+        
+    def doScienceCalc(self,inputData,control,curtime=0):
+        """compute the science calculation.  Here, inputData is the phase, control is a dictionary of control commands, such as useFPGA, calcRMSFile, zero_science and science_integrate."""
+        ##we compute the piston and remove it into the pupil
+        # if self.atmosPhaseType=="phaseonly":
+        #     if inputData.shape!=(self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
+        #         #This assumes that the inputData size is a power of 2 larger than phs, ie 2, 4, 8 etc times larger.
+        #         #print "Binning pupil for science calculation %d %s "%(self.npup,str(inputData.shape))
+        #         cmod.binimg.binimg(inputData,self.phs)
+        #         self.phs/=self.realPupBinned
+        #         inputData=self.phs#now the binned version.
+        #     pist=numpy.sum(numpy.sum(inputData*self.pup))/self.pupsum ##computation of the piston
+        #     numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
+        # else:
+        #     raise Exception("science: todo: don't know how to remove piston")
+        nfft=self.nfft
+        t1=time.time()
+        #if self.phaseMultiplier!=1:
+        #    self.phs*=self.phaseMultiplier
         if control["calcRMS"]:
+            self.prepareInput(inputData)
             self.phaseRMS=self.calcRMS(self.phs,self.pup)
             self.phaseRMSsum+=self.phaseRMS
             self.phaseRMSsum2+=self.phaseRMS*self.phaseRMS
@@ -688,6 +704,7 @@ class science:
             self.psfSamp=0
             self.longExpImg[:,]=0.
             self.longExpPSF[:,]=0.
+            self.clippedEnergy=0.
             self.n_integn=0
             self.phaseRMSsum=0.
             self.phaseRMSsum2=0.
@@ -697,9 +714,20 @@ class science:
             if control["zero_science"]==0:# Not zeroing science image
                 self.psfSamp+=1
                 if self.psfSamp>=self.sciPSFSamp:
+                    if not control["calcRMS"]:
+                        self.prepareInput(inputData)
                     self.psfSamp=0
                     self.computeShortExposurePSF(self.phs)#calc short exposure PSF
-                    self.longExpImg+=self.instImg# Integrate img
+                    if self.nimgLongExp==self.nimg:
+                        self.longExpImg+=self.instImg# Integrate img
+                    else:
+                        f=(self.nimg-self.nimgLongExp)//2
+                        t=f+self.nimgLongExp
+                        self.longExpImg+=self.instImg[f:t,f:t]
+                        self.clippedEnergy+=self.instImg[:f].sum()
+                        self.clippedEnergy+=self.instImg[t:].sum()
+                        self.clippedEnergy+=self.instImg[f:t,:f].sum()
+                        self.clippedEnergy+=self.instImg[f:t,t:].sum()
                     #instantaneous strehl calc...
                     self.dictScience['strehlInst']=numpy.max(self.instImg)/self.diffn_core_en
                     self.n_integn+=1 ##We increment the number of integrations used to compute long exposure PSF
@@ -707,12 +735,12 @@ class science:
                     if (self.isamp>=self.scinSamp): #compute scientific parameters
                         self.isamp=0#we reset isamp to 0
                         # We do the average of the PSF and normalise it to 1
-                        self.longExpPSF[:,]=self.longExpImg/numpy.sum(self.longExpImg)##We normalise the instantaneous PSF to 1
+                        self.longExpPSF[:,]=self.longExpImg/(numpy.sum(self.longExpImg)+self.clippedEnergy)##We normalise the instantaneous PSF to 1
 
                         self.computeScientificParameters()
 
                         # we update the history lists
-                        if self.history==None:
+                        if self.history is None:
                             self.historyKeys=self.dictScience.keys()
                             self.history=numpy.zeros((len(self.historyKeys),self.historyListsSize),numpy.float32)
                             self.historyCnt=0
@@ -722,7 +750,7 @@ class science:
                         self.historyCnt=(self.historyCnt+1)%self.history.shape[1]
                     if control["lucky_integrate"]:#doing lucky...
                         if self.luckyCnt==0:
-                            if self.luckyImg==None:
+                            if self.luckyImg is None:
                                 self.luckyImg=numpy.empty((self.nimg,self.nimg),self.fpDataType)
                             self.luckyRms=self.phaseRMS
                             self.luckyImg[:]=self.instImg
@@ -736,7 +764,7 @@ class science:
                             self.luckyImg/=self.luckyImg.sum()#normalise it
                             self.computeScientificParameters(self.luckyImg,self.luckyDict)
                             self.luckyDict["rms"]=self.luckyRms/self.luckyNSampFrames#the mean RMS phase that went into this image.
-                            if self.luckyHistory==None:
+                            if self.luckyHistory is None:
                                 self.luckyHistoryKeys=self.luckyDict.keys()
                                 self.luckyHistory=numpy.zeros((len(self.luckyHistoryKeys),self.luckyHistorySize),numpy.float32)
                                 self.luckyHistoryCnt=0
@@ -745,7 +773,7 @@ class science:
                                 self.luckyHistory[ik,self.luckyHistoryCnt%self.luckyHistory.shape[1]]=self.luckyDict[k]
                             self.luckyHistoryCnt+=1
                             if self.luckyImgFilename!=None and self.luckyImgSize>0:
-                                if self.luckyFile==None:
+                                if self.luckyFile is None:
                                     self.luckyFile=tempfile.TemporaryFile()
                                     self.luckyLastImg=numpy.zeros((self.luckyImgSize,self.luckyImgSize),self.luckyImg.dtype)
                                 self.luckyLastImg[:]=self.luckyImg[self.nimg/2-self.luckyImgSize/2:self.nimg/2+self.luckyImgSize/2,self.nimg/2-self.luckyImgSize/2:self.nimg/2+self.luckyImgSize/2]
@@ -804,13 +832,13 @@ def computeScientificParameters(img,nfft=None,nimg=None,npup=None,pupil=None,inb
 
     ## We calculate PSF parameters ###
     ## We start by the Strehl Ratio
-    if nfft==None:
+    if nfft is None:
         nfft=img.shape[0]
-    if nimg==None:
+    if nimg is None:
         nimg=img.shape[0]
-    if npup==None:
+    if npup is None:
         npup=nfft/2
-    if pupil==None:
+    if pupil is None:
         pupil=util.tel.Pupil(npup,npup/2,npup/2.*telSec/telDiam)
 
     #compute pixel scale.

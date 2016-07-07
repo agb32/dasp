@@ -159,7 +159,7 @@ def computeCov4(mode,xcoord,ycoord,dmflag,modes,modeCoords,vig,npup,nact,r0,l0,t
                 xin=numpy.arange(nx).astype(numpy.float32)
                 yout=yin-yshift
                 xout=xin-xshift
-                cmod.interp.gslCubSplineInterp(mode,yin,xin,yout,xout,mode2,nThreads)
+                cmod.interp.gslCubSplineInterp(mode,yin,xin,yout,xout,mode2,0,nThreads)
             else:
                 mode2=mode
             for i in range(ny):

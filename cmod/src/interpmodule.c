@@ -291,6 +291,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   double *x1usr=NULL, *x2usr=NULL, *x3usr=NULL, *x4usr=NULL;
 
   int nThreads = 0;      // the number of threads (provided on input)
+  int addToOutput=0;
   pthread_t*     thread; // vector of threads
   interp_data_t* params; // vector of parameters passed to the funct. executed in a thread
                          //  defined in interpolate.h
@@ -299,13 +300,14 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   int oneMore;           // m%nThreads = number of threads that have to process one line more
  
   // (1) PARSE THE INPUT arguments from python:
-  if (!PyArg_ParseTuple (args, "O!OOOOO!|i", 
+  if (!PyArg_ParseTuple (args, "O!OOOOO!i|i", 
 			 &PyArray_Type, &pyin, 
 			                &pyyin,
 			                &pyxin,
 			                &pyyout,
 			                &pyxout,
-			 &PyArray_Type, &pyout, 
+			 &PyArray_Type, &pyout,
+                 	                &addToOutput,
 			                &nThreads)){
     printf("%s, line %d: parsing the arguments failed.\n", __FILE__, __LINE__);
     printf("A working example:\nxin,  yin  = numpy.arange(5).astype(TYPE),\n");
@@ -528,7 +530,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       params->sx      = sInX;
       params->sy      = sInY;
       params->sytmp   = nInX;
-
+      params->addToOutput=0;
       // (c) Do interpolation pass in Y:
       if(insize==8) interp_first_inDouble( params );
       else          interp_first_inFloat(  params );
@@ -543,6 +545,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       params->outData = pyoutData;
       params->sx      = sOutX;
       params->sy      = sOutY;
+      params->addToOutput=addToOutput;
 
       // (e) Do interpolation pass in X and put results in output array:
       if(outsize==8) interp_second_outDouble( params );
@@ -600,7 +603,8 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       	  params[i].sx   = sInX;
       	  params[i].sy   = sInY;
 	  params[i].sytmp= nInX;
-
+	  params[i].addToOutput=0;
+      
       	  if(i < oneMore) params[i].M = forEach+1;  // the first oneMore threads
       	  else            params[i].M = forEach;    // the rest of the threads:
       	  if(i == 0){
@@ -644,6 +648,7 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
       	  params[i].outX    = x4;
       	  params[i].sx      = sOutX;
       	  params[i].sy      = sOutY;
+	  params[i].addToOutput=addToOutput;
       	  if(i < oneMore) params[i].M = forEach+1;  // the first oneMore threads
       	  else            params[i].M = forEach;    // the rest of the threads:
       	  if(i == 0){
@@ -691,6 +696,395 @@ static PyObject *gslCubSplineIntrp(PyObject *self,PyObject *args){
   return Py_BuildValue("");   /* return None */
 }
 // END of gslCubSplineIntrp
+
+
+
+
+
+
+
+
+
+static PyObject *gslCubSplineHex(PyObject *self,PyObject *args){
+  /*To test this:
+    xin=numpy.arange(9).astype(numpy.float64)*numpy.sqrt(3)/2.
+    yin=numpy.arange(8).astype(numpy.float64)
+    inarr=numpy.zeros((8,9),"f")
+    shiftY=0.5
+    xout=numpy.arange(64)/63.*7
+    yout=numpy.arange(64)/63.*7
+    outarr=numpy.zeros((64,64),"f")
+    inarr[3,3]=1
+    inarr[5,3]=1
+    inarr[4,5]=1
+    inarr[1]=1
+    cmod.interp.gslCubSplineHex(inarr,yin,xin,yout,xout,shiftY,outarr,1)
+    pylab.imshow(outarr,interpolation="nearest",cmap="gray")
+    pylab.show()
+    #If you want the shift in the other axis, just transpose the result!
+   */
+  
+  PyArrayObject	*pyin,    *pyout;
+  void          *pyinData,*pyoutData;  // void, so it can handle both float and double
+  npy_intp      *pyinDims,*pyoutDims;
+  PyObject *pyyin,*pyxin, *pyyout,*pyxout;
+
+  double *x1,*x2,*x3,*x4,*ytmp;
+  double *x1free=NULL,*x2free=NULL;
+  double dx1,dx2,dx3,dx4;
+
+  int i,j;
+  int nInX, nInY, nOutX, nOutY;
+  int sInY, sInX, sOutY, sOutX, insize, outsize;
+  double *x1usr=NULL, *x2usr=NULL, *x3usr=NULL, *x4usr=NULL;
+  
+  int nThreads = 0;      // the number of threads (provided on input)
+  pthread_t*     thread; // vector of threads
+  interp_data_t* params; // vector of parameters passed to the funct. executed in a thread
+                         //  defined in interpolate.h
+
+  int forEach;           // m/nThreads = number of lines to be processed by each thread
+  int oneMore;           // m%nThreads = number of threads that have to process one line more
+  int last;//nunmber of lines processed by last thread.
+  float shiftY; //the relative shift of alternating rows.  Set one of these to 0.5 to get hexagonal.
+  // (1) PARSE THE INPUT arguments from python:
+  if (!PyArg_ParseTuple (args, "O!OOOOfO!|i", 
+			 &PyArray_Type, &pyin, 
+			                &pyyin,
+			                &pyxin,
+			                &pyyout,
+			                &pyxout,
+			 &shiftY,
+			 &PyArray_Type, &pyout, 
+			                &nThreads)){
+    printf("%s, line %d: parsing the arguments failed.\n", __FILE__, __LINE__);
+    printf("A working example:\nxin,  yin  = numpy.arange(5).astype(TYPE),\n");
+    printf("xout, yout = numpy.arange(9).astype(TYPE)/2.,\n");
+    printf("mxin = numpy.zeros([5, 5], TYPE), mxout = numpy.zeros([9, 9], TYPE)\n");
+    printf("TYPE must be either 'd' or 'f'; any of xin, yin, xout, yout can be 'None'.\n");
+    return NULL;
+  }
+
+  // (2) EXTRACT SOME INFO AND CHECK THE INPUT
+
+  // First check that input and output data are 2-D arrays:
+  if(PyArray_NDIM(pyin)!=2 || PyArray_NDIM(pyout)!=2)
+    {
+      PyErr_SetString(PyExc_TypeError, "1st and 8th argument must be 2-D arrays.\n");
+      return NULL;
+    }
+
+  // Extract data:
+  pyinData  = (void *)PyArray_DATA(pyin);
+  pyoutData = (void *)PyArray_DATA(pyout);
+  pyinDims  = PyArray_DIMS(pyin);
+  pyoutDims = PyArray_DIMS(pyout);
+  nInY  = (int) pyinDims[0];
+  nInX  = (int) pyinDims[1];
+  nOutY = (int) pyoutDims[0];
+  nOutX = (int) pyoutDims[1];
+
+  switch(PyArray_TYPE(pyin)){
+  case NPY_FLOAT:
+    insize=4;
+    break;
+  default:
+    insize=0;
+    break;
+  }
+  switch(PyArray_TYPE(pyout)){
+  case NPY_FLOAT:
+    outsize=4;
+    break;
+  default:
+    outsize=0;
+    break;
+  }
+
+  // Check that input and output arrays are float or double:
+  if(insize==0 || outsize==0){
+    PyErr_SetString(PyExc_TypeError, "in and out arrays must be float32\n");
+    return NULL;
+  }
+
+  // Get the strides
+  sInY  = PyArray_STRIDE(pyin,0)/insize;
+  sInX  = PyArray_STRIDE(pyin,1)/insize;
+  sOutY = PyArray_STRIDE(pyout,0)/outsize;
+  sOutX = PyArray_STRIDE(pyout,1)/outsize;
+
+  // Further checks of the input arrays:
+  //   (pyin and pyout have already been checked before up.)
+
+  if(PyArray_Check(pyyin)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyin) || PyArray_TYPE((PyArrayObject*)pyyin)!=NPY_DOUBLE){
+      PyErr_SetString(PyExc_TypeError, "The second input parameter must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyyin)==1 && PyArray_DIM((PyArrayObject*)pyyin,0)>=nInY){//correct shape...
+      x1usr=(double*)PyArray_DATA((PyArrayObject*)pyyin);
+    }else{
+      PyErr_SetString(PyExc_TypeError, "The second input parameter is wrong shape\n");
+      return NULL;
+    }
+  }
+  if(PyArray_Check(pyxin)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxin) || PyArray_TYPE((PyArrayObject*)pyxin)!=NPY_DOUBLE){
+      PyErr_SetString(PyExc_TypeError, "The third input parameter must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyxin)==1 && PyArray_DIM((PyArrayObject*)pyxin,0)>=nInX){//correct shape...
+      x3usr=(double*)PyArray_DATA((PyArrayObject*)pyxin);
+    }else{
+      PyErr_SetString(PyExc_TypeError, "The third input parameter is wrong shape\n");
+      return NULL;
+    }
+  }
+  if(PyArray_Check(pyyout)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyyout) || PyArray_TYPE((PyArrayObject*)pyyout)!=NPY_DOUBLE){
+      PyErr_SetString(PyExc_TypeError, "The 4th input parameter must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyyout)==1 && PyArray_DIM((PyArrayObject*)pyyout,0)>=nOutY){//correct shape...
+      x2usr=(double*)PyArray_DATA((PyArrayObject*)pyyout);
+    }else{
+      PyErr_SetString(PyExc_TypeError, "The 4th input parameter is wrong shape\n");
+      return NULL;
+    }
+  }
+  if(PyArray_Check(pyxout)){
+    if(!PyArray_ISCONTIGUOUS((PyArrayObject*)pyxout) || PyArray_TYPE((PyArrayObject*)pyxout)!=NPY_DOUBLE){
+      PyErr_SetString(PyExc_TypeError, "The 5th input parameter must be contiguous, float64\n");
+      return NULL;
+    }
+    if(PyArray_NDIM((PyArrayObject*)pyxout)==1 && PyArray_DIM((PyArrayObject*)pyxout,0)>=nOutX){//correct shape...
+      x4usr=(double*)PyArray_DATA((PyArrayObject*)pyxout);
+    }else{
+      PyErr_SetString(PyExc_TypeError, "The 5th input parameter is wrong shape\n");
+      return NULL;
+    }
+  }
+
+  // (3) ALLOCATE AND (PARTIALLY) POPULATE WORKING ARRAYS
+  // (This is Alastair's code, I don't touch.)
+  //printf("intrp.interp2d: n1 = %d, n2 = %d, n1p = %d\n",n1,n2,n1p);
+  if(x1usr==NULL || x3usr==NULL){
+    x1=malloc((nInY > nInX ? nInY : nInX)*sizeof(double));
+    x3=x1;
+    x1free=x1;
+  }
+  if(x2usr==NULL || x4usr==NULL){
+    x2=malloc((nOutY > nOutX ? nOutY : nOutX)*sizeof(double));
+    x4=x2;
+    x2free=x2;
+  }
+  ytmp  = malloc(nInX*nOutY*sizeof(double));
+  
+  dx1=1./(nInY-1.);
+  dx2=dx1 * (nInY-1.) / nOutY;
+  dx3=1./(nInX-1.);
+  dx4=dx3*(nInX-1.)/nOutX;
+
+  if(x1usr==NULL){
+    for (i=0; i<nInY; ++i)
+      x1[i] = i * dx1;
+  }else
+    x1=x1usr;
+  if(x2usr==NULL){
+    for (i=0; i<nOutY; ++i)
+      x2[i] = x1[0] + (0.5+i) * dx2;
+  }else
+    x2=x2usr;
+
+  if(x3usr==NULL){
+    for(i=0; i<nInX; i++)
+      x3[i]=i*dx3;
+  }else
+    x3=x3usr;
+  if(x4usr==NULL){
+    for(i=0; i<nOutX; i++)
+      x4[i]=x3[0]+(0.5+i)*dx4;
+  }else
+    x4=x4usr;
+  
+  
+  if(nThreads<1){//get a sensible default (half number of cores)
+    if(nInX<40){
+      nThreads = 1;
+    }else{
+      nThreads = sysconf(_SC_NPROCESSORS_ONLN)/2;
+    }
+    if(nThreads<1){
+      printf("WARNING: Multiple threading was requested for .gslCubSplineHex, but it\n");
+      printf("         will run in a single thread, because \"sysconf(_SC_NPROCESSORS_ONLN)\"");
+      printf("         returned %ld.", sysconf(_SC_NPROCESSORS_ONLN));
+      nThreads = 1;
+    }
+  }
+ 
+  if(nThreads == 1){// NON-THREADED:
+    if( (params = malloc(sizeof(interp_data_t))) == NULL ){
+      PyErr_SetString(PyExc_MemoryError, "cmod.interpmodule.CubSplineIntrp: failed to malloc 'params'.");
+      if(x1free!=NULL) free(x1free);
+      if(x2free!=NULL) free(x2free);
+      free(ytmp);
+      return NULL;
+    }
+    // Assign the values to the params for interpolation. 
+    params->interpAcc = gsl_interp_accel_alloc(); // common for interpolation over both dimensions
+    
+    // Set the rest of parameters for interpolation in the Y dimension:
+    params->inN     = nInY;
+    params->outN    = nOutY;
+    params->M       = (nInX+1)/2;
+    params->inX     = x1;
+    params->outX    = x2;
+    params->inData  = pyinData;
+    params->outData = (void*)ytmp;
+    params->sx      = sInX*2;
+    params->sy      = sInY;
+    params->sytmp   = nInX;
+    params->sxtmp   = 2;
+    // (c) Do interpolation pass in Y:
+    interp_first_inFloatStep(  params );
+    //and now the offset cols.
+    params->M=nInX/2;
+    for(i=0;i<nInY;i++)//offset the rows...
+      x1[i]+=shiftY;
+    params->inData+=sInX*sizeof(float);//offset the input data to the next col.
+    params->outData+=sizeof(double);//offset the output data too.
+    interp_first_inFloatStep(  params );
+    //now do the 2nd dimension (interpolate along X).
+    params->inN     = nInX;
+    params->outN    = nOutX;
+    params->M       = nOutY;
+    params->inX     = x3;
+    params->outX    = x4;
+    params->inData  = (void*)ytmp;
+    params->outData = pyoutData;
+    params->sx      = sOutX;
+    params->sy      = sOutY;
+    interp_second_outFloat(  params );
+    // (f) Tidy up:
+    gsl_interp_accel_free( params->interpAcc );
+    free( params );
+  }else{// THREADED:
+    Py_BEGIN_ALLOW_THREADS;
+    if((params = malloc(sizeof(interp_data_t)*nThreads))==NULL){
+      PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineHex: Failed to malloc 'params'.\n");
+      if(x1free!=NULL) free(x1free);
+      if(x2free!=NULL) free(x2free);
+      free(ytmp);
+      return NULL;
+    }
+    if((thread=malloc(sizeof(pthread_t)*nThreads))==NULL){
+      PyErr_SetString(PyExc_MemoryError, "cmod.interp.gslCubSplineHex: Failed to malloc 'thread'.\n");
+      free(params);
+      if(x1free!=NULL) free(x1free);
+      if(x2free!=NULL) free(x2free);
+      free(ytmp);
+      return NULL;
+    }
+    //     FOR THE FIRST DIMENSION:
+    // (c) Determine the number of lines processed by each thread:
+    //     the first 'oneMore' threads will process 'forEach+1' lines,
+    //     the rest of the threads will process 'forEach' lines.
+    //Threads should process an even number of lines (except for the last one).
+    
+    forEach = (nInX/nThreads+1)&(~1);//make it an even number
+    last=nInX-(nThreads-1)*forEach;//last thread does this many rows
+    //oneMore = nInX%nThreads;
+    // (d) Loop over all the threads:
+    for(i=0; i < nThreads; i++){
+      // (d.1) SET THE PARAMETERS to be passed to the thread function:
+      //     Allocate the accelerator - common for both dimensions:
+      params[i].interpAcc = gsl_interp_accel_alloc();
+      params[i].inN  = nInY;
+      params[i].outN = nOutY;
+      params[i].inX  = x1;
+      params[i].outX = x2;
+      params[i].sx   = sInX*2;
+      params[i].sy   = sInY;
+      params[i].sytmp= nInX;
+      params[i].sxtmp=2;
+      if(i<nThreads-1){
+	params[i].M=forEach/2;
+      }	else{
+	params[i].M=(last+1)/2;
+      }
+      //if(i < oneMore){
+      //	params[i].M = (forEach+1+1)/2;  // the first oneMore threads
+      //}else{
+      //params[i].M = (forEach+1)/2;    // the rest of the threads:
+      //}
+      if(i == 0){
+	params[i].inData  = pyinData;
+	params[i].outData = (void*)ytmp;
+      }else{//note: insize=sizeof(float)
+	params[i].inData  = params[i-1].inData  + forEach*insize;
+	params[i].outData = params[i-1].outData + forEach*sizeof(double);
+      }
+
+      // Now all the parameters are assigned.
+      pthread_create( &thread[i], NULL, (void*)interp_first_inFloatStep,  &params[i] );
+    }
+    for(i=0; i < nThreads; i++)
+      pthread_join(thread[i], NULL);
+    for(i=0;i<nInY;i++)
+      x1[i]+=shiftY;
+    for(i=0; i < nThreads; i++){
+      if(i<nThreads-1)      params[i].M=forEach/2;
+      else               params[i].M=last/2;
+      params[i].inData+=sInX*sizeof(float);
+      params[i].outData+=sizeof(double);
+      pthread_create( &thread[i], NULL, (void*)interp_first_inFloatStep,  &params[i] );
+    }
+    for(i=0; i < nThreads; i++)
+      pthread_join(thread[i], NULL);
+    //     FOR THE SECOND DIMENSION:
+    //     the first 'oneMore' threads will process 'forEach+1' lines,
+    //     the rest of the threads will process 'forEach' lines.
+    forEach = nOutY / nThreads;
+    oneMore = nOutY % nThreads;
+    for(i=0; i < nThreads; i++){
+      params[i].inN     = nInX;
+      params[i].outN    = nOutX;
+      params[i].inX     = x3;
+      params[i].outX    = x4;
+      params[i].sx      = sOutX;
+      params[i].sy      = sOutY;
+      if(i < oneMore) params[i].M = forEach+1;  // the first oneMore threads
+      else            params[i].M = forEach;    // the rest of the threads:
+      if(i == 0){
+	params[i].inData  = (void*)ytmp;
+	params[i].outData = pyoutData;
+      }else{
+	params[i].inData  = params[i-1].inData  + params[i-1].M*nInX*sizeof(double);
+	params[i].outData = params[i-1].outData + params[i-1].M*nOutX*outsize;
+      }
+      pthread_create( &thread[i], NULL, (void*)interp_second_outFloat,  &params[i] );
+    }
+    for(i=0; i < nThreads; i++)
+      pthread_join(thread[i], NULL);
+    // (i) Tidy up:
+    for(i=0; i < nThreads; i++){
+      gsl_interp_accel_free( params[i].interpAcc );
+    }
+    free( params );
+    free( thread );
+    Py_END_ALLOW_THREADS;
+  }
+  if(x1free!=NULL) free(x1free);
+  if(x2free!=NULL) free(x2free);
+  free(ytmp);
+  return Py_BuildValue("");   /* return None */
+}
+// END of gslCubSplineHex
+
+
+
+
+
 
 // Stolen from the Numerical Recipies:
 void NRbcucof(float y[], float y1[], float y2[], float y12[], float d1, float d2,	float **c)
@@ -1121,6 +1515,7 @@ static PyMethodDef interp_methods[] = 	{
 					{"linearinterp", interp_linearinterp, METH_VARARGS}, 
 					{"gslPeriodicCubSplineInterp",gslPeriodicCubSplineIntrp,METH_VARARGS},
 					{"gslCubSplineInterp",gslCubSplineIntrp,METH_VARARGS},
+					{"gslCubSplineHex",gslCubSplineHex,METH_VARARGS},
 					//
 					// Not used anymore; commented out by UB on July 30th 2012:
 					//

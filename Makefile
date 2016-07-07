@@ -31,6 +31,9 @@ clean:
 ubuntu1404:
 	sudo apt-get install python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib python-mpi4py
 	cat INSTALL
+ubuntu1604:
+	sudo apt-get install python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib python-mpi4py libopenmpi-dev
+	cat INSTALL
 
 #If don't want to use the git repository for this, can try: wget http://github.com/xianyi/OpenBLAS/tarball/v0.2.13
 openblas:

@@ -35,10 +35,6 @@ import util.sci
 #import os,numarray
 
 
-##for plotting
-##animate(1)
-
-
 ## for debug purpose : creation of a function to compute psf from phase with numeric FFT
 def phi2psf(phi,pup):
     """ Create a psf from phi and pup arrays
@@ -88,7 +84,6 @@ class science(aobase.aobase):
         self.doneFinalInit=0
         self.nimgNotNfft=0
         self.ended=1
-
         self.control={}
         self.sciOverview=config.getVal("sciOverview",raiseerror=0)
         if self.sciOverview==None:
@@ -97,7 +92,7 @@ class science(aobase.aobase):
             self.control["zero_science"]=config.getVal("zero_science",default=10) ##idem - zero for 10 iterations...
             self.control["science_integrate"]=config.getVal("science_integrate",default=1)
             self.control["calcRMS"]=self.config.getVal("science_calcRMS",default=0)##idem
-            self.control["viewCentral"]=1#if set, the gui will only be sent the central 20% of the psfs.
+            self.control["viewCentral"]=0.4#if set, the gui will only be sent the central 20% of the psfs.
             self.control["lucky_integrate"]=config.getVal("lucky_integrate",default=0)
         self.thisiter=0
         self.sentPlotsCnt=0
@@ -165,16 +160,17 @@ class science(aobase.aobase):
                 scienceListsSize=100
             inboxDiamList=this.config.getVal("inboxDiamList",default=[0.2])
             histFilename=this.config.getVal("histFilename",default=None,raiseerror=0)
-
-
-
+            userFitsHeader=None
+            psfEnergyToSave=0.
+            psfMinSize=10
+            nimgLongExp=None
         else:#use sciOverview.
             this.sciInfo=self.sciOverview.getSciByID(idstr)
             #a slight bodge - each will overwrite control...
             self.control["zero_science"]=this.sciInfo.zeroPsf
             self.control["science_integrate"]=this.sciInfo.integrate
             self.control["calcRMS"]=this.sciInfo.calcRMS
-            self.control["viewCentral"]=1#if set, the gui will only be sent the central 20% of the psfs.
+            self.control["viewCentral"]=0.4#if set, the gui will only be sent the central 20% of the psfs.
             luckyObj=this.sciInfo.luckyObj
             if luckyObj==None:
                 self.control["lucky_integrate"]=0
@@ -218,6 +214,10 @@ class science(aobase.aobase):
                 if scienceListsSize==0:
                     scienceListsSize=100
             inboxDiamList=this.sciInfo.inboxDiamList
+            userFitsHeader=this.sciInfo.userFitsHeader
+            psfEnergyToSave=this.sciInfo.psfEnergyToSave
+            psfMinSize=this.sciInfo.psfMinSize
+            nimgLongExp=this.sciInfo.nimgLongExp
             histFilename=this.sciInfo.histFilename
             if luckyObj!=None:
                 luckyFilename=luckyObj.filename
@@ -253,7 +253,7 @@ class science(aobase.aobase):
             print "Warning - sci_lam not in atmosGeom - using %g"%sci_lam
         if phsLam==None:
             phsLam=sci_lam
-        print "science - Using wavelength of %g nm (phase at %g nm)"%(sci_lam,phsLam)
+        print "science %s - Using wavelength of %g nm (phase at %g nm)"%(idstr,sci_lam,phsLam)
 
 
 
@@ -263,7 +263,7 @@ class science(aobase.aobase):
         pix_scale=L_D*float(npup)/float(nfft)*float(nfft)/float(nimg) ##pixel scale (arcsec/pixel in the science image).  
         ##name of the FITS file to store the PSF
         #now create the science object that will do most of the work...
-        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap)
+        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap,userFitsHeader=userFitsHeader,psfEnergyToSave=psfEnergyToSave,psfMinSize=psfMinSize,nimgLongExp=nimgLongExp)
 
         
 
@@ -279,6 +279,7 @@ class science(aobase.aobase):
         npupmax=0
         pupmult=1
         nimgmax=0
+        nimgLongExpMax=0
         for this in self.thisObjList:
             if this.sciObj.nfft>nfftmax:
                 nfftmax=this.sciObj.nfft
@@ -288,10 +289,12 @@ class science(aobase.aobase):
                 pupmult=2
             if this.sciObj.nimg>nimgmax:
                 nimgmax=this.sciObj.nimg
+            if this.sciObj.nimgLongExp>nimgLongExpMax:
+                nimgLongExpMax=this.sciObj.nimgLongExp
         npup=npupmax
         nfft=nfftmax
         nimg=nimgmax
-        
+        nimgLongExp=nimgLongExpMax
         #now allocate memory at the max size needed.  These memory arrays will then be shared between all the sciObj objects.
 
         self.pupilAmplitudeMem=numpy.zeros((nfft,nfft),numpy.complex64)#self.cpDataType) ##Complex amplitude in the pupil - was complex64
@@ -306,15 +309,16 @@ class science(aobase.aobase):
         self.phsMem=numpy.zeros((npup*npup*pupmult,),numpy.float32)#self.fpDataType)#was float64
         #self.longExpPSFMem=Numeric.zeros((nfft,nfft),Numeric.Float64)# Long exposure image array
         self.fftTmpMem=numpy.zeros((nfft**2+10*nfft,),numpy.complex64)#self.cpDataType)#was complex64
+        self.longExpPSFMem=numpy.zeros((nimgLongExp,nimgLongExp),self.fpDataType)
         #now initialise the science objects with this memory.
         for this in self.thisObjList:
             sciObj=this.sciObj
-            sciObj.initMem(self.fftTmpMem,self.pupilAmplitudeMem,self.focusAmplitudeMem,self.tempImgMem,self.instImgMem,self.phsMem,self.binimgMem)
+            sciObj.initMem(self.fftTmpMem,self.pupilAmplitudeMem,self.focusAmplitudeMem,self.tempImgMem,self.instImgMem,self.phsMem,self.binimgMem,self.longExpPSFMem)
             sciObj.initProfiles()
             f=int(0.4*this.sciObj.nimg)
             t=int(0.6*this.sciObj.nimg)
             this.sciObj.instImgView=this.sciObj.instImg[f:t,f:t]
-            this.sciObj.longExpPSFView=this.sciObj.longExpPSF[f:t,f:t]
+            #this.sciObj.longExpPSFView=this.sciObj.longExpPSF[f:t,f:t]
 
 
 
@@ -387,15 +391,23 @@ class science(aobase.aobase):
                 idtxt=" (%s)"%self.config.this.simID
             print "INFORMATION: Science results for %s%s:"%(self.moduleName,idtxt)
             timestamp=time.strftime("%y%m%d_%H%M%S")
+            try:#try to get the git commit label...
+                commit=os.popen("(cd %s && git log -1)"%os.path.split(__file__)[0]).read().split("\n")[0][7:]
+            except:
+                commit="NOT FOUND"
+                print "git commit info not found"
+            
+            
             for this in self.thisObjList:
                 #final computation of science parameters:
-                this.sciObj.longExpPSF[:]=this.sciObj.longExpImg/numpy.sum(this.sciObj.longExpImg)##We normalise the instantaneous PSF to 1
+                this.sciObj.longExpPSF[:]=this.sciObj.longExpImg/(numpy.sum(this.sciObj.longExpImg)+this.sciObj.clippedEnergy)##We normalise the instantaneous PSF to 1
+                clippedFrac=this.sciObj.clippedEnergy/(this.sciObj.longExpImg.sum()+this.sciObj.clippedEnergy)
                 this.sciObj.computeScientificParameters()
 
                 # compute the OTF, if not already done.
-                if this.sciObj.computeOTF==0:
-                    sl=numpy.fft.fftshift(this.sciObj.longExpPSF)
-                    this.sciObj.dictScience['strehlOTF']=numpy.fft.fft2(sl,s=(sl.shape[0]*2,sl.shape[1]*2)).sum()/this.sciObj.diffOTFSum
+                #if this.sciObj.computeOTF==0:
+                #    sl=numpy.fft.fftshift(this.sciObj.longExpPSF)
+                #    this.sciObj.dictScience['strehlOTF']=numpy.fft.fft2(sl,s=(sl.shape[0]*2,sl.shape[1]*2)).sum()/this.sciObj.diffOTFSum
 
                 print "**%s**:"%(str(this.objID))
                 maxLen=0
@@ -408,6 +420,7 @@ class science(aobase.aobase):
                 if this.sciObj.phaseRMScnt>0:
                     m=this.sciObj.phaseRMSsum/this.sciObj.phaseRMScnt
                     rmstxt=", RMS: %g +- %g +- %g"%(m,numpy.sqrt(this.sciObj.phaseRMSsum2/this.sciObj.phaseRMScnt-m*m),numpy.sqrt((this.sciObj.phaseRMSsum2/this.sciObj.phaseRMScnt-m*m)/this.sciObj.phaseRMScnt))#note, when plotting, plot rms with error bars of the smaller one - this is the error of the mean, not the sample distribution...
+                    print rmstxt
                 if this.sciObj.fitsFilename!=None:
                     #if os.path.exists(self.fitsFilename):
                     #os.remove(self.fitsFilename);
@@ -415,23 +428,32 @@ class science(aobase.aobase):
                     head=[]
                     head.append("NAME    = '%s'"%this.objID)
                     head.append("NINTEG  = %d"%this.sciObj.n_integn)
-                    head.append("SCALE   = %g"%this.sciObj.pix_scale)
+                    head.append("SCALE   = %g /pxl scale in arcsec/pxl"%this.sciObj.pix_scale)
                     head.append("SAVESTR = '%s'"%this.sciObj.saveFileString)
                     head.append("SIMID   = '%s'"%self.config.this.simID)
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
+                    head.append("CLIPPEDE= %g"%clippedFrac)
                     for key in this.sciObj.dictScience.keys():
                         head.append("%-8s= %s"%(key[:8],str(this.sciObj.dictScience[key])))
                     if rmstxt!="":
                         head.append("RMS     = %s"%rmstxt)
                     if len(this.sciObj.saveFileString)>0:
                         head.append("SIMINFO = '%s'"%this.sciObj.saveFileString)
-                    util.FITS.Write(this.sciObj.longExpImg/this.sciObj.n_integn,this.sciObj.fitsFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
+                    #img=this.sciObj.longExpImg/this.sciObj.n_integn
+                    img=this.sciObj.longExpPSF
+                    if this.sciObj.psfEnergyToSave!=0:#shrink the psf until it contains this fraction of energy.  e.g. 0.99
+                        img,excludedEnergy=self.clipPsfToFluxFrac(img,this.sciObj.psfEnergyToSave,this.sciObj.psfMinSize)
+                        head.append("EExluded= %g"%excludedEnergy)
+                    util.FITS.Write(img,this.sciObj.fitsFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.sciFilename!=None:
                     self.mkdirForFile(this.sciObj.sciFilename)
                     f=open(this.sciObj.sciFilename,"a")
-                    f.write("%s%s%s (%dx%d iters, batchno %d %s): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,timestamp,str(this.sciObj.dictScience),rmstxt))
+                    f.write("%s%s%s (%dx%d iters, batchno %d %s commit %s): %s%s\n"%(str(this.objID),this.sciObj.saveFileString,idtxt,this.sciObj.n_integn,this.sciObj.sciPSFSamp,self.config.this.batchNumber,timestamp,commit,str(this.sciObj.dictScience),rmstxt))
                     f.close()
                 if this.sciObj.histFilename!=None and this.sciObj.history!=None:
                     self.mkdirForFile(this.sciObj.histFilename)
@@ -444,10 +466,13 @@ class science(aobase.aobase):
                     head.append("SCISAMP = %d"%this.sciObj.sciPSFSamp)
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
                     k=str(this.sciObj.dictScience.keys())
                     k=k.replace("'",'').replace("[","").replace("]","")
 
                     head.append("KEYS    = '%s'"%k)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
                     util.FITS.Write(this.sciObj.history[:,:this.sciObj.historyCnt],this.sciObj.histFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFilename!=None:
                     self.mkdirForFile(this.sciObj.luckyFilename)
@@ -462,10 +487,13 @@ class science(aobase.aobase):
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
                     k=str(this.sciObj.luckyHistoryKeys)
                     k=k.replace("'",'').replace("[","").replace("]","")
 
                     head.append("KEYS    = '%s'"%k)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
                     util.FITS.Write(this.sciObj.luckyHistory[:,:this.sciObj.luckyHistoryCnt],this.sciObj.luckyFilename,extraHeader=head,writeMode="a",splitExtraHeader=1)
                 if this.sciObj.luckyFile!=None:
                     self.mkdirForFile(this.sciObj.luckyImgFilename)
@@ -484,6 +512,9 @@ class science(aobase.aobase):
                     head.append("BATCHNO = %d"%self.config.this.batchNumber)
                     head.append("LUCKSAMP= %d"%this.sciObj.luckyNSampFrames)
                     head.append("TIMSTAMP= '%s'"%timestamp)
+                    head.append("COMMIT  = '%s'"%commit)
+                    if this.sciObj.userFitsHeader is not None:
+                        head+=this.sciObj.userFitsHeader
                     txt=util.FITS.MakeHeader(shape,dtype,extraHeader=head,doByteSwap=this.sciObj.luckyByteswap,extension=os.path.exists(this.sciObj.luckyImgFilename),splitExtraHeader=1)
                     f=open(this.sciObj.luckyImgFilename,"a")
                     f.write(txt)
@@ -499,126 +530,30 @@ class science(aobase.aobase):
                         f.write(" "*pos)
                     f.close()
                     
-
+    def clipPsfToFluxFrac(self,img,frac,minSize=10):
+        size=minSize/2
+        if size<1:
+            size=1
+        totEnergy=img.sum()
+        energy=totEnergy*frac
+        my=img.shape[0]//2
+        mx=img.shape[1]//2
+        tot=img[my-size:my+size,mx-size:mx+size].sum()
+        while size<img.shape[0]//2 and tot<energy:
+            size+=1
+            tot+=img[my-size,mx-size:mx+size].sum()
+            tot+=img[my+size-1,mx-size:mx+size].sum()
+            tot+=img[my-size+1:my+size-1,mx-size].sum()
+            tot+=img[my-size+1:my+size-1,mx+size-1].sum()
+        img=img[my-size:my+size,mx-size:mx+size]
+        excludedEnergy=totEnergy-img.sum()
+        return img,excludedEnergy
+                    
     def mkdirForFile(self,fname):
         d,f=os.path.split(fname)
         if len(d)>0:
             if not os.path.exists(d):
                 os.makedirs(d)
-##     def initRadialProfile(self):
-##         """Creates and initialises arrays to fastly compute the radial profile and the encircled energy profile of the PSF
-##         Must be first called before calling computeRadialProfileAndEncircledEnergy
-##         """	
-##         ####  We first create a map of the square of the distances to the center of the PSF image
-##         ####  The map of distances is computed with the dist function (see aosim/utils/dist.py for help)
-##         ####  We use the square because we have then integer indexes
-##         r2=dist(self.nfft)
-##         r2*=r2 ## square : we have integer numbers
-##         self.nnRad=Numeric.argsort(r2.flat) ##we flatten the grid of distances and sort the values
-##         r2r=Numeric.take(r2.flat,self.nnRad) ## we sort the grid of distances
-##         self.xRad=Numeric.nonzero(dif_(r2r)) ##we look when the grid of distances change of value
-##         self.tabNbPointsRad=dif_(self.xRad) ## number of points per bin
-##         self.rRad=Numeric.take(Numeric.sqrt(r2r),self.xRad) ##radius (in pixels) giving the horizontal axis for radial and encircled energy profiles
-
-##     def computeRadialProfileAndEncircledEnergy(self,psf):
-##         """Computes radial end encircled energy profiles
-##             Inputs :
-##              - psf : the input whose profiles are wanted
-
-##             Outputs :
-##               - result : the array storing profiles
-##                 the first line, ie result[0,] stores the radial profile
-##                 the second line, ie result[1,] stores the encircled energy profile
-##         """
-##         #### We flatten the PSF and sort the values
-##         psfSort=Numeric.take(psf.flat,self.nnRad)
-
-##         #### We compute the encircled energy of the PSF
-##         tabEncircledEnergy=Numeric.take(Numeric.cumsum(psfSort),self.xRad)
-
-##         #### We compute the radial profile
-##         tabEnergyPerPixBin=dif_(tabEncircledEnergy) ##to have the energy per pixel bin
-##         profil=tabEnergyPerPixBin/self.tabNbPointsRad
-
-##         #### Allocation of the return result
-##         result=Numeric.zeros((2,len(tabEncircledEnergy)),typecode=psf.typecode())
-
-##         #### We first store the radial profile in line 1 of the returned array
-##         result[0,0]=psfSort[0]
-##         result[0,1:,]=profil[:,] ##radial profile of PSF
-
-##         #### We  store the encircled energy profile in line 2 of the returned array
-##         result[1,:,]=tabEncircledEnergy[:,]
-##         return result
-
-##     def initEnsquaredEnergyProfile(self):
-##         """Creates and initialises arrays to fastly compute the ensquared energy profile
-##         Must be called before calling computeEnsquaredEnergy
-##         """	
-##         ####  We first create a pixel map of concentric square apertures
-##         tabx=Numeric.arange(self.nfft)-self.nfft/2;
-##         r2=Numeric.maximum(Numeric.absolute(tabx[:,Numeric.NewAxis]),Numeric.absolute(tabx[Numeric.NewAxis,:,]))
-
-##         ##we flatten the grid of distances and sort the values
-##         self.nnSquare=Numeric.argsort(r2.flat)
-##         r2r=Numeric.take(r2.flat,self.nnSquare) ## we sort the grid of distances
-##         self.xSquare=Numeric.nonzero(dif_(r2r)) ##we look when the grid of distances change of value
-##         self.rSquare=Numeric.take(r2r,self.xSquare)*2+1 ##aperture size (in pixels) giving the horizontal axis for the ensquared energy profile
-    
-
-##     def computeEnsquaredEnergy(self,psf):
-##         """Computes ensquared energy profile
-##         """
-##         #### We flatten the diffraction limited PSF and sort the values
-##         psfSort=Numeric.take(psf.flat,self.nnSquare)
-
-##         #### We compute the encircled energy of the diffraction limited PSF 
-##         tabEnsquaredEnergy=Numeric.take(Numeric.cumsum(psfSort),self.xSquare)
-
-##         #### We convert the profile into psf type and return the array
-##         result=tabEnsquaredEnergy.astype(psf.typecode())
-##         return result
-
-
-##     def makeData(self):
-##         """Prepare the data for sending over socket.  ie turn it into an array.
-##         With the histories, it would actally make more sense to have them always
-##         stored in an array not a list, and when the array is full, remove history logarithmically
-##         so that you always have info about the start...
-##         This can be called by the GUI every cycle or whatever, returning the data...
-##         """
-##         self.plot_data['strehl']=Numeric.array(self.strehl_hist)# Send plot data on demand
-##         self.plot_data['d50']=Numeric.array(self.d50_hist)
-##         self.plot_data['fwhm']=Numeric.array(self.fwhm_hist)
-##         #self.plot_data['inhex']=Numeric.array(self.inhex_hist) ##for hexagonal geometry : not used
-##         self.plot_data['inbox']=Numeric.array(self.inbox_hist)
-##         ## The piston/tip/tilt removal code has already been done in atmos
-##         ## Indeed no, it has been commented (I (FA) WOULD LIKE TO KNOW WHY - PLEASE PUT COMMENTS INTO YOUR SOURCE WHEN YOU DO MODIFICATIONS !!!!!!!!!!!!!!!!!!!!)
-##         ## So we compute the piston of the phase
-##         ##pist=Numeric.sum(Numeric.sum(self.inputData*self.pupil.fn))/Numeric.sum(Numeric.sum(self.pupil.fn))
-##         self.plot_data['sciphs']= (self.inputData)*self.pup ##phase seen by the science camera
-##         self.plot_data['scilongexpimg']=self.longexp_img[nfft/2-nfft/8:nfft/2+nfft/8,
-##                                                          nfft/2-nfft/8:nfft/2+nfft/8]
-##         self.plot_data['scishortexpimg']= self.inst_img[nfft/2-nfft/4:nfft/2+nfft/4,
-##                                                         nfft/2-nfft/4:nfft/2+nfft/4]
-
-##     def needData(self,msg=None):
-##         """Always need data to keep it running but will call getData
-##         (maybe more than once) during generateNext if wfs integration time
-##         is longer than timestep."""
-##         return False
-
-##     def calcRMS(self,phase,mask=None):
-##         """calcs rms in radians (or whatever phase is in)"""
-##         if type(mask)==type(None):
-##             rms=Numeric.sqrt(Numeric.average(phase.flat**2)-Numeric.average(phase.flat)**2)
-##         else:
-##             p=(phase*mask).flat
-##             p2=Numeric.sum(p*p)
-##             s=Numeric.sum(mask.astype("d").flat)
-##             m=Numeric.sum(p)/s
-##             rms=Numeric.sqrt(p2/s-m*m)
-##         return rms
 
     def generateNext(self,msg=None):
         """science main loop... gets phase data and calculates psf
@@ -655,298 +590,15 @@ class science(aobase.aobase):
             if self.control["zero_science"]>0:
                 self.control["zero_science"]-=1
 
-##     def doScienceCalc(self):
-##         ##we compute the piston and remove it into the pupil
-##         if self.atmosPhaseType=="phaseonly":
-##             pist=Numeric.sum(Numeric.sum(self.inputData*self.pup))/self.pupsum ##computation of the piston
-##             Numeric.put(self.phs.flat,self.idxPup,Numeric.take(self.inputData.flat,self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
-##         else:
-##             raise Exception("science: todo: don't know how to remove piston")
+    def getLongPsf(self,objno=0):
+        sciObj=self.thisObjList[objno].sciObj
+        img=sciObj.longExpImg/(sciObj.longExpImg.sum()+sciObj.clippedEnergy)#sciObj.n_integn
+        if self.control["viewCentral"]!=0:
+            f=int(sciObj.nimgLongExp*self.control["viewCentral"])
+            img=img[f:-f,f:-f]
+        return img
 
 
-##         nfft=self.nfft
-##         t1=time.time()
-##         if self.control["calcRMSFile"]!=None:
-##             rms=self.calcRMS(self.phs,self.pup)
-##             f=open(self.control["calcRMSFile"],"a")
-##             f.write("%g\t%g\n"%(self.thisiter*self.tstep,rms))
-##             f.close()
-
-##         if self.control["science_integrate"]:# Integrate if shutter is open
-##             if self.control["zero_science"]:# Zero science image
-##                 self.longexp_img*=0.
-##                 self.n_integn=0
-##             else: ## integration of the PSF
-##                 self.computeShortExposurePSF(self.phs) ##compute short exposure PSF
-##                 self.longexp_img=self.longexp_img+self.inst_img	# Integrate long exposure
-##                 self.n_integn+=1 ##We increment the number of integrations used to compute long exposure PSF
-##             ##we increment the isamp counter
-##             self.isamp+=1
-##             if (self.isamp>=self.scinSamp): ## we compute and store scientific parameters and store the PSF
-##                 ##we reset isamp to 0
-##                 self.isamp=0
-##                 ##if self.control["zero_science"]=0 : all the parameters in the dictScience dictionary are equal to 0 ; otherwise we compute them in the computeScientificParameters function
-##                 if (self.control["zero_science"]==1):
-##                     self.control["zero_science"]=0
-##                     self.dictScience['FWHM']=0.
-##                     self.dictScience['d50']=0.
-##                     self.dictScience['inbox']=0.
-##                     self.dictScience['strehl']=0.
-##                 else: ## we call the function to compute science parameters as the PSF has not been zeroed
-##                     self.computeScientificParameters()
-
-##                 ## we update the history lists
-##                 ## first the strehl
-##                 if (len(self.strehl_hist)==self.scienceListsSize): ## we arrive at the last element of the science parameter  list : we remove the 1st element to add the new one at the end so that the list has always scienceListsSize elements
-##                     vout=self.strehl_hist.pop(0)
-##                 self.strehl_hist.append(self.dictScience['strehl'])
-
-##                 ##then the fwhm
-##                 if (len(self.fwhm_hist)==self.scienceListsSize): ## we arrive at the last element of the science parameter  list : we remove the 1st element to add the new one at the end so that the list has always scienceListsSize elements
-##                     vout=self.fwhm_hist.pop(0)
-##                 self.fwhm_hist.append(self.dictScience['FWHM'])
-
-##                 ##then the d50
-##                 if (len(self.d50_hist)==self.scienceListsSize): ## we arrive at the last element of the science parameter  list : we remove the 1st element to add the new one at the end so that the list has always scienceListsSize elements
-##                     vout=self.d50_hist.pop(0)
-##                 self.d50_hist.append(self.dictScience['d50'])
-
-##                 ##then the ensquared energy in a 0.2 arcsec aperture
-##                 if (len(self.inbox_hist)==self.scienceListsSize): ## we arrive at the last element of the science parameter  list : we remove the 1st element to add the new one at the end so that the list has always scienceListsSize elements
-##                     vout=self.inbox_hist.pop(0)
-##                 self.inbox_hist.append(self.dictScience['inbox'])
-
-##                 if self.fitsFilename!=None:
-##                     #self.psfWrittenToDisk[1]=self.longexp_img/self.n_integn ##we store the AO-corrected PSF
-##                     if os.path.exists(self.fitsFilename): ##if the file already exists : we erase it
-##                         os.remove(self.fitsFilename);
-##                     util.FITS.Write(self.longexp_img/self.n_integn,self.fitsFilename)
-
-
-##                 if self.write_to_file: ##do we want to write the arrays on disk
-##                     f=open(self.filename,'w')# Science parameter file
-##                     psf_params={}       # Save PSF data to file
-##                     psf_params['scale']=self.pix_scale
-##                     psf_params['strehl']=self.dictScience['strehl']
-##                     ##psf_params['inhex0.3']=self.inhex
-##                     psf_params['fwhm']=self.dictScience['FWHM']
-##                     psf_params['d50']=self.dictScience['d50']
-##                     ##psf_params['encirc']=self.encirc
-##                     ##psf_params['azav']=self.azpsf
-##                     ##psf_params['psf']=self.plot_data['scilongexpimg']
-##                     cPickle.dump(psf_params,f)
-##                     f.close()
-
-##         ## For debugging purpose
-##         if(self.timing):print thread.getIdent(),"science",time.time()-t1
-
-##         #self.anyplots=0
-##         #for plot in self.plots:
-##         #  if(self.controlDict[plot]):# Is this plot requested ?
-##         #    self.anyplots=1
-##         #    for obj in self.objs:
-##         #     if( int(obj) <= len(self.plot_source[plot]) ):    
-##         #      if(self.controlDict[obj]):
-##         #	if(rankDict[self.plot_source[plot][int(obj)-1]] == comm.rank):# Is this process the data source ?
-##         #	  tag=100+int(self.plots.index(plot))# Assign a unique message tag
-##         #	  comm.send(self.plot_data[plot],rankDict['plotter'],tag)
-##         #print 'Science iteration done'
-##         if self.debug!=None:
-##             print "science: generateNext done (debug=%s)"%str(self.debug)
-##         return None
-
-
-## #### Computes the diffraction limited PSF
-##     def computeDiffPSF(self):
-##         """computeDiffPSF function : computes the diffraction limited PSF
-##         Function written  by FA"""
-##         if self.atmosPhaseType=="phaseamp":
-##             self.computeShortExposurePSF([1,1])
-##         else:
-##             self.computeShortExposurePSF(1)
-##         if self.keepDiffPsf:
-##             self.diffPSF=self.inst_img.copy()
-##         else:
-##             self.diffPSF=self.inst_img#will be overwritten next time computeShortExposurePSF is called...
-##         return self.diffPSF
-
-##         ##We copy the arrays to have contigous arrays and convert it into Float64
-##         #pup2=self.pup.copy()
-##         #pup2=pup2.astype("d")
-## ##         npup=self.npup
-
-## ##         ##We fill the complex amplitude
-## ##         self.pupilAmplitude[npup:,]=0.#clear the array (may get changed by fft)
-## ##         self.pupilAmplitude[:npup,npup:,]=0.
-## ##         self.pupilAmplitude.real[:npup,:npup]=self.pup ##*cos(phi)=1
-## ##         self.pupilAmplitude.imag[:npup,:npup]=0. ##*sin(phi)=0
-## ##         ##We call the FFTW function
-## ##         nrfft.fftw_execute(self.fftPlan)
-## ##         ##We compute the intensity in the focal plane
-## ##         self.tempImg[:,]=(Numeric.absolute(self.focusAmplitude))**2
-## ##         ##We compute the PSF by using fliparray2
-## ##         self.diffPSF=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
-## ##         self.diffPSF/=Numeric.sum(Numeric.sum(self.diffPSF)) ##We normalise the instantaneous PSF to 1
-
-
-## #### Computes the short exposure PSF
-##     def computeShortExposurePSF(self,phs):
-##         """computeShortExposurePSF function : computes short exposure AO corrected PSF
-##         Modifications made by FA"""
-
-## ##        ##We copy the arrays to have contigous arrays and convert it into Float64
-## ##        phs2=phs.copy()
-## ##        phs2=phs2.astype("d")
-## ##        self.phs2=phs2
-## ##        pup2=self.pup.copy()
-## ##        pup2=pup2.astype("d")
-## ##        self.pup2=pup2
-##         npup=self.npup ##to have the dimensions of the input phase array
-
-##         ##We fill the complex amplitude
-##         if self.atmosPhaseType=="phaseonly":
-##             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-##             self.pupilAmplitude[:npup,npup:,]=0.
-##             self.pupilAmplitude.real[:npup,:npup]=self.pup*Numeric.cos(phs)
-##             self.pupilAmplitude.imag[:npup,:npup]=self.pup*Numeric.sin(phs)
-##         elif self.atmosPhaseType=="phaseamp":#phs[1] is amplitude, phs[0] is phase
-##             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-##             self.pupilAmplitude[:npup,npup:,]=0.
-##             self.pupilAmplitude.real[:npup,:npup]=self.pup*Numeric.cos(phs[0])*phs[1]
-##             self.pupilAmplitude.imag[:npup,:npup]=self.pup*Numeric.sin(phs[0])*phs[1]
-##         elif self.atmosPhaseType=="realimag":#phs in real/imag already.
-##             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
-##             self.pupilAmplitude[:npup,npup:,]=0.
-##             self.pupilAmplitude[:npup,:npup]=self.pup*phs
-
-            
-##         ##We call the FFTW function
-##         nrfft.fftw_execute(self.fftPlan)
-##         ##We compute the intensity in the focal plane
-##         self.tempImg[:,]=(Numeric.absolute(self.focusAmplitude))**2
-##         ##print phs2.shape,phs2.typecode(),self.tempImg.shape,self.tempImg.typecode(),pup2.shape,pup2.typecode()
-##         ##We compute the PSF by using fliparray2
-##         #self.inst_img=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
-##         fliparray2(self.tempImg,self.inst_img)# Flip quadrants with definition consistent with FFT coordinate definition
-##         self.inst_img/=Numeric.sum(Numeric.sum(self.inst_img)) ##We normalise the instantaneous PSF to 1
-
-        
-## ### Computes scientific parameters on the long-exposureAO-corrected PSF #############
-##     def computeScientificParameters(self):
-##         """computeScientificParameters function : computes FWHM, 
-##            Modifications made by FA"""
-##         ## We do the average of the PSF and normalise it to 1
-##         self.longExpPSF[:,]=self.longexp_img#/self.n_integn
-##         self.longExpPSF/=Numeric.sum(Numeric.sum(self.longExpPSF)) ##We normalise the instantaneous PSF to 1
-##         #window(2,wait=1)
-##         #fma()
-##         #pli(self.longExpPSF)
-                
-##         ## We calculate PSF parameters ###
-##         ## We start by the Strehl Ratio
-##         nfft=self.nfft
-##         strehl=self.longExpPSF[nfft/2,nfft/2]/self.diffn_core_en
-##         self.dictScience['strehl']=strehl
-##         ##print "Strehl=%g"%(strehl)
-
-##         ## We now compute the FWHM
-##         ## First we compute the radial profile
-##         ##Pbs with interp function : we have to compute it manually :-((
-##         profiles=self.computeRadialProfileAndEncircledEnergy(self.longExpPSF)
-##         x=self.rad[:,]
-##         y=profiles[0,:,]
-##         ##we look for the index of x just before and after y[0]/2
-##         t=Numeric.greater(y,y[0]/2)
-##         try:
-##             i1=Numeric.nonzero(t)[-1]
-##         except:
-##             print "ERROR in science.py - no non-zero elements... Oh well! (%s)"%self.objID
-##             i1=0
-##         x1=x[i1]
-##         t=Numeric.less(y,y[0]/2)
-##         try:
-##             i2=Numeric.nonzero(t)[0]
-##         except:
-##             print "ERROR2 in science.py - no non-zero elements... Oh well! (%s)"%self.objID
-##             i2=0
-##         x2=x[i2]
-##         ##we compute the equation of the line between those two points
-##         if x2==x1:
-##             x2+=1
-##         a=(y[i2]-y[i1])/(x2-x1)
-##         b=y[i2]-a*x2
-##         ##we then compute the FWHM
-##         fwhm=2*(y[0]/2-b)/a
-##         ##print "FWHM=%g"%(fwhm)
-##         self.dictScience['FWHM']=fwhm
-                
-##         ## We now compute the diameter of the aperture with 50% of the energy
-##         x=(2*self.rRad+1)*self.pix_scale
-##         y=profiles[1,]
-##         t=Numeric.greater(y,0.5)
-##         try:
-##             i1=Numeric.nonzero(t)[0]
-##         except:
-##             print "ERROR3 in science.py - no non-zero elements... Oh well!"
-##             i1=0
-            
-##         x1=x[i1]
-##         t=Numeric.less(y,0.5)
-##         try:
-##             i2=Numeric.nonzero(t)[-1]
-##         except:
-##             print "ERROR4 in science.py - no non-zero elements... Oh well!"
-##             i2=0
-            
-##         x2=x[i2]
-##         if x2==x1:
-##             x2+=1
-##         ##we compute the equation of the line between those two points
-##         a=(y[i2]-y[i1])/(x2-x1)
-##         b=y[i2]-a*x2
-##         ##we then compute the diameter
-##         d50=(0.5-b)/a
-##         ##print "d50=%g"%(d50)
-##         self.dictScience['d50']=d50
-        
-##         ## We now compute the energy into a square aperture of 0.2 arcsec
-##         ## We compute the ensquared energy profile
-##         self.inbox=self.computeEnsquaredEnergy(self.longExpPSF)
-##         y=self.inbox
-##         x=self.wid
-##         apSize=0.2
-##         t=Numeric.greater(x,apSize)
-##         try:
-##             i1=Numeric.nonzero(t)[0]
-##         except:
-##             print "ERROR5 in science.py - no non-zero elements... Oh well!"
-##             i1=0
-
-##         x1=x[i1]
-##         t=Numeric.less(x,apSize)
-##         try:
-##             i2=Numeric.nonzero(t)[-1]
-##         except:
-##             print "ERROR6 in science.py - no non-zero elements... Oh well!"
-##             i1=0
-            
-##         x2=x[i2]
-##         if x2==x1:
-##             x2+=1
-##         ##we compute the equation of the line between those two points
-##         a=(y[i2]-y[i1])/(x2-x1)
-##         b=y[i2]-a*x2
-##         ##we then compute the energy
-##         inbox=a*apSize+b
-##         ##print "E(0.2 arcsec)=%g"%(inbox)
-##         self.dictScience['inbox']=inbox
-
-#### Convolution by an instrumental PSF. Requires to set img
-##     def conv(self,img):
-##         """Convolve image with a PSF"""
-##         temp=FFT.real_fft2d(img)
-##         convimg=FFT.inverse_real_fft2d(temp*self.sci_psf_fft)
-##         return convimg
     def plottable(self,objname="$OBJ"):
         """Return a XML string which contains the commands to be sent
         over a socket to obtain certain data for plotting.  The $OBJ symbol
@@ -960,11 +612,32 @@ class science(aobase.aobase):
             id=""
         else:
             id=" (%s)"%this.idstr
-        txt+="""<plot title="View central psf%s" when="cmd" ret="feedback" texttype="1" wintype="mainwindow">\n<cmd>\nfeedback=1-%s.control['viewCentral']\n%s.control['viewCentral']=feedback\nso=%s.thisObjList[%d].sciObj\nf=int(so.nimg*0.4)\nt=int(so.nimg*0.6)\nif feedback:\n so.instImgView=so.instImg[f:t,f:t]\n so.longExpPSFView=so.longExpPSFView[f:t,f:t]\nelse:\n so.instImgView=so.instImg\n so.longExpPSFView=so.longExpPSF\n</cmd>\nbutton=feedback\n</plot>\n"""%(id,objname,objname,objname,self.sentPlotsCnt)
-        txt+="""<plot title="Instantaneous image%s" cmd="data=%s.thisObjList[%d].sciObj.instImgView" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
-        txt+="""<plot title="science phase%s" cmd="data=%s.thisObjList[%d].sciObj.phs" ret="data" type="pylab" dim="2" when="rpt" palette="gray" />\n"""%(id,objname,self.sentPlotsCnt)
-        txt+="""<plot title="long PSF%s" cmd="data=%s.thisObjList[%d].sciObj.longExpPSFView" ret="data" type="pylab" dim="2" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
+        #since the inst image isn't stored, what the plotter will see will be the last one computed.
+        if self.thisObjList[-1].idstr==None or self.thisObjList[-1].idstr=="":
+            id0=""
+        else:
+            id0=" (%s)"%self.thisObjList[-1].idstr
+        txt+="""<plot title="Instantaneous image%s" cmd="data=%s.thisObjList[%d].sciObj.instImgView" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id0,objname,self.sentPlotsCnt)
+        txt+="""<plot title="long PSF%s" cmd="data=%s.getLongPsf(%d)" ret="data" type="pylab" dim="2" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
+
         txt+="""<plot title="Science params%s" cmd="data=%s.strParams(%d,ctrl.thisiter)" ret="data" when="rpt%d" texttype="1" wintype="ownwindow" textreplace="0"/>\n"""%(id,objname,self.sentPlotsCnt,this.sciObj.scinSamp*this.sciObj.sciPSFSamp)
+        txt+="""<plot title="View central psf%s" when="cmd" ret="feedback" texttype="1" wintype="mainwindow">\n<cmd>
+if %s.control['viewCentral']==0:
+ %s.control['viewCentral']=0.4
+ feedback=1
+else:
+ %s.control['viewCentral']=0.
+ feedback=0
+so=%s.thisObjList[%d].sciObj
+f=int(so.nimg*0.4)
+t=int(so.nimg*0.6)
+if feedback:
+ so.instImgView=so.instImg[f:t,f:t]
+else:
+ so.instImgView=so.instImg
+</cmd>\nbutton=feedback\n</plot>\n"""%(id,objname,objname,objname,objname,self.sentPlotsCnt)
+        
+        txt+="""<plot title="science phase%s" cmd="data=%s.thisObjList[%d].sciObj.phs" ret="data" type="pylab" dim="2" when="rpt" palette="gray" />\n"""%(id,objname,self.sentPlotsCnt)
         #txt+="""<plot title="Science params%s" cmd="data=str(%s.thisObjList[%d].sciObj.dictScience)+' RMS:'+str(%s.thisObjList[%d].sciObj.phaseRMS)" ret="data" when="rpt%d" texttype="1" wintype="ownwindow" textreplace="0"/>\n"""%(id,objname,self.sentPlotsCnt,objname,self.sentPlotsCnt,this.sciObj.scinSamp)
         txt+="""<plot title="Science history%s" cmd="data=%s.thisObjList[%s].sciObj.history[:,:%s.thisObjList[%s].sciObj.historyCnt]" ret="data" when="rpt%d" type="pylab" dim="2" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt,objname,self.sentPlotsCnt,this.sciObj.scinSamp*this.sciObj.sciPSFSamp)
         txt+="""<plot title="Zero science%s" cmd="%s.control['zero_science']+=1;data='Science zeroed'" ret="data" when="cmd" texttype="1" wintype="mainwindow"/>\n"""%(id,objname)

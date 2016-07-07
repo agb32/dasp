@@ -124,8 +124,12 @@ class mpiSend(base.aobase.aobase):
             if self.syncmsg[0]==1:#generate=1
                 self.parent.setGenerate(1)
                 #data=self.outputDataList.pop(0)
-                data=self.outputData
-                sh=data.shape
+                if self.dataValid:
+                    data=self.outputData
+                    sh=data.shape
+                else:
+                    data=""
+                    sh="data=''"
             else:#self.outputData stored for next time... assuming next time, parent.dataValid will be zero.
                 self.parent.setGenerate(0)
                 data=""

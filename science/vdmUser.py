@@ -283,7 +283,7 @@ class vdmUser(base.aobase.aobase):
         # - not interpolation of the DM surface...
         # Number of threads set to 1, since the function is not used in aosim
         cmod.interp.gslCubSplineInterp(vdm,yin,xin,self.mdmActPosList[indx][0],self.mdmActPosList[indx][1],
-                                       self.interpolated,self.interpolationNthreads)
+                                       self.interpolated,0,self.interpolationNthreads)
         return self.interpolated
 
     def getInputActuators(self,dmno):

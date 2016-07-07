@@ -5,6 +5,7 @@
 import string
 import numpy
 import os.path,os
+import fcntl
 error = 'FITS error'
 #
 # Read a FITS image file
@@ -190,6 +191,7 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     numBlock = (len(header) + 2880 - 1) / 2880
     header = string.ljust(string.join(header,''), numBlock*2880)
     file = open(filename, writeMode)
+    fcntl.flock(file,fcntl.LOCK_EX)#lock the file...
     file.write(header)
     if numpy.little_endian and doByteSwap:
         data.byteswap(True)
@@ -201,7 +203,8 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     file.write(padding)
     if numpy.little_endian and doByteSwap and preserveData==1:
         data.byteswap(True)
-
+    file.close()
+    
 def ReadHeader(filename, asFloat = 1) :
     """Reads the Header.  If filename is an open file, will seek to the end of the data unit before returning"""
     if type(filename)==type(""):

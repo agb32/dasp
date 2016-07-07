@@ -39,6 +39,7 @@ class fifo(base.aobase.aobase):
         self.forGUISetup=forGUISetup
         self.spareArray=None
         self.args=args
+        self.fifoDelayFn=self.config.getVal("fifoDelayFn",default=None,raiseerror=0)#a function that returns the number of iterations to delay for. Called every time the parent generates data.
         self.finalInitialisation()#this may fail...
 
     def finalInitialisation(self):
@@ -68,7 +69,9 @@ class fifo(base.aobase.aobase):
                     #Needs to know shape and dtype so this can be returned...
                     if self.args.has_key("shape") and self.args.has_key("dtype"):
                         self.outputData=self.args["shape"],self.args["dtype"]
-
+                    else:
+                        self.outputData=self.config.getVal("fifoShape"),self.config.getVal("fifoDtype")
+        self.nextra=0
     def newParent(self,parent,idstr=None):
         self.parent=parent
         self.initialised=0
@@ -79,30 +82,48 @@ class fifo(base.aobase.aobase):
         @param msg: The message to pass to the parent (predecessor) object
         @type msg: None or fwdMsg object
         """
-        if self.debug!=None:
+        if self.debug is not None:
             print("INFORMATION::**fifo:{:s}**: generateNext (debug={:s})".format(
                      str(self.idstr), str(self.debug) )
                 )
         if self.generate==1:
             if self.newDataWaiting:
-                self.dataValidList.append(self.parent.dataValid)
+#                self.dataValidList.append(self.parent.dataValid)
                 if self.parent.dataValid==1:
-                    if self.spareArray!=None and self.spareArray.shape==self.parent.outputData.shape and self.spareArray.dtype==self.parent.outputData.dtype:
+                    if self.fifoDelayFn is None:
+                        self.dataValidList.append(1)
+                    else:
+                        delay=self.fifoDelayFn()
+                        self.dataValidList+=[0]*delay
+                        self.dataValidList.append(1)
+                        print("Delay: %d"%(delay+self.nextra))
+                        self.nextra=0
+                        #if len(self.dataValidList)<self.delay:
+                        #    nextra=(self.delay-len(self.dataValidList))
+                        #    self.dataValidList+=[0]*nextra
+                        #    self.nextra=nextra
+                    if (self.spareArray is not None) and self.spareArray.shape==self.parent.outputData.shape and self.spareArray.dtype==self.parent.outputData.dtype:
                         #do this to avoid an unnecessary malloc...
                         self.spareArray[:]=self.parent.outputData
                         self.dataList.append(self.spareArray)
                         self.spareArray=None
                     else:
                         self.dataList.append(self.parent.outputData.copy())
-                elif self.debug!=None:
-                    print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
-                           "(debug={:s})").format( str(self.idstr), self.debug )
-                        )
-                self.dataValid=self.dataValidList.pop(0)
+                else:
+                    if self.fifoDelayFn is None:
+                        self.dataValidList.append(0)                        
+                    if self.debug is not None:
+                        print(("INFORMATION::**fifo:{:s}**: waiting for data but not valid "+
+                               "(debug={:s})").format( str(self.idstr), self.debug )
+                            )
+                if len(self.dataValidList)>0:
+                    self.dataValid=self.dataValidList.pop(0)
+                elif self.fifoDelayFn is not None:
+                    self.dataValid=0
                 if self.dataValid:
                     self.outputData=self.dataList.pop(0)
-                    if self.outputData==None:#make the array
-                        if self.spareArray!=None and self.spareArray.shape==self.shape and self.spareArray.dtype==self.dtype:
+                    if self.outputData is None:#make the array
+                        if (self.spareArray is not None) and self.spareArray.shape==self.shape and self.spareArray.dtype==self.dtype:
                             self.outputData=self.spareArray
                             self.outputData[:]=0
                         else:

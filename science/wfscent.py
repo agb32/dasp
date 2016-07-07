@@ -220,6 +220,7 @@ class wfscent(base.aobase.aobase):
             # Image size for subap (pixels) (ie size after binning).
             wfs_nimg=this.config.getVal("wfs_nimg",default=clipsize/2)
             wfs_int=this.config.getVal("wfs_int",tstep)                              # WFS integration time
+            integstepFn=None
             wfs_rowint=this.config.getVal("wfs_rowint",default=None,raiseerror=0)           # row integration time
             wfs_read_mean=this.config.getVal("wfs_read_mean",0.)                  # WFS Readnoise e-
 
@@ -270,6 +271,7 @@ class wfscent(base.aobase.aobase):
             clipsize=wfsobj.clipsize
             wfs_nimg=wfsobj.nimg
             wfs_int=wfsobj.integSteps*tstep
+            integstepFn=wfsobj.integstepFn#can be None or a function that returns an integer value not greater than integSteps.
             wfs_rowint=wfsobj.rowint
             if wfs_rowint!=None:
                 wfs_rowint*=tstep
@@ -442,7 +444,8 @@ class wfscent(base.aobase.aobase):
             preBinningFactor=preBinningFactor,
             parabolicFit=parabolicFit,
             gaussianFitVals=gaussianFitVals,
-            seed=seed
+            seed=seed,
+            integstepFn=integstepFn,
         )
 
 
@@ -598,6 +601,8 @@ class wfscent(base.aobase.aobase):
             if self.inputInvalid==0: # there was an input, so we can integrate...
                 self.dataValid=0
                 wfs=self.wfscentObj # has been copied from thisObjList before generateNext is called...
+                if wfs.integstepFn!=None and wfs.texp==0 and self.control["useCmod"]:
+                    wfs.updateIntegTime(wfs.integstepFn())
                 if wfs.texp<wfs.integtime:
                     # Still integrating...
                     #t=time.time()

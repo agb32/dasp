@@ -133,7 +133,6 @@ class recon(base.aobase.aobase):
                 self.centIndex[pos+self.ncents/2:pos+self.ncents/2+self.ncentList[i]]=\
                     (indiceList[i]*2+1).astype(numpy.int32)
                 pos+=self.ncentList[i]
-
             self.reconType=self.config.getVal("recontype",default="pcg")
             supportedReconTypes = ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","SVD",
                                    "MAP","pinv","reg","regSmall","regBig","regularised","dicure","fewha"]
@@ -208,7 +207,10 @@ class recon(base.aobase.aobase):
                     raise Exception("tomoRecon: key %s not found in parent, so not using"%str(key))
                 else:
                     self.wfsIDList.append(key)
-            
+            self.parentDataValid=numpy.zeros((len(self.wfsIDList)),numpy.int32)
+            self.multirate=self.config.getVal("multirate",default=0)
+            if self.multirate:
+                self.dmCommandMulti=numpy.zeros((len(self.wfsIDList),self.nacts),numpy.float32)
             if self.dmModeType=="poke":
                 self.nmodes=self.nacts
                 self.nLowOrderModalModes=self.config.getVal("nLowOrderModalModes",default=0)#the number
@@ -623,7 +625,7 @@ class recon(base.aobase.aobase):
         tiltsens*, is tilt sensitivity data.
         """
         if self.generate==1:
-            if self.newDataWaiting:
+            if self.newDataWaiting:#this is always 1(!)
                 nin=0
                 for key in self.parent.keys():
                     if self.parent[key].dataValid==1:
@@ -633,6 +635,8 @@ class recon(base.aobase.aobase):
                 if nin>0:
                     if nin==len(self.parent.keys()):
                         self.dataValid=1
+                    elif self.multirate==1:
+                        self.dataValid=1#some WFSs are valid
                     else:
                         print("WARNING:**tomoRecon**: got some data but not "+
                            "all, setting dataValid=0")
@@ -661,24 +665,26 @@ class recon(base.aobase.aobase):
         for i in range(len(self.wfsIDList)):
             key=self.wfsIDList[i]
             ns=self.ncentList[i]
-            if len(self.parent[key].outputData.shape)==3:
-                self.inputData[cnt:cnt+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt:cnt+ns])
-                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt+self.ncents/2:cnt+self.ncents/2+ns])
-            else:#wfscent has already cut out the unused subaps... (fullWFSOutput==1 in param file)
-                self.inputData[cnt:cnt+ns]=self.parent[key].outputData[:,0]
-                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=self.parent[key].outputData[:,1]
-            if type(self.subtractTipTilt)==type({}):
-                stt=self.subtractTipTilt[key]
-            else:
-                stt=self.subtractTipTilt
-            # this should be used for LGS sensors:
-            if stt==-1 or (stt==1 and (self.control["poke"]==0 and self.poking==0 and
-                                       self.control["takeRef"]==0 and self.takingRef==0)):
-                #remove the mean slopes...
-                #print("INFORMATION:**tomoRecon**:Removing mean slopes")
-                self.inputData[cnt:cnt+ns]-=self.inputData[cnt:cnt+ns].mean()
-                self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns] -= \
-                    self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns].mean()
+            self.parentDataValid[i]=self.parent[key].dataValid
+            if self.parent[key].dataValid==1:
+                if len(self.parent[key].outputData.shape)==3:
+                    self.inputData[cnt:cnt+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt:cnt+ns])
+                    self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=numpy.take(self.parent[key].outputData.ravel(),self.centIndex[cnt+self.ncents/2:cnt+self.ncents/2+ns])
+                else:#wfscent has already cut out the unused subaps... (fullWFSOutput==1 in param file)
+                    self.inputData[cnt:cnt+ns]=self.parent[key].outputData[:,0]
+                    self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns]=self.parent[key].outputData[:,1]
+                if type(self.subtractTipTilt)==type({}):
+                    stt=self.subtractTipTilt[key]
+                else:
+                    stt=self.subtractTipTilt
+                # this should be used for LGS sensors:
+                if stt==-1 or (stt==1 and (self.control["poke"]==0 and self.poking==0 and
+                                           self.control["takeRef"]==0 and self.takingRef==0)):
+                    #remove the mean slopes...
+                    #print("INFORMATION:**tomoRecon**:Removing mean slopes")
+                    self.inputData[cnt:cnt+ns]-=self.inputData[cnt:cnt+ns].mean()
+                    self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns] -= \
+                        self.inputData[cnt+self.ncents/2:cnt+self.ncents/2+ns].mean()
             cnt+=ns
 
     def calc(self):
@@ -953,6 +959,12 @@ class recon(base.aobase.aobase):
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pinv":
                     self.reconmx=numpy.linalg.pinv(self.spmx,self.rcond).T.astype(numpy.float32)
+                    if self.dmModeType=="modalPoke":
+                        #expand the rmx back
+                        if self.reconmxFilename!=None:
+                            util.FITS.Write(self.reconmx,self.reconmxFilename[:-5]+"modal.fits")
+                        self.reconmx=numpy.dot(self.mirrorModes.T,self.reconmx).astype(numpy.float32)
+                        print "reconmx shape is now: %s"%str(self.reconmx.shape)
                     if self.reconmxFilename!=None:
                         print("INFORMATION:**tomoRecon**:"+
                           "Writing reconmx to file %s"%self.reconmxFilename)
@@ -1040,27 +1052,44 @@ class recon(base.aobase.aobase):
         #nsubx=self.wfs_nsubx
         #wfsdata=self.wfsdata
         data=self.inputData#numpy.zeros(wfsdata*2,numpy.Float)
-        if type(self.decayFactorOpen)==numpy.ndarray and \
-                self.decayFactorOpen.shape[0]==self.outputData.shape[0]:
-        # (decayFactorOpen is an array...)
-            self.outputData*=self.decayFactorOpen
-        else:
+        if self.multirate==0:
             for i in range(len(self.nactsList)):
                 dm=self.dmList[i]
-                if dm.decayFactor!=None:
-                    self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=dm.decayFactor
-                else:
-                    if not self.closedLoopList[i]:
-                        self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]*=self.decayFactorOpen
-                        # (open loop actuators...)
+                d=self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]
+                if dm.closedLoop and (dm.polcMatrix is not None):
+                    if type(dm.polcMatrix)==type(""):
+                        print "Loading polc matrix %s"%dm.polcMatrix
+                        dm.polcMatrix=util.FITS.Read(dm.polcMatrix)[1]
+                    #With polc, we need to apply (dI +gMP) to the previous actuators, where d is decay factor, M is the rmx and P is the pmx.  
+                    #dot the d+gMP matrix with actuators
+                    d[:]=numpy.dot(dm.polcMatrix,d)
+                elif type(self.decayFactorOpen)==numpy.ndarray and self.decayFactorOpen.size==self.outputData.size:
+                    d*=self.decayFactorOpen[self.nactsCumList[i]:self.nactsCumList[i+1]]
+                elif dm.decayFactor is not None:
+                    d*=dm.decayFactor
+                elif not self.closedLoopList[i]:# (open loop actuators...)
+                    d*=self.decayFactorOpen
+        else:#multirate WFS... update the specific WFSs. (and for now, no polc)
+            for i in range(len(self.wfsIDList)):
+                if self.parentDataValid[i]:
+                    if type(self.decayFactorOpen)==numpy.ndarray and self.decayFactorOpen.size==self.outputData.size:
+                        self.dmCommandMulti[i]*=self.decayFactorOpen
+                    else:
+                        for j in range(len(self.nactsList)):
+                            dm=self.dmList[j]
+                            if dm.decayFactor is not None:
+                                self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=dm.decayFactor
+                            elif not self.closedLoopList[j]:#open loop
+                                self.dmCommandMulti[i][self.nactsCumList[j]:self.nactsCumList[j+1]]*=self.decayFactorOpen
+
+            
         if self.extraActs>0:
             self.outputData[-self.extraActs:]*=self.extraActsDecay
         if self.reconType=="fdpcg":
             self.pcg.solve(data,usePrevious=0)# for some reason, usePrevious=1 will 
                    # cause it to blow up eventually... have no idea why - maybe the pcg
                    # algorithm is not too good at starting points close to the initial.
-            #print("INFORMATION:**tomoRecon**:TODO: select only needed phase values - only the used acts")
-            #self.outputData[:,]+=-self.pcg.gainfactor*numpy.take(numpy.array(self.pcg.x),self.dmindices)
+
             self.outputData[:,]+=-self.gainFactor*self.pcg.x
         elif self.reconType=="spmx":#sparse poke matrix reconstruction...
             self.pTc=self.spmx.matvec(numpy.array(data))#dot(data)#do the A^Tb multiplication
@@ -1072,16 +1101,32 @@ class recon(base.aobase.aobase):
                 if tmp.dtype!=self.outputData.dtype:
                     tmp=tmp.astype(self.outputData.dtype)
             elif type(self.reconmx)==numpy.ndarray:
-                if data.shape[0]==self.reconmx.shape[0]:
-                    tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
-                else:
-                    print("INFORMATION:**tomorRecon**:self.reconmx.shape,"+
-                          "data.shape"+str(self.reconmx.shape)+str(data.shape))
-                    tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
+                if self.multirate==0:
+                    if data.shape[0]==self.reconmx.shape[0]:
+                        tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
+                    else:
+                        print("INFORMATION:**tomorRecon**:self.reconmx.shape,"+
+                              "data.shape"+str(self.reconmx.shape)+str(data.shape))
+                        tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
+                else:#multi-rate WFSs
+                    cnt=0
+                    self.outputData[:]=0
+                    for i in range(len(self.wfsIDList)):
+                        ns=self.ncentList[i]
+                        if self.parentDataValid[i]:
+                            tmp=quick.dot(data[cnt:cnt+ns],self.reconmx[cnt:cnt+ns])#do the x
+                            tmp+=quick.dot(data[cnt+self.ncents/2:cnt+self.ncents/2+ns],self.reconmx[cnt+self.ncents/2:cnt+self.ncents/2+ns])#and add the ys
+                            self.dmCommandMulti[i]-=self.gains*tmp
+                        cnt+=ns
+                        self.outputData+=self.dmCommandMulti[i]
+                    tmp=None
+                                
             elif (hasattr(scipy.sparse,"csr") and type(self.reconmx)==scipy.sparse.csr.csr_matrix) or \
             (type(self.reconmx)==types.InstanceType or hasattr(self.reconmx,"__module__")) and \
             self.reconmx.__module__ in ["scipy.sparse.sparse"]:
                 #print self.reconmx.shape,data.shape
+                if self.multirate!=0:
+                    raise Exception("multirate not supported for sparse reconstructors at the moment")
                 if self.reconmx.shape[0]==data.shape[0]:
                     tmp=-self.reconmx.transpose().dot(data)
                 else:
@@ -1105,7 +1150,10 @@ class recon(base.aobase.aobase):
                             modalGain[mode]*tmp[mode+self.nacts]*self.modalActuatorList[dmno][mode-dmoffset]
         elif self.reconType in ["svd","pinv","reg","regularised","regBig","regSmall"]:
             if self.compressedBits!=None:#reconmx is in compressed float format.
-                tmp=-(self.gains*self.doCompressedDot(data))
+                if self.multirate!=0:
+                    raise Exception("multirate wfs not supported here in tomoRecon")
+                #tmp=-(self.gains*self.doCompressedDot(data))
+                self.outputData-=(self.gains*self.doCompressedDot(data))
             else:
                 dorecon=1
                 if type(self.reconmx)!=numpy.ndarray or \
@@ -1128,13 +1176,25 @@ class recon(base.aobase.aobase):
                                    "Transposing, but no longer c-contiguous - "+
                                    "performance may be reduced")
                                 self.reconmx=self.reconmx.T
-                    tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
+                    #tmp=numpy.zeros(self.outputData.shape,self.outputData.dtype)
                 if dorecon:
-                    tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)
-            if tmp.dtype!=self.outputData.dtype:
-                tmp=tmp.astype(self.outputData.dtype)
-            self.outputData[:,]+=tmp
+                    if self.multirate==0:
+                        #tmp=-(self.gains*quick.dot(self.reconmx,data))#.astype(self.outputData.dtype)
+                        self.outputData-=(self.gains*quick.dot(self.reconmx,data))
+                    else:
+                        cnt=0
+                        self.outputData[:]=0
+                        for i in range(len(self.wfsIDList)):
+                            ns=self.ncentList[i]
+                            if self.parentDataValid[i]:
+                                tmp=quick.dot(self.reconmx[:,cnt:cnt+ns],data[cnt:cnt+ns],)#do the x
+                                tmp+=quick.dot(self.reconmx[:,cnt+self.ncents/2:cnt+self.ncents/2+ns],data[cnt+self.ncents/2:cnt+self.ncents/2+ns])#and add the ys
+                                self.dmCommandMulti[i]-=self.gains*tmp
+                            cnt+=ns
+                            self.outputData+=self.dmCommandMulti[i]
         elif self.reconType=="pcg":
+            if self.multirate!=0:
+                raise Exception("multirate wfs not supported here in tomoRecon")
             #print data.shape,self.pcgB.shape
             if self.pcgB.shape[1]==data.shape:
                 b=quick.dot(self.pcgB,data)
@@ -1147,6 +1207,8 @@ class recon(base.aobase.aobase):
             tmp=-self.gains*self.pcgX0
             self.outputData[:]+=tmp
         elif self.reconType=="MAP":
+            if self.multirate!=0:
+                raise Exception("multirate wfs not supported here in tomoRecon")
             if self.compressedBits!=None:#reconmx is in compressed float format.
                 tmp=-(self.gains*self.doCompressedDot(data))
             else:
@@ -1155,9 +1217,13 @@ class recon(base.aobase.aobase):
                 tmp=tmp.astype(self.outputData.dtype)
             self.outputData[:,]+=tmp
         elif self.reconType=="dicure":
+            if self.multirate!=0:
+                raise Exception("multirate wfs not supported here in tomoRecon")
             tmp=self.gains*self.dicure.calc( self.inputData )
             self.outputData+=tmp 
         else:#fewha, others.
+            if self.multirate!=0:
+                raise Exception("multirate wfs not supported here in tomoRecon")
             if self.reconObj!=None and hasattr(self.reconObj,"reconstruct"):
                 tmp,partial=self.reconObj.reconstruct(self.inputData)
                 #tmp*=self.gains

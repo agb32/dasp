@@ -21,6 +21,7 @@ CALDATA=17
 REFCENTS=18
 CALCOEFF=19
 USEBRIGHTEST=20
+INTEGSTEPS=21#should never be changed to something larger than the initial value.
 class centcmod:
   def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
                addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,

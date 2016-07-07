@@ -166,18 +166,19 @@ def computeInitialScreen(config,idstr=None):
     L0=atmosGeom.l0
     print "Generating phasescreen %s size %s"%(str(idstr),str((scrnXPxls,scrnYPxls)))
     tstep=config.getVal("tstep")
+    scrnDir=config.getVal("scrnDir",default="scrn")
     natype="d"#config.getVal("dataType")
-    phaseArray=makeInitialScreen(dpix,Dtel,L0,scrnXPxls,scrnYPxls,seed,tstep,globR0,strLayer,natype,windDirection,vWind)
+    phaseArray=makeInitialScreen(dpix,Dtel,L0,scrnXPxls,scrnYPxls,seed,tstep,globR0,strLayer,natype,windDirection,vWind,scrnDir=scrnDir)
     ##we return the array corresponding to the pupil
     config.setSearchOrder(so)
     return phaseArray
 
-def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0):
+def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0,scrnDir="scrn"):
     """For users on the command line, to generate a quick phase screen"""
     raise Exception("Need to sort this - clipping/oversizing no longer necessary")
-    scrn=makeInitialScreen(dpix=npup+1,Dtel=telDiam,L0=l0,globR0=r0,seed=seed)[1:-1,1:-1]
+    scrn=makeInitialScreen(dpix=npup+1,Dtel=telDiam,L0=l0,globR0=r0,seed=seed,scrnDir=scrnDir)[1:-1,1:-1]
     return scrn
-def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.):
+def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.,scrnDir="scrn"):
     """dpix is the telescope aperture diameter, and dtel is tel diameter.
     The actual number of pixels used is scrnXPxls x scrnYPxls.
     """
@@ -186,9 +187,9 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
         scrnXPxls=dpix
     if scrnYPxls==None:
         scrnYPxls=dpix
-    if seed!=None:
+    if seed!=None and scrnDir!=None:
         try:
-            fname="scrn/iscrn%dD%gL%gx%dy%ds%dt%gr%gs%gd%gv%g.fits"%(dpix,Dtel,L0,scrnXPxls,scrnYPxls,seed,tstep,globR0,strLayer,windDirection,vWind)#windDirection needed in name because it determines scrnXPxls (in atmosGeom computation).
+            fname=os.path.join(scrnDir,"iscrn%dD%gL%gx%dy%ds%dt%gr%gs%gd%gv%g.fits"%(dpix,Dtel,L0,scrnXPxls,scrnYPxls,seed,tstep,globR0,strLayer,windDirection,vWind))#windDirection needed in name because it determines scrnXPxls (in atmosGeom computation).
         except:
             fname=None
             print "Could not make filename for screen - so generating screen..."
@@ -275,9 +276,9 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
     #         phaseArray[1:,:-1]=phi[:scrnYPxls,:scrnXPxls]#was dpix
     #     else:
     #         phaseArray[:-1,:-1]=phi[:scrnYPxls,:scrnXPxls]#was dpix
-    if fname!=None:
-        if not os.path.exists("scrn/"):
-            os.mkdir("scrn")
+    if fname!=None and scrnDir!=None:
+        if not os.path.exists(scrnDir):
+            os.mkdir(scrnDir)
         util.FITS.Write(phaseArray,fname)
     return phaseArray
 
