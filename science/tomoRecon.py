@@ -136,6 +136,9 @@ class recon(base.aobase.aobase):
             self.reconType=self.config.getVal("recontype",default="pcg")
             supportedReconTypes = ["pcg","fdpcg","spmx","spmxSVD","spmxGI","svd","SVD",
                                    "MAP","pinv","reg","regSmall","regBig","regularised","dicure","fewha"]
+            #not sure what this does.
+            #if "newReconType" in dir():
+            #    supportedReconTypes.append(newReconType)
             # check if the recontype given in the parameter file is valid:
             if self.reconType not in supportedReconTypes:
                 raise ValueError("tomoRecon: recontype must be one of:", supportedReconTypes)
