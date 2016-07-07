@@ -197,6 +197,7 @@ class wfsOverview:
     def values(self):
         return self.wfsDict.values()
 
+
 """
 getWfsByID(idstr)
 
@@ -256,7 +257,7 @@ class LGS(util.atmos.source):
     pupil - the telescope pupil function for this guide star.
     fov - for widefield systems - radius, not diam
     """
-    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,pupil,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None,integstepFn=None):
+    def __init__(self,idstr,nsubx,theta,phi,height,phasesize,pupil,minarea=0.5,sig=1e6,launchDist=0.,launchTheta=0.,sourcelam=None,phslam=None,reconList=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0.,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,lgsPsf=None,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None,integstepFn=None):
         """pupil can be a util.tel object"""
         #Initialise the parent...
         super(LGS,self).__init__(idstr,theta,phi,height,sourcelam=sourcelam,phslam=phslam,sig=sig)

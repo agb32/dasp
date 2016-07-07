@@ -674,6 +674,9 @@ simulating!
 \section{Work to be done: TODO}
 There are several things that still need to be done.
 \begin{enumerate}
+\item Config file reading only on rank-0 in MPI - then share with
+  rest.  Or maybe this should be the default, but a command line
+  switch could allow reversion to current behaviour.
 \item Reuse of module memory - done
 \item More FPGA code (or maybe not) - no
 \item Cell processor use - done
