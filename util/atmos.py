@@ -934,7 +934,7 @@ class iatmos:
         computeUplinkTT - if 1 then uplink tip/tilt will be computed.
         ygradient is a dictionary of the y gradients.
         """
-        if outputData==None:
+        if outputData is None:
             raise Exception("outputData should be specified")
         self.outputData=outputData
         self.npup=npup

@@ -339,6 +339,49 @@ int addPowerSpec(int fftsize,float *cdata, int psfsize,float *hll,int additive){
   }
   return 0;
 }
+
+int addPowerSpecCentral(int fftsize,float *cdata, int psfsize,float *hll,int additive){
+  //NEW, for when using tiltfn rather than fliparray.  This version takes the central part, rather then the corners.
+  
+  //takes real and imaginary parts and sums them squared into hll.
+  //The cdata is size fftsize x fftsize while hll is size psfsize x psfsize.
+  
+  //cdata should be an array of size sizeof(float)*2*fftsize*fftsize, ie containing both real and imag parts interleaved.
+  //cdata should be a complex float* array cast to float*.
+  //If psfsize>fftsize, data is zeropadded around the edges.
+  //If psfsize<fftsize (e.g. when not using a psf, and when clipping), then is clipped.
+  int i,j,indx;
+  //int ff=fftsize*fftsize;
+  int c;
+  int rowstart=0;
+  int rowoff=0;
+  if(psfsize>fftsize){
+    rowstart=(psfsize-fftsize)/2;//colstart same since square.
+    rowoff=0;//coloff same since square.
+    c=fftsize;
+  }else{
+    rowstart=0;
+    rowoff=(fftsize-psfsize)/2;
+    c=psfsize;
+  }
+  if(additive==0){
+    for(i=0;i<c;i++){
+      for(j=0;j<c;j++){
+	indx=((rowoff+i)*fftsize+rowoff+j)*2;
+	hll[(i+rowstart)*psfsize+rowstart+j]=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
+      }
+    }
+  }else{
+    for(i=0;i<c;i++){
+      for(j=0;j<c;j++){
+	indx=((rowoff+i)*fftsize+rowoff+j)*2;
+	hll[(i+rowstart)*psfsize+rowstart+j]+=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
+      }
+    }
+  }
+  return 0;
+}
+
 /*
 int doFFT(int fftsize,int phasesize,int forward,float *re,float *im,workstruct *workbuf){
   //phasesize gives info about zero padding, and allows us to not do some of the ffts.
@@ -405,8 +448,9 @@ int computeHll(float *phs,int phasesize,int niters,int fftsize,int paddedsize,fl
     }
     fftwf_execute_dft(c->fftplan,fftarr,fftarr);
     //rtval|=doFFT(fftsize,phasesize,1,workbuf->phsRe,workbuf->phsIm,workbuf);//do the 2d fft
-    rtval|=addPowerSpec(fftsize,(float*)fftarr,paddedsize,hll,iter);//compute the power spectrum (ie high light level img)
+    rtval|=addPowerSpecCentral(fftsize,(float*)fftarr,paddedsize,hll,iter);//changed from addPowerSpec when extra tilt added to tiltfn. compute the power spectrum (ie high light level img) 
   }
+  //printf("%d %d\n",fftsize,paddedsize);
   //rtval|=flipArray(paddedsize,hll,0,NULL);//removed when extra tilt added to tiltfn.
   return rtval;
 }

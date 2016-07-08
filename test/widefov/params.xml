@@ -44,7 +44,7 @@ for i in range(wfs_nsubx):
 #  widefieldImage[i,j]=data[i*n:i*n+n+2*b,j*n:j*n+n+2*b]#use this for a different image per sub-aperture
   widefieldImage[i,j]=data # use this for same image per subap.
 </var>
-
+<var name="studySubap" type="eval" value="(3,3)"/>
 <var name="strList" type="eval" value="[0.5,0.3,0.2]"/>
 <var name="hList" type="eval" value="[0.,4000.,10000.]"/>
 <var name="vList" type="eval" value="[4.55,  12.61,  8.73]"/>
@@ -109,7 +109,7 @@ dmOverview=dmOverview(dmInfoList,atmosGeom)
 
 
 
-<module name="wfscent" comment="Default for LGS">
+<module name="wfscent">
 <variables>
 <var name="imageOnly" type="i" value="1"/>
 <var name="subtractTipTilt" value="0" type="i"/>

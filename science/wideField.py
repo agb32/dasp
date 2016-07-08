@@ -49,7 +49,7 @@ class WideField(base.aobase.aobase):
 
 
     Parameters of relevance:
-    nFieldX, nFieldY - the number of directions evaluated when computing.  Typically, nfieldY isn't specified and so assumed same as nfieldX (i.e. I've not tested with them different!  Infact, it probably won't work!).
+    nFieldX, nFieldY - the number of directions evaluated when computing.  Typically, nfieldY isn't specified and so assumed same as nfieldX
 
     widefieldImage:  Array of size nsubx,nsubx,fftsize*(nfieldy+1.)/2,fftsize*(nfieldx+1.)/2
     The pixelscale of this image will be that of the unbinned image, i.e based on n and nfft.  ie util.calcPxlScale.pxlScale(lam,telDiam/nsubx,n,nfft,1)
@@ -453,8 +453,8 @@ class WideField(base.aobase.aobase):
                                 raise Exception("Wrong size widefieldImage - needs to be at least %d."%(self.fftsize*(self.nFieldX+1)/2))
                             pitchX=nx//(self.nFieldX+1)#and is this many pixels - the +1 allows for edge effects.
                             pitchY=ny//(self.nFieldY+1)#and is this many pixels - the +1 allows for edge effects.
-                            startX=(nx-self.fftsize*(self.nFieldX+1.)/2)/2
-                            startY=(ny-self.fftsize*(self.nFieldY+1.)/2)/2
+                            startX=int((nx-self.fftsize*(self.nFieldX+1.)/2)/2)
+                            startY=int((ny-self.fftsize*(self.nFieldY+1.)/2)/2)
                             #print self.psf.shape,self.widefieldImage.shape,startY+fieldY*pitch,startY+fieldY*pitch+self.fftsize,startX+fieldX*pitch,startX+fieldX*pitch+self.fftsize
                             #print fieldY,fieldX,self.widefieldImage.shape,startY,pitchY,self.fftsize,startX,pitchX
                             for y in range(self.nsubx):
@@ -561,7 +561,6 @@ class WideField(base.aobase.aobase):
                 window=self.cos2dTop
             else:
                 window=self.cos2d
-            
         for y in range(self.nsubx):
             for x in range(self.nsubx):
                 img=wfsimg[y,x]
