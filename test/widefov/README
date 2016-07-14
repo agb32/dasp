@@ -1,3 +1,42 @@
-Run python testwidefield.py params.py
+This test directory contains lots of examples for wide-field wavefront
+sensing, e.g. solar, or extended LGS.
+
+To run:
+python testwidefield.py params.xml
+This will run an example solar WFS.  WFS only, no recontruction,
+centroiding etc.  It looks nice!
+
+
 Or
-python testwidefield.py paramsSci.py
+python testwidefield.py paramsSci.xml
+This will show a science image.
+
+Or
+python testwidefield.py paramsLgs.xml
+10x10 LGS.
+
+python testwidefield.py paramsPhaseD.xml
+Canary Phase D LGS - extremely elongated off-axis launch LGS.  Note,
+differential spot motion, i.e. the top and bottom of the plume move
+differently.
+
+python testwidefield.py paramsProfiler.xml
+A 1D example, extremely elongated spot, 1 sub-aperture.
+
+The testwidefieldNoDM.py does exactly the same as the above, but with
+no DM.  Note, in the examples above, the DM wasn't used, but was
+present as an example.
+
+
+
+The best one to try:  A closed loop SCAO system:
+python testwidefieldcentroid.py params.xml
+
+Starts by doing a poke, then closes the loop.
+
+This example also includes a narrowfield science source as a
+performance metric.  Note - use StrehlPeak, not anything else, because
+the image isn't always exactly on-axis - depending on the reference
+slopes.
+
+
