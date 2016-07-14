@@ -17,7 +17,7 @@
 <var name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
 <var name="ngsLam" type="f" value="640"/>
 <var name="sciLam" type="f" value="1650"/>
-<var name="nlayer" type="i" value="1" comment="only used in param
+<var name="nlayer" type="i" value="3" comment="only used in param
 					       file"/>
 <var name="fov" type="f" value="10" comment="only used in param file"/>
 <var name="nFieldX" type="i" value="6"/>
