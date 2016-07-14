@@ -26,7 +26,7 @@ class centcmod:
   def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
                addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,
                phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,
-               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFitVals):
+               corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFitVals,inputImage=None,subapLocation=None):
     """Wrapper for the c centroid module.
     Here, sig can be a float or a float array.
     """
@@ -82,6 +82,8 @@ class centcmod:
       self.gaussianFit=1
       self.gaussianMinVal=gaussianFitVals[0]
       self.gaussianReplaceVal=gaussianFitVals[1]
+    self.inputImage=inputImage#should be None if input to wfscent is phase.
+    self.subapLocation=subapLocation#can be None.  Should be if input to wfscent is phase.
     if correlationCentroiding:
       if corrPattern!=None:
         if corrPattern.dtype.char!="f" or corrPattern.shape[:2]!=(nsubx,nsubx) or corrPattern.shape[2]<nimg or corrPattern.shape[3]!=corrPattern.shape[2]:
@@ -93,9 +95,9 @@ class centcmod:
     #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor
     #Problem? self.seed has been a list sometimes?
     try:
-      self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal)
+      self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal,self.inputImage,self.subapLocation)
     except:
-      print [type(x) for x in [self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal]]
+      print [type(x) for x in [self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal,self.inputImage,self.subapLocation]]
       raise
   def run(self,calsource):
     if calsource!=self.calsource:
@@ -104,6 +106,14 @@ class centcmod:
     t=cmod.cent.run(self.centstruct)
     return t
 
+  def runSlope(self,calsource):
+    if calsource!=self.calsource:
+      cmod.cent.update(self.centstruct,CALSOURCE,calsource)
+      self.calsource=calsource
+    t=cmod.cent.runSlope(self.centstruct)
+    return t
+
+  
   def free(self):
     if self.centstruct!=None:
       cmod.cent.free(self.centstruct)

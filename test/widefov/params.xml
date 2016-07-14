@@ -16,9 +16,10 @@
 <var name="wfs_nsubx" type="i" value="10"/>
 <var name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
 <var name="ngsLam" type="f" value="640"/>
-<var name="nlayer" type="i" value="3" comment="only used in param
+<var name="sciLam" type="f" value="1650"/>
+<var name="nlayer" type="i" value="1" comment="only used in param
 					       file"/>
-
+<var name="fov" type="f" value="10" comment="only used in param file"/>
 <var name="nFieldX" type="i" value="6"/>
 <var name="widefieldImageBoundary" type="i" value="4" comment="The
   extra rows/cols added to the psf. This will ideally depend on pixel
@@ -37,12 +38,15 @@ n=fftsize*(nFieldX+1.)/2
 #data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
 #For identical image per subap, use this one:
 data=data[:300,:300]
-data=interpolation.zoom(data,(n+2*b)/data.shape[0])
+data=interpolation.zoom(data,(n+2*b)/data.shape[0])*100
 widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
 for i in range(wfs_nsubx):
  for j in range(wfs_nsubx):
 #  widefieldImage[i,j]=data[i*n:i*n+n+2*b,j*n:j*n+n+2*b]#use this for a different image per sub-aperture
   widefieldImage[i,j]=data # use this for same image per subap.
+  #widefieldImage[i,j]=0
+  #size=4
+  #widefieldImage[i,j,n/2+b-size:n/2+b+size,n/2+b-size:n/2+b+size]=100
 </var>
 <var name="studySubap" type="eval" value="(3,3)"/>
 <var name="strList" type="eval" value="[0.5,0.3,0.2]"/>
@@ -56,11 +60,28 @@ spider=None
 pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
 </var>
 
-<var name="layerList" type="eval" value="{'L0-2':['L0','L1','L2']}"/>
-<var name="sendFullDM" type="i" value="1" comment="Must be selected for widefield modules"/>
+<var name="layerList" type="eval" value="{'L0-2':['L0','L1','L2'][:nlayer]}"/>
+<var name="corrPattern" type="code">
+from scipy.ndimage import interpolation
+nimg=int(wfs_n*(nFieldX+1.)/2)
+corrPattern=numpy.zeros((wfs_nsubx,wfs_nsubx,nimg*2,nimg*2),"f")
+for i in range(wfs_nsubx):
+ for j in range(wfs_nsubx):
+  interpolation.zoom(widefieldImage[i,j],float(nimg)/widefieldImage.shape[2],output=corrPattern[i,j,nimg//2:nimg//2+nimg,nimg//2:nimg//2+nimg])
+</var>
+
 <var name="wfsOverview" type="code">
 import util.guideStar
-wfsOverview=util.guideStar.wfsOverview({"a":util.guideStar.NGS("a",wfs_nsubx,0.,0.,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=60.,pupil=pupil,spotpsf=numpy.ones((wfs_nsubx,wfs_nsubx,npup/wfs_nsubx*4,npup/wfs_nsubx*4),numpy.float32))})
+nimg=int(wfs_n*(nFieldX+1.)/2)
+wfsOverview=util.guideStar.wfsOverview({"a":util.guideStar.NGS("a",wfs_nsubx,0.,0.,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,spotpsf=numpy.ones((wfs_nsubx,wfs_nsubx,npup/wfs_nsubx*4,npup/wfs_nsubx*4),numpy.float32)),
+"acent":util.guideStar.NGS("acent",wfs_nsubx,0.,0.,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,nimg=nimg,ncen=nimg,correlationCentroiding=1,corrThresh=0.0,corrPattern=corrPattern,cameraImage=1,reconList=["recon"]),
+})
+</var>
+
+<var name="sciOverview" type="code">
+import util.sci
+sciOverview=util.sci.sciOverview({"b":util.sci.sciInfo("b",0.,0.,pupil,sciLam,calcRMS=1),})
+
 </var>
 
 <var name="atmosGeom" type="code">
@@ -75,6 +96,8 @@ l0=5.
 sourceList=[]
 
 sourceList.append(wfsOverview.getWfsByID("a"))
+sourceList.append(wfsOverview.getWfsByID("acent"))
+sourceList.append(sciOverview.getSciByID("b"))
 
 atmosGeom=geom(d,sourceList,
 	       ntel,npup,telDiam,r0,l0
@@ -82,7 +105,10 @@ atmosGeom=geom(d,sourceList,
 </var>
 <var name="dmOverview" type="code">
 from util.dm import dmOverview,dmInfo
-dmInfoList=[dmInfo('dm',['a'],10000.,wfs_nsubx+1,fov=60.,minarea=0.1,actuatorsFrom="recon",                   pokeSpacing=None,maxActDist=1.5,decayFactor=0.95)]
+dmHeight=0.
+dmInfoList=[dmInfo('dm',['a'],dmHeight,wfs_nsubx+1,fov=fov,minarea=0.1,actuatorsFrom="recon",pokeSpacing=None,maxActDist=1.5,decayFactor=0.95,sendFullDM=1,reconLam=ngsLam),#sendFullDM must be set for wideField.
+dmInfo('dmNF',['b'],dmHeight,wfs_nsubx+1,fov=fov,minarea=0.1,actuatorsFrom="Nothing",pokeSpacing=None,maxActDist=1.5,decayFactor=0.95,sendFullDM=0,reconLam=ngsLam)
+]
 dmOverview=dmOverview(dmInfoList,atmosGeom)
 
 </var>
@@ -106,14 +132,40 @@ dmOverview=dmOverview(dmInfoList,atmosGeom)
 </variables>
 </module>
 
-
+<module name="xinterp_dm_dma">
+  <variables>
+    <vr name="sendFullDM" type="i" value="1" comment="Must be selected
+						   for widefield
+						   modules"/>
+  </variables>
+</module>
 
 
 <module name="wfscent">
 <variables>
-<var name="imageOnly" type="i" value="1"/>
+<var name="imageOnly" type="i" value="0"/>
 <var name="subtractTipTilt" value="0" type="i"/>
 </variables>
 </module>
+
+<module name="wfscent_a">
+<variables>
+<var name="imageOnly" type="i" value="1"/>
+</variables>
+</module>
+
+<module name="tomoRecon">
+  <variables>
+    <var name="rcond" type="f" value="0.1"/>
+    <var name="recontype" type="s" value="pinv"/>
+    <var name="pokeval" type="f" value="1."/>
+    <var name="gainFactor" type="f" value=".20"/>
+    <var name="decayFactor" type="f" value="1"/>
+    <var name="computeControl" type="i" value="1"/>
+    <var name="reconmxFilename" type="s" value="rmx.fits"/>
+    <var name="pmxFilename" type="s" value="pmx.fits"/>
+  </variables>
+</module>
+
 
 </aosim>

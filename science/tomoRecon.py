@@ -810,7 +810,7 @@ class recon(base.aobase.aobase):
                         #  1/len(outputData)-1/len(outputData)**2.0
                         opvar=self.outputData.var()/(len(self.outputData)**-1.0-len(self.outputData)**-2.0)
                         if abs(opvar-1.0)>1e-8:
-                           print("WARNING [{1:3d}:{2:3d}] output data var={0:12.10f}".format(opvar,self.pokingDMNo,self.pokingActNo))
+                           print("WARNING tomoRecon [{1:3d}:{2:3d}] output data var={0:12.10f}".format(opvar,self.pokingDMNo,self.pokingActNo))
                         #self.outputData[self.poking-1]=self.pokeval
                         if self.reconType=="MAP":#reconstructor assumes modes scaled to orthonormal. but DM may not be
                             self.outputData[self.nactsCumList[self.pokingDMNo]+self.pokingActNo]/=\

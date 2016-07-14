@@ -106,6 +106,7 @@ class wfscent(base.aobase.aobase):
         self.imageOnly=self.config.getVal("imageOnly",default=0)# 0 to return slopes, 
                                                                 # 1 to return image as nsubx,nsubx,nimg,nimg, 
                                                                 # 2 to return image as a 2d image.
+                                                                
         if forGUISetup==1:#this won't be set if resource sharing - whats the point!  So, this is ok.
             fullOutput=self.config.getVal("fullWFSOutput",default=1)
             if obj==None:
@@ -263,6 +264,7 @@ class wfscent(base.aobase.aobase):
             parabolicFit=0#use wfsObj if you want these!
             gaussianFitVals=None
             seed=this.config.getVal("wfs_seed",default=this.config.getVal("seed",default=0,raiseerror=0),raiseerror=0)
+            subapLocation=None
         else:
             atmosPhaseType=wfsobj.atmosPhaseType
             wfs_nsubx=wfsobj.nsubx
@@ -302,6 +304,8 @@ class wfscent(base.aobase.aobase):
             parabolicFit=wfsobj.parabolicFit
             gaussianFitVals=wfsobj.gaussianFitVals#None, or a tuple of 2 values: (gaussianMinVal, gaussianReplaceVal).
             seed=wfsobj.seed
+            subapLocation=wfsobj.subapLocation
+            
         this.atmosPhaseType=atmosPhaseType
         if atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
             raise Exception("wfscent: atmosPhaseType not known %s"%atmosPhaseType)
@@ -377,6 +381,13 @@ class wfscent(base.aobase.aobase):
                 spotpsf=this.config.getVal("spotpsf",default=None,raiseerror=0)#a spot PSF, eg an airy disc (eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)), or LGS elongated spots.
             else:
                 spotpsf=wfsobj.spotpsf
+        if wfsobj.cameraImage:
+            if parent.values()[0].outputData.dtype.char!="f" or parent.values()[0].outputData.flags.contiguous==False:
+                raise Exception("wfscent with cameraImage!=0 requires a float32 contiguous input from parent")
+            inputImage=parent.values()[0].outputData
+        else:
+            inputImage=None
+            
         phslam=None
         wfslam=None
         atmosGeom=this.config.getVal("atmosGeom",raiseerror=0)
@@ -446,6 +457,8 @@ class wfscent(base.aobase.aobase):
             gaussianFitVals=gaussianFitVals,
             seed=seed,
             integstepFn=integstepFn,
+            inputImage=inputImage,
+            subapLocation=subapLocation,
         )
 
 
@@ -488,8 +501,8 @@ class wfscent(base.aobase.aobase):
                 phasesizemax=wfs.phasesize
             if wfs.nsubx*wfs.nimg>imgsizemax:
                 imgsizemax=wfs.nsubx*wfs.nimg
-            if wfs.corrPattern!=None and wfs.corrPattern.shape[2]*wfs.nsubx>corrimgsizemax:
-                corrimgsizemax=wfs.corrPattern.shape[2]*wfs.nsubx
+            if wfs.corrPattern is not None and wfs.corrPattern.shape[-2]*wfs.nsubx>corrimgsizemax:
+                corrimgsizemax=wfs.corrPattern.shape[-2]*wfs.nsubx
             if wfs.nsubx*wfs.fftsize>nsubxnfftmax:
                 nsubxnfftmax=wfs.nsubx*wfs.fftsize
             if wfs.nsubx*wfs.phasesize>maxnpup:
@@ -599,33 +612,49 @@ class wfscent(base.aobase.aobase):
                     self.inputInvalid=1
                     self.dataValid=0
             if self.inputInvalid==0: # there was an input, so we can integrate...
-                self.dataValid=0
                 wfs=self.wfscentObj # has been copied from thisObjList before generateNext is called...
-                if wfs.integstepFn!=None and wfs.texp==0 and self.control["useCmod"]:
-                    wfs.updateIntegTime(wfs.integstepFn())
-                if wfs.texp<wfs.integtime:
-                    # Still integrating...
-                    #t=time.time()
-                    # Stack up the phases
-                    wfs.reorder(self.parent[current].outputData,int(wfs.texp/wfs.tstep))              
-                    #print "wfs: Reorder time %g"%(time.time()-t)
-
-                wfs.texp+=wfs.tstep
-                if wfs.texp>=wfs.integtime+wfs.latency:  # Exposure Complete
-                    wfs.texp=0.
+                if wfs.inputImage is not None:
+                    #input data is an image, rather than phase.
+                    self.dataValid=1
                     if self.control["zeroOutput"]:
                         wfs.outputData[:]=0
                     else:
-                        wfs.runCalc(self.control)
-                        # this should be used for LGS sensors:
+                        wfs.runSlopeCalc(self.control)
                         if wfs.subtractTipTilt==-1 or (
-                            wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
+                                wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
                             N=wfs.nsubaps
                             # subtract average x centroid:
                             wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
                             # subtract average y centroid:
                             wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
-                    self.dataValid=1
+                        
+                else:
+                    self.dataValid=0
+                    if wfs.integstepFn!=None and wfs.texp==0 and self.control["useCmod"]:
+                        wfs.updateIntegTime(wfs.integstepFn())
+                    if wfs.texp<wfs.integtime:
+                        # Still integrating...
+                        #t=time.time()
+                        # Stack up the phases
+                        wfs.reorder(self.parent[current].outputData,int(wfs.texp/wfs.tstep))              
+                        #print "wfs: Reorder time %g"%(time.time()-t)
+
+                    wfs.texp+=wfs.tstep
+                    if wfs.texp>=wfs.integtime+wfs.latency:  # Exposure Complete
+                        wfs.texp=0.
+                        if self.control["zeroOutput"]:
+                            wfs.outputData[:]=0
+                        else:
+                            wfs.runCalc(self.control)
+                            # this should be used for LGS sensors:
+                            if wfs.subtractTipTilt==-1 or (
+                                wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
+                                N=wfs.nsubaps
+                                # subtract average x centroid:
+                                wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
+                                # subtract average y centroid:
+                                wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
+                        self.dataValid=1
 
                 if self.timing:
                     print("INFORMATION:wfscent: time:{0:s}".format( str(time.time()-t1) ))
@@ -639,7 +668,21 @@ class wfscent(base.aobase.aobase):
 
 
 
+    def newCorrRef(self):
+        """Grabs current SHS images and sets these as the correlation reference.  Then computes new reference slopes too"""
+        cs=self.control["cal_source"]
+        self.control["cal_source"]=1
+        this=self.thisObjList[0]
+        wfs=this.wfscentObj
+        wfs.corrPattern=None
+        data=wfs.takeCorrImage(self.control)
+        #now calibrate the SHS
+        #wfs.calibrateSHS(self.control)
+        #Now take reference centorids...
+        wfs.takeReference(self.control)
+        self.control["cal_source"]=cs
 
+        return data
 
 
 
@@ -653,7 +696,7 @@ class wfscent(base.aobase.aobase):
         If mask is set, parts of the images that aren't used in centroid computation will be masked out (ncen).
         If mask is 1, they are masked at max value, and if -1, masked at zero.
         """
-        if mask==None:
+        if mask is None:
             mask=self.imgmask
         if objNumber==None:
             try:
@@ -717,7 +760,7 @@ class wfscent(base.aobase.aobase):
         """img can be wfsobj.corrimg, or wfsobj.corrPatternUser or "corrimg" or "corrPattern"
         img.shape==nsubx,nsubx,nimg,nimg
         """
-        if mask==None:
+        if mask is None:
             mask=self.imgmask
         if objno==None:
             wfsobj=self.wfscentObj
@@ -790,6 +833,7 @@ class wfscent(base.aobase.aobase):
                 if wfs.correlationCentroiding:
                     txt+="""<plot title="Correlation%s (show the current correlation image)" cmd="data=%s.drawCorrelation('corrimg')" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
                     txt+="""<plot title="Correlation PSF%s (show the correlation reference image)" cmd="data=%s.drawCorrelation('corrPattern',mask=0)" ret="data" type="pylab" when="cmd" palette="gray"/>"""%(id,objname)
+                    txt+="""<plot title="Get new corr ref%s" cmd="data=%s.newCorrRef()" ret="data" type="pylab" when="cmd" palette="gray"/>"""%(id,objname)
 
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
         return txt

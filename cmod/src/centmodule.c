@@ -159,6 +159,10 @@ int planSize;
   int parabolicFit;
   float gaussianMinVal;
   float gaussianReplaceVal;
+  float *inputImage;//Optional, if parent is a detector image, rather than phase...
+  int inputImageDims;
+  int inputImagenpxlx;//x dimension of image.
+  int *subapLocation;//Optional, if parent is a detector image, rather than phase.  If not specified will be auto-calculated.
 } centstruct;
 
 
@@ -1251,6 +1255,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
       if((c->addPoisson==1 && c->calsource==0) && (totsig>0 || c->skybrightness*nphspxl>0 || c->skybrightnessArr!=NULL))
 	poissonise(nexposed,&(c->bimg[i*npxl]),c->gslRand[threadno]);
       readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
+      //Calibration starts here.
       if(c->calsource==0)
 	selectBrightestPixels(nexposed,&c->bimg[i*npxl],c->useBrightestArr==NULL?c->useBrightest:c->useBrightestArr[i],c->sortarr[threadno]);
  	//}else{//a calibration source.
@@ -1329,6 +1334,127 @@ int centroidsFromPhase(centrunstruct *runinfo){
   }
   return error;
 }
+
+
+int centroidsFromImage(centrunstruct *runinfo){
+  centstruct *c;
+  int threadno;
+  int i;
+  int npxl,nexposed;
+  int error=0;
+  float nphspxl;
+  float totsig;
+  float *bimg,*cweight;
+  int indx,n;
+  int imageOnly;
+  c=(centstruct*)runinfo->centstr;
+  imageOnly=c->imageOnly;
+  threadno=runinfo->n;
+  //printf("threadno %d doing subaps %d to %d (c %p)\n",threadno,c->subapStart[threadno],c->subapStart[threadno+1],c);
+  //compute the requested centroids.
+  for(i=c->subapStart[threadno]; i<c->subapStart[threadno+1]; i++){
+    //memset(&(c->bimg[i*npxl]),0,npxl*sizeof(float));
+    npxl=c->imgpxls;
+    if(c->subflag[i]==1){//subap is full enough to use.  ie subflag[i]==1...
+      int rstart,rend,cstart,cend,j,k;
+      //Extract the subap image from the detector image.
+      if(c->inputImageDims==2){//2D image
+	if(c->subapLocation==NULL){
+	  rstart=(i/(int)sqrt(c->nsubaps))*c->nimg;
+	  rend=rstart+c->nimg;
+	  cstart=(i%(int)sqrt(c->nsubaps))*c->nimg;
+	  cend=cstart+c->nimg;
+	}else{
+	  rstart=c->subapLocation[i*4];
+	  rend=c->subapLocation[i*4+1];
+	  cstart=c->subapLocation[i*4+2];
+	  cend=c->subapLocation[i*4+3];
+	}
+	//printf("%d %d %d %d %d\n",i,rstart,rend,cstart,cend);
+	for(j=0;j<rend-rstart;j++){
+	  for(k=0;k<cend-cstart;k++){
+	    c->bimg[i*npxl+j*c->nimg+k]=c->inputImage[(rstart+j)*c->inputImagenpxlx+(cstart+k)];
+	  }
+	}
+	nexposed=(rend-rstart)*(cend-cstart);
+      }else{//4D image
+	memcpy(&c->bimg[i*npxl],&c->inputImage[i*npxl],npxl*sizeof(float));
+	nexposed=npxl;
+      }
+      //Calibration starts here.
+      if(c->calsource==0)
+	selectBrightestPixels(nexposed,&c->bimg[i*npxl],c->useBrightestArr==NULL?c->useBrightest:c->useBrightestArr[i],c->sortarr[threadno]);
+
+      if(imageOnly==0){
+	if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation
+	  //This shouldn't be used with optical binning...
+	  //The correlation image may be bigger than nimg.  So, zeropad bimg, then do the correlation.  After that, use ncen.
+	  int npxlcorr=c->corrsize*c->corrsize;
+	  bimg=&(c->corrimg[i*npxlcorr]);
+	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
+	  npxl=npxlcorr;//The subaps may have grown!!!
+	  thresholdCorrelation(npxl,c->corrThresh,bimg);
+	}else{
+	  bimg=&(c->bimg[i*npxl]);
+	}
+	//now apply the centroid mask and compute the centroids.
+	if(c->opticalBinning==1){
+	  computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
+	}else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
+	  computeFit(c->corrsize,c->ncen,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal);
+
+	}else{//do a CoG
+	  if(c->centWeightDim==2){//weighted CoG
+	    cweight=c->centWeight;
+	  }else if(c->centWeightDim==4 && c->centWeight!=NULL){//weighted CoG
+	    cweight=&c->centWeight[i*npxl];
+	  }else{//cog
+	    cweight=NULL;
+	  }
+	  //Note: corrsize==nimg unless convolving with something larger.  
+	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
+	}
+	//and now apply the calibration... (linearisation)
+	if(c->calData!=NULL){
+	  indx=c->calBounds[i*2];//c->calBounds[0,i,j,0];
+	  n=c->calBounds[i*2+1]-indx;
+	  applyCentroidCalibration(&(c->cents[i*2]),n,&c->calData[i*c->calNSteps+indx],&c->calSteps[indx]);//calData[0,i,j,indx]
+	  indx=c->calBounds[(c->nsubaps+i)*2];//[1,i,j,0];
+	  n=c->calBounds[(c->nsubaps+i)*2+1]-indx;
+	  applyCentroidCalibration(&(c->cents[i*2+1]),n,&c->calData[(c->nsubaps+i)*c->calNSteps+indx],&c->calSteps[indx]);
+	}else if(c->calCoeff!=NULL){//calibrate using a polynomial...
+	  
+	  applyCentroidCalibrationInterpolation(&(c->cents[i*2]),c->calNCoeff,&c->calCoeff[i*2*c->calNCoeff]);
+	  applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
+	}
+	//and now subtract reference centroids...
+	if(c->refCents!=NULL){
+	  c->cents[i*2]-=c->refCents[i*2];
+	  c->cents[i*2+1]-=c->refCents[i*2+1];
+	  //printf("%g %g - after refsub\n",c->refCents[i*2],c->refCents[i*2+1]);
+	}
+      }
+    }else{
+      //return ignored centroids too.
+      if(c->imageOnly==0){
+	c->cents[i*2]=0.;
+	c->cents[i*2+1]=0.;
+      }else{//unused subaps still have noise...
+	//add random pixel noise...
+	nexposed=npxl;
+	memset(&(c->bimg[i*npxl]),0,nexposed*sizeof(float));
+	readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
+	
+      }
+      //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
+      //printf("Got NaN bimg4 %d\n",i);
+      //}
+    }
+  }
+  return error;
+}
+
+
 
 
 int checkFloatContigArr(PyArrayObject *arr){
@@ -1976,18 +2102,18 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   float gaussianMinVal,gaussianReplaceVal;
   int threshType;
   float *sigArr=NULL;
-  PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj;
-  PyArrayObject *phs,*pupfn,*cents,*fracSubArea,*subflag,*bimg,*sigArrObj,*aobj,*corrPattern=NULL,*corrimg=NULL;
+  PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj,*inputImageObj,*subapLocationObj;
+  PyArrayObject *phs,*pupfn,*cents,*fracSubArea,*subflag,*bimg,*sigArrObj,*aobj,*corrPattern=NULL,*corrimg=NULL,*inputImageArr=NULL,*subapLocationArr=NULL;
   centstruct *c;
-  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiOiiiff",&nthreads,
+  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiOiiiffOO",&nthreads,
 		       &nsubaps,&ncen,&fftsize,&clipsize,
 		       &nimg,&phasesize,&readnoise,&readbg,&addPoisson,&noiseFloor,
 		       &sigObj,&skybrightnessObj,&calsource,
 		       &pxlPower,&nintegrations,&seed,
 		       &PyArray_Type,&phs,&PyArray_Type,
 		       &pupfn,&spotpsfObj,&PyArray_Type,&cents,
-		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor,&parabolicFit,&gaussianFit,&gaussianMinVal,&gaussianReplaceVal)){
-    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\n");
+		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor,&parabolicFit,&gaussianFit,&gaussianMinVal,&gaussianReplaceVal,&inputImageObj,&subapLocationObj)){
+    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\ninputImage(None), subapLocation(None) (for when input is an input image)");
     return NULL;
   }
   if((c=malloc(sizeof(centstruct)))==NULL){
@@ -2207,6 +2333,47 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->binnextpxl=NULL;
   c->binindx=NULL;
   prepareBinImage(clipsize,nimg,c);
+  if(PyArray_Check(inputImageObj))
+     inputImageArr=(PyArrayObject*)inputImageObj;
+  if(PyArray_Check(subapLocationObj))
+    subapLocationArr=(PyArrayObject*)subapLocationObj;
+  
+  if(inputImageArr!=NULL){
+    if(checkFloatContigArr(inputImageArr)!=0){
+      printf("Error: centmodule - inputImage array must be float and contiguous\n");
+      return NULL;
+    }
+    if(inputImageArr->nd==2){
+      if(inputImageArr->dimensions[0]*inputImageArr->dimensions[1]!=c->nimg*c->nimg*c->nsubaps){
+	printf("Error: centmodule - inputImage should be %d x %d (is %d x %d)\n",c->nimg*(int)sqrt(c->nsubaps),c->nimg*(int)sqrt(c->nsubaps),(int)inputImageArr->dimensions[0],(int)inputImageArr->dimensions[1]);
+	return NULL;
+      }
+      c->inputImageDims=2;
+      c->inputImagenpxlx=inputImageArr->dimensions[1];
+    }else if(inputImageArr->nd==4){//nsubx,nsubx,nimg,nimg
+      if(inputImageArr->dimensions[0]*inputImageArr->dimensions[1]!=c->nsubaps || inputImageArr->dimensions[2]!=c->nimg || inputImageArr->dimensions[3]!=c->nimg){
+	printf("Error: centmodule - inputImage should by %dx%dx%dx%d (is %dx%dx%dx%d\n",(int)sqrt(c->nsubaps),(int)sqrt(c->nsubaps),c->nimg,c->nimg,(int)inputImageArr->dimensions[0],(int)inputImageArr->dimensions[1],(int)inputImageArr->dimensions[2],(int)inputImageArr->dimensions[3]);
+	return NULL;
+      }
+      c->inputImageDims=4;
+      c->inputImagenpxlx=inputImageArr->dimensions[3];
+    }
+    c->inputImage=(float*)(inputImageArr->data);
+  }
+  if(subapLocationArr!=NULL){
+    int size=1;
+    if(checkIntContigArr(subapLocationArr)!=0){
+      printf("Error: centmodule - subapLocation array must be int32 and contiguous\n");
+      return NULL;
+    }
+    for(i=0;i<subapLocationArr->nd;i++)
+      size*=subapLocationArr->dimensions[i];
+    if(size!=c->nsubaps*4){
+      printf("Error: centmodule - subapLocation array should be of size %d (is %d)\n",c->nsubaps*4,size);
+      return NULL;
+    }
+    c->subapLocation=(int*)(subapLocationArr->data);
+  }
   //printf("centmodule: finished initialise\n");
   return Py_BuildValue("l",(long)c);//return a pointer to centstruct.
 }
@@ -2272,6 +2439,47 @@ PyObject *py_run(PyObject *self,PyObject *args){
   //free(thread);
   return Py_BuildValue("f",dtime);
 }
+PyObject *py_runSlope(PyObject *self,PyObject *args){
+  centstruct *c;
+  centrunstruct **runinfo;
+  pthread_t *thread;
+  int nthreads,i;
+  float dtime=0.;
+  struct timeval t1,t2;
+  //pid_t pid;
+  //pid_t *pidlist;
+  //pidlist=malloc(sizeof(pid_t)*nthreads);
+  if(!PyArg_ParseTuple(args,"l",&c)){
+    printf("Usage: centstruct\n");
+    return NULL;
+  }
+  //memset(c->bimg,0,sizeof(float)*c->nsubaps*c->imgpxls);
+  gettimeofday(&t1,NULL);
+  nthreads=c->nthreads;
+  runinfo=c->runinfo;//malloc(sizeof(centrunstruct)*nthreads);
+  thread=c->threadid;//malloc(sizeof(pthread_t)*nthreads);
+  //first create the threads and set them running, and then run ourself.
+  if(c->inputImage==NULL){
+    printf("Error: centmodule - inputImage is NULL\n");
+    return NULL;
+  }
+  for(i=1; i<nthreads; i++){
+    pthread_create(&thread[i],c->pthread_attr,(void*)centroidsFromImage,runinfo[i]);
+  }
+  //runinfo[0]->centstr=c;
+  //runinfo[0]->n=0;
+  centroidsFromImage(runinfo[0]);//run ourself...
+  //wait for thread completion.
+  for(i=1; i<nthreads; i++){
+    pthread_join(thread[i],NULL);
+  }
+  gettimeofday(&t2,NULL);
+  dtime=(t2.tv_sec*1000000+t2.tv_usec-t1.tv_sec*1000000-t1.tv_usec)/1e6;
+  //free(runinfo);
+  //free(thread);
+  return Py_BuildValue("f",dtime);
+}
+
 
 PyObject *py_testcorrelation(PyObject *self,PyObject *args){
   fftwf_plan corrPlan;
@@ -2312,7 +2520,8 @@ PyObject *py_testcorrelation(PyObject *self,PyObject *args){
 
 
 static PyMethodDef centMethods[] = {
-  {"run",  py_run, METH_VARARGS,"Run the centroid algorithm."},
+  {"run",  py_run, METH_VARARGS,"Run the phase -> centroid algorithm."},
+  {"runSlope",  py_runSlope, METH_VARARGS,"Run the image -> centroid algorithm ."},
   {"initialise",py_initialise,METH_VARARGS,"Initialise the cent module"},
   {"update",py_update,METH_VARARGS,"Update values used for centroiding"},
   {"free",py_free,METH_VARARGS,"Free the arrays allocated (invalidates the centstruct pointer)"},

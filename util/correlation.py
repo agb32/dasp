@@ -7,7 +7,7 @@ def transformPSF(psf):
     psf is eg the LGS spot elongation pattern.
     psf should have shape nsubx,nsubx,nimg,nimg. or nimg,nimg.
     """
-    if psf==None:
+    if psf is None:
         return None
     psf=psf.copy()
     if len(psf.shape)==4:

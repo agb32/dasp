@@ -26,10 +26,11 @@ class dm(base.aobase.aobase):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.datatype=self.config.getVal("xinterpdmDataType",default=numpy.float32)
-        self.sendFullDM=self.config.getVal("sendFullDM",default=0)#used if connecting to wideField.py science module
+        #self.sendFullDM=self.config.getVal("sendFullDM",default=0)#used if connecting to wideField.py science module
         if forGUISetup==1:
-            if self.sendFullDM:
-                self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
+            #if self.sendFullDM:
+            self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
+            if self.dmObj.getDM(idstr).sendFullDM:
                 dmpup=self.dmObj.calcdmpup(self.idstr[0])
                 self.outputData=[(dmpup,dmpup),"f"]
             else:
@@ -152,6 +153,8 @@ class dm(base.aobase.aobase):
             #self.dmdata=numpy.sum(self.dmflag_1d) # Number of used actuators
             self.dmindices=numpy.nonzero(self.dmflag.ravel())[0]
             self.telDiam=self.config.getVal("telDiam")
+            self.sendFullDM=self.dmObj.getDM(idstr).sendFullDM
+            
             if self.sendFullDM:
                 self.outputData=self.dmphs
             else:
@@ -475,6 +478,9 @@ class dm(base.aobase.aobase):
                 else:
                     if not this.parent.has_key("atmos"):
                         self.outputData[:]=0
+                    #else:
+                    #    this.lineOfSight.selectSubPupil(self.outputData,1,removePiston=1)
+                    #    self.selectedDmPhs=this.lineOfSight.selectedDmPhs
         else:
             self.dataValid=0
             

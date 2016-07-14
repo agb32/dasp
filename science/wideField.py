@@ -481,12 +481,13 @@ class WideField(base.aobase.aobase):
                         for i in range(self.nsubx):
                             for j in range(self.nsubx):
                                 self.outputData[i,j]=scipy.signal.fftconvolve(self.outputData[i,j],self.smoothingPsf,mode="same")
-                    if self.addPoisson!=0:
-                        self.outputData[:]=numpy.random.poisson(self.outputData)
-                    if self.readoutNoise!=0:
-                        self.outputData+=numpy.random.normal(self.bglevel,self.readoutNoise)
-                    elif self.bglevel!=0:
-                        self.outputData+=self.bglevel
+                    if self.control["cal_source"]==0:
+                        if self.addPoisson!=0:
+                            self.outputData[:]=numpy.random.poisson(self.outputData)
+                        if self.readoutNoise!=0:
+                            self.outputData+=numpy.random.normal(self.bglevel,self.readoutNoise)
+                        elif self.bglevel!=0:
+                            self.outputData+=self.bglevel
 
             else:#no new data ready
                 self.dataValid=0

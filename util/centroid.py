@@ -107,7 +107,7 @@ class centroid:
           correlationCentroiding=0, corrThresh=0., 
           corrPattern=None, threshType=0, imageOnly=0, calNCoeff=0,
           useBrightest=0, printLinearisationForcing=0, rowintegtime=None,
-                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None,seed=1,integstepFn=None):
+                 preBinningFactor=1,parabolicFit=0,gaussianFitVals=None,seed=1,integstepFn=None,inputImage=None,subapLocation=None):
         """
         Variables are:
          - sig: is the number of photons per phase pixel if pupfn is specified,
@@ -186,6 +186,8 @@ class centroid:
            with PSF.
          - seed - random number seed
          - integstepFn - None or a function to return the number of integration steps, which is called at the start of each integration.
+         - inputImage - only used if wfscent is gettting image rather than phase data.  
+         - subapLocation - optionally used if inputImage is used.  For each subap, this has (yfrom,yto,xfrom,xto) - i.e. same as darc but without the step.
         """
         self.nsubx=nsubx
         self.warnOverflow=warnOverflow
@@ -301,6 +303,8 @@ class centroid:
         self.linearSteps=linearSteps
         self.calNCoeff=calNCoeff
         self.stepRangeFrac=stepRangeFrac
+        self.inputImage=inputImage
+        self.subapLocation=subapLocation
         self.phaseMultiplier=phaseMultiplier
         if magicCentroiding:
             self.magicSlopes=None#self.magicSHSlopes()
@@ -373,9 +377,9 @@ class centroid:
         #Now, can use self.runCalc({'cal_source':0/1})
 
     def reformatImg(self,indata=None,out=None):
-        if indata==None:
+        if indata is None:
             indata=self.cmodbimg
-        if out==None:
+        if out is None:
             out=numpy.zeros((indata.shape[0]*indata.shape[2],indata.shape[1]*indata.shape[3]),numpy.float32)
         nsubx=indata.shape[0]
         nimg=indata.shape[2]
@@ -385,7 +389,7 @@ class centroid:
         return out
 
     def reformatPhs(self,indata,out=None):
-        if out==None:
+        if out is None:
             out=self.reorderedPhs
         nsubx=out.shape[0]
         n=out.shape[-1]
@@ -483,7 +487,7 @@ class centroid:
                                                  self.cmodbimg,self.wfs_minarea,self.opticalBinning,
                                                  self.centWeight,self.correlationCentroiding,
                                                  self.corrThresh,self.corrPattern,self.corrimg,
-                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor,self.parabolicFit,self.gaussianFitVals)
+                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor,self.parabolicFit,self.gaussianFitVals,self.inputImage,self.subapLocation)
             #print "initialised cmod - done"
         else:
             self.centcmod=None
@@ -517,6 +521,20 @@ class centroid:
     #     if self.canUseCell:
     #         self.cellObj.close()
 
+    def runSlopeCalc(self,control):
+        doref=1
+        if self.usecmod:
+            self.runCmodSlope(control["cal_source"])
+            if self.linearSteps==None or self.psf!=None or self.correlationCentroiding!=None or self.calNCoeff!=0:
+                doref=0#ref subtraction is done in c code...
+        else:
+            raise Exception("Only cmodule currently supported here")
+        if self.linearSteps!=None:
+            self.applyCalibration()
+        if doref:
+            if self.refCents is not None:
+                self.outputData-=self.refCents
+                
     def runCalc(self,control):
         doref=1
         if self.phaseMultiplier!=1:
@@ -530,17 +548,17 @@ class centroid:
         if control.get("useCmod",1):
             self.runCmod(control["cal_source"])
             # no calibration done, or done in c, so ref can be done by c:
-            if self.linearSteps==None or self.psf!=None or self.correlationCentroiding!=None or self.calNCoeff!=0:
+            if self.linearSteps is None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:
                 doref=0#ref subtraction is done in c code...
         else:
             # use software version
             # t=time.time()
             # Create the images
             self.runPy(control["cal_source"])
-        if self.linearSteps!=None:
+        if self.linearSteps is not None:
             self.applyCalibration()
         if doref:
-            if self.refCents!=None:
+            if self.refCents is not None:
                 self.outputData-=self.refCents
 
     # def runCell(self,calsource):
@@ -561,6 +579,16 @@ class centroid:
         self.tidyImage(calsource)
         self.calc_cents(calsource)
 
+        
+    def runCmodSlope(self,calsource):
+        """run the c version"""
+        if self.magicCentroiding:
+            raise Exception("Cannot perform magic centroiding when input is an image")
+        self.centcmod.runSlope(calsource)
+        if self.imageOnly==0:
+            pass
+        else:
+            raise Exception("no point getting here!  If you want the image only, don't use this module.")
     def runCmod(self,calsource):
         """run the c version"""
         if self.magicCentroiding:
@@ -921,7 +949,7 @@ class centroid:
         #self.centx=zeros((nsubx,nsubx),float)
         #self.centy=zeros((nsubx,nsubx),float)
         #self.shimg*=0.#reset...=zeros((nsubx*nimg,nsubx*nimg),float)
-        if self.cenmask==None:
+        if self.cenmask is None:
             self.cenmask=numpy.zeros((self.nimg,self.nimg),numpy.float32)             # Define centroiding mask
             self.cenmask[self.nimg/2-self.ncen/2:self.nimg/2+self.ncen/2,self.nimg/2-self.ncen/2:self.nimg/2+self.ncen/2]=1.
 
@@ -1147,7 +1175,7 @@ class centroid:
         nsubx=self.nsubx
         pupfn=self.pupfn
         n=self.pupfn.shape[0]/nsubx
-        if self.magicSlopes==None:
+        if self.magicSlopes is None:
             self.magicSlopes=self.magicSHSlopes()
         magicSlopes=self.magicSlopes
 
@@ -1284,7 +1312,7 @@ class centroid:
         Data.shape should be nsubx,nsubx,2
         Typically it will be self.outputData
         """
-        if data==None:
+        if data is None:
             data=self.outputData
         if self.calNCoeff==0:
             for i in range(self.nsubx):
@@ -1460,7 +1488,7 @@ class centroid:
         Data.shape should be nsubx,nsubx,2
         Typically it will be self.outputData
         """
-        if data==None:
+        if data is None:
             data=self.outputData
         if numpy.any(numpy.isnan(data)):
             print("WARNING:**centroid**: nan prior to applyCalibrationIdentical")
@@ -1536,7 +1564,7 @@ class centroid:
     def calibrateSHS(self,control={"cal_source":1,"useCmod":1}):
         if self.linearSteps==None:
             return
-        if self.psf==None and self.correlationCentroiding==0 and self.calNCoeff==0:
+        if self.psf is None and self.correlationCentroiding==0 and self.calNCoeff==0:
             self.calibrateSHSIdentical(control)
         else:
             self.calibrateSHSUnique(control)
@@ -1549,23 +1577,36 @@ class centroid:
                     self.centcmod.update(util.centcmod.CALDATA,(self.calibrateData,self.calibrateBounds,self.calibrateSteps))
 
     def applyCalibration(self,data=None):
-        if self.psf==None and self.correlationCentroiding==0 and self.calNCoeff==0:
+        if self.psf is None and self.correlationCentroiding==0 and self.calNCoeff==0:
             self.applyCalibrationIdentical(data)
         else:
             if self.centcmod==None:#otherwise its been done in the c module.
                 self.applyCalibrationUnique(data)
 
 
-    def takeReference(self,control):
+    def takeReference(self,control,cameraInput=None):
         """Measure noiseless centroid offsets for flat input.  These are then subsequently used as reference centroids.
         """
-        self.reorderedPhs[:]=0
         # compute centroids (x)
         c=control["cal_source"]
         control["cal_source"]=1
         #steps=self.linearSteps
         #self.linearSteps=None
-        self.runCalc(control)
+        if self.centcmod!=None:
+            if self.linearSteps==None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
+                self.centcmod.update(util.centcmod.REFCENTS,None)
+
+
+        if cameraInput is not None or self.inputImage is not None:
+            if cameraInput is not None:
+                self.inputImage[:]=cameraInput
+            else:
+                pass#use whatever is in the inputImage array as reference.
+            print "Taking reference slopes from current camera input"
+            self.runSlopeCalc(control)
+        else:
+            self.reorderedPhs[:]=0
+            self.runCalc(control)
         control["cal_source"]=c
         #self.linearSteps=steps
         # Now take the x centroids and store...
@@ -1573,14 +1614,15 @@ class centroid:
         #Now, we need reference to be taken after calibration has been done.
         #So, we should only pass refs to cmod if cmod is also doing calibration (or if no calibration is being done).
         if self.centcmod!=None:
-            if self.linearSteps==None or self.psf!=None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
+            if self.linearSteps==None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
                 self.centcmod.update(util.centcmod.REFCENTS,self.refCents)
                     
-    def takeCorrImage(self,control):
+    def takeCorrImage(self,control,cameraInput=None):
         """If correlationCentroiding==1, but corrPattern==None, use a default SH spot pattern as the reference.
         """
+        data=None
         if self.correlationCentroiding:
-            if self.corrPattern==None:
+            if self.corrPattern is None:
                 c=control["cal_source"]
                 control["cal_source"]=1
                 steps=self.linearSteps
@@ -1589,22 +1631,44 @@ class centroid:
                     self.centcmod.update(util.centcmod.CORRELATIONCENTROIDING,0)
                 else:
                     raise Exception("Not yet sorted for non-cmod type things")
-                self.reorderedPhs[:]=0
-                self.runCalc(control)
+                if cameraInput is not None or self.inputImage is not None:
+                    if cameraInput is not None:
+                        self.inputImage[:]=cameraInput
+                    else:
+                        pass#use whatever is in the inputImage array as reference.
+                    print "Taking reference slopes from current camera input"
+                    self.runSlopeCalc(control)
+                else:
+                    self.reorderedPhs[:]=0
+                    self.runCalc(control)
                 self.centcmod.update(util.centcmod.CORRELATIONCENTROIDING,1)
                 control["cal_source"]=c
                 self.linearSteps=steps
-                self.corrPatternUser=self.cmodbimg.copy()
+                if self.corrPatternUser is None:
+                    self.corrPatternUser=self.cmodbimg.copy()
+                else:#copy into existing, and make correct shape.
+                    if self.corrPatternUser.shape==self.cmodbimg.shape:
+                        self.corrPatternUser[:]=self.cmodbimg
+                    else:
+                        self.corrPatternUser[:]=0
+                        if len(self.corrPatternUser.shape)==4:
+                            s=(self.corrPatternUser.shape[-2]-self.cmodbimg.shape[-2])//2
+                            e=s+self.cmodbimg.shape[-2]
+                            self.corrPatternUser[:,:,s:e,s:e]=self.cmodbimg
+                        else:
+                            print self.corrPatternUser.shape
+                            raise Exception("Not yet implemented... padding of 2d corr images")
                 self.corrPatternUser/=max(self.corrPatternUser.ravel())#normalise
                 self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
                 self.centcmod.update(util.centcmod.CORRPATTERN,self.corrPattern)
-
+                data=self.corrPatternUser
+        return data
     def takeCentWeight(self,control):
         """If centWeight is a string (eg make or something similar), use a default SH spot pattern as the reference centroid weighting.
         """
         if type(self.centWeight)==type(""):
             #Need to create the centroid weighting.
-            if self.corrPattern==None:
+            if self.corrPattern is None:
                 c=control["cal_source"]
                 control["cal_source"]=1
                 steps=self.linearSteps
