@@ -1,0 +1,192 @@
+<?xml version="1.0"?>
+<aosim>
+<author name="agb"/>
+<created date="120705"/>
+<comment>
+</comment>
+<module name="globals">
+<variables>
+<var comment="time step" type="eval" name="tstep" value="1./250"/>
+<var name="wfs_sig" type="f" value="1e6"/>
+<var name="npup" type="eval" value="80"/>
+<var type="eval" name="telDiam" value="4.2"/>
+
+
+<var type="copy" name="ntel" value="npup"/>
+<var name="wfs_nsubx" type="i" value="10"/>
+<var name="wfs_n" type="eval" value="npup/wfs_nsubx"/>
+<var name="ngsLam" type="f" value="640"/>
+<var name="sciLam" type="f" value="1650"/>
+<var name="nlayer" type="i" value="3" comment="only used in param
+					       file"/>
+<var name="fov" type="f" value="10" comment="only used in param file"/>
+<var name="nFieldX" type="i" value="6"/>
+<var name="widefieldImageBoundary" type="i" value="4" comment="The
+  extra rows/cols added to the psf. This will ideally depend on pixel
+  scale and seeing - i.e. should be equal to likely maximum spot motion"/>
+<var name="widefieldImage" type="code">
+#shape should be
+#(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
+import util.FITS
+data=util.FITS.Read("granules.fits")[1][67:-67,67:-67]
+
+from scipy.ndimage import interpolation
+b=widefieldImageBoundary
+fftsize=wfs_n*2
+n=fftsize*(nFieldX+1.)/2
+#For a different image per subap use this one:
+#data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
+#For identical image per subap, use this one:
+data=data[:75,:75]#was 300.  But AO loop unstable at >80.
+data=interpolation.zoom(data,(n+2*b)/data.shape[0])*100
+widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
+for i in range(wfs_nsubx):
+ for j in range(wfs_nsubx):
+#  widefieldImage[i,j]=data[i*n:i*n+n+2*b,j*n:j*n+n+2*b]#use this for a different image per sub-aperture
+  widefieldImage[i,j]=data # use this for same image per subap.
+  #widefieldImage[i,j]=0
+  #size=4
+  #widefieldImage[i,j,n/2+b-size:n/2+b+size,n/2+b-size:n/2+b+size]=100
+</var>
+<var name="studySubap" type="eval" value="(3,3)"/>
+<var name="strList" type="eval" value="[0.5,0.3,0.2]"/>
+<var name="hList" type="eval" value="[0.,4000.,10000.]"/>
+<var name="vList" type="eval" value="[4.55,  12.61,  8.73]"/>
+<var name="dirList" type="eval" value="numpy.arange(10)*36"/>
+<var comment="telescope secondary diameter" type="eval" name="telSec" value="telDiam/7."/>
+<var comment="Telescope pupil function" type="code" name="pupil">
+import util.tel
+spider=None
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
+</var>
+
+<var name="layerList" type="eval" value="{'L0-2':['L0','L1','L2'][:nlayer]}"/>
+<var name="corrPattern" type="code">
+from scipy.ndimage import interpolation
+nimg=int(wfs_n*(nFieldX+1.)/2)
+corrPattern=numpy.zeros((wfs_nsubx,wfs_nsubx,nimg*2,nimg*2),"f")
+for i in range(wfs_nsubx):
+ for j in range(wfs_nsubx):
+  interpolation.zoom(widefieldImage[i,j],float(nimg)/widefieldImage.shape[2],output=corrPattern[i,j,nimg//2:nimg//2+nimg,nimg//2:nimg//2+nimg])
+</var>
+
+<var name="wfsOverview" type="code">
+import util.guideStar
+nimg=int(wfs_n*(nFieldX+1.)/2)
+sourceTheta=0.
+sourcePhi=0.
+wdict={"a":util.guideStar.NGS("a",wfs_nsubx,sourceTheta,sourcePhi,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,spotpsf=numpy.ones((wfs_nsubx,wfs_nsubx,npup/wfs_nsubx*4,npup/wfs_nsubx*4),numpy.float32)),
+"acent":util.guideStar.NGS("acent",wfs_nsubx,sourceTheta,sourcePhi,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,nimg=nimg,ncen=nimg,correlationCentroiding=1,corrThresh=0.0,corrPattern=corrPattern,cameraImage=1,reconList=["recon"],parabolicFit=0),
+}
+fovpitchX=fov*2*2/(nFieldX+1.)
+fovpitchY=fov*2*2/(nFieldX+1.)
+for i in range(nFieldX):
+ for j in range(nFieldX):
+  id="%d"%(i*nFieldX+j)
+
+  ydiff=(-(nFieldX-1)/2.+i)*fovpitchY/2.
+  xdiff=(-(nFieldX-1)/2.+j)*fovpitchX/2.
+  xcentre=sourceTheta*numpy.cos(sourcePhi*numpy.pi/180.)
+  ycentre=sourceTheta*numpy.sin(sourcePhi*numpy.pi/180.)
+  xnew=xcentre+xdiff
+  ynew=ycentre+ydiff
+  theta=numpy.sqrt(xnew*xnew+ynew*ynew)
+  phi=numpy.arctan2(ynew,xnew)
+
+  wdict[id]=util.guideStar.NGS(id,wfs_nsubx,theta,phi,npup/wfs_nsubx,sig=1e6,sourcelam=ngsLam,pupil=pupil)
+
+wfsOverview=util.guideStar.wfsOverview(wdict)
+</var>
+
+<var name="sciOverview" type="code">
+import util.sci
+sciOverview=util.sci.sciOverview({"b":util.sci.sciInfo("b",0.,0.,pupil,sciLam,calcRMS=1),})
+
+</var>
+
+<var name="atmosGeom" type="code">
+from util.atmos import geom,layer,source
+import util.compare
+d={}
+for i in range(nlayer):
+ d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+
+r0=0.106
+l0=5.
+sourceList=[]
+
+#sourceList.append(wfsOverview.getWfsByID("a"))
+#sourceList.append(wfsOverview.getWfsByID("acent"))
+sourceList+=wfsOverview.values()
+sourceList.append(sciOverview.getSciByID("b"))
+
+atmosGeom=geom(d,sourceList,
+	       ntel,npup,telDiam,r0,l0
+	      )
+</var>
+<var name="dmOverview" type="code">
+from util.dm import dmOverview,dmInfo
+dmHeight=0.
+dmInfoList=[dmInfo('dm',['a'],dmHeight,wfs_nsubx+1,fov=fov,minarea=0.1,actuatorsFrom="recon",pokeSpacing=None,maxActDist=1.5,decayFactor=0.95,sendFullDM=1,reconLam=ngsLam),#sendFullDM must be set for wideField.
+dmInfo('dmNF',['b'],dmHeight,wfs_nsubx+1,fov=fov,minarea=0.1,actuatorsFrom="Nothing",pokeSpacing=None,maxActDist=1.5,decayFactor=0.95,sendFullDM=0,reconLam=ngsLam)
+]
+dmOverview=dmOverview(dmInfoList,atmosGeom)
+
+</var>
+
+<var comment="Simulation exposure time in seconds" type="f" name="AOExpTime" value="40."/>
+<var comment="Current simulation time" type="f" name="simulationTime" value="0.0"/>
+<var name="wfs_minarea" type="f" value="0.5" comment="min unvignetted subap area to use"/>
+<var name="calsource" type="i" value="0"/>
+<var name="timing" type="i" value="0"/>
+<var name="wfs_read_mean" value="0.0" type="f" comment="WFS Read noise (e-)"/>
+<var name="wfs_read_sigma" value="0." type="f" comment="WFS Read noise (e-)"/>
+</variables>
+</module>
+
+
+
+<module name="iscrn">
+<variables>
+<var type="string" name="dataType" value="d"/>
+<var comment="random seed" type="eval" name="seed" value="1"/>
+</variables>
+</module>
+
+<module name="xinterp_dm_dma">
+  <variables>
+    <vr name="sendFullDM" type="i" value="1" comment="Must be selected
+						   for widefield
+						   modules"/>
+  </variables>
+</module>
+
+
+<module name="wfscent">
+<variables>
+<var name="imageOnly" type="i" value="0"/>
+<var name="subtractTipTilt" value="0" type="i"/>
+</variables>
+</module>
+
+<module name="wfscent_a">
+<variables>
+<var name="imageOnly" type="i" value="1"/>
+</variables>
+</module>
+
+<module name="tomoRecon">
+  <variables>
+    <var name="rcond" type="f" value="0.05"/>
+    <var name="recontype" type="s" value="pinv"/>
+    <var name="pokeval" type="f" value="1."/>
+    <var name="gainFactor" type="f" value=".50"/>
+    <var name="decayFactor" type="f" value="1"/>
+    <var name="computeControl" type="i" value="1"/>
+    <var name="reconmxFilename" type="s" value="rmx.fits"/>
+    <var name="pmxFilename" type="s" value="pmx.fits"/>
+  </variables>
+</module>
+
+
+</aosim>

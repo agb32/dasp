@@ -40,3 +40,9 @@ the image isn't always exactly on-axis - depending on the reference
 slopes.
 
 
+To save images and truth slopes (for ANN training):
+python testwidefieldcentroidann.py paramsSave.xml --iterations=XXX
+[--user=poke] to optionally poke.
+
+saveOutput_solarb0.fits contains the solar WFS images.
+saveOutput_slopesNb0.fits contains the truth values - wavefront slopes.
