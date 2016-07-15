@@ -31,7 +31,7 @@ make
 
 Export the suggested things, e.g.:
 export PYTHONPATH=$PYTHONPATH:/path/to/aosim
-export PATH=$PATH:/home/ali/git/path/to/bin
+export PATH=$PATH:/path/to/aosim/bin
 
 For Fedora/redhat systems, you also need to:
 export PYTHONPATH=$PYTHONPATH:/path/to/aosim:/usr/local/lib:/usr/local/lib64
