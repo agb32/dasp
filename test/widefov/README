@@ -45,4 +45,8 @@ python testwidefieldcentroidann.py paramsSave.xml --iterations=XXX
 [--user=poke] to optionally poke.
 
 saveOutput_solarb0.fits contains the solar WFS images.
-saveOutput_slopesNb0.fits contains the truth values - wavefront slopes.
+saveOutput_corrslopesb0.fits contains wavefront slopes computed by correlation.
+saveOutput_slopesNb0.fits contains the truth values - wavefront slopes
+- computed at several points over the WFS field of view using a
+noiseless point source.
+Ignore the first few frames of these.  

@@ -32,9 +32,11 @@ dm2.newParent({"recon":r,"atmos":iatmos},"dmNFb")
 s=science.science.science(dm2,ctrl.config,idstr="b")
 #save the solar images
 save=base.saveOutput.saveOutput(wf,ctrl.config,idstr="solar")
+#save the slopes
+save2=base.saveOutput.saveOutput(c,ctrl.config,idstr="corrslopes")
 nFieldX=ctrl.config.getVal("nFieldX")
 
-execOrder=[iscrn,iatmos,dm,dm2,wf,c,r,s,save]
+execOrder=[iscrn,iatmos,dm,dm2,wf,c,r,s,save,save2]
 #generate the truth, and save these...
 for i in range(nFieldX):
     for j in range(nFieldX):
