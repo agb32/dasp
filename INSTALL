@@ -1,13 +1,19 @@
-Installation should be relatively straight forward.
+Installing DASP
+===============
+
+On Linux
+--------
+
+Installation should be relatively straight forward on Linux.
 
 First, get the packages you need, e.g.:
 make ubuntu1404
 etc.  If your particular distribution isn't in the Makefile, then install by hand, e.g.:
 
-Ubuntu:
+Ubuntu derivatives:
 sudo apt-get install  python-dev fftw3-dev libatlas-dev gsl-bin libgsl0-dev libatlas-base-dev python-scipy nfs-common screen glade python-glade2 python-matplotlib python-mpi4py libopenmpi-dev
 
-Fedora:
+Fedora/Redhat typically require:
 yum install gsl-devel fftw3-devel atlas-devel scipy openmpi 
 
 RHEL6:
@@ -18,13 +24,15 @@ ln -s libatlas.so.3 libatlas.so
 
 
 
-Secondly, check MPI is working:
+Secondly, check MPI is working (only necessary if you want large
+simulations, e.g. ELT-scale):
 mpirun -np 5 python -c "from mpi4py import MPI;comm=MPI.COMM_WORLD;import os;print comm.Get_rank(),os.environ.get('PYTHONPATH','pop'),os.environ.get('PATH','pop');"
-Should then print out your python path 5 times.
+Should then print out your python path 5 times.  If it doesn't work,
+consider editing your /etc/environment file.
 
 If you are simulating a large system, you will also benefit from a BLAS library.  DASP can support mkl, acml, openblas or atlas.  Openblas is easiest to get going with.  ACML 6 isn't yet supported (uses OpenCL).
 Install openblas in /opt/openblas and add /opt/openblas/lib to LD_LIBRARY_PATH. 
-(make openblas should do it)
+(typing "make openblas" should do it)
 
 Now make the simulation:
 make
@@ -33,7 +41,7 @@ Export the suggested things, e.g.:
 export PYTHONPATH=$PYTHONPATH:/path/to/aosim
 export PATH=$PATH:/path/to/aosim/bin
 
-For Fedora/redhat systems, you also need to:
+For Fedora/Redhat systems, you also need to:
 export PYTHONPATH=$PYTHONPATH:/path/to/aosim:/usr/local/lib:/usr/local/lib64
 And may also need to add /usr/lib64/openmpi/lib
 And ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun
@@ -42,11 +50,49 @@ And ln -s /usr/lib64/openmpi/bin/mpirun /usr/bin/mpirun
 Now, navigate to test/scao, and run:
 python scao.py --iterations=200
 
+After installation, run daspbuilder.py to get started on your first simulation.
 
 
 DOCUMENTATION:
+-------------
+
 Is in doc/
 To make it, navigate to the doc directory, and run "make".  You may need to install relevant packages - this can be done using:
 make ubuntu1404 (and derivatives) - in the doc directory.
 
-After installation, run daspbuilder.py to get started on your first simulation.
+
+
+Installing on OS-X (i.e. a mac)
+------------------
+
+This isn't well supported, and therefore not always working.  However,
+the general procedure is as follows:
+
+1.  Install the necessary packages.  Some uses use e.g. macports or
+similar for this (see below).
+
+2.  In the dasp directory/folder, type "make".
+
+3.  Set your environment variables (PATH, PYTHONPATH, etc) as
+directed.
+
+4.  Run daspbuilder.py to make your first simulation.
+
+Using macports:
+sudo port selfupdate
+sudo port install py27-numpy py27-scipy
+Check that the python interpreter is the one installed by macports
+(/opt/local/bin/python).  If typing "which python" doesn't yield this,
+then you may need to update the dasp Makefiles to point to the python
+in /opt/
+
+
+sudo port install atlas
+sudo port install fftw-3-long fftw-3-single
+sudo port install py-scientific py27-gsl
+sudo port install gtk2 py-pygtk
+sudo port install py27-matplotlib +gtk2
+
+Then in your dasp/ directory, type "make".
+If this fails, and you are able to fix it, please commit your changes!
+
