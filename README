@@ -11,3 +11,6 @@ be on your path).
 This will then guide you through the process of setting up your first
 simulation.  
 
+DASP is a Monte-Carlo AO simulation code written in Python and C.  It
+is modular and hugely flexible.  It can also be used to interface to
+the DARC real-time control system.
