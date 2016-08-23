@@ -464,6 +464,14 @@ void multArrArr(int datasize,float *data1,float *data2){
     data1[i]*=data2[i];
   }
 }
+
+void applyPower(int datasize,float *data, float power){
+  int i;
+  for(i=0;i<datasize;i++){
+    data[i]=powf(data[i],power);
+  }
+}
+
 int doConvolution(int psfsize,float *img,complex float *tmpbuf,complex float *fftPsf,centstruct *c,int threadno,int clipsize){
   //do a convolution of img with psf, and return the result in img.
   //Note, this destroys psf array.
@@ -1266,6 +1274,12 @@ int centroidsFromPhase(centrunstruct *runinfo){
       //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
       //printf("Got NaN bimg3 %d\n",i);
       //}
+      if(c->pxlPower==2){
+	multArrArr(nexposed,&c->bimg[i*npxl],&c->bimg[i*npxl]);
+      }else if(c->pxlPower!=1 && c->pxlPower!=0){
+	applyPower(nexposed,&c->bimg[i*npxl],c->pxlPower);
+      }
+      
       if(imageOnly==0){
 	if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation
 	  //This shouldn't be used with optical binning...
@@ -1342,8 +1356,8 @@ int centroidsFromImage(centrunstruct *runinfo){
   int i;
   int npxl,nexposed;
   int error=0;
-  float nphspxl;
-  float totsig;
+  //float nphspxl;
+  //float totsig;
   float *bimg,*cweight;
   int indx,n;
   int imageOnly;
@@ -1384,6 +1398,11 @@ int centroidsFromImage(centrunstruct *runinfo){
       //Calibration starts here.
       if(c->calsource==0)
 	selectBrightestPixels(nexposed,&c->bimg[i*npxl],c->useBrightestArr==NULL?c->useBrightest:c->useBrightestArr[i],c->sortarr[threadno]);
+      if(c->pxlPower==2){
+	multArrArr(nexposed,&c->bimg[i*npxl],&c->bimg[i*npxl]);
+      }else if(c->pxlPower!=1 && c->pxlPower!=0){
+	applyPower(nexposed,&c->bimg[i*npxl],c->pxlPower);
+      }
 
       if(imageOnly==0){
 	if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation

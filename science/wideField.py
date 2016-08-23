@@ -135,10 +135,12 @@ class WideField(base.aobase.aobase):
             #We add the noise at the end, not within the wfscent objects...
             self.addPoisson=self.wfsobj.addPoisson
             self.readoutNoise=self.wfsobj.readoutNoise
+            self.pxlPower=self.wfsobj.centroidPower
             self.bglevel=self.wfsobj.bglevel
             self.wfsobj.addPoisson=0
             self.wfsobj.readoutNoise=0.
             self.wfsobj.bglevel=0.
+            self.wfsobj.centroidPower=1.
 
             self.psfsize=self.fftsize*2#to avoid aliasing
             self.cos2d=numpy.zeros((self.nimg,self.nimg),numpy.float32)#not actually cos... quadratic.

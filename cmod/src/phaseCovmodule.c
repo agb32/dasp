@@ -498,51 +498,6 @@ static PyObject *covarianceLocal(PyObject *self,PyObject *args)
   return Py_BuildValue("");
 }
 
-
-// 
-// UB, 2012 Aug 07:
-// This function uses Numerical Recipies (spline, splint).
-// We comment it out to remove NR, but keep the code "just in case".
-// 
-/*
-#define NRANSI
-#include "nrutil.h"
-
-void splin4(float *x1a, float *x2a, float *ya,int di, float *y2a, int m, int n, int mout, int nout,float *x1, float *x2, float *mxout,int ddi,int ddj)
-{
-  int i,j;
-  float *ytmp,*yytmp;
-  float y=0;
-  void spline(float x[], float y[], int n, float yp1, float ypn, float y2[]);
-  void splint(float xa[], float ya[], float y2a[], int n, float x, float *y);
-  
-  ytmp=vector(1,m);
-  yytmp=vector(1,m);
-  for (i=0;i<nout;i++){
-    for (j=0;j<m;j++)
-      splint(x2a-1,&ya[j*di-1],&y2a[j*n-1],n,x2[i],&yytmp[j+1]);
-    spline(x1a-1,yytmp,m,1.0e30,1.0e30,ytmp);
-    for (j=0;j<mout;j++){
-      splint(x1a-1,yytmp,ytmp,m,x1[j],&y);
-      mxout[i*ddj+ddi*j]=y; 
-    }
-  }
-  free_vector(yytmp,1,m);
-  free_vector(ytmp,1,m);
-}
-#undef NRANSI
-*/
-
-// 
-// UB, 2012 Aug 07:
-// This function uses Numerical Recipies (spline, splint).
-// At the moment it is not used in aosim. (It is called by covarianceQuick, which is called 
-// only by computeCov5 of dm.py, which is commented out.)
- //
-// We BREAK THIS FUNCTION by commenting out the loop using NR. If it is ever to be used again,
-// this needs to be taken care of. Possibilities: use NR or replace by the gsl interpolation
-// functions (see interpmodule for an example).
-//
 int covWorkerQuick(runStruct *runInfo){
   int g,h,i,j,k,l,nact,m,n; // di
   float yshift,xshift;

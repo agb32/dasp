@@ -83,7 +83,6 @@ fovpitchY=fov*2*2/(nFieldX+1.)
 for i in range(nFieldX):
  for j in range(nFieldX):
   id="%d"%(i*nFieldX+j)
-
   ydiff=(-(nFieldX-1)/2.+i)*fovpitchY/2.
   xdiff=(-(nFieldX-1)/2.+j)*fovpitchX/2.
   xcentre=sourceTheta*numpy.cos(sourcePhi*numpy.pi/180.)

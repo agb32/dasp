@@ -164,23 +164,3 @@ void initimgnoise(void)
 
 
 
-//
-// Commented out by UB, 2012 Aug 2nd
-// This is the version of imgnoise_seed function that uses Numerical Recipies.
-// I tested the NR version of the module on 2012 Aug 2nd and found out, that calling this
-// function with different arguments does NOT make shot and shot1d
-// use different seeds. In fact, even providing different seeds within
-// shot1d did not work - with a different seed I still got the
-// same results. This behaviour was really misterious...
-// 
-/* static PyObject *imgnoise_seed(PyObject *self,PyObject *args){ */
-/*     int theseed=0; */
-/*     if(!PyArg_ParseTuple(args,"i",&theseed)) */
-/* 	return NULL; */
-/*     if(theseed==0){ */
-/* 	printf("Warning, using a seed of zero will use current time\n"); */
-/* 	srand(time(0)); */
-/*     }else */
-/* 	srand(theseed); */
-/*     Py_RETURN_NONE; */
-/* } */

@@ -89,24 +89,25 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
                 self.ngsList=self.atmosGeom.makeNGSList(self.idstr[0],minarea="Hmm!",pupil=self.pupil)#self.nsubxDict,None)
                 self.lgsList=self.atmosGeom.makeLGSList(self.idstr[0],minarea="Hmm!",pupil=self.pupil)
 
-            self.ncents=0
-            self.ncentList=[]
-            indiceList=[]
-            for gs in self.ngsList+self.lgsList:
-                subflag=self.pupil.getSubapFlag(gs.nsubx,gs.minarea)
-                indiceList.append(numpy.nonzero(subflag.ravel())[0])
-                self.ncentList.append(numpy.sum(subflag.ravel()))
-                #self.ncents+=2*gs.nsubx**2
-            self.nwfs=len(indiceList)
-            self.ncents=sum(self.ncentList)*2
-            if self.ncents==0:
-                raise Exception("No centroids found for darcsim %s - check that your atmos.source objects contain a reconList=['%s'] argument"%(idstr,idstr))
-            self.centIndex=numpy.zeros((self.ncents,),numpy.int32)
-            pos=0
-            for i in xrange(len(self.ncentList)):
-                self.centIndex[pos:pos+self.ncentList[i]]=(indiceList[i]*2).astype(numpy.int32)
-                self.centIndex[pos+self.ncents/2:pos+self.ncents/2+self.ncentList[i]]=(indiceList[i]*2+1).astype(numpy.int32)
-                pos+=self.ncentList[i]
+            if 0:#This doesn't seem necessary - put it back if it causes problems
+                self.ncents=0
+                self.ncentList=[]
+                indiceList=[]
+                for gs in self.ngsList+self.lgsList:
+                    subflag=self.pupil.getSubapFlag(gs.nsubx,gs.minarea)
+                    indiceList.append(numpy.nonzero(subflag.ravel())[0])
+                    self.ncentList.append(numpy.sum(subflag.ravel()))
+                    #self.ncents+=2*gs.nsubx**2
+                self.nwfs=len(indiceList)
+                self.ncents=sum(self.ncentList)*2
+                if self.ncents==0:
+                    raise Exception("No centroids found for darcsim %s - check that your atmos.source objects contain a reconList=['%s'] argument"%(idstr,idstr))
+                self.centIndex=numpy.zeros((self.ncents,),numpy.int32)
+                pos=0
+                for i in xrange(len(self.ncentList)):
+                    self.centIndex[pos:pos+self.ncentList[i]]=(indiceList[i]*2).astype(numpy.int32)
+                    self.centIndex[pos+self.ncents/2:pos+self.ncents/2+self.ncentList[i]]=(indiceList[i]*2+1).astype(numpy.int32)
+                    pos+=self.ncentList[i]
             self.wfsIDList=[]
             wfsIDList=self.atmosGeom.getWFSOrder(self.idstr[0])#self.config.getVal("wfsIDList",default=self.parent.keys())#the list of parent objects (specifies the order in which the centroids are placed - if that makes a difference?)...
             #print wfsIDList
@@ -276,9 +277,10 @@ control={"ncam":%d,
             #now start darc, and wait for it to connect.
             if not self.useExistingDarc:
                 self.startDarc()
-            print "Waiting for darc to connect"
+            print "Waiting for darc to connect (%s, port %d)"%(str(self.idstr),self.port)
             self.camsock,addr=self.lsock.accept()
             print "Accepted camera connection from %s"%str(addr)
+            print "Waiting for mirror connection (%s, port %d)..."%(str(self.idstr),self.port)
             self.mirsock,addr=self.lsock.accept()
             print "Accepted mirror connection from %s"%str(addr)
             #self.ctrl=darc.Control(self.prefix)
@@ -343,6 +345,7 @@ control={"ncam":%d,
         print "Waiting for darc to reconnect cameras and mirrors... "
         self.camsock,addr=self.lsock.accept()
         print "Accepted camera connection from %s"%str(addr)
+        print "Waiting for mirror connection..."
         self.mirsock,addr=self.lsock.accept()
         print "Accepted mirror connection from %s"%str(addr)
 

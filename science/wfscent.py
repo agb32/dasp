@@ -265,6 +265,7 @@ class wfscent(base.aobase.aobase):
             gaussianFitVals=None
             seed=this.config.getVal("wfs_seed",default=this.config.getVal("seed",default=0,raiseerror=0),raiseerror=0)
             subapLocation=None
+            centroidPower=None
         else:
             atmosPhaseType=wfsobj.atmosPhaseType
             wfs_nsubx=wfsobj.nsubx
@@ -305,7 +306,7 @@ class wfscent(base.aobase.aobase):
             gaussianFitVals=wfsobj.gaussianFitVals#None, or a tuple of 2 values: (gaussianMinVal, gaussianReplaceVal).
             seed=wfsobj.seed
             subapLocation=wfsobj.subapLocation
-            
+            centroidPower=wfsobj.centroidPower
         this.atmosPhaseType=atmosPhaseType
         if atmosPhaseType not in ["phaseonly","phaseamp","realimag"]:
             raise Exception("wfscent: atmosPhaseType not known %s"%atmosPhaseType)
@@ -459,6 +460,7 @@ class wfscent(base.aobase.aobase):
             integstepFn=integstepFn,
             inputImage=inputImage,
             subapLocation=subapLocation,
+            centroidPower=centroidPower,
         )
 
 

@@ -1585,7 +1585,7 @@ class MirrorSurface:
             dx,dy,dxy=self.gradients(actmap2,flatten=actFlattening)#compute gradients.
         if coords is not None:
             print "WARNING: util.dm - interpolateBicubic coords parameter not yet implemented"
-            bicubicinterp(actmap2,dy,dx,dxy,phsOut)
+        bicubicinterp(actmap2,dy,dx,dxy,phsOut)
         return phsOut
 
     def setupInfluence(self):

@@ -29,7 +29,9 @@
 #(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
 import util.FITS
 data=util.FITS.Read("granules.fits")[1][67:-67,67:-67]
-
+data=data[:75,:75]#was 300.  But AO loop unstable at >80.
+#data=util.FITS.Read("imsol.fits")[1]#imsol is 50 arcsec with 3600 pixels.
+#data=data[:1440,:1440]
 from scipy.ndimage import interpolation
 b=widefieldImageBoundary
 fftsize=wfs_n*2
@@ -37,7 +39,6 @@ n=fftsize*(nFieldX+1.)/2
 #For a different image per subap use this one:
 #data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
 #For identical image per subap, use this one:
-data=data[:75,:75]#was 300.  But AO loop unstable at >80.
 data=interpolation.zoom(data,(n+2*b)/data.shape[0])*100
 widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
 for i in range(wfs_nsubx):
