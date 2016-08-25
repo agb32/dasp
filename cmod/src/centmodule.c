@@ -1207,6 +1207,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
   threadno=runinfo->n;
   //printf("threadno %d doing subaps %d to %d (c %p)\n",threadno,c->subapStart[threadno],c->subapStart[threadno+1],c);
   //compute the requested centroids.
+  int print=1;
   for(i=c->subapStart[threadno]; i<c->subapStart[threadno+1]; i++){
     //memset(&(c->bimg[i*npxl]),0,npxl*sizeof(float));
     npxl=c->imgpxls;
@@ -1215,6 +1216,10 @@ int centroidsFromPhase(centrunstruct *runinfo){
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
+      if(print){
+	print=0;
+	printf("%d %d %d %d\n",c->fsize,c->hllSize,c->fftsize,c->paddedsize);
+      }
       error|=computeHll(&(c->phs[i*c->phasepxls*c->maxIntegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
       
