@@ -28,6 +28,10 @@ Does a single sub-aperture - i.e. could be used for a science object.
 <var name="widefieldImage" type="code">
 #shape should be
 #(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
+import os
+if not os.path.exists("granules.fits"):
+ print "Retrieving granules.fits"
+ os.system("wget http://community.dur.ac.uk/a.g.basden/granules.fits")
 import util.FITS
 data=util.FITS.Read("granules.fits")[1][67:-67,67:-67]
 from scipy.ndimage import interpolation

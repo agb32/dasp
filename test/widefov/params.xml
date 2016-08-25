@@ -28,6 +28,10 @@
 #shape should be
 #(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
 import util.FITS
+import os
+if not os.path.exists("granules.fits"):
+ print "Retrieving granules.fits"
+ os.system("wget http://community.dur.ac.uk/a.g.basden/granules.fits")
 data=util.FITS.Read("granules.fits")[1][67:-67,67:-67]
 data=data[:75,:75]#was 300.  But AO loop unstable at >80.
 #data=util.FITS.Read("imsol.fits")[1]#imsol is 50 arcsec with 3600 pixels.
