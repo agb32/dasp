@@ -1103,7 +1103,10 @@ int applyCentroidCalibration(float *cx,int n, float *calData,float *calSteps){
   //if(*cx>calData[calBound[0,i,j,1],0,i,j] || *cx<calData[calBound[0,i,j,0],0,i,j])
   if(*cx>calData[n] || *cx<calData[0])
     printf("Warning: centroid with value %g is outside calibrated bounds\n",*cx);
+  float tmp=*cx;
   *cx=interp(*cx,n,calData,calSteps);
+  if(fabsf(*cx)>16)
+    printf("lincal of val %g to %g, n=%d\n",tmp,*cx,n); 
   return 0;
 }
 
@@ -1207,19 +1210,13 @@ int centroidsFromPhase(centrunstruct *runinfo){
   threadno=runinfo->n;
   //printf("threadno %d doing subaps %d to %d (c %p)\n",threadno,c->subapStart[threadno],c->subapStart[threadno+1],c);
   //compute the requested centroids.
-  int print=1;
   for(i=c->subapStart[threadno]; i<c->subapStart[threadno+1]; i++){
     //memset(&(c->bimg[i*npxl]),0,npxl*sizeof(float));
     npxl=c->imgpxls;
     if(c->subflag[i]==1){//subap is full enough to use.  ie subflag[i]==1...
-
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
-      if(print){
-	print=0;
-	printf("%d %d %d %d\n",c->fsize,c->hllSize,c->fftsize,c->paddedsize);
-      }
       error|=computeHll(&(c->phs[i*c->phasepxls*c->maxIntegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
       
@@ -1313,6 +1310,8 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  }
 	  //Note: corrsize==nimg unless convolving with something larger.  
 	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
+	  if(fabsf(c->cents[i*2])>16 || fabsf(c->cents[i*2+1])>16)
+	    printf("Cent val %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);
 	}
 	//and now apply the calibration... (linearisation)
 	if(c->calData!=NULL){
@@ -1327,12 +1326,17 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  applyCentroidCalibrationInterpolation(&(c->cents[i*2]),c->calNCoeff,&c->calCoeff[i*2*c->calNCoeff]);
 	  applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
 	}
+	if(fabsf(c->cents[i*2])>16 || fabsf(c->cents[i*2+1])>16)
+	  printf("Cent val after lin %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);
 	//and now subtract reference centroids...
 	if(c->refCents!=NULL){
 	  c->cents[i*2]-=c->refCents[i*2];
 	  c->cents[i*2+1]-=c->refCents[i*2+1];
 	  //printf("%g %g - after refsub\n",c->refCents[i*2],c->refCents[i*2+1]);
 	}
+	if(fabsf(c->cents[i*2])>16 || fabsf(c->cents[i*2+1])>16)
+	  printf("Cent val after ref %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);
+	
       }
     }else{
       //return ignored centroids too.
