@@ -333,7 +333,7 @@ class wfscent(base.aobase.aobase):
 
         
         #Now look to see if we're using LGS...
-        if laserGuideStar==None:
+        if laserGuideStar is None:
             lgsType=this.config.getVal("lgsType",default=None,raiseerror=0)#can be None, "sodium" or "rayleigh".
             if lgsType in ["sodium","rayleigh"]:
                 # some extra configuration is needed for setting up the spot elongation...
@@ -349,7 +349,7 @@ class wfscent(base.aobase.aobase):
                 fluxObj=util.guideStar.Flux(wavelength={"sodium":589.,"rayleigh":514.}[lgsType],power=lgsPower,frame_rate=1./(wfs_int+wfs_lat))
                 laserGuideStar=util.guideStar.wfs(pup=pupil.fn,nsubx=wfs_nsubx,subap_pix=clipsize,subap_fov=subapFov,tel_diam=telDiam,r0=r0,tel_fl=telFocalLen,subap_fl=subapFocalLen,fluxObj=fluxObj,lgsDefault=lgsType)
         spotpsf=None
-        if laserGuideStar!=None:
+        if laserGuideStar is not None:
             if type(laserGuideStar)==type(""):
                 laserGuideStar=util.FITS.Read(laserGuideStar)[1]
             if type(laserGuideStar)==numpy.ndarray:
@@ -369,7 +369,7 @@ class wfscent(base.aobase.aobase):
                 sig=laserGuideStar.sig
                 this.laserGuideStar=laserGuideStar
             
-        subtractTipTilt=this.config.getVal("subtractTipTilt",default=int(this.laserGuideStar!=None),warn=1)
+        subtractTipTilt=this.config.getVal("subtractTipTilt",default=int(this.laserGuideStar is not None),warn=1)
         if type(sig)==type(0.):
             #print("INFORMATION:wfscent:sig is {0:g} phot/subap".format(sig))
 ##(old)            print "INFORMATION:wfscent:sig is %g phot/subap"%sig
