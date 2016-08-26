@@ -372,14 +372,15 @@ int addPowerSpecCentral(int fftsize,float *cdata, int psfsize,float *hll,int add
     for(i=0;i<c;i++){
       for(j=0;j<c;j++){
 	indx=((rowoff+i)*fftsize+rowoff+j)*2;
-	hll[(i+rowstart)*psfsize+rowstart+j]=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
+	hll[(c-1-i+rowstart)*psfsize+c-1-j+rowstart]=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
       }
     }
   }else{
     for(i=0;i<c;i++){
       for(j=0;j<c;j++){
 	indx=((rowoff+i)*fftsize+rowoff+j)*2;
-	hll[(i+rowstart)*psfsize+rowstart+j]+=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
+	hll[(c-1-i+rowstart)*psfsize+c-1-j+rowstart]+=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
+	//hll[(i+rowstart)*psfsize+rowstart+j]+=cdata[indx]*cdata[indx]+cdata[indx+1]*cdata[indx+1];
       }
     }
   }
@@ -1106,7 +1107,7 @@ int applyCentroidCalibration(float *cx,int n, float *calData,float *calSteps){
   float tmp=*cx;
   *cx=interp(*cx,n,calData,calSteps);
   if(fabsf(*cx)>16)
-    printf("lincal of val %g to %g, n=%d\n",tmp,*cx,n); 
+    printf("lincal of val %g to %g, n=%d\n",tmp,*cx,n); //xxx
   return 0;
 }
 
@@ -1311,7 +1312,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  //Note: corrsize==nimg unless convolving with something larger.  
 	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
 	  if(fabsf(c->cents[i*2])>16 || fabsf(c->cents[i*2+1])>16)
-	    printf("Cent val %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);
+	    printf("Cent val %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);//xxx
 	}
 	//and now apply the calibration... (linearisation)
 	if(c->calData!=NULL){
@@ -1327,7 +1328,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
 	}
 	if(fabsf(c->cents[i*2])>16 || fabsf(c->cents[i*2+1])>16)
-	  printf("Cent val after lin %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);
+	  printf("Cent val after lin %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);//xxx
 	//and now subtract reference centroids...
 	if(c->refCents!=NULL){
 	  c->cents[i*2]-=c->refCents[i*2];
@@ -1335,7 +1336,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  //printf("%g %g - after refsub\n",c->refCents[i*2],c->refCents[i*2+1]);
 	}
 	if(fabsf(c->cents[i*2])>16 || fabsf(c->cents[i*2+1])>16)
-	  printf("Cent val after ref %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);
+	  printf("Cent val after ref %g %g for subap %d\n",c->cents[i*2],c->cents[i*2+1],i);//xxx
 	
       }
     }else{
