@@ -943,7 +943,7 @@ class iatmos:
     """A class to carry out computation of a pupil phase screen
     for a given source direction.  This can (possibly) be used stand-alone
     and is used as part of the AO simulation (iatmos module)."""
-    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=None,outputData=None,fov=0.):
+    def __init__(self,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,rowAdd,layerAltitude,windDirection,phaseScreens,ygradients,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=None,outputData=None,fov=0.,skyRotation=0):
         """Source altitude, wavelength and position are given, and info about all the phase screen layers.
         storePupilLayers - if 1, a dictionary of layers along this line of sight will be created - unexpanded in the case of LGS - i.e. full pupil.
         computeUplinkTT - if 1 then uplink tip/tilt will be computed.
@@ -979,6 +979,7 @@ class iatmos:
         self.zenithOld=0.#used to be used when stretching screens - now no longer.
 
         self.windDirection=windDirection#dictionary
+        self.skyRotation=skyRotation#optional extra amount to rotate all screens by - used e.g. if investigating wfs misalignments etc.  USE WITH CARE - make sure the fov is large enough, since the size of the layers doesn't take this into account.
         self.layerAltitude=layerAltitude#these are pre-scaled by zenith.
         self.sortedLayerList=[]
         hh=sorted(self.layerAltitude.values())
@@ -1139,9 +1140,9 @@ class iatmos:
                 if not self.interpStruct.has_key(key):
                     #print "Initialising atmos interpolation"
                     if self.ygradients==None:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+0.,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])#interpolationNthreads=0,1,1 by default.
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],None,-self.windDirection[key]+self.skyRotation,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])#interpolationNthreads=0,1,1 by default.
                     else:
-                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+0.,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
+                        self.interpStruct[key]=cmod.iscrn.initialiseInterp(self.phaseScreens[key],self.ygradients[key],-self.windDirection[key]+self.skyRotation,self.outputData,scale,self.pupil.fn,self.interpolationNthreads[0],self.interpolationNthreads[1],self.interpolationNthreads[2])
                 #print "%s %g %g %gxxx"%(key,x,y,shift)
                 if control["fullPupil"]:#temporarily set pupil to 1
                     tmp=self.pupil.fn.copy()

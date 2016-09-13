@@ -225,7 +225,8 @@ class iatmos(base.aobase.aobase):
         storePupilLayers=this.config.getVal("storePupilLayers",default=0)
         computeUplinkTT=this.config.getVal("computeUplinkTT",default=0)
         launchApDiam=this.config.getVal("launchApDiam",default=0)
-        this.atmosObj=util.atmos.iatmos(sourceAlt,sourceLam,sourceTheta,sourcePhi,self.npup,self.pupil,self.rowAdd,self.layerAltitude,self.windDirection,self.phaseScreens,self.ygradient,self.scrnScale,self.layerXOffset,self.layerYOffset,layerList,zenith,intrinsicPhase=intrinsicPhase,storePupilLayers=storePupilLayers,computeUplinkTT=computeUplinkTT,launchApDiam=launchApDiam,ntel=self.ntel,telDiam=self.telDiam,interpolationNthreads=self.interpolationNthreads,outputData=self.outputData)
+        skyRotation=this.config.getVal("skyRotation",default=0)#use with care.  Specifically for testing misalignments (e.g. how often reconstructors need updating as the sky rotates).
+        this.atmosObj=util.atmos.iatmos(sourceAlt,sourceLam,sourceTheta,sourcePhi,self.npup,self.pupil,self.rowAdd,self.layerAltitude,self.windDirection,self.phaseScreens,self.ygradient,self.scrnScale,self.layerXOffset,self.layerYOffset,layerList,zenith,intrinsicPhase=intrinsicPhase,storePupilLayers=storePupilLayers,computeUplinkTT=computeUplinkTT,launchApDiam=launchApDiam,ntel=self.ntel,telDiam=self.telDiam,interpolationNthreads=self.interpolationNthreads,outputData=self.outputData,skyRotation=skyRotation)
 
     def finalInitialisation(self):
         """since all memories are the same size (npup can't change...), its

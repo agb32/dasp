@@ -1128,8 +1128,6 @@ static PyObject *interp_bicubicinterp(PyObject* self, PyObject* args)
 
   float vecIn[16],c[16];
   
-  printf("WARNING-REMINDER: interp_bicubicinterp is still using bcucof from Numerical Recipies.\n    TODO: remove bcucoff from bicubicinterp!\n");
-
   if (!PyArg_ParseTuple (args, "O!O!O!O!O!", &PyArray_Type ,&pymxin, 
 			 &PyArray_Type ,&pyyin, //y gradient of function
 			 &PyArray_Type ,&pyxin, //x gradient of function
