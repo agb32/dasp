@@ -45,8 +45,8 @@ class gradientOperatorType1:
          self.calcOp=self.calcOp_scipyCSR
       else:
          self.calcOp=self.calcOp_NumpyArray
-      if subapMask!=None: self.newSubaperturesGiven(subapMask)
-      if pupilMask!=None: self.newPupilGiven(pupilMask)
+      if subapMask is not None: self.newSubaperturesGiven(subapMask)
+      if pupilMask is not None: self.newPupilGiven(pupilMask)
 
    def newSubaperturesGiven(self, subapMask):
       self.numberSubaps=int(subapMask.sum()) # =n**2 for all illuminated

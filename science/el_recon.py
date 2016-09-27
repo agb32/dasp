@@ -75,7 +75,6 @@ class recon(base.aobase.aobase):
             self.sormask=util.sor.createSorMask(self.pupil,wfs_n,wfs_minarea).ravel()
             self.avPistDivisor=numpy.sum((self.sormask>0).flat)
 
-            self.pupsub=self.pupil.pupsub
             self.subarea=self.pupil.subarea
             self.subflag=self.pupil.subflag
             self.ndata=self.pupil.ndata#number of centroids that will be computed.

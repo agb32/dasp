@@ -112,12 +112,12 @@ class makeRecon:
 
         """
         pmxfname=None
-        if csc==None:
+        if csc is None:
             pmxfname=self.pmxfname
             csc=util.FITS.loadSparse(pmxfname,doByteSwap=1)
         if isinstance(csc,numpy.ndarray):
             shape=csc.shape
-            if diagScaling!=None:
+            if diagScaling is not None:
                 if type(diagScaling)==numpy.ndarray:#can also be None or float.
                     if diagScaling.shape[0]!=shape[1] or len(diagScaling.shape)!=1:
                         raise Exception("Wrong diagonal scaling (%s), expected shape %d (pmx=%s)"%(str(diagScaling.shape),shape[1],str(shape)))
@@ -158,7 +158,7 @@ class makeRecon:
                     uend=(j+1)*size
                     if j==nblock-1:
                         uend=shape[0]
-                    if diagScaling!=None and i==0:
+                    if diagScaling is not None and i==0:
                         #scale the elements. - we do it in blocks to avoid potential swapping if csc is large.
                         for si in xrange(csc.shape[1]):
                             csc[ustart:uend,si]*=diagScaling[si]
@@ -169,7 +169,7 @@ class makeRecon:
                     t2=time.time()
                     print "GEMM time %gs"%(t2-t1)
                     del(b)
-                    if pmxfname!=None and diagScaling!=None and i==nblock-1:#scale back so as not the alter csc.
+                    if pmxfname is not None and diagScaling is not None and i==nblock-1:#scale back so as not the alter csc.
                         for si in xrange(csc.shape[1]):
                             if diagScaling[si]!=0:
                                 csc[ustart:uend,si]/=diagScaling[si]
@@ -188,7 +188,7 @@ class makeRecon:
             util.FITS.Write(res,self.dottedname,doByteSwap=0,extraHeader=extraHeader)
             del(csc)
         else:
-            if diagScaling!=None:
+            if diagScaling is not None:
                 raise Exception("Not yet implemented:  diagScaling in dotdot() in util/computeRecon.py")
             csr=csc.tocsr()
             csc=csr.transpose()
@@ -211,7 +211,7 @@ class makeRecon:
         """Here, a is the densified result from dotdot, ie a square matrix"""
         fname=self.dottedname
         #res=util.FITS.loadSparse(fname,doByteSwap=1)#scipy.sparse.csr_matrix() fails for large sparse matrix...
-        if a==None:
+        if a is None:
             if issparse:
                 res=util.FITS.Read(fname,doByteSwap=1,savespace=1)
                 shape=eval(res[0]["parsed"]["SHAPE"])
@@ -394,7 +394,7 @@ class makeRecon:
         
         DiagScaling can be used for introducing noise covariance (also required in dotdot).  
         """
-        if a==None:
+        if a is None:
             pmxfname=self.pmxfname
         else:
             pmxfname=a
@@ -413,7 +413,7 @@ class makeRecon:
         #if not pmx.flags.c_contiguous:
         #    pmx=pmx.copy()
 
-        if diagScaling!=None:
+        if diagScaling is not None:
             if type(diagScaling)==numpy.ndarray:#can also be None or float.
                 if diagScaling.shape[0]!=int(pmxh["NAXIS1"]) or len(diagScaling.shape)!=1:
                     raise Exception("Wrong diagonal scaling, expected shape %d (pmx=%s)"%(shape[1],str(shape)))
@@ -422,7 +422,7 @@ class makeRecon:
                 diagScaling=numpy.ones((shape[1],),numpy.float32)*diagScaling
 
 
-        if b==None:
+        if b is None:
             invname=self.invname
         else:
             invname=b
@@ -436,7 +436,7 @@ class makeRecon:
             veutshape=int(veuth["NAXIS2"]),int(veuth["NAXIS1"])
         #if not veut.flags.c_contiguous:
         #    veut=veut.copy()
-        if resname==None:
+        if resname is None:
             resname=self.rmxdensename
         mem=self.getMem()*0.9#get available memory - problems when required is just less then available - swapping - so reduce total by x0.9... 
         ansmem=pmxshape[0]*veutshape[1]*bytepix#memory to store the result
@@ -469,7 +469,7 @@ class makeRecon:
             del(a)
             a=a2
             del(a2)
-            if diagScaling!=None:
+            if diagScaling is not None:
                 #shape is nslopesPartial,nacts.
                 for si in xrange(a.shape[0]):
                     a[si]*=diagScaling[si+astart]
@@ -515,8 +515,8 @@ class makeRecon:
         
     def dot(self,a,b,res=None,order=None):
         """A simple dot product using mkl"""
-        if res==None:
-            if order==None:
+        if res is None:
+            if order is None:
                 if atlas or openblas:
                     order="C"
                 else:
@@ -543,9 +543,9 @@ class makeRecon:
         if not veut.flags.c_contiguous:
             veut=veut.copy()
         csc=util.FITS.loadcsc(pmxfname,doByteSwap=1)
-        if maxelements!=None and maxelements<=1:
+        if maxelements is not None and maxelements<=1:
             maxelements=int(maxelements*veut.shape[0]*csc.shape[1])
-        if minelements!=None and minelements<1:
+        if minelements is not None and minelements<1:
             minelements=int(minelements*veut.shape[0]*csc.shape[1])
         nthreads=8
 
@@ -662,7 +662,7 @@ class makeRecon:
 
     def autoSparsify(self,rmx=None,frac=0.1,fracmin=0.,vals=None):
         """Sparsify the rmx to frac sparsity (or there abouts)"""
-        if rmx==None:
+        if rmx is None:
             rmx=self.rmxdensename
         if type(rmx)==type(""):
             print "Loading rmx"
@@ -675,7 +675,7 @@ class makeRecon:
         sizemin=min(int(rmx.size*fracmin),size)
         print "Looking for count between",sizemin,size
         val=0
-        if vals==None:
+        if vals is None:
             vals=numpy.array([1e-6,1e-5,1e-4,1e-3,1e-2,0.05,0.1,0.2,0.5,1.,2.,5.,10.,100.,1e3,1e4,1e6]).astype("f")
         else:
             vals=numpy.array(vals).astype("f")
@@ -803,7 +803,7 @@ def compress(rmx,mbits=15,outfile=None):
     words=(rmx.size*bits+31)/32
     print "Got ebits=%d, total=%d, giving %d words (shape %s)"%(ebits,bits,words,str(rmx.shape))
     r=r[:words]
-    if outfile!=None:
+    if outfile is not None:
         #don't bother byteswapping because this data isn't in a standard format anyway (eg 24 bit float???)
         util.FITS.Write(r,outfile,extraHeader=["COMPBITS= %d"%mbits,"SHAPE   = %s"%str(rmx.shape),"EXPMIN  = %d"%mn,"EXPMAX  = %d"%mx],doByteSwap=0)
     return r
@@ -814,27 +814,27 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
         import base.readConfig
         config=base.readConfig.AOXml(config,batchno=batchno,initDict=initDict)
     c=config
-    if idstr!=None and len(idstr)>0:
+    if idstr is not None and len(idstr)>0:
         c.setSearchOrder(["tomoRecon_%s"%idstr,"tomoRecon","globals"])
     else:
         c.setSearchOrder(["tomoRecon","globals"])
-    if pmx==None:
+    if pmx is None:
         pmx=c.getVal("pmxFilename")
 
     atmosGeom=c.getVal("atmosGeom")
     dmObj=c.getVal("dmOverview",raiseerror=0)
-    if dmObj==None or type(dmObj)!=type(atmosGeom):
+    if dmObj is None or type(dmObj)!=type(atmosGeom):
         print "DEPRECATION: warning: dmObj should now be dmOverview"
-    dmObj=c.getVal("dmObj")
+    #dmObj=c.getVal("dmObj")
     dmList=dmObj.makeDMList(idstr)
     print dmList
     nactsCumList=[0]
     pup=c.getVal("pupil")
     
-    if hlist==None:
+    if hlist is None:
         hlist=c.getVal("hListdm")
     hlistOrig=hlist
-    if strList==None:
+    if strList is None:
         cn2Orig=numpy.array(c.getVal("strListdm"))
     else:
         cn2Orig=strList
@@ -866,7 +866,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
             nacts=dm.nact
         print nacts
         nactsCumList.append(nactsCumList[-1]+nacts)
-        g=util.gradientOperator.gradientOperatorType1(pupilMask=tmp[0].astype("f"),sparse=1)
+        g=util.gradientOperator.gradientOperatorType1(pupilMask=tmp.astype("f"),sparse=1)
         util.gradientOperator.genericLaplacianCalcOp_NumpyArray(g)
         laplacian2=numpy.dot(g.op,g.op)
         indx=list(hlist).index(dm.height)
@@ -885,7 +885,7 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
             raise Exception("Actuator counts don't agree - change maxActDist or something.  Or force to gradientOperator pupil.")
 
     #First separate out lgs, ngs.
-    minarea=c.getVal("wfs_minarea")
+    minarea=c.getVal("wfs_minarea",0.5)
     ngsList=atmosGeom.makeNGSList(idstr,minarea=minarea)#self.nsubxDict,None)
     lgsList=atmosGeom.makeLGSList(idstr,minarea=minarea)
     #Note, in reconmx and pmx, ngsList comes first.
@@ -910,8 +910,11 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     #compute the noise covariance...
     invNoiseCov=numpy.zeros((ncents,),numpy.float32)
     invNoiseCovNgs=numpy.zeros((ncentsNgs,),numpy.float32)
-    lgssig=c.getVal("wfs_sig")
-    wfsSigList=c.getVal("wfsSigList")
+    lgssig=c.getVal("wfs_sig",raiseerror=0)
+    if lgssig is None:
+        lgssig=numpy.array([x.sig for x in lgsList]).mean()
+    wfsSigList=c.getVal("wfsSigList",raiseerror=0)
+    wfsSigList=[x.sig for x in ngsList]
     print "Noise covariance scaling by %s for ngs, %g for lgs"%(str((numpy.array(wfsSigList)/1e6*noiseScale)**noisePower),(lgssig/1e6*noiseScale)**noisePower)
     start=0
     for i in range(len(ngsList)):

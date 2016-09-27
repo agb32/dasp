@@ -407,6 +407,7 @@ class geom:
         with a +ve altitude won't be included.
         If reconID is specified, only GS with a matching reconList entry
         will be included.
+        Note - minarea is not used if the ngs objects are already NGS objects.
         """
 ##         if keylist==None:
 ##             if type(nsubx)==type({}):

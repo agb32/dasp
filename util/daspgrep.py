@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #dasp, the Durham Adaptive optics Simulation Platform.
 #Copyright (C) 2004-2016 Alastair Basden and Durham University.
 
@@ -13,7 +14,6 @@
 
 #You should have received a copy of the GNU Affero General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#!/usr/bin/env python
 import sys
 import os
 import string

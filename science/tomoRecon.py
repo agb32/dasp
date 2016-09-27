@@ -948,7 +948,30 @@ class recon(base.aobase.aobase):
             elif self.reconType in ["svd","MAP","pinv","reg","regularised","regSmall","regBig","pcg"]:
                 print("INFORMATION:**tomoRecon**:Finished poking")
                 pass#don't need to do owt.
-                
+
+            if self.pmxFilename!=None:
+                #save the poke matrix to a file...
+                if self.reconType in ["spmx","spmxSVD","spmxGI"]:
+                    if self.sparsePmxType in ["lil","csc","dense"]:
+                        print("INFORMATION:**tomoRecon**:Saving poke matrix "+
+                        "to file %s (shape %s)"%(self.pmxFilename,"hi"))
+                        self.spmx=self.spmx.tocsc()
+                        self.savecsc(self.spmx,self.pmxFilename)
+                    else:
+                        import shutil
+                        print("INFORMATION:**tomoRecon**:Copying poke matrix "+ 
+                              "from %s to %s"%(self.pmxfname,self.pmxFilename))
+                        shutil.copyfile(self.pmxfname,self.pmxFilename)
+                        
+                elif self.reconType in ["pcg","svd","MAP","pinv","reg","regularised","regBig","regSmall"]:
+                    print("INFORMATION:**tomoRecon**:Saving poke matrix to "+
+                    "file %s (shape %s)"%(
+                        self.pmxFilename,str(self.spmx.shape)))
+                    util.FITS.Write(self.spmx,self.pmxFilename,extraHeader="NACTLIST= '%s'"%str(self.nactsList))
+                #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE = %s"%str(self.spmx.shape))
+                #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
+                #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
+
             if self.computeControl:
                 if self.reconType=="spmx":
                     print("INFORMATION:**tomoRecon**:"+
@@ -1016,28 +1039,6 @@ class recon(base.aobase.aobase):
                     if self.reconObj!=None and hasattr(self.reconObj,"computeControl"):
                         self.reconObj.computeControl(self.spmx)
                     
-            if self.pmxFilename!=None:
-                #save the poke matrix to a file...
-                if self.reconType in ["spmx","spmxSVD","spmxGI"]:
-                    if self.sparsePmxType in ["lil","csc","dense"]:
-                        print("INFORMATION:**tomoRecon**:Saving poke matrix "+
-                        "to file %s (shape %s)"%(self.pmxFilename,"hi"))
-                        self.spmx=self.spmx.tocsc()
-                        self.savecsc(self.spmx,self.pmxFilename)
-                    else:
-                        import shutil
-                        print("INFORMATION:**tomoRecon**:Copying poke matrix "+ 
-                              "from %s to %s"%(self.pmxfname,self.pmxFilename))
-                        shutil.copyfile(self.pmxfname,self.pmxFilename)
-                        
-                elif self.reconType in ["pcg","svd","MAP","pinv","reg","regularised","regBig","regSmall"]:
-                    print("INFORMATION:**tomoRecon**:Saving poke matrix to "+
-                    "file %s (shape %s)"%(
-                        self.pmxFilename,str(self.spmx.shape)))
-                    util.FITS.Write(self.spmx,self.pmxFilename,extraHeader="NACTLIST= '%s'"%str(self.nactsList))
-                #util.FITS.Write(self.spmx.data,self.pmxFilename,extraHeader="SHAPE = %s"%str(self.spmx.shape))
-                #util.FITS.Write(self.spmx.rowind,self.pmxFilename,writeMode="a")
-                #util.FITS.Write(self.spmx.indptr,self.pmxFilename,writeMode="a")
             print(("INFORMATION:**tomoRecon**:Poking took: %gs in CPU time, "+
                   "or %g seconds")%(
                         (time.clock()-self.pokeStartClock),
