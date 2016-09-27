@@ -22,7 +22,13 @@ export C_INCLUDE_PATH=/usr/include/openblas/
 ln -s libcblas.so.3 libcblas.so
 ln -s libatlas.so.3 libatlas.so
 
-
+Centos7:
+source /etc/profile.d/modules.sh 
+module load mpi/openmpi-x86_64
+git clone https://bitbucket.org/mpi4py/mpi4py.git
+cd mpi4py
+python setup.py build
+sudo python setup.py install
 
 Secondly, check MPI is working (only necessary if you want large
 simulations, e.g. ELT-scale):
