@@ -103,7 +103,7 @@ class dm(base.aobase.aobase):
                 self.mirrorSurface=MirrorSurface(self.interpType,self.dmpup,self.nact,1,
                                                  self.actoffset,self.actCoupling,self.actFlattening,
                                                  interpolationNthreads = self.interpolationNthreads,stuckActs=self.stuckActs)
-                self.maxStroke=0#depreciated mode dones't have max stroke.
+                self.maxStroke=0#deprecated mode dones't have max stroke.
                 self.dmDynamics=None
             else:
                 self.thisdm=self.dmObj.getDM(self.idstr[0])
@@ -577,7 +577,7 @@ class dm(base.aobase.aobase):
                 self.actmap-=t*self.tilt
                 t=(self.actmap.sum(1)*self.tilt).sum()
                 self.actmap.T-=t*self.tilt
-            if self.maxStroke!=0:#maxStrke is in radians at sourceLam wavelength.
+            if numpy.sum(self.maxStroke)!=0:#maxStrke is in radians at sourceLam wavelength.
                 #remove mean
                 self.actmap-=self.actmap.mean()
                 self.actmap[:]=numpy.where(self.actmap>self.maxStroke,self.maxStroke,self.actmap)
