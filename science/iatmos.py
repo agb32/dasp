@@ -114,6 +114,7 @@ class iatmos(base.aobase.aobase):
     
             self.control={"cal_source":0,"profilePhase":0,"fullPupil":0,"removePiston":1}#full pupil is used as a flag for phase profiling (xinterp_recon etc) if want to return the whole pupil.
             self.tstep=self.config.getVal("tstep")
+            self.vibration=self.config.getVal("vibration",raiseerror=0)#typically, a util.vibration.Vibration() instance
             #self.niters=0
             self.outputData=numpy.zeros((self.npup,self.npup),self.outDataType)#resource sharing
             #self.scrnXPxls=self.config.getVal("scrnXPxls")#will depend on which screen it is, so this is no good!
@@ -285,6 +286,8 @@ class iatmos(base.aobase.aobase):
                             #But doesn't matter, because its only really for testing anyway.
                             self.zernikeVariance(self.outputData,forDisplay=0)
                             self.phaseStructFunc(self.outputData,forDisplay=0)
+                        if self.vibration is not None:
+                            self.vibration.addVibration(self.outputData)
             else:#no new data ready
                 self.dataValid=0
         else:
