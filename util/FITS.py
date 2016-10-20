@@ -33,7 +33,7 @@ error = 'FITS error'
 # returned unscaled and in the (presumably more compact) numeric format
 # that it was stored in
 # 
-def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None) :
+def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None,tryToFix=0) :
     """if savespace is set, the array will maintain its type if asfloat is set.
     If doByteSwap is not set, no byteswap will be done if little endian - if this is the case, the file is not actually fits compliant
     if memmap is used, the file is memmapped rather than read.  If this is used, it is recommended that memmap="r" and that the file is non-byte-swapped.
@@ -52,7 +52,25 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
                 raise Exception(error+ 'Not a simple fits file: %s'%filename)
             else:
                 print "ERROR - non compliant FITS file"
-                return returnVal
+                if tryToFix:#corrupted fits file...
+                    #read until we get to SIMPLE or XTENSION
+                    print "Searching for next HDU..."
+                    while len(buffer)>0:
+                        buffer=file.read(2880)
+                        if "SIMPLE" in buffer:
+                            indx=buffer.index("SIMPLE")
+                            if indx!=0:
+                                buffer=buffer[indx:]+file.read(indx)
+                            print "found next HDU"
+                            break
+                        elif "XTENSION" in buffer:
+                            indx=buffer.index("XTENSION")
+                            if indx!=0:
+                                buffer=buffer[indx:]+file.read(indx)
+                            print "found next HDU"
+                            break
+                else:
+                    return returnVal
         while(1) :
             for char in range(0,2880,80) :
                 line = buffer[char:char+80]
