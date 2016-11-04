@@ -52,7 +52,7 @@ MirrorSurface class - class for interpolating a surface over actuators.
 class dmInfo:
     """A class holding info for a single DM (multiple source directions).
     """
-    def __init__(self,label,idlist,height,nact,fov=None,coupling=0.1,minarea=0.25,actoffset=0.,closedLoop=1,
+    def __init__(self,label,idlist,height,nact,fov=None,minarea=0.25,actoffset=0.,closedLoop=1,
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
@@ -62,7 +62,7 @@ class dmInfo:
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
         concatenating label with source ID.
         fov is the field of view for this DM, or None in which case the minimum FOV will be computed.  Should be radius, not diameter(!!!)
-        coupling is the coupling between actuators (fraction), or None.
+        actCoupling is the coupling between actuators (fraction), or None.
         gainAdjustment is an adjustment factor which can be multiplied by the global gain to get the gain for this DM.
         if zonalDM==1, is a zonal DM.  Otherwise, is a modal DM, with nact modes.
         reconstructList is used for zonal DMs to specify which actuators should be controlled.  If equal to "all",
@@ -103,7 +103,6 @@ class dmInfo:
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
         self.nact=nact
         self.fov=fov#radius.  NOT diameter.
-        self.coupling=coupling
         self.minarea=minarea
         self.actoffset=actoffset
         self.actSpacing=actSpacing#used if nact == None.
@@ -960,7 +959,7 @@ class dmOverview:
             fov=self.atmosGeom.calcFovWidth()
         return fov
     def getcoupling(self,idstr):
-        c=self.getDM(idstr).coupling
+        c=self.getDM(idstr).actCoupling
         if c is None:
             c=0.1
         return c
@@ -1700,8 +1699,7 @@ class MirrorSurface:
         if fiddle==0 or fiddle is None:
             return actmap
         nact=actmap.shape[0]
-        diff=numpy.zeros(actmap.shape,actmap.dtype)
-        diff2=diff.copy()
+        diff2=numpy.zeros(actmap.shape,actmap.dtype)
         diff2[1:]=actmap[:-1]
         diff2[:-1]+=actmap[1:]
         diff2[:,1:]+=actmap[:,:-1]
@@ -1710,25 +1708,6 @@ class MirrorSurface:
         diff2[1:-1,::diff2.shape[1]-1]/=3
         diff2[::diff2.shape[0]-1,1:-1]/=3
         diff2[::diff2.shape[0]-1,::diff2.shape[1]-1]/=2
-#        for i in range(nact):
-#            for j in range(nact):
-#                nneighbour=0
-#                sumneighbour=0.
-#                if i>0:
-#                    sumneighbour+=actmap[i-1,j]
-#                    nneighbour+=1
-#                if j>0:
-#                    sumneighbour+=actmap[i,j-1]
-#                    nneighbour+=1
-#                if i<nact-1:
-#                    sumneighbour+=actmap[i+1,j]
-#                    nneighbour+=1
-#                if j<nact-1:
-#                    sumneighbour+=actmap[i,j+1]
-#                    nneighbour+=1
-#                #diff[i,j]=fiddle*(sumneighbour-4*actmap[i,j])/nneighbour
-#                diff[i,j]=fiddle*(sumneighbour/nneighbour-actmap[i,j])
-#        return actmap+diff
         res=actmap+(diff2-actmap)*fiddle
         if res.dtype!=actmap.dtype:
             res=res.astype(actmap.dtype)

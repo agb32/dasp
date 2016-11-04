@@ -632,7 +632,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
 #                        self.fn[i,j]=0
     
     def makeSpiderPhysical(self,armAngleList,thickness):
-        """armAngleList is a list/array of arm angles.  Thickness is in units of npup.
+        """armAngleList is a list/array of arm angles.  Thickness is in units of npup.  It is actually the radius, not diameter of the beams.
         """
         #xarr,yarr=numpy.meshgrid(numpy.arange(self.npup)-self.npup/2.,numpy.arange(self.npup)-self.npup/2.)
         theta=numpy.fromfunction(lambda y,x:numpy.arctan2(y-self.npup/2+0.5,x-self.npup/2.+0.5),(self.npup,self.npup))
@@ -643,7 +643,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
             arr[:]+=numpy.abs(r*numpy.sin(theta-thetaArm))<thickness
         mask=(arr==0).astype(numpy.int32)
         self.spiderMask=mask
-        self.fn*=mask
+        self.fn*=mask.astype(self.fn.dtype)#different type
 
                              
     def makeELTSpider(self,theta=0.):
@@ -657,7 +657,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         """
         grid=makeCircularGrid(self.npup)
         #first force the central obscuration to correct size.
-        self.fn=na.logical_and((grid<=self.r1),(grid>=self.r1/42.*12.43))
+        self.fn=na.logical_and((grid<=self.r1),(grid>=self.r1/42.*12.43)).astype("d")
         self.area=na.sum(na.sum(self.fn))
         #now add the spiders...
         #r1 corresponds to 42m in pixels.
