@@ -403,7 +403,8 @@ if __name__=="__main__":
         portlist=eval(sys.argv[2])
     if type(portlist)==type(0):
         portlist=[portlist]
-    txt="data=''\nscienceList=globals().get('scienceList',[])\ndlist=[]\nfor s in scienceList:\n if s not in dlist:\n  dlist.append(s)\n  for i in range(len(s.thisObjList)):\n   data+=s.thisObjList[i].idstr+': '+s.strParams(i)+'\\n'\ndata+='Iter %d frametime %g (mean %g) batch %d\\n%s'%(ctrl.thisiter,ctrl.frametime,ctrl.meanTiming.sum()/ctrl.thisiter,ctrl.batchno,ctrl.simID)\nprint data"
+    txt="data=''\nscienceList=ctrl.compList\ndlist=[]\nfor s in scienceList:\n if hasattr(s,'strParams') and s not in dlist:\n  dlist.append(s)\n  for i in range(len(s.thisObjList)):\n   data+=s.thisObjList[i].idstr+': '+s.strParams(i)+'\\n'\ndata+='Iter %d frametime %g (mean %g) batch %d\\n%s'%(ctrl.thisiter,ctrl.frametime,ctrl.meanTiming.sum()/ctrl.thisiter,ctrl.batchno,ctrl.simID)\nprint data"
+#    txt="data=''\nscienceList=globals().get('scienceList',[])\ndlist=[]\nfor s in scienceList:\n if s not in dlist:\n  dlist.append(s)\n  for i in range(len(s.thisObjList)):\n   data+=s.thisObjList[i].idstr+': '+s.strParams(i)+'\\n'\ndata+='Iter %d frametime %g (mean %g) batch %d\\n%s'%(ctrl.thisiter,ctrl.frametime,ctrl.meanTiming.sum()/ctrl.thisiter,ctrl.batchno,ctrl.simID)\nprint data"
     if len(sys.argv)>3:
         txt="data=None\n"+sys.argv[3]
     a=analyse()
