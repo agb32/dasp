@@ -238,8 +238,10 @@ class dm(base.aobase.aobase):
             self.mirrorSurface.fit(-self.actmap)
         elif self.fitType=="zonalLSQManual":
             #fit individually rather than globally.
-            spacing=(self.npup+self.nact-1)//self.nact
-            self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            #spacing=(self.npup+self.nact-1)//self.nact
+            #self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            indx=(numpy.arange(self.nact)/(self.nact-1.)*(self.npup-1)).astype(numpy.int32)
+            self.actmap[:]=phs[indx][:,indx]
             tol=0.001
             inc=numpy.ones((self.actmap.size,),numpy.float32)
             for i in range(10):
