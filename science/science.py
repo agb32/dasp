@@ -452,6 +452,8 @@ class science(aobase.aobase):
                     head.append("COMMIT  = '%s'"%commit)
                     head.append("CLIPPEDE= %g"%clippedFrac)
                     for key in this.sciObj.dictScience.keys():
+                        if key.startswith("INBOX"):
+                            key="INBOX%d"%int(1000*float(key[5:]))
                         head.append("%-8s= %s"%(key[:8],str(this.sciObj.dictScience[key])))
                     if rmstxt!="":
                         head.append("RMS     = %s"%rmstxt)

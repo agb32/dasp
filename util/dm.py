@@ -182,7 +182,7 @@ class dmInfo:
             raise Exception("computeCoords failed for a modal DM")
         self.coords=numpy.zeros((self.nact,self.nact,2),numpy.float32)
         offset=self.actoffset
-        dmDiam=(numpy.tan(self.fov/3600./180*numpy.pi)*self.height*2+telDiam)/numpy.cos(numpy.pi/180*self.tiltAngle)#width of the physical dm.
+        dmDiam=(numpy.tan(self.fov/3600./180*numpy.pi)*abs(self.height)*2+telDiam)/numpy.cos(numpy.pi/180*self.tiltAngle)#width of the physical dm.
         actDiam=dmDiam/(self.nact-1.+2*offset)
         if fname!=None:
             f=open(fname,"a")
@@ -198,7 +198,7 @@ class dmInfo:
             f.close()
     def computeEffectiveObscuration(self,npup,telDiam,r2):
         scale=npup/telDiam
-        r2=(r2-self.height*numpy.tan(self.fov/3600./180.*numpy.pi)*scale)/numpy.cos(numpy.pi/180*self.tiltAngle)
+        r2=(r2-abs(self.height)*numpy.tan(self.fov/3600./180.*numpy.pi)*scale)/numpy.cos(numpy.pi/180*self.tiltAngle)
         if r2<0.:
             r2=0.
         return r2
@@ -274,8 +274,8 @@ class dmInfo:
         dmpupil=numpy.zeros((dmpup,dmpup),numpy.float32)
         if type(reconstructList)!=type([]):
             reconstructList=[reconstructList]
-        xoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.cos(self.primaryPhi*numpy.pi/180.)
-        yoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.sin(self.primaryPhi*numpy.pi/180.)
+        xoff=abs(self.height)*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.cos(self.primaryPhi*numpy.pi/180.)
+        yoff=abs(self.height)*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.sin(self.primaryPhi*numpy.pi/180.)
         pxlscale=atmosGeom.ntel/atmosGeom.telDiam
         if self.maxActDist is not None:
             if computedmflag:
@@ -295,14 +295,14 @@ class dmInfo:
             alt=s.alt
             telDiam=atmosGeom.telDiam
             height=self.height
-            r=height*numpy.tan(theta/3600./180.*numpy.pi)
+            r=abs(height)*numpy.tan(theta/3600./180.*numpy.pi)
             sx=(r*numpy.cos(phi/180.*numpy.pi)-xoff)*((1/numpy.cos(numpy.pi/180*self.tiltAngle)-1)*numpy.cos(self.tiltTheta*numpy.pi/180)+1)
             sy=(r*numpy.sin(phi/180.*numpy.pi)-yoff)*((1/numpy.cos(numpy.pi/180*self.tiltAngle)-1)*numpy.sin(self.tiltTheta*numpy.pi/180)+1)
             x=dmpup/2.+sx*pxlscale
             y=dmpup/2.+sy*pxlscale
             secDiam=centObscuration*telDiam*2/atmosGeom.ntel
             if alt>0:
-                sfac=numpy.abs(alt-height)/alt
+                sfac=numpy.abs(alt-abs(height))/alt
                 if sfac!=1:#if statement necessary for floating point rounding
                     telDiam*=sfac#rescale to lgs cone...
                     secDiam*=sfac
@@ -1922,7 +1922,7 @@ class DMLineOfSight:
             self.yoffend+=self.alignmentOffset[1]
             if self.subpxlInterp:
                 if self.sourceAlt>0:
-                    if self.sourceAlt<self.conjHeight:
+                    if self.sourceAlt<abs(self.conjHeight):
                         #source is below mirror height...???
                         #I think this just means that we need to flip the mirror actuators...
                         print "Warning - you have a DM conjugated above a source height - is this what you expect? (actuators will be reversed!)"
@@ -1947,7 +1947,7 @@ class DMLineOfSight:
                     self.yoffend=int(numpy.ceil(self.yoff+numpy.fabs(npxl)*yfact-tol))#unless exact fit
                     self.xoff=int(self.xoff+tol)
                     self.yoff=int(self.yoff+tol)
-                    if npxl>0 and self.conjHeight>=0:#source above DM conjugate...#161115
+                    if npxl>0:# and self.conjHeight>=0:#source above DM conjugate...#161115
                         self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*(npxl-1.)/(self.npup-1.)*xfact+self.xoffsub
                         self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*(npxl-1.)/(self.npup-1.)*yfact+self.yoffsub
                     else:#need to flip since will see mirror in reverse (I think)
@@ -1968,12 +1968,12 @@ class DMLineOfSight:
                             ax=0
                         self.yoffend=self.yoff+self.npup+ay#oversize by 1 pupil unless exact fit.
                         self.xoffend=self.xoff+self.npup+ax
-                        if self.conjHeight>=0:#161115
-                            self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.xoffsub
-                            self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.yoffsub
-                        else:#need to flip the mirror
-                            self.xaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)+self.xoffsub
-                            self.yaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)+self.yoffsub
+                        #if self.conjHeight>=0:#161115
+                        self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.xoffsub
+                        self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.yoffsub
+                        #else:#need to flip the mirror
+                        #    self.xaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)+self.xoffsub
+                        #    self.yaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)+self.yoffsub
                             
                     else:#DM is tilted... this will change effective actuator spacing, and hence the part of the DM that we interpolate...
                         #Instead of seeing N actuators, you will see nN actuators where n>1, ie an increased number of actuators.
@@ -2037,14 +2037,26 @@ class DMLineOfSight:
             if self.xoffsub==0 and self.yoffsub==0:#no interp needed
                 if self.wavelengthAdjustor==1:
                     if addToOutput:#i.e. the atmosdata is already in output
-                        outputData+=out
+                        if self.conjHeight>=0:
+                            outputData+=out
+                        else:
+                            outputData-=out
                     else:
-                        outputData[:]=out
+                        if self.conjHeight>=0:
+                            outputData[:]=out
+                        else:
+                            outputData[:]=-out
                 else:
                     if addToOutput:#i.e. the atmosdata is already in output
-                        outputData+=out*self.wavelengthAdjustor
+                        if self.conjHeight>=0:
+                            outputData+=out*self.wavelengthAdjustor
+                        else:
+                            outputData-=out*self.wavelengthAdjustor
                     else:
-                        outputData[:]=out*self.wavelengthAdjustor
+                        if self.conjHeight>=0:
+                            outputData[:]=out*self.wavelengthAdjustor
+                        else:
+                            outputData[:]=-out*self.wavelengthAdjustor
             else:
                 #if self.interpolated is None:
                 #    print "util.dm: selectSubPupil Creating scratch array"
@@ -2054,6 +2066,8 @@ class DMLineOfSight:
                     phs=self.selectedDmPhs*self.wavelengthAdjustor
                 else:
                     phs=self.selectedDmPhs
+                if self.conjHeight<0:
+                    phs=-phs
                 gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
                 #out=self.interpolated
         elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
@@ -2067,19 +2081,35 @@ class DMLineOfSight:
                 phs=self.selectedDmPhs*self.wavelengthAdjustor
             else:
                 phs=self.selectedDmPhs
+            if self.conjHeight<0:
+                phs=-phs
             gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
             #out=self.interpolated
         else:
             if self.wavelengthAdjustor==1:
                 if addToOutput:#i.e. the atmosdata is already in output
-                    outputData+=out
+                    if self.conjHeight>=0:
+                        outputData+=out
+                    else:
+                        outputData-=out
+        
                 else:
-                    outputData[:]=out
+                    if self.conjHeight>=0:
+                        outputData[:]=out
+                    else:
+                        outputData[:]=-out
             else:
                 if addToOutput:#i.e. the atmosdata is already in output
-                    outputData+=out*self.wavelengthAdjustor
+                    if self.conjHeight>=0:
+                        outputData+=out*self.wavelengthAdjustor
+                    else:
+                        outputData-=out*self.wavelengthAdjustor
+                        
                 else:
-                    outputData[:]=out*self.wavelengthAdjustor
+                    if self.conjHeight>=0:
+                        outputData[:]=out*self.wavelengthAdjustor
+                    else:
+                        outputData[:]=-out*self.wavelengthAdjustor
         if self.pupil is not None:
             outputData*=self.pupil.fn
             if removePiston:
@@ -2401,7 +2431,7 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
             ms=vdm.getMirrorSurface()
             actmap=numpy.zeros((vdm.nact,vdm.nact),numpy.float32)
             phs=numpy.zeros((vdm.dmpup,vdm.dmpup),numpy.float32)
-            r=vdm.height*numpy.tan(dm.primaryTheta*numpy.pi/180/3600.)
+            r=abs(vdm.height)*numpy.tan(dm.primaryTheta*numpy.pi/180/3600.)
             xpos=r*numpy.cos(dm.primaryPhi*numpy.pi/180.)*npup/telDiam+vdm.dmpup/2.-npup/2.
             ypos=r*numpy.sin(dm.primaryPhi*numpy.pi/180.)*npup/telDiam+vdm.dmpup/2.-npup/2.
             if interpolate==0:
