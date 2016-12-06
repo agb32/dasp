@@ -22,6 +22,7 @@ size
 barrier()
 broadcast(data,rank)
 abort()
+share(send,recv) -> send is an array of size N, recv is array of size N*ntot where ntot is the number of mpi processes.  All processes get the send values spread across recv.
 """
 
 mpitype=None
@@ -59,6 +60,8 @@ elif mpitype=="mpi4py.MPI":
             self.barrier=self.comm.Barrier
             self.broadcast=self.comm.Bcast
             self.abort=self.comm.Abort
+            self.share=self.comm.Allgather
+            
         def receive(self,data,rank,tag):
             #print "receive data type: %s %s (rank %d, tag %d), rms %g"%(data.dtype.char,str(data.shape),rank,tag,data.std())
             self.comm.Recv(data,rank,tag)
@@ -95,4 +98,7 @@ elif mpitype=="DUMMY":
             #def send(self,data,rank,tag):
         #    #print "send data type: %s %s (rank %d, tag %d)"%(data.dtype.char,str(data.shape),rank,tag)
         #    self.comm.Send(data,rank,tag)
+
+        def share(self,send,recv):
+            print "Not implemented - share"
     comm=mympi()
