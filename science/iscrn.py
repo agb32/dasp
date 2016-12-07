@@ -383,13 +383,14 @@ class iscrn(base.aobase.aobase):
             ##we extract the random number generator seed (for the additional rows/cols. At the moment, same for each layer used here.
             self.seed=config.getVal("seed",default=None,raiseerror=0)
             self.keepCovMat=config.getVal("keepInfPhaseCovMatrix",default=0)
-            if not os.path.exists("scrn/"):
-                os.mkdir("scrn")
+            scrnDir=config.getVal("scrnDir",default="scrn")
+            if not os.path.exists(scrnDir):
+                os.makedirs(scrnDir)
             ##we go now through the creation of the required matrices
             ##we compute first the phase covariance matrices
             for id in self.layerList:
                 this=self.thisObjDict[id]
-                fname="scrn/iscrnData%d_%g_%g.fits"%(this.scrnXPxls,self.L0,self.pixScale)
+                fname=os.path.join(scrnDir,"iscrnData%d_%g_%g.fits"%(this.scrnXPxls,self.L0,self.pixScale))
                 covMatPhix=None
                 if os.path.exists(fname):
                     print "Loading phase covariance data"
