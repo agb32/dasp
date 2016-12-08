@@ -409,10 +409,13 @@ class iscrn(base.aobase.aobase):
                     covMatPhix=self.computePhaseCovarianceMatrix(this.scrnXPxls,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
                     print "Computation of the Ax and Bx matrixes"        
                     this.Ax,this.Bx,this.AStartx=self.computeAandBmatrices(this.scrnXPxls,covMatPhix,self.nbColToAdd,self.nbCol)##we compute the A and B matrices
-                    util.FITS.Write(covMatPhix,fname)
-                    util.FITS.Write(this.Ax,fname,writeMode="a")
-                    util.FITS.Write(this.Bx,fname,writeMode="a")
-                    util.FITS.Write(this.AStartx,fname,writeMode="a")
+                    try:
+                        util.FITS.Write(covMatPhix,fname)
+                        util.FITS.Write(this.Ax,fname,writeMode="a")
+                        util.FITS.Write(this.Bx,fname,writeMode="a")
+                        util.FITS.Write(this.AStartx,fname,writeMode="a")
+                    except:
+                        print "Failed to write covariance matrices - disk full?  Continuing anyway..."
                 if self.keepCovMat:
                     this.covMatPhix=covMatPhix
                 else:
