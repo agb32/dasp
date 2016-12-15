@@ -917,7 +917,10 @@ if __name__=="__main__":
     if idstr is None:
         raise Exception("Must specify an id string for the wfs:  --idstr=xxx")
     
-    ctrl=util.Ctrl.Ctrl(globals=globals())
+    ctrl=util.Ctrl.Ctrl(globals=globals())#
+    if ctrl.mpiComm.size>1:
+        idstr=eval(idstr)
+        idstr=idstr[ctrl.mpiComm.rank]
     w=wfscent(None,ctrl.config,idstr=idstr)
     w.control["calcCovariance"]=1
     ctrl.mainloop([w])
