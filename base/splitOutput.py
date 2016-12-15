@@ -52,7 +52,12 @@ class splitOutput(base.aobase.aobase):
         @type debug: None or user defined.
         """
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
-
+        if self.parent is None:
+            class Dummy:
+                dataValid=1
+                outputData=numpy.zeros((1,),"f")
+            self.parent=Dummy()
+        
         self.initialised=0
         self.code=config.getVal("splitOutputCode",default=args.get("code"))
         #Code must be python code that extracts part of an array from parentData, and writes it to outputData, e.g. "outputData=parentData[0:10]".  This can be as complex as you like.

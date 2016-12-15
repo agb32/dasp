@@ -2162,7 +2162,7 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
 
 def calcActuators(hlist,fov,telDiam,r0list=None,strList=None):
     """Computes the ideal ratio of number of actuators for multi-DMs.
-    r0list is computed from globalRo*strLayer**(-3./5) I think.  Or maybe is just the strengths of the layers.  Or 1/strength of layers.  Oops - I forget!!!  Use strlayer**-0.6.  If r0List is None, then strList is used and assumes this.
+    r0list is computed from globalRo*strLayer**(-3./5).  If r0List is None, then strList is used and assumes this.
     This is taken from a 2 page paper by Don Gavel (google deformable mirror fitting error)
     returns the ratios of number of actuators in 1 dimension (nact) required.
     """
@@ -2173,8 +2173,8 @@ def calcActuators(hlist,fov,telDiam,r0list=None,strList=None):
     M=len(hlist)
     alpha=mu*(numpy.pi/4)**(5./6)
     dlist=numpy.zeros((M,),numpy.float32)
-    diam=numpy.zeros((M,),numpy.float32)
-    nact=numpy.zeros((M,),numpy.float32)
+    diam=numpy.zeros((M,),numpy.float32)#ratio of d/r0 between h and 0km.
+    nact=numpy.zeros((M,),numpy.float32)#effective diameter to cover fov.
     for i in range(M):
         diam[i]=telDiam+2*hlist[i]*numpy.tan(fov/3600./180.*numpy.pi)
         dlist[i]=diam[i]/r0list[i]/diam[0]*r0list[0]

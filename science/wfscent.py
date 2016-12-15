@@ -103,6 +103,14 @@ class wfscent(base.aobase.aobase):
         @param args: Optional arguments
         @type args: Dict
         """
+        if parent is None:
+            obj=config.getVal("wfsOverview",raiseerror=0)
+            wfsobj=obj.getWfsByID(idstr)
+            npup=wfsobj.nsubx*wfsobj.phasesize
+            class Dummy:
+                dataValid=1
+                outputData=numpy.zeros((npup,npup),numpy.float32)
+            parent=Dummy()
         if type(parent)!=type({}):
             parent={"closed":parent}
             
@@ -193,7 +201,7 @@ class wfscent(base.aobase.aobase):
                 print("INFORMATION:wfscent: Using {0:d} threads".format(self.nthreads))
 ##(old)                print("INFORMATION:wfscent: Using %d threads"%self.nthreads)
             self.imgmask=1#value used when creating sh img in drawCents()
-            self.control={"cal_source":calSource,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed"}#ZeroOutput can be used when calibrating a pseudo-open loop system.
+            self.control={"cal_source":calSource,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed","calcCovariance":self.config.getVal("calcWFSCovariance",default=0)}#ZeroOutput can be used when calibrating a pseudo-open loop system.
             self.lastCalSource=0#resourcesharing - todo...?
 
 
@@ -223,7 +231,7 @@ class wfscent(base.aobase.aobase):
         tstep=this.config.getVal("tstep")                                  # Simulation tick length
         telDiam=this.config.getVal("telDiam")                              # Telescope aperture diameter
         this.laserGuideStar=None
-
+        this.covTag=this.config.getVal("covarianceFileTag",default="")
         if wfsobj==None:
             atmosPhaseType=this.config.getVal("atmosPhaseType",default="phaseonly")
             # No. of subaps across tel. pupil
@@ -671,6 +679,15 @@ class wfscent(base.aobase.aobase):
                                 wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
                                 # subtract average y centroid:
                                 wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
+                            if self.control["calcCovariance"]:
+                                if wfs.outSquare is None:
+                                    wfs.outSquare=wfs.outputData**2
+                                    wfs.outSum=wfs.outputData.copy()
+                                    wfs.outN=1
+                                else:
+                                    wfs.outSquare+=wfs.outputData**2
+                                    wfs.outSum+=wfs.outputData
+                                    wfs.outN+=1
                         self.dataValid=1
 
                 if self.timing:
@@ -683,7 +700,19 @@ class wfscent(base.aobase.aobase):
         self.generateNextTime=time.time()-t1
 
 
-
+    def endSim(self):
+        for obj in self.thisObjList:
+            wfs=obj.wfscentObj
+            cov=wfs.calcCovariance()
+            if cov is not None:
+                wfsobj=self.obj.getWfsByID(obj.idstr)
+                
+                if type(wfsobj.sig)==numpy.ndarray:
+                    sig=wfsobj.sig.mean()
+                else:
+                    sig=wfsobj.sig
+                readnoise=wfsobj.readoutNoise
+                util.FITS.Write(cov,"wfsCovariance_%s%s_%g_%g.fits"%(obj.covTag,obj.idstr,sig,readnoise))
 
     def newCorrRef(self):
         """Grabs current SHS images and sets these as the correlation reference.  Then computes new reference slopes too"""
@@ -875,3 +904,20 @@ class wfscent(base.aobase.aobase):
         return paramList
 
 
+if __name__=="__main__":
+    #Run, to generate noise covariance...
+    import sys
+    import util.Ctrl
+    idstr=None
+    for a in sys.argv[1:]:
+        if a.startswith("--idstr="):
+            idstr=a[8:]
+            sys.argv.remove(a)
+            break
+    if idstr is None:
+        raise Exception("Must specify an id string for the wfs:  --idstr=xxx")
+    
+    ctrl=util.Ctrl.Ctrl(globals=globals())
+    w=wfscent(None,ctrl.config,idstr=idstr)
+    w.control["calcCovariance"]=1
+    ctrl.mainloop([w])

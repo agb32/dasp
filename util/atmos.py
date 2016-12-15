@@ -21,6 +21,7 @@ import util.dm
 #import util.guideStar
 import util.tel
 import util.zernikeMod
+import util.calcPxlScale
 class layer:
     """a holder for info about a single layer"""
     def __init__(self,height,direction,speed,strength,seed=0,strtype="fraction"):
@@ -86,6 +87,14 @@ class source(object):
             if type(reconList)!=type([]):
                 reconList=[reconList]
         self.reconList=reconList#a list of reconstructor idstr which use this wfs.
+
+    def getPxlScale(self,telDiam):
+        if self.nsubx is not None:
+            d=telDiam/self.nsubx
+        else:
+            d=telDiam
+        return util.calcPxlScale.pxlScale(self.sourcelam,d,self.phasesize,self.nfft,self.clipsize/self.nimg)
+        
 class geom:
     """A class to hold information about atmospheric/source geometry.  Typically used by the parameter file."""
     def __init__(self,layerDict,sourceList,ntel,npup,telDiam,r0,l0,zenith=0.,zenithAz=0.):

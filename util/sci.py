@@ -307,7 +307,7 @@ class science:
         #self.xRad=numpy.nonzero(difYorick(r2r))[0] ##we look when the grid of distances change of value
         self.xRad=numpy.nonzero(r2r[1:]-r2r[:-1])[0]
         #print self.xRad,type(self.xRad),type(self.xRad[0])
-        self.tabNbPointsRad=difYorick(self.xRad) ## number of points per bin
+        #self.tabNbPointsRad=difYorick(self.xRad) ## number of points per bin
         self.tabNbPointsRad=self.xRad[1:]-self.xRad[:-1]
         self.rRad=numpy.take(numpy.sqrt(r2r),self.xRad) ##radius (in pixels) giving the horizontal axis for radial and encircled energy profiles
         self.rad=self.rRad*self.pix_scale

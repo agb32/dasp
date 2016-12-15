@@ -530,7 +530,7 @@ class iscrn(base.aobase.aobase):
         for i in range(nbPoints):
             ##Coordinates of the point we want to compute the phase covariance
             ic1=i%int(dpix)
-            jc1=i/int(dpix)
+            jc1=i//int(dpix)
             line=na.ravel(cPhi[nc-1-jc1:nc*2-1-jc1,dpix-1-ic1:dpix*2-1-ic1]).astype(covMatPhi.dtype)
             line[jc1*dpix+ic1]=sigma2#for the variance.
             covMatPhi[i,i:]=line[i:,]
