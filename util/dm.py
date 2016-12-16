@@ -271,7 +271,7 @@ class dmInfo:
         else:
             computedmflag=1
         dmpup=self.calcdmpup(atmosGeom)
-        dmpupil=numpy.zeros((dmpup,dmpup),numpy.float32)
+        dmpupil=numpy.zeros((dmpup,dmpup),numpy.bool)
         if type(reconstructList)!=type([]):
             reconstructList=[reconstructList]
         xoff=abs(self.height)*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.cos(self.primaryPhi*numpy.pi/180.)
@@ -312,12 +312,18 @@ class dmInfo:
             if x-w<-1e-10 or y-w<-1e-10 or x+w>dmpup or y+w>dmpup:
                 raise Exception("util.dm.computeDMPupil - bad coords: %g %g %g %g %g source %s, height %g"%(x-w,y-w,x+w,y+w,dmpup,source, height))
             #now make a circle of this radius around x,y...
-            for i in xrange(int(y-w),min(dmpup,int(numpy.ceil(y+w))+1)):
-                yi2=int(i-y+0.5)**2
-                for j in xrange(int(x-w),min(dmpup,int(numpy.ceil(x+w))+1)):
-                    xi2=int(j-x+0.5)**2
-                    if yi2+xi2<=diam2 and yi2+xi2>=secDiam2:
-                        dmpupil[i,j]=1
+            #for i in xrange(int(y-w),min(dmpup,int(numpy.ceil(y+w))+1)):
+            #    yi2=int(i-y+0.5)**2
+            #    for j in xrange(int(x-w),min(dmpup,int(numpy.ceil(x+w))+1)):
+            #        xi2=int(j-x+0.5)**2
+            #        if yi2+xi2<=diam2 and yi2+xi2>=secDiam2:
+            #            dmpupil[i,j]=1
+            yy,xx=numpy.ogrid[int(y-w):min(dmpup,int(numpy.ceil(y+w))+1),int(x-w):min(dmpup,int(numpy.ceil(x+w))+1)]
+            t2=(yy-y+0.5).astype(numpy.int32)**2 + (xx-x+0.5).astype(numpy.int32)**2
+            
+            t3=numpy.logical_and(t2<=diam2, t2>=secDiam2)
+            dmpupil[int(y-w):min(dmpup,int(numpy.ceil(y+w))+1),int(x-w):min(dmpup,int(numpy.ceil(x+w))+1)]|=t3
+
             if self.maxActDist is not None:
                 #for each actuator, find out how far it is from source edge.
                 #If it lies within maxActDist*actSpacing of the edge of the mirror then it is allowed.
@@ -327,6 +333,7 @@ class dmInfo:
                 maxrad=telDiam/2.+self.maxActDist*self.actSpacing
                 if computedmflag:
                     self.dmflag|=((d<=maxrad).astype(numpy.int32) & (d>=minrad).astype(numpy.int32))
+        dmpupil=dmpupil.astype(numpy.float32)
         #now compute the subarea...
         subarea=numpy.zeros((self.nact,self.nact),numpy.float32)
         dmsubapsize=dmpup/(self.nact+2*self.actoffset-1.)
