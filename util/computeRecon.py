@@ -49,8 +49,11 @@ except:
             except:
                 print "Warning: in computeRecon.py - cmod.mkl, cmod.acml and cmod.atlas not found - this may cause problems depending what functions you want - but continuing anyway"
 
-        
-import cmod.svd,scipy.sparse
+try:        
+    import cmod.svd
+except:
+    print "WARNING: util.computeRecon unable to import cmod.svd"
+import scipy.sparse
 
 def keyboard(banner=None):
     """A class that allows us to break to python console on exception."""
