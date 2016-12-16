@@ -383,13 +383,14 @@ class iscrn(base.aobase.aobase):
             ##we extract the random number generator seed (for the additional rows/cols. At the moment, same for each layer used here.
             self.seed=config.getVal("seed",default=None,raiseerror=0)
             self.keepCovMat=config.getVal("keepInfPhaseCovMatrix",default=0)
-            if not os.path.exists("scrn/"):
-                os.mkdir("scrn")
+            scrnDir=config.getVal("scrnDir",default="scrn")
+            if not os.path.exists(scrnDir):
+                os.makedirs(scrnDir)
             ##we go now through the creation of the required matrices
             ##we compute first the phase covariance matrices
             for id in self.layerList:
                 this=self.thisObjDict[id]
-                fname="scrn/iscrnData%d_%g_%g.fits"%(this.scrnXPxls,self.L0,self.pixScale)
+                fname=os.path.join(scrnDir,"iscrnData%d_%g_%g.fits"%(this.scrnXPxls,self.L0,self.pixScale))
                 covMatPhix=None
                 if os.path.exists(fname):
                     print "Loading phase covariance data"
@@ -408,10 +409,13 @@ class iscrn(base.aobase.aobase):
                     covMatPhix=self.computePhaseCovarianceMatrix(this.scrnXPxls,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
                     print "Computation of the Ax and Bx matrixes"        
                     this.Ax,this.Bx,this.AStartx=self.computeAandBmatrices(this.scrnXPxls,covMatPhix,self.nbColToAdd,self.nbCol)##we compute the A and B matrices
-                    util.FITS.Write(covMatPhix,fname)
-                    util.FITS.Write(this.Ax,fname,writeMode="a")
-                    util.FITS.Write(this.Bx,fname,writeMode="a")
-                    util.FITS.Write(this.AStartx,fname,writeMode="a")
+                    try:
+                        util.FITS.Write(covMatPhix,fname)
+                        util.FITS.Write(this.Ax,fname,writeMode="a")
+                        util.FITS.Write(this.Bx,fname,writeMode="a")
+                        util.FITS.Write(this.AStartx,fname,writeMode="a")
+                    except:
+                        print "Failed to write covariance matrices - disk full?  Continuing anyway..."
                 if self.keepCovMat:
                     this.covMatPhix=covMatPhix
                 else:
@@ -526,7 +530,7 @@ class iscrn(base.aobase.aobase):
         for i in range(nbPoints):
             ##Coordinates of the point we want to compute the phase covariance
             ic1=i%int(dpix)
-            jc1=i/int(dpix)
+            jc1=i//int(dpix)
             line=na.ravel(cPhi[nc-1-jc1:nc*2-1-jc1,dpix-1-ic1:dpix*2-1-ic1]).astype(covMatPhi.dtype)
             line[jc1*dpix+ic1]=sigma2#for the variance.
             covMatPhi[i,i:]=line[i:,]

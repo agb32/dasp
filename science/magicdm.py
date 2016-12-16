@@ -214,9 +214,11 @@ class dm(base.aobase.aobase):
                 for j in range(min(self.nmodes,self.zoffset.shape[0])):
                     self.dmphs+=self.zoffset[j]*self.zern[j]#always add constant offsets or pokes
         elif self.fitType=="zonalLeastSquares":
-            spacing=(self.npup+self.nact-1)//self.nact
+            #spacing=(self.npup+self.nact-1)//self.nact
             #print self.npup,self.nact,self.actmap.shape,self.npup//(self.nact-1),spacing,phs.shape
-            self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            #self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            indx=(numpy.arange(self.nact)/(self.nact-1.)*(self.npup-1)).astype(numpy.int32)
+            self.actmap[:]=phs[indx][:,indx]
             print "actmap pre-minimize:",self.actmap
             method=["Nelder-Mead","CG","Newton-CG","BFGS"][0]
             res=scipy.optimize.minimize(self.rmsErr,self.actmap.ravel(),args=(phs,None),method=method,options={"maxiter":10000},jac=False)
@@ -229,17 +231,21 @@ class dm(base.aobase.aobase):
             self.mirrorSurface.fit(-self.actmap)
         elif self.fitType=="zonalLSQIndividual":
             #fit individually rather than globally.
-            spacing=(self.npup+self.nact-1)//self.nact
+            #spacing=(self.npup+self.nact-1)//self.nact
             method="Nelder-Mead"
-            self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            #self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            indx=(numpy.arange(self.nact)/(self.nact-1.)*(self.npup-1)).astype(numpy.int32)
+            self.actmap[:]=phs[indx][:,indx]
             for i in range(10):
                 for j in range(self.actmap.size):
                     res=scipy.optimize.minimize(self.rmsErr,self.actmap.ravel()[j:j+1],args=(phs,j),method=method,options={"maxiter":10000})
             self.mirrorSurface.fit(-self.actmap)
         elif self.fitType=="zonalLSQManual":
             #fit individually rather than globally.
-            spacing=(self.npup+self.nact-1)//self.nact
-            self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            #spacing=(self.npup+self.nact-1)//self.nact
+            #self.actmap[:]=phs[:self.nact*spacing:spacing,:self.nact*spacing:spacing]
+            indx=(numpy.arange(self.nact)/(self.nact-1.)*(self.npup-1)).astype(numpy.int32)
+            self.actmap[:]=phs[indx][:,indx]
             tol=0.001
             inc=numpy.ones((self.actmap.size,),numpy.float32)
             for i in range(10):
@@ -276,7 +282,7 @@ class dm(base.aobase.aobase):
             self.actmap.ravel()[i:i+1]=actmap
         self.mirrorSurface.fit(self.actmap)
         rms=numpy.sqrt(((self.mirrorSurface.phsOut-phs)**2).sum())
-        print "RMS: %g"%rms
+        #print "RMS: %g"%rms
         return rms
              
     def computeCovariance(self,phs):

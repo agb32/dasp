@@ -107,7 +107,7 @@ class makeRecon:
         f=open(self.timename,"a")
         f.write(txt)
         f.close()
-    def dotdot(self,csc=None,diagScaling=None):
+    def dotdot(self,csc=None,diagScaling=None,save=1):
         """Do the sparse dot product with self transposed...
         If have a diagonal scaling, want to multiply each col by the sqrt of this value in the pmx, before dotting..., i.e. if A is the diagonal scaling mx, and B is sqrt(A)
 
@@ -150,6 +150,7 @@ class makeRecon:
             print "Doing gemm in %d quadrants, shape %s"%(nblock*nblock,str(csc.shape))
             size=shape[0]/nblock
             t0=time.time()
+            warn=0
             for i in range(nblock):
                 vstart=i*size
                 vend=(i+1)*size
@@ -172,12 +173,15 @@ class makeRecon:
                     t2=time.time()
                     print "GEMM time %gs"%(t2-t1)
                     del(b)
-                    if pmxfname is not None and diagScaling is not None and i==nblock-1:#scale back so as not the alter csc.
+                    if diagScaling is not None and i==nblock-1:#scale back so as not the alter csc.
                         for si in xrange(csc.shape[1]):
                             if diagScaling[si]!=0:
                                 csc[ustart:uend,si]/=diagScaling[si]
-                        
+                            else:
+                                warn=1
                 del(a)
+            if warn:
+                print "Warning - not able to revert pmx back to what it was... (if covariance==0 and wfs is unused, doesn't matter)"
             t2=time.time()
             print "Total GEMM time %gs"%(t2-t0)
             open(self.timename,"a").write("mx dot mx dense %gs\n"%(t2-t1))
@@ -188,7 +192,8 @@ class makeRecon:
                     res[i,i]+=self.regularisation
                 print "Regularisation done"
                 extraHeader="REGULARD= %g"%self.regularisation
-            util.FITS.Write(res,self.dottedname,doByteSwap=0,extraHeader=extraHeader)
+            if save:
+                util.FITS.Write(res,self.dottedname,doByteSwap=0,extraHeader=extraHeader)
             del(csc)
         else:
             if diagScaling is not None:
@@ -205,7 +210,8 @@ class makeRecon:
             print "Time for mx dot mx %gs"%(t2-t1)
             open(self.timename,"a").write("mx dot mx %gs\n"%(t2-t1))
             res=scipy.sparse.csr_matrix(res,dims=(csr.shape[0],csr.shape[0]))
-            util.FITS.saveSparse(res,self.dottedname,doByteSwap=0)
+            if save:
+                util.FITS.saveSparse(res,self.dottedname,doByteSwap=0)
             del(csc)
             del(csr)
         return res
@@ -352,7 +358,7 @@ class makeRecon:
         self.log("rcond=%g"%self.rcond)
         return veut
 
-    def makeLUInv(self,a=None,dtype=numpy.float32):
+    def makeLUInv(self,a=None,dtype=numpy.float32,save=1):
         """Do LU decomposition to compute inverse..."""
         if type(a)!=numpy.ndarray:
             if type(a)==type(""):
@@ -385,12 +391,13 @@ class makeRecon:
         work=numpy.zeros((lw,),a.dtype)
         mkl.luinv(a,ipiv,work)
         t2=time.time()
-        util.FITS.Write(a,self.invname,doByteSwap=0)
+        if save:
+            util.FITS.Write(a,self.invname,doByteSwap=0)
         self.log("makeLUInv time %g\n"%(t2-t1))
         return a
 
 
-    def denseDotDense(self,a=None,b=None,transA=0,transB=0,resname=None,diagScaling=None):
+    def denseDotDense(self,a=None,b=None,transA=0,transB=0,resname=None,diagScaling=None,save=1):
         """Dot product of the poke matrix with the gen inv of pmx dot pmxT to give the reconstructor, assuming inputs and output all dense.
         a and b must be the filenames
         Can be used instead of finalDot() giving a dense result...
@@ -510,7 +517,8 @@ class makeRecon:
                 print "GEMM time %gs"%(t2-t1)
                 del(b)
             del(a)
-        util.FITS.Write(res,resname,doByteSwap=0)
+        if save:
+            util.FITS.Write(res,resname,doByteSwap=0)
         t1=time.time()
         print "Total GEMM time %gs"%(t2-t0)
         open(self.timename,"a").write("denseDotDense %gs\n"%(t2-t0))

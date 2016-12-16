@@ -623,20 +623,52 @@ class Ctrl:
         """This is a function that can be called during simulation setup to make the simulation perform a poke at the start of iteration zero.
         """
         if reconNumber==None:
-            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("poke"):\n  obj.control["poke"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n print obj.control\nprint "INFORMATION Starting poking"\n"""
+            cmd="""
+for obj in ctrl.compList:
+    if obj.control.has_key("poke"):
+        obj.control["poke"]=1
+    if obj.control.has_key("science_integrate"):
+        obj.control["science_integrate"]=0
+    if obj.control.has_key("zero_dm"):
+        obj.control["zero_dm"]=1
+    if obj.control.has_key("cal_source"):
+        obj.control["cal_source"]=1
+    print obj.control
+print "INFORMATION Starting poking"\n"""
         elif type(reconNumber)==type(0):
-            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\nreconList[%s].control["poke"]=1\nreconList[%s].control["zero_dm"]=1\nprint "INFORMATION Starting poking DM %s"\n"""%(reconNumber,reconNumber,reconNumber)
+            cmd="""
+for obj in ctrl.compList:
+    if obj.control.has_key("cal_source"):
+     obj.control["cal_source"]=1
+    if obj.control.has_key("science_integrate"):
+     obj.control["science_integrate"]=0\nreconList[%s].control["poke"]=1\nreconList[%s].control["zero_dm"]=1\nprint "INFORMATION Starting poking DM %s"\n"""%(reconNumber,reconNumber,reconNumber)
         elif type(reconNumber)==type(""):
             #its an idstr...
-            cmd="""for obj in ctrl.compList:\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\n if obj.control.has_key("science_integrate"):\n  obj.control["science_integrate"]=0\nfor r in reconList:\n if r.idstr[0]=='%s':\n  r.control["poke"]=1\n  r.control["zero_dm"]=1\nprint "INFORMATION Starting poking DM %s"\n"""%(reconNumber,reconNumber)
+            cmd="""
+for obj in ctrl.compList:
+    if obj.control.has_key("cal_source"):
+        obj.control["cal_source"]=1
+    if obj.control.has_key("science_integrate"):
+        obj.control["science_integrate"]=0\nfor r in reconList:
+    if r.idstr[0]=='%s':
+        r.control["poke"]=1
+        r.control["zero_dm"]=1
+print "INFORMATION Starting poking DM %s"\n"""%(reconNumber,reconNumber)
         self.initialCommand(cmd,freq=-1,startiter=startiter)
     def doInitialReferenceCentroids(self,startiter=0):
         """This function can be called during simulation setup to make the simulation take reference centroids.  Useful for cases with LGS spot elongation.
         """
-        cmd="""for obj in ctrl.compList:\n if obj.control.has_key("takeRef"):\n  obj.control["takeRef"]=1\n if obj.control.has_key("zero_dm"):\n  obj.control["zero_dm"]=1\n if obj.control.has_key("cal_source"):\n  obj.control["cal_source"]=1\nprint "INFORMATION Taking reference centroids"\n"""
+        cmd="""
+for obj in ctrl.compList:
+    if obj.control.has_key("takeRef"):
+        obj.control["takeRef"]=1
+    if obj.control.has_key("zero_dm"):
+        obj.control["zero_dm"]=1
+    if obj.control.has_key("cal_source"):
+        obj.control["cal_source"]=1\nprint "INFORMATION Taking reference centroids"\n"""
         self.initialCommand(cmd,freq=-1,startiter=startiter)
         
-    def doInitialPokeThenRun(self,startiter=0):
+    def doInitialPokeThenRunOld(self,startiter=0):
         """This function can be called during sim setup to make the simulation perform a poke from iteration zero, followed by computation of the reconstructor, and then run using this.
         """
         cmd="""pass
@@ -671,6 +703,51 @@ ctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)
 print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
 		"""
         self.initCmdList.append(cmd)
+
+    def doInitialPokeThenRun(self,startiter=0):
+        """This function can be called during sim setup to make the simulation perform a poke from iteration zero, followed by computation of the reconstructor, and then run using this.
+
+        Test using MPI to share the number of iterations to poke for.
+        """
+        cmd="""pass
+for obj in ctrl.compList:
+    if obj.control.has_key("poke"):
+          obj.control["poke"]=1
+    if obj.control.has_key("science_integrate"):
+          obj.control["science_integrate"]=0
+    if obj.control.has_key("zero_dm"):
+          obj.control["zero_dm"]=1
+    if obj.control.has_key("cal_source"):
+          obj.control["cal_source"]=1
+    #print("  :: "+str(obj.control))
+print("INFORMATION:^^Ctrl^^:Starting poking")
+		"""
+        self.initialCommand(cmd,freq=-1,startiter=startiter)
+
+        cmd="""maxmodes,wfsObj_int,global_tstep=0,None,None
+for obj in ctrl.compList:
+  if hasattr(obj,"npokes"):
+    if obj.npokes>maxmodes:
+      maxmodes=obj.npokes     
+  elif hasattr(obj,"nmodes"):
+    if obj.nmodes>maxmodes:
+      maxmodes=obj.nmodes
+  if hasattr(obj,"tstep"):
+    global_tstep=obj.tstep
+  if hasattr(obj,"wfs_int") and (wfsObj_int==None or obj.wfs_int>wfsObj_int):
+    wfsObj_int=obj.wfs_int
+maxmodes=maxmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
+#Now share maxmodes with all other processes, and then select the max.
+import base.mpiWrapper
+c=base.mpiWrapper.comm
+nm=numpy.zeros((c.size,),numpy.int32)
+c.share(numpy.array([maxmodes]).astype(numpy.int32),nm)
+maxmodes=nm.max()
+ctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)
+print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
+		"""
+        self.initCmdList.append(cmd)
+
     def doInitialSciRun(self,startiter=0):
         cmd="ctrl.doSciRun()"
         self.initialCommand(cmd,freq=-1,startiter=startiter)
@@ -690,7 +767,7 @@ print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
                 obj.control["cal_source"]=0
             if obj.control.has_key("close_dm"):
                 obj.control["close_dm"]=1
-            print obj.control
+            #print obj.control
         print "INFORMATION Zeroing science,closing loop etc"
         
         

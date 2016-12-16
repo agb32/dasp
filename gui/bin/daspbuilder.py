@@ -1539,6 +1539,8 @@ if not "nopoke" in ctrl.userArgList:ctrl.doInitialPokeThenRun()
 ###########################################################################
 
 mcaoParamsTxt="""
+import base.readConfig
+base.readConfig.init(globals())
 wfs_nsubx=6 #Number of subaps
 tstep=1/250.#Simulation timestep in seconds (250Hz).
 AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)
@@ -1569,13 +1571,14 @@ lgsalt=90000.#90km sodium layer
 import util.guideStar
 import util.elong
 #Create the LGS PSFs (elongated).  There are many ways to do this - this is a simple one.
-psf=util.elong.make(spotsize=phasesize*4,nsubx=wfs_nsubx,wfs_n=phasesize,lam=lgsLam,telDiam=telDiam,telSec=telSec,beacon_alt=lgsalt,beacon_depth=10000.,launchDist=0.,launchTheta=0.,pup=pupil)[0]
+lgssig=1e6
+psf=util.elong.make(spotsize=phasesize*4,nsubx=wfs_nsubx,wfs_n=phasesize,lam=lgsLam,telDiam=telDiam,telSec=telSec,beacon_alt=lgsalt,beacon_depth=10000.,launchDist=0.,launchTheta=0.,pup=pupil,photons=lgssig)[0]
 
 sourceList=[]
 wfsDict={}
 for i in range(nlgs):#60 arcsec off-axis
     id="%d"%(i+1)
-    wfsDict[id]=util.guideStar.LGS(id,wfs_nsubx,lgsAsterismRadius,i*360./nlgs,lgsalt,phasesize=phasesize,minarea=0.5,sig=1e6,sourcelam=lgsLam,reconList=["recon"],pupil=pupil,launchDist=0,launchTheta=0,lgsPsf=psf)
+    wfsDict[id]=util.guideStar.LGS(id,wfs_nsubx,lgsAsterismRadius,i*360./nlgs,lgsalt,phasesize=phasesize,minarea=0.5,sig=lgssig,sourcelam=lgsLam,reconList=["recon"],pupil=pupil,launchDist=0,launchTheta=0,lgsPsf=psf)
     sourceList.append(wfsDict[id])
 for i in range(nngs):#90 arcsec off-axis
     id="%d"%(i+1+nlgs)
@@ -1636,6 +1639,8 @@ r.pmxFilename="pmx.fits"#interation matrix name (will be created)
 ##############################################################################
 
 scaoParamsTxt="""
+import base.readConfig
+base.readConfig.init(globals())
 wfs_nsubx=6 #Number of subaps
 tstep=1/250.#Simulation timestep in seconds (250Hz).
 AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)

@@ -52,7 +52,7 @@ MirrorSurface class - class for interpolating a surface over actuators.
 class dmInfo:
     """A class holding info for a single DM (multiple source directions).
     """
-    def __init__(self,label,idlist,height,nact,fov=None,coupling=0.1,minarea=0.25,actoffset=0.,closedLoop=1,
+    def __init__(self,label,idlist,height,nact,fov=None,minarea=0.25,actoffset=0.,closedLoop=1,
                  actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
                  actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
                  interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
@@ -62,7 +62,7 @@ class dmInfo:
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
         concatenating label with source ID.
         fov is the field of view for this DM, or None in which case the minimum FOV will be computed.  Should be radius, not diameter(!!!)
-        coupling is the coupling between actuators (fraction), or None.
+        actCoupling is the coupling between actuators (fraction), or None.
         gainAdjustment is an adjustment factor which can be multiplied by the global gain to get the gain for this DM.
         if zonalDM==1, is a zonal DM.  Otherwise, is a modal DM, with nact modes.
         reconstructList is used for zonal DMs to specify which actuators should be controlled.  If equal to "all",
@@ -103,7 +103,6 @@ class dmInfo:
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
         self.nact=nact
         self.fov=fov#radius.  NOT diameter.
-        self.coupling=coupling
         self.minarea=minarea
         self.actoffset=actoffset
         self.actSpacing=actSpacing#used if nact == None.
@@ -183,7 +182,7 @@ class dmInfo:
             raise Exception("computeCoords failed for a modal DM")
         self.coords=numpy.zeros((self.nact,self.nact,2),numpy.float32)
         offset=self.actoffset
-        dmDiam=(numpy.tan(self.fov/3600./180*numpy.pi)*self.height*2+telDiam)/numpy.cos(numpy.pi/180*self.tiltAngle)#width of the physical dm.
+        dmDiam=(numpy.tan(self.fov/3600./180*numpy.pi)*abs(self.height)*2+telDiam)/numpy.cos(numpy.pi/180*self.tiltAngle)#width of the physical dm.
         actDiam=dmDiam/(self.nact-1.+2*offset)
         if fname!=None:
             f=open(fname,"a")
@@ -199,7 +198,7 @@ class dmInfo:
             f.close()
     def computeEffectiveObscuration(self,npup,telDiam,r2):
         scale=npup/telDiam
-        r2=(r2-self.height*numpy.tan(self.fov/3600./180.*numpy.pi)*scale)/numpy.cos(numpy.pi/180*self.tiltAngle)
+        r2=(r2-abs(self.height)*numpy.tan(self.fov/3600./180.*numpy.pi)*scale)/numpy.cos(numpy.pi/180*self.tiltAngle)
         if r2<0.:
             r2=0.
         return r2
@@ -275,8 +274,8 @@ class dmInfo:
         dmpupil=numpy.zeros((dmpup,dmpup),numpy.float32)
         if type(reconstructList)!=type([]):
             reconstructList=[reconstructList]
-        xoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.cos(self.primaryPhi*numpy.pi/180.)
-        yoff=self.height*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.sin(self.primaryPhi*numpy.pi/180.)
+        xoff=abs(self.height)*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.cos(self.primaryPhi*numpy.pi/180.)
+        yoff=abs(self.height)*numpy.tan(self.primaryTheta/60./60./180*numpy.pi)*numpy.sin(self.primaryPhi*numpy.pi/180.)
         pxlscale=atmosGeom.ntel/atmosGeom.telDiam
         if self.maxActDist is not None:
             if computedmflag:
@@ -296,14 +295,14 @@ class dmInfo:
             alt=s.alt
             telDiam=atmosGeom.telDiam
             height=self.height
-            r=height*numpy.tan(theta/3600./180.*numpy.pi)
+            r=abs(height)*numpy.tan(theta/3600./180.*numpy.pi)
             sx=(r*numpy.cos(phi/180.*numpy.pi)-xoff)*((1/numpy.cos(numpy.pi/180*self.tiltAngle)-1)*numpy.cos(self.tiltTheta*numpy.pi/180)+1)
             sy=(r*numpy.sin(phi/180.*numpy.pi)-yoff)*((1/numpy.cos(numpy.pi/180*self.tiltAngle)-1)*numpy.sin(self.tiltTheta*numpy.pi/180)+1)
             x=dmpup/2.+sx*pxlscale
             y=dmpup/2.+sy*pxlscale
             secDiam=centObscuration*telDiam*2/atmosGeom.ntel
             if alt>0:
-                sfac=numpy.abs(alt-height)/alt
+                sfac=numpy.abs(alt-abs(height))/alt
                 if sfac!=1:#if statement necessary for floating point rounding
                     telDiam*=sfac#rescale to lgs cone...
                     secDiam*=sfac
@@ -466,7 +465,7 @@ class dmInfo:
         """
         if self.dmpup is not None:
             return self.dmpup
-        height=self.height
+        height=abs(self.height)#161115
         fov=self.fov
         #if fov is None:
         #    fov=max(self.atmosGeom.sourceThetas().values())
@@ -477,7 +476,7 @@ class dmInfo:
         arcsecRad=numpy.pi/180/3600.
 
         dmpup=int(numpy.ceil((2*height*numpy.tan(fov*arcsecRad)*scale+npup)/numpy.cos(self.tiltAngle*numpy.pi/180.)))
-        print "Calculating dmpup at height %g: %d (fov %g)"%(height,dmpup,fov)
+        print "Calculating dmpup at height %g: %d (fov %g)..."%(height,dmpup,fov)
         self.dmpup=dmpup
         return dmpup
     def integrateArea(self,nact,actOffset,dmpup,r1,r2,i,j):
@@ -815,23 +814,23 @@ class dmOverview:
             if dm.fov is None:#atmosGeom must be specified in this case...
                 dm.fov=0.
                 #need to compute the FOV.  This is done such that all sources will just fit...
-                xoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.cos(dm.primaryPhi*numpy.pi/180.)
-                yoff=dm.height*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.sin(dm.primaryPhi*numpy.pi/180.)
+                xoff=abs(dm.height)*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.cos(dm.primaryPhi*numpy.pi/180.)#161115
+                yoff=abs(dm.height)*numpy.tan(dm.primaryTheta/60./60./180*numpy.pi)*numpy.sin(dm.primaryPhi*numpy.pi/180.)#161115
                 for dmid,sourceid in dm.idlist:
                     sfov=atmosGeom.sourceFov(sourceid)*numpy.pi/180./3600.
-                    x=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
-                        numpy.cos(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-xoff
+                    x=abs(dm.height)*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
+                        numpy.cos(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-xoff#161115
                     if x>0:
-                        x+=dm.height*numpy.tan(sfov)
+                        x+=abs(dm.height)*numpy.tan(sfov)#161115
                     else:
-                        x-=dm.height*numpy.tan(sfov)
-                    y=dm.height*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
-                        numpy.sin(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-yoff
+                        x-=abs(dm.height)*numpy.tan(sfov)#161115
+                    y=abs(dm.height)*numpy.tan(atmosGeom.sourceTheta(sourceid)*numpy.pi/60./60./180)*\
+                        numpy.sin(atmosGeom.sourcePhi(sourceid)*numpy.pi/180)-yoff#161115
                     if y>0:
-                        y+=dm.height*numpy.tan(sfov)
+                        y+=abs(dm.height)*numpy.tan(sfov)#161115
                     else:
-                        y-=dm.height*numpy.tan(sfov)
-                    fov=numpy.arctan2(numpy.sqrt(x**2+y**2),dm.height)/numpy.pi*180*60*60
+                        y-=abs(dm.height)*numpy.tan(sfov)#161115
+                    fov=numpy.arctan2(numpy.sqrt(x**2+y**2),abs(dm.height))/numpy.pi*180*60*60#161115
                     dm.fov=max(fov,dm.fov)
 
                 print "FOV computed as %g for DM %s"%(dm.fov,dm.label)
@@ -841,7 +840,7 @@ class dmOverview:
                     raise Exception("Modal DM must specify nact as the number of modes")
                 if dm.actSpacing is None:
                     raise Exception("actSpacing or nact must be specified")
-                dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
+                dmDiam=(2*abs(dm.height)*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)#161115
                 dm.nact=int(dmDiam/dm.actSpacing-2*dm.actoffset+1)
                 print "nact computed as %g for DM %s"%(dm.nact,dm.label)
                 if dm.pokeSpacing is not None and (dm.pokeSpacing<0 or dm.pokeSpacing>=dm.nact):
@@ -853,12 +852,12 @@ class dmOverview:
             else:
                 if dm.actSpacing is not None:
                     print "WARNING: Overriding user defined actSpacing with something that works..."
-                dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
+                dmDiam=(2*abs(dm.height)*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)#161115
                 dm.actSpacing=dmDiam/(dm.nact+2*dm.actoffset-1.)
             if dm.reconLam is None:#use the wavelength at which the phase is at.
                 dm.reconLam=atmosGeom.sourceLambda(dm.idlist[0][1])
                 print "INFORMATION Assuming reconstructor wavelength of %s for DM %s"%(dm.reconLam,dm.label)
-            dm.dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
+            dm.dmDiam=(2*abs(dm.height)*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)#161115
             dm.calcdmpup(atmosGeom)
         #self.dmDict={}
         #self.dmOrder=[]
@@ -912,7 +911,7 @@ class dmOverview:
         return dm
     def getDMDiam(self,idstr):
         dm=self.getDM(idstr)
-        dmDiam=(2*dm.height*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)
+        dmDiam=(2*abs(dm.height)*numpy.tan(dm.fov/3600./180.*numpy.pi)+self.atmosGeom.telDiam)/numpy.cos(numpy.pi/180*dm.tiltAngle)#161115
         return dmDiam
 
     def getDMFromLabel(self,label):
@@ -960,7 +959,7 @@ class dmOverview:
             fov=self.atmosGeom.calcFovWidth()
         return fov
     def getcoupling(self,idstr):
-        c=self.getDM(idstr).coupling
+        c=self.getDM(idstr).actCoupling
         if c is None:
             c=0.1
         return c
@@ -992,7 +991,7 @@ class dmOverview:
         If fov is specified (arcsec), the dm will have this fov.  Otherwise it will be just large enough to
         hold all sources.
         """
-        height=self.getHeight(idstr)
+        height=abs(self.getHeight(idstr))#161115
         fov=self.getfov(idstr)
         #if fov is None:
         #    fov=max(self.atmosGeom.sourceThetas().values())
@@ -1003,7 +1002,7 @@ class dmOverview:
         arcsecRad=numpy.pi/180/3600.
 
         dmpup=int(numpy.ceil((2*height*numpy.tan(fov*arcsecRad)*scale+npup)/numpy.cos(numpy.pi/180*self.getDM(idstr).tiltAngle)))
-        print "Calculating dmpup at height %g: %d (fov %g)"%(height,dmpup,fov)
+        print "Calculating dmpup at height %g: %d (fov %g)%s"%(height,dmpup,fov,["" if self.getHeight(idstr)>0 else " -ve conj"])
         return dmpup
     def makeDMList(self,actsFrom=None):
         """Makes a list of the unique DMs (virtual or physical), for
@@ -1700,8 +1699,7 @@ class MirrorSurface:
         if fiddle==0 or fiddle is None:
             return actmap
         nact=actmap.shape[0]
-        diff=numpy.zeros(actmap.shape,actmap.dtype)
-        diff2=diff.copy()
+        diff2=numpy.zeros(actmap.shape,actmap.dtype)
         diff2[1:]=actmap[:-1]
         diff2[:-1]+=actmap[1:]
         diff2[:,1:]+=actmap[:,:-1]
@@ -1710,25 +1708,6 @@ class MirrorSurface:
         diff2[1:-1,::diff2.shape[1]-1]/=3
         diff2[::diff2.shape[0]-1,1:-1]/=3
         diff2[::diff2.shape[0]-1,::diff2.shape[1]-1]/=2
-#        for i in range(nact):
-#            for j in range(nact):
-#                nneighbour=0
-#                sumneighbour=0.
-#                if i>0:
-#                    sumneighbour+=actmap[i-1,j]
-#                    nneighbour+=1
-#                if j>0:
-#                    sumneighbour+=actmap[i,j-1]
-#                    nneighbour+=1
-#                if i<nact-1:
-#                    sumneighbour+=actmap[i+1,j]
-#                    nneighbour+=1
-#                if j<nact-1:
-#                    sumneighbour+=actmap[i,j+1]
-#                    nneighbour+=1
-#                #diff[i,j]=fiddle*(sumneighbour-4*actmap[i,j])/nneighbour
-#                diff[i,j]=fiddle*(sumneighbour/nneighbour-actmap[i,j])
-#        return actmap+diff
         res=actmap+(diff2-actmap)*fiddle
         if res.dtype!=actmap.dtype:
             res=res.astype(actmap.dtype)
@@ -1936,14 +1915,14 @@ class DMLineOfSight:
         if self.conjHeight!=0 or self.dmTiltAngle!=0:
             if self.sourceAlt>0 and self.subpxlInterp==0:
                 raise Exception("xinterp_dm - finite altitude source specified but subpxlInterp==0.")
-            r=self.conjHeight*numpy.tan(self.sourceTheta)/self.telDiam*self.npup
+            r=abs(self.conjHeight)*numpy.tan(self.sourceTheta)/self.telDiam*self.npup#161115
             self.xoff+=self.alignmentOffset[0]
             self.xoffend+=self.alignmentOffset[0]
             self.yoff+=self.alignmentOffset[1]
             self.yoffend+=self.alignmentOffset[1]
             if self.subpxlInterp:
                 if self.sourceAlt>0:
-                    if self.sourceAlt<self.conjHeight:
+                    if self.sourceAlt<abs(self.conjHeight):
                         #source is below mirror height...???
                         #I think this just means that we need to flip the mirror actuators...
                         print "Warning - you have a DM conjugated above a source height - is this what you expect? (actuators will be reversed!)"
@@ -1957,7 +1936,7 @@ class DMLineOfSight:
                     #xoff+x+npup would be the ending point.
                     #If a tilted mirror, xoff+x-(npup*xfact-npup)/2 would be starting point.
                     #So, I need to reduce this by a factor of (alt-conj)/alt
-                    npxl=self.npup*(self.sourceAlt-self.conjHeight)/self.sourceAlt
+                    npxl=self.npup*(self.sourceAlt-abs(self.conjHeight))/self.sourceAlt#161115
                     #if npxl <0, means have to flip the mirror...
                     self.xoff=(self.xoff+x)+(npup-numpy.fabs(npxl*xfact))/2.
                     self.yoff=(self.yoff+y)+(npup-numpy.fabs(npxl*yfact))/2.
@@ -1968,7 +1947,7 @@ class DMLineOfSight:
                     self.yoffend=int(numpy.ceil(self.yoff+numpy.fabs(npxl)*yfact-tol))#unless exact fit
                     self.xoff=int(self.xoff+tol)
                     self.yoff=int(self.yoff+tol)
-                    if npxl>0:#source above DM conjugate...
+                    if npxl>0:# and self.conjHeight>=0:#source above DM conjugate...#161115
                         self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*(npxl-1.)/(self.npup-1.)*xfact+self.xoffsub
                         self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)*(npxl-1.)/(self.npup-1.)*yfact+self.yoffsub
                     else:#need to flip since will see mirror in reverse (I think)
@@ -1989,8 +1968,13 @@ class DMLineOfSight:
                             ax=0
                         self.yoffend=self.yoff+self.npup+ay#oversize by 1 pupil unless exact fit.
                         self.xoffend=self.xoff+self.npup+ax
+                        #if self.conjHeight>=0:#161115
                         self.xaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.xoffsub
                         self.yaxisInterp=numpy.arange(self.npup).astype(numpy.float64)+self.yoffsub
+                        #else:#need to flip the mirror
+                        #    self.xaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)+self.xoffsub
+                        #    self.yaxisInterp=numpy.arange(self.npup-1,-1,-1).astype(numpy.float64)+self.yoffsub
+                            
                     else:#DM is tilted... this will change effective actuator spacing, and hence the part of the DM that we interpolate...
                         #Instead of seeing N actuators, you will see nN actuators where n>1, ie an increased number of actuators.
                         #The increased effective size is oldsize/cos(theta), ie this is the number of actuators that will be seen
@@ -2053,14 +2037,26 @@ class DMLineOfSight:
             if self.xoffsub==0 and self.yoffsub==0:#no interp needed
                 if self.wavelengthAdjustor==1:
                     if addToOutput:#i.e. the atmosdata is already in output
-                        outputData+=out
+                        if self.conjHeight>=0:
+                            outputData+=out
+                        else:
+                            outputData-=out
                     else:
-                        outputData[:]=out
+                        if self.conjHeight>=0:
+                            outputData[:]=out
+                        else:
+                            outputData[:]=-out
                 else:
                     if addToOutput:#i.e. the atmosdata is already in output
-                        outputData+=out*self.wavelengthAdjustor
+                        if self.conjHeight>=0:
+                            outputData+=out*self.wavelengthAdjustor
+                        else:
+                            outputData-=out*self.wavelengthAdjustor
                     else:
-                        outputData[:]=out*self.wavelengthAdjustor
+                        if self.conjHeight>=0:
+                            outputData[:]=out*self.wavelengthAdjustor
+                        else:
+                            outputData[:]=-out*self.wavelengthAdjustor
             else:
                 #if self.interpolated is None:
                 #    print "util.dm: selectSubPupil Creating scratch array"
@@ -2070,6 +2066,8 @@ class DMLineOfSight:
                     phs=self.selectedDmPhs*self.wavelengthAdjustor
                 else:
                     phs=self.selectedDmPhs
+                if self.conjHeight<0:
+                    phs=-phs
                 gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
                 #out=self.interpolated
         elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
@@ -2083,19 +2081,35 @@ class DMLineOfSight:
                 phs=self.selectedDmPhs*self.wavelengthAdjustor
             else:
                 phs=self.selectedDmPhs
+            if self.conjHeight<0:
+                phs=-phs
             gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
             #out=self.interpolated
         else:
             if self.wavelengthAdjustor==1:
                 if addToOutput:#i.e. the atmosdata is already in output
-                    outputData+=out
+                    if self.conjHeight>=0:
+                        outputData+=out
+                    else:
+                        outputData-=out
+        
                 else:
-                    outputData[:]=out
+                    if self.conjHeight>=0:
+                        outputData[:]=out
+                    else:
+                        outputData[:]=-out
             else:
                 if addToOutput:#i.e. the atmosdata is already in output
-                    outputData+=out*self.wavelengthAdjustor
+                    if self.conjHeight>=0:
+                        outputData+=out*self.wavelengthAdjustor
+                    else:
+                        outputData-=out*self.wavelengthAdjustor
+                        
                 else:
-                    outputData[:]=out*self.wavelengthAdjustor
+                    if self.conjHeight>=0:
+                        outputData[:]=out*self.wavelengthAdjustor
+                    else:
+                        outputData[:]=-out*self.wavelengthAdjustor
         if self.pupil is not None:
             outputData*=self.pupil.fn
             if removePiston:
@@ -2148,7 +2162,7 @@ def dmProjectionQuick(config=None,batchno=0,vdmidstr="vdm",rmx=None,rmxOutName=N
 
 def calcActuators(hlist,fov,telDiam,r0list=None,strList=None):
     """Computes the ideal ratio of number of actuators for multi-DMs.
-    r0list is computed from globalRo*strLayer**(-3./5) I think.  Or maybe is just the strengths of the layers.  Or 1/strength of layers.  Oops - I forget!!!  Use strlayer**-0.6.  If r0List is None, then strList is used and assumes this.
+    r0list is computed from globalRo*strLayer**(-3./5).  If r0List is None, then strList is used and assumes this.
     This is taken from a 2 page paper by Don Gavel (google deformable mirror fitting error)
     returns the ratios of number of actuators in 1 dimension (nact) required.
     """
@@ -2159,8 +2173,8 @@ def calcActuators(hlist,fov,telDiam,r0list=None,strList=None):
     M=len(hlist)
     alpha=mu*(numpy.pi/4)**(5./6)
     dlist=numpy.zeros((M,),numpy.float32)
-    diam=numpy.zeros((M,),numpy.float32)
-    nact=numpy.zeros((M,),numpy.float32)
+    diam=numpy.zeros((M,),numpy.float32)#ratio of d/r0 between h and 0km.
+    nact=numpy.zeros((M,),numpy.float32)#effective diameter to cover fov.
     for i in range(M):
         diam[i]=telDiam+2*hlist[i]*numpy.tan(fov/3600./180.*numpy.pi)
         dlist[i]=diam[i]/r0list[i]/diam[0]*r0list[0]
@@ -2417,7 +2431,7 @@ def projectionWorker(vdmList,projmx,invInf,nblock,threadno,nthreads,interpolate,
             ms=vdm.getMirrorSurface()
             actmap=numpy.zeros((vdm.nact,vdm.nact),numpy.float32)
             phs=numpy.zeros((vdm.dmpup,vdm.dmpup),numpy.float32)
-            r=vdm.height*numpy.tan(dm.primaryTheta*numpy.pi/180/3600.)
+            r=abs(vdm.height)*numpy.tan(dm.primaryTheta*numpy.pi/180/3600.)
             xpos=r*numpy.cos(dm.primaryPhi*numpy.pi/180.)*npup/telDiam+vdm.dmpup/2.-npup/2.
             ypos=r*numpy.sin(dm.primaryPhi*numpy.pi/180.)*npup/telDiam+vdm.dmpup/2.-npup/2.
             if interpolate==0:

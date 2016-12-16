@@ -1840,7 +1840,7 @@ class recon(base.aobase.aobase):
         elif self.reconType in ["pinv","reg","regularised","regBig","regSmall"]:
             txt+="""<plot title="%s reconmx%s" cmd="data=%s.reconmx" ret="data" type="pylab" when="cmd"/>\n"""%(self.objID,id,objname)
             txt+="""<plot title="%s pmx%s" cmd="data=%s.spmx" ret="data" type="pylab" when="cmd"/>\n"""%(self.objID,id,objname)
-        txt+="""<plot title="%s inputData%s" cmd="data=%s.inputData" ret="data" type="pylab" when="cmd"/>\n"""%(self.objID,id,objname)
+        txt+="""<plot title="%s inputData%s" cmd="data=%s.inputData" ret="data" type="pylab" when="rpt"/>\n"""%(self.objID,id,objname)
         if self.reconObj!=None and hasattr(self.reconObj,"plottable"):
             txt+=self.reconObj.plottable(objname+".reconObj")
 

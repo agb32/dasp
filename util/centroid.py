@@ -324,7 +324,9 @@ class centroid:
         self.phaseMultiplier=phaseMultiplier
         if magicCentroiding:
             self.magicSlopes=None#self.magicSHSlopes()
-
+        self.outSquare=None#for covariance calculation.
+        self.outSum=None
+        self.outN=0
         #if self.pupfn==None:
         #    pfn=numpy.ones((1,1),self.fpDataType)
         #else:
@@ -631,9 +633,12 @@ class centroid:
         self.centcmod.update(util.centcmod.INTEGSTEPS,int(steps))
             
 
-
-
-
+    def calcCovariance(self):
+        if self.outSquare is not None:
+            cov=self.outSquare/self.outN-(self.outSum/self.outN)**2
+        else:
+            cov=None
+        return cov
 
 
 

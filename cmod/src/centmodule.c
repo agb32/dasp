@@ -28,7 +28,69 @@
 #include <string.h>//memcpy etc.
 #include "numpy/arrayobject.h"
 #include "qsort.h"
+
 static PyObject *CentError;
+
+
+
+/*
+ * PCG Random Number Generation for C.
+ *
+ * Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * For additional information about the PCG random number generation scheme,
+ * including its license and other licensing options, visit
+ *
+ *       http://www.pcg-random.org
+ */
+
+/*
+ * This code is derived from the full C implementation, which is in turn
+ * derived from the canonical C++ PCG implementation. The C++ version
+ * has many additional features and is preferable if you can use C++ in
+ * your project.
+ */
+
+typedef struct  {    // Internals are *Private*.
+    uint64_t state;             // RNG state.  All values are possible.
+    uint64_t inc;               // Controls which RNG sequence (stream) is
+                                // selected. Must *always* be odd.
+} pcg32_random_t;
+//     Generate a uniformly distributed 32-bit random number
+
+uint32_t pcg32_random_r(pcg32_random_t* rng)
+{
+    uint64_t oldstate = rng->state;
+    rng->state = oldstate * 6364136223846793005ULL + rng->inc;
+    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint32_t rot = oldstate >> 59u;
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+}
+
+// pcg32_srandom_r(rng, initstate, initseq):
+//     Seed the rng.  Specified in two parts, state initializer and a
+//     sequence selection constant (a.k.a. stream id)
+
+void pcg32_srandom_r(pcg32_random_t* rng, uint64_t initstate, uint64_t initseq)
+{
+    rng->state = 0U;
+    rng->inc = (initseq << 1u) | 1u;
+    pcg32_random_r(rng);
+    rng->state += initstate;
+    pcg32_random_r(rng);
+}
 
 //#define simmalloc malloc
 /*
@@ -144,6 +206,7 @@ int planSize;
   int *binindx;
   int opticalBinning;
   gsl_rng **gslRand;
+  pcg32_random_t *pcg32Rand;
   //float *imgmask;
   //float *ximgmask;
   //float *yimgmask;
@@ -646,12 +709,108 @@ void addArrArr(int datasize,float *data,float *adder){
     data[i]+=adder[i];
   }
 }
+inline float rk_float(pcg32_random_t *state){
+  return pcg32_random_r(state)*2.3283064365386963e-10;
+}
+static double loggam(double x){
+    float x0, x2, xp, gl, gl0;
+    long k, n;
+    
+    static float a[10] = {8.333333333333333e-02,-2.777777777777778e-03,
+         7.936507936507937e-04,-5.952380952380952e-04,
+         8.417508417508418e-04,-1.917526917526918e-03,
+         6.410256410256410e-03,-2.955065359477124e-02,
+         1.796443723688307e-01,-1.39243221690590e+00};
+    x0 = x;
+    n = 0;
+    if ((x == 1.0) || (x == 2.0))
+    {
+        return 0.0;
+    }
+    else if (x <= 7.0)
+    {
+        n = (long)(7 - x);
+        x0 = x + n;
+    }
+    x2 = 1.0/(x0*x0);
+    xp = 2*M_PI;
+    gl0 = a[9];
+    for (k=8; k>=0; k--)
+    {
+        gl0 *= x2;
+        gl0 += a[k];
+    }
+    gl = gl0/x0 + 0.5*logf(xp) + (x0-0.5)*logf(x0) - x0;
+    if (x <= 7.0)
+    {
+        for (k=1; k<=n; k++)
+        {
+            gl -= logf(x0-1.0);
+            x0 -= 1.0;
+        }
+    }
+    return gl;
+}
+long rk_poisson_ptrs(pcg32_random_t *state, float lam)
+{
+    long k;
+    float U, V, slam, loglam, a, b, invalpha, vr, us;
+
+    slam = sqrtf(lam);
+    loglam = logf(lam);
+    b = 0.931 + 2.53*slam;
+    a = -0.059 + 0.02483*b;
+    invalpha = 1.1239 + 1.1328/(b-3.4);
+    vr = 0.9277 - 3.6224/(b-2);
+
+    while (1)
+    {
+        U = rk_float(state) - 0.5;
+        V = rk_float(state);
+        us = 0.5 - fabsf(U);
+        k = (long)floorf((2*a/us + b)*U + lam + 0.43);
+        if ((us >= 0.07) && (V <= vr))
+        {
+            return k;
+        }
+        if ((k < 0) ||
+            ((us < 0.013) && (V > us)))
+        {
+            continue;
+        }
+        if ((logf(V) + logf(invalpha) - logf(a/(us*us)+b)) <=
+            (-lam + k*loglam - loggam(k+1)))
+        {
+            return k;
+        }
 
 
-void poissonise(int datasize,float *data,const gsl_rng *r){
+    }
+
+}
+
+long rk_poisson(pcg32_random_t *state, float lam){//Taken from numpy source code (GPL) and edited - see numpy docs for details.
+  if (lam >= 10){
+    return rk_poisson_ptrs(state, lam);
+  }else if (lam == 0){
+    return 0;
+  }else{
+    long X=0;
+    float prod=1., enlam= expf(-lam);
+    do{
+      prod*=rk_float(state);
+      X++;
+    }while(prod>enlam);
+    return X-1;
+    //return rk_poisson_mult(state, lam);
+  }
+}
+
+void poissonise(int datasize,float *data,pcg32_random_t *r){//const gsl_rng *r){
   int i;
   for(i=0; i<datasize; i++)
-    data[i]=(float)gsl_ran_poisson(r,(double)data[i]);
+    data[i]=(float)rk_poisson(r,data[i]);
+    //data[i]=(float)gsl_ran_poisson(r,(double)data[i]);
 }
 
 
@@ -1278,7 +1437,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	nexposed=npxl;
       }
       if((c->addPoisson==1 && c->calsource==0) && (totsig>0 || c->skybrightness*nphspxl>0 || c->skybrightnessArr!=NULL))
-	poissonise(nexposed,&(c->bimg[i*npxl]),c->gslRand[threadno]);
+	poissonise(nexposed,&(c->bimg[i*npxl]),&c->pcg32Rand[threadno]);
       readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
       //Calibration starts here.
       if(c->calsource==0)
@@ -1798,6 +1957,8 @@ int setupThreads(centstruct *c,int nthreads){
     free(c->fftArrays);
   if(c->gslRand!=NULL)
     free(c->gslRand);
+  if(c->pcg32Rand!=NULL)
+    free(c->pcg32Rand);
   if(c->sortarr!=NULL)
     free(c->sortarr);
   c->hll=NULL;
@@ -1837,8 +1998,10 @@ int setupThreads(centstruct *c,int nthreads){
     c->subapStart[nthreads]=c->nsubaps;
     //setup random number generator...
     c->gslRand=malloc(sizeof(gsl_rng*)*nthreads);
+    c->pcg32Rand=malloc(sizeof(pcg32_random_t)*nthreads);
     for(i=0; i<nthreads; i++){
       c->gslRand[i]=gsl_rng_alloc(gsl_rng_mt19937);
+      pcg32_srandom_r(&c->pcg32Rand[i],(c->seed==0?(unsigned long)time(0)+i:c->seed+i),1);
       if(c->seed==0){
 	//printf("centmodule: Initialising random seed with time+%d\n",i);
 	gsl_rng_set(c->gslRand[i],(unsigned long)time(0)+i);
