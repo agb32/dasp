@@ -37,6 +37,8 @@ if os.path.exists("/opt/intel/mkl"):
     mkllib=["/opt/intel/mkl/%s/lib/em64t"%version]
     if not os.path.exists(mkllib[0]):
         mkllib=["/opt/intel/mkl/%s/lib/intel64"%version]
+    if os.path.exists("/opt/intel/compilers_and_libraries_2016.3.210/linux/mkl/lib/intel64_lin_mic"):
+        mkllib=["/opt/intel/compilers_and_libraries_2016.3.210/linux/mkl/lib/intel64_lin_mic"]#xeon phi
     if os.path.exists(mkllib[0]):
         print "Using MKL %s"%mkllib[0]
         cont=1
@@ -44,11 +46,29 @@ if os.path.exists("/opt/intel/mkl"):
             lapack="mkl_lapack"
         elif os.path.exists(mkllib[0]+"/libmkl_lapack95_ilp64.so"):
             lapack="mkl_lapack95_ilp64.so"
+        elif os.path.exists(mkllib[0]+"/libmkl_scalapack_ilp64.so"):
+            lapack="mkl_scalapack_ilp64.so"#xeon phi.  Actually, no.
         else:
             cont=0
             lapack=None
         libs=[lapack,"mkl_intel_ilp64","mkl_intel_thread","mkl_core","guide","pthread"]
         linkArgs=["-l%s"%lapack,"-lmkl_intel_ilp64","-lmkl_intel_thread","-lmkl_core","-lguide","-lpthread","-lm"]
+        libs.pop(0)
+        linkArgs.pop(0)
+        libs.pop(3)#guide
+        linkArgs.pop(3)
+        #libs[1]="mkl_gnu_thread"
+        #linkArgs[1]="-lmkl_gnu_thread"
+        libs.insert(2,"iomp5")
+        linkArgs.insert(2,"-liomp5")
+        #libs.insert(0,"mkl_avx512_mic")
+        #linkArgs.insert(0,"-lmkl_avx512_mic")
+        #libs.insert(2,"gomp")
+        #linkArgs.insert(2,"-lgomp")
+        #linkArgs.insert(2,"-fopenmp")
+        mkllib.append("/opt/intel/lib/intel64")
+        mkllib.append("/opt/intel/compilers_and_libraries_2016.3.210/linux/mkl/lib/intel64_lin/")
+        
     else:
         cont=0
 if cont==0:
