@@ -22,8 +22,8 @@ clean:
 	(cd src/ ; make clean )
 	echo "Cleaning shmem module" 
 	(cd shmem/ ; make clean )
-	echo "Cleaning svd module"
-	(cd svd/; make clean)
+	#echo "Cleaning svd module"
+	#(cd svd/; make clean)
 
 #	UB, 2012 Aug 09:
 #	The next line (rm *.so) removes the .so files that were copied to cmod/ by the
