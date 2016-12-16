@@ -20,6 +20,7 @@ import string
 import numpy
 import os.path,os
 import fcntl
+import traceback
 error = 'FITS error'
 #
 # Read a FITS image file
@@ -33,7 +34,7 @@ error = 'FITS error'
 # returned unscaled and in the (presumably more compact) numeric format
 # that it was stored in
 # 
-def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None) :
+def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None,tryToFix=0) :
     """if savespace is set, the array will maintain its type if asfloat is set.
     If doByteSwap is not set, no byteswap will be done if little endian - if this is the case, the file is not actually fits compliant
     if memmap is used, the file is memmapped rather than read.  If this is used, it is recommended that memmap="r" and that the file is non-byte-swapped.
@@ -52,7 +53,29 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None)
                 raise Exception(error+ 'Not a simple fits file: %s'%filename)
             else:
                 print "ERROR - non compliant FITS file"
-                return returnVal
+                if tryToFix:#corrupted fits file...
+                    #read until we get to SIMPLE or XTENSION
+                    print "Searching for next HDU..."
+                    n=0
+                    while len(buffer)>0:
+                        if "SIMPLE" in buffer:
+                            indx=buffer.index("SIMPLE")
+                            if indx!=0:
+                                buffer=buffer[indx:]+file.read(indx)
+                                n+=indx
+                            print "found next HDU after %d bytes"%n
+                            break
+                        elif "XTENSION" in buffer:
+                            indx=buffer.index("XTENSION")
+                            if indx!=0:
+                                buffer=buffer[indx:]+file.read(indx)
+                                n+=indx
+                            print "found next HDU after %d bytes"%n
+                            break
+                        buffer=file.read(2880)
+                        n+=2880
+                else:
+                    return returnVal
         while(1) :
             for char in range(0,2880,80) :
                 line = buffer[char:char+80]
@@ -508,3 +531,124 @@ def extractHDU(filename,hduno,outname,overwrite=0):
         out.write(data)
     f.close()
     out.close()
+    
+def repair(filein,fileout):
+    """Attempts to repair a corrupted FITS file - will drop any corrupted HDUs, but means that the output is stll readable."""
+    asFloat = 1
+    savespace=1
+    doByteSwap=1
+    compliant=0
+    memmap=None
+    tryToFix=1
+    file = open(filein, "rb")
+    outfile=open(fileout,"w")
+    done=0
+    filelen=os.path.getsize(filein)
+    returnVal=0
+    hducnt=0
+    hduwritten=0
+    while done==0:
+        try:
+            rawHeader = []
+            header = {}
+            buffer = file.read(2880)
+            if buffer[:6] != 'SIMPLE' and buffer[:8]!="XTENSION":
+                print "WARNING - non compliant FITS file"
+                #read until we get to SIMPLE or XTENSION
+                print "Searching for next HDU..."
+                n=0
+                while len(buffer)>0:
+                    if "SIMPLE" in buffer:
+                        indx=buffer.index("SIMPLE")
+                        if indx!=0:
+                            buffer=buffer[indx:]+file.read(indx)
+                            n+=indx
+                        print "found next HDU after %d bytes"%n
+                        break
+                    elif "XTENSION" in buffer:
+                        indx=buffer.index("XTENSION")
+                        if indx!=0:
+                            buffer=buffer[indx:]+file.read(indx)
+                            n+=indx
+                        print "found next HDU after %d bytes"%n
+                        break
+                    buffer=file.read(2880)
+                    n+=2880
+            hdrtxt=buffer
+            while(1) :
+                for char in range(0,2880,80) :
+                    line = buffer[char:char+80]
+                    rawHeader.append(line)
+                    key = string.strip(line[:8]).strip("\0")
+                    if key :
+                        val = line[9:]
+                        val = string.strip(val).strip("\0")
+                        if val :
+                            if val[0] == "'" :
+                                try:
+                                    pos = string.index(val,"'",1)
+                                    val = val[1:pos]
+                                except:
+                                    val=val[1:]
+                            else :
+                                pos = string.find(val, '/')
+                                if pos != -1 :
+                                    val = val[:pos]
+                        if header.has_key(key):
+                            header[key]+=val
+                        else:
+                            header[key] = val
+                if header.has_key('END') : break
+                buffer = file.read(2880)
+                hdrtxt+=buffer
+            naxis = string.atoi(header['NAXIS'])
+            shape = []
+            for i in range(1,naxis+1) :
+                shape.append(string.atoi(header['NAXIS%d' % i]))
+            shape.reverse()
+            numPix = 1
+            for i in shape :
+                numPix = numPix * i
+            bitpix = string.atoi(header['BITPIX'])
+            if bitpix == 8 :
+                typ = numpy.uint8
+            elif bitpix == 16 :
+                typ = numpy.int16
+            elif bitpix == 32 :
+                typ = numpy.int32
+            elif bitpix == -32 :
+                typ = numpy.float32
+                bitpix = 32
+            elif bitpix == -64 :
+                typ = numpy.float64
+                bitpix = 64
+            if memmap==None:
+                data=numpy.fromfile(file,typ,count=numPix)
+            else:
+                nel=reduce(lambda x,y:x*y,shape)
+                data=numpy.memmap(filein,dtype=typ,mode=memmap,offset=file.tell())[:nel]
+                file.seek(bitpix/8*nel,1)
+            numByte = numPix * bitpix/8
+            #data = file.read(numByte)
+            #data = numpy.fromstring(data, dtype=typ)
+            #data.savespace(1)
+            data.shape = shape
+
+            #now write to file.
+            outfile.write(hdrtxt)
+            outfile.write(data)
+            
+            ntoread=2880-numByte%2880
+            if ntoread!=0 and ntoread!=2880:
+                file.read(ntoread)
+                outfile.write("\0"*ntoread)#pad the header.
+            hduwritten+=1
+            print "Written %d"%hduwritten
+            #print "Read 1 hdu at %d/%d"%(file.tell(),filelen)
+            if file.tell()==filelen:
+                done=1
+        except:
+            print "Error - skipping HDU at %d"%hducnt
+            traceback.print_exc()
+        hducnt+=1
+    return hducnt,hduwritten#( { 'raw' : rawHeader, 'parsed' : header},  data  )
