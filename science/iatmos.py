@@ -143,11 +143,11 @@ class iatmos(base.aobase.aobase):
                     #First, see if we can copy from parent - if not, create ourselves (this relies on the seed being a constant, not the current time).
                     try:
                         self.phaseScreens[key]=self.parent[pkey].thisObjDict[key].screen#[xxx].copy()
-                        print "iatmos: Copied initial screen from parent %s[%d]"%(str(pkey),str(key))
+                        print "iatmos: Copied initial screen from parent %s[%s]"%(str(pkey),str(key))
                         print "TODO: iatmos - is this copy of initial screen needed?"
                     except:
                         print "iatmos: cannot copy parent screen %s - generating directly."%str(key)
-                        self.phaseScreens[key]=numpy.array(iscrn.computeInitialScreen(self.config,idstr=str(key)))
+                        self.phaseScreens[key]=iscrn.computeInitialScreen(self.config,idstr=str(key))
                     if self.phaseScreens[key].dtype.char!=self.scrnDataType:
                         raise Exception("iatmos and iscrn should use the same dataType value %s %s"%(self.phaseScreens[key].dtype.char,self.scrnDataType))
                     ps=self.phaseScreens[key]
