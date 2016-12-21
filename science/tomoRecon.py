@@ -1155,7 +1155,11 @@ class recon(base.aobase.aobase):
                       "known %s"%str(type(self.reconmx)))
                 tmp=None
             if type(tmp)!=type(None):
-                self.outputData[:,]+=self.gains*tmp[:self.nacts]
+                try:
+                    self.outputData[:,]+=self.gains*tmp[:self.nacts]
+                except:
+                    print self.outputData.shape,self.gains.shape,tmp[:self.nacts].shape
+                    raise
                 #and now apply modal stuff if there was any...
                 dmoffset=0
                 dmno=0
