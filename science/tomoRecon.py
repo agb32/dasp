@@ -1158,7 +1158,7 @@ class recon(base.aobase.aobase):
                 try:
                     self.outputData[:,]+=self.gains*tmp[:self.nacts]
                 except:
-                    print self.outputData.shape,self.gains.shape,tmp[:self.nacts].shape
+                    print self.outputData.shape,self.gains.shape,tmp[:self.nacts].shape,tmp.shape,self.nacts
                     raise
                 #and now apply modal stuff if there was any...
                 dmoffset=0
