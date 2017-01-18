@@ -190,7 +190,7 @@ else:
                   include_dirs=idnumpy+obinclude,
                   library_dirs=ld+oblib,
                   libraries=["openblas","pthread"],
-                  extra_link_args=["-lopenblas","-lpthread","-lm"],
+                  extra_link_args=["-lopenblas","-lpthread","-lm"],#may need to add "-llapacke" at the start of these args - not sure yet on which systems its needed.  Needed on dragon cluster.
                   sources=["openblasmodule.c"]
                   )
               

@@ -740,6 +740,7 @@ maxmodes=maxmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
 #Now share maxmodes with all other processes, and then select the max.
 import base.mpiWrapper
 c=base.mpiWrapper.comm
+import numpy
 nm=numpy.zeros((c.size,),numpy.int32)
 c.share(numpy.array([maxmodes]).astype(numpy.int32),nm)
 maxmodes=nm.max()

@@ -1139,6 +1139,48 @@ int testNan(int n,float* arr){
   }
   return got;
   }*/
+void diffCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPattern,float *output,int mode){
+  /*Calculate the correlation using (sum of mod difference)^2 or sum(difference^2).
+    nimg - size of image.
+    corrsize - size of corrPattern.
+    ncen - the number of pixels for which the correlation should be computed.
+    nimg - size of the image (bimg) and the refernce (corrPattern).
+    Note: ncen<=nimg.
+   */
+  int f,t,i,j,x,y;
+  float s,d;
+  int m=nimg<corrsize?nimg:corrsize;
+  f=(nimg-ncen)/2;
+  t=f+ncen;
+  if(mode==0){//best results - but higher compuation - sum(diff^2)
+    for(i=f;i<t;i++){
+      for(j=f;j<t;j++){
+	s=0;
+	for(y=0;y<m-i;y++){
+	  for(x=0;x<m-j;x++){
+	    d=corrPattern[y*corrsize+x]-bimg[(y+i)*nimg+x+j];
+	    s+=d*d;
+	  }
+	}
+	output[(i)*corrsize+j]=s;
+      }
+    }
+  }else{//faster computation, slightly poorer performance
+    for(i=f;i<t;i++){
+      for(j=f;j<t;j++){
+	s=0;
+	for(y=0;y<m-i;y++){
+	  for(x=0;x<m-j;x++){
+	    d=corrPattern[y*corrsize+x]-bimg[(y+i)*nimg+x+j];
+	    s+=fabsf(d);
+	  }
+	}
+	output[(i)*corrsize+j]=s*s;
+      }
+    }
+  }
+}
+
 
 #define B(y,x) corrPattern[(y)*corrsize+x]
 
@@ -1465,6 +1507,13 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	  npxl=npxlcorr;//The subaps may have grown!!!
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
+	}else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
+	  int npxlcorr=c->corrsize*c->corrsize;
+	  int npxlout=c->ncen*c->ncen;
+	  diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlout],c->correlationCentroiding-1);
+	  npxl=npxlout;//the subaps may have shrunk.
+	  bimg=&c->corrimg[i*npxlout];
+	  thresholdCorrelation(npxl,c->corrThresh,bimg);
 	}else{
 	  bimg=&(c->bimg[i*npxl]);
 	}
@@ -1482,7 +1531,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  }else{//cog
 	    cweight=NULL;
 	  }
-	  //Note: corrsize==nimg unless convolving with something larger.  
+	  //Note: corrsize==nimg unless convolving with something larger.  Or if using diff correlation, corrsize can be < nimg.
 	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
 	}
 	//and now apply the calibration... (linearisation)
