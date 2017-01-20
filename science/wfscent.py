@@ -201,6 +201,7 @@ class wfscent(base.aobase.aobase):
                 print("INFORMATION:wfscent: Using {0:d} threads".format(self.nthreads))
 ##(old)                print("INFORMATION:wfscent: Using %d threads"%self.nthreads)
             self.imgmask=1#value used when creating sh img in drawCents()
+            self.showspot=0#used in drawCents() - whether to show the spots overlaid.
             self.control={"cal_source":calSource,"useCmod":useCmod,"zeroOutput":0,"parentType":"closed","calcCovariance":self.config.getVal("calcWFSCovariance",default=0)}#ZeroOutput can be used when calibrating a pseudo-open loop system.
             self.lastCalSource=0#resourcesharing - todo...?
 
@@ -730,7 +731,15 @@ class wfscent(base.aobase.aobase):
 
         return data
 
-
+    def newRefSlopes(self):
+        """Takes new ref slopes."""
+        cs=self.control["cal_source"]
+        self.control["cal_source"]=1
+        this=self.thisObjList[0]
+        wfs=this.wfscentObj
+        data=wfs.takeReference(self.control)
+        self.control["cal_source"]=cs
+        return data 
 
 
     def drawCents(self,fromcent=0,objNumber=None,mask=None):
@@ -740,7 +749,8 @@ class wfscent(base.aobase.aobase):
         objNumber specifies which resource sharing object to use.  None means
         the one currently in use.
         If mask is set, parts of the images that aren't used in centroid computation will be masked out (ncen).
-        If mask is 1, they are masked at max value, and if -1, masked at zero.
+        If mask is 1, they are masked at max value, and if 2, masked at zero.
+        If mask is 3, only the ncen sized regions are shown.
         """
         if mask is None:
             mask=self.imgmask
@@ -779,12 +789,20 @@ class wfscent(base.aobase.aobase):
                 bimg=wfsobj.cmodbimg
             else:
                 bimg=wfsobj.bimg.astype("f")
-            for i in xrange(wfsobj.nsubx):     # Loop over subaps
-                for j in xrange(wfsobj.nsubx):
-                    self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=\
-                        (bimg[i,j]*wfsobj.subflag[i,j])#.astype("f")    # Tessalate up for WFS display
-        result=self.shimg[:wfsobj.nimg*wfsobj.nsubx,:wfsobj.nimg*wfsobj.nsubx]
-        if mask!=0:
+            if mask==3:
+                s=(wfsobj.nimg-wfsobj.ncen)//2
+                ncen=wfsobj.ncen
+                for i in xrange(wfsobj.nsubx):     # Loop over subaps
+                    for j in xrange(wfsobj.nsubx):
+                        self.shimg[i*ncen:(i+1)*ncen,j*ncen:(j+1)*ncen]=bimg[i,j,s:s+ncen,s:s+ncen]*wfsobj.subflag[i,j]
+                result=self.shimg[:ncen*wfsobj.nsubx,:ncen*wfsobj.nsubx]
+            else:
+                for i in xrange(wfsobj.nsubx):     # Loop over subaps
+                    for j in xrange(wfsobj.nsubx):
+                        self.shimg[i*wfsobj.nimg:(i+1)*wfsobj.nimg,j*wfsobj.nimg:(j+1)*wfsobj.nimg]=\
+                                                                                                     (bimg[i,j]*wfsobj.subflag[i,j])#.astype("f")    # Tessalate up for WFS display
+                result=self.shimg[:wfsobj.nimg*wfsobj.nsubx,:wfsobj.nimg*wfsobj.nsubx]
+        if mask in [1,2]:
             if mask==1:
                 maskval=max(result.flat)
             else:
@@ -817,12 +835,23 @@ class wfscent(base.aobase.aobase):
         elif img=="corrPattern":
             img=wfsobj.corrPatternUser
         nimg=img.shape[2]
-        for i in xrange(wfsobj.nsubx):
-            for j in xrange(wfsobj.nsubx):
-                 # Tessalate up for WFS display:
-                self.shimg[i*nimg:(i+1)*nimg,j*nimg:(j+1)*nimg]=img[i,j]
-        result=self.shimg[:nimg*wfsobj.nsubx,:nimg*wfsobj.nsubx]
-        if mask!=0:
+        nsubx=wfsobj.nsubx
+        ncen=wfsobj.ncen
+        if mask==3:
+            s=(wfsobj.nimg-wfsobj.ncen)//2
+            ncen=wfsobj.ncen
+            for i in xrange(wfsobj.nsubx):
+                for j in xrange(wfsobj.nsubx):
+                    # Tessalate up for WFS display:
+                    self.shimg[i*ncen:(i+1)*ncen,j*ncen:(j+1)*ncen]=img[i,j,s:s+ncen,s:s+ncen]
+            result=self.shimg[:ncen*wfsobj.nsubx,:ncen*wfsobj.nsubx]
+        else:
+            for i in xrange(wfsobj.nsubx):
+                for j in xrange(wfsobj.nsubx):
+                    # Tessalate up for WFS display:
+                    self.shimg[i*nimg:(i+1)*nimg,j*nimg:(j+1)*nimg]=img[i,j]
+            result=self.shimg[:nimg*wfsobj.nsubx,:nimg*wfsobj.nsubx]
+        if mask in [1,2]:
             if mask==1:
                 maskval=max(result.flat)
             else:
@@ -837,6 +866,30 @@ class wfscent(base.aobase.aobase):
                     result[i*nimg+e:i*nimg+nimg]=maskval
                     result[:,i*nimg:i*nimg+s]=maskval
                     result[:,i*nimg+e:i*nimg+nimg]=maskval
+        if self.showspot and self.imageOnly==0:
+            if mask==3:#ncen in size
+                size=ncen
+            else:
+                size=nimg
+            pos=0
+            if wfsobj.correlationCentroiding in [2,3]:
+                val=self.shimg.max()
+            else:
+                val=self.shimg.min()
+            for i in xrange(nsubx):
+                for j in xrange(nsubx):
+                    if self.fullOutput:
+                        x,y=self.outputData[i,j]
+                    else:
+                        x,y=self.outputData[pos]
+                        if wfsobj.subflag[i,j]:
+                            pos+=1
+                    x=int(numpy.round(x+size//2))
+                    y=int(numpy.round(y+size//2))
+                    if x<0 or y<0 or x>=size or y>=size:
+                        print "Problem with slope %d %d:  %g %g"%(i,j,x,y)
+                    else:
+                        self.shimg[i*size+y,j*size+x]=val
         return result
             
 
@@ -854,8 +907,9 @@ class wfscent(base.aobase.aobase):
         if self.sentPlotsCnt==0:
             #outputData is only valid for one object at a time, when that has just run...
             txt+="""<plot title="WFS SH img%s (the SHS images)" cmd="data=%s.drawCents(0)" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
-            txt+="""<plot title="Change mask (-1,0,1) %s (to change the colour of guard pixels)" cmd="data=%s.imgmask=(%s.imgmask+2)%%3-1" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname)
+            txt+="""<plot title="Change mask (0,1,2,3) %s (to change the colour of guard pixels)" cmd="data=%s.imgmask=(%s.imgmask+1)%%4;print %s.imgmask" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname,objname)
             if self.imageOnly==0:
+                txt+="""<plot title="Change overlay %s (to overlay the slope estimation)" cmd="data=%s.showspot=(%s.showspot+1)%%2" when="cmd" ret="data" texttype="1"/>"""%(id,objname,objname)
                 txt+="""<plot title="XCentroids%s (display X slopes)" cmd="data=%s.wfscentObj.outputData[:,:,0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
                 txt+="""<plot title="YCentroids%s (display Y slopes)" cmd="data=%s.wfscentObj.outputData[:,:,1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
                 txt+="""<plot title="1D centroids%s (display slopes as a 1D plot)" cmd="data=%s.wfscentObj.outputData.ravel()" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
