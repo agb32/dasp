@@ -1249,40 +1249,37 @@ void diffCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPatte
 		d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
 	      }
 	    }
-	    //if(i==ncen/2 && j==ncen/2)
-	    //printf("%g %g %g\n",d,corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x],bimg[(y)*nimg+x]);
-	    /*if(i==ncen/2 && j==ncen/2+1)
-	    printf("   %g\n",d);*/
 	    s+=d*d;
 	  }
 	}
 	output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s/(my*mx);
       }
     }
-    
-    /*for(i=f;i<t;i++){
-      for(j=f;j<t;j++){
-	s=0;
-	for(y=0;y<m-i;y++){
-	  for(x=0;x<m-j;x++){
-	    d=corrPattern[y*corrsize+x]-bimg[(y+i)*nimg+x+j];
-	    s+=d*d;
-	  }
-	}
-	output[((i+corrsize/2)%corrsize)*corrsize+(j+corrsize/2)%corrsize]=s;
-      }
-      }*/
   }else{//faster computation, slightly poorer performance
-    for(i=f;i<t;i++){
-      for(j=f;j<t;j++){
+    for(i=0;i<ncen;i++){
+      my=corrsize-abs(ncen/2-i);
+      for(j=0;j<ncen;j++){
+	mx=corrsize-abs(ncen/2-j);
 	s=0;
-	for(y=0;y<m-i;y++){
-	  for(x=0;x<m-j;x++){
-	    d=corrPattern[y*corrsize+x]-bimg[(y+i)*nimg+x+j];
+	for(y=0;y<my;y++){
+	  for(x=0;x<mx;x++){
+	    if(i<ncen/2){
+	      if(j<ncen/2){
+		d=corrPattern[y*corrsize+x]-bimg[(ncen/2-i+y)*nimg+ncen/2-j+x];
+	      }else{
+		d=corrPattern[y*corrsize+j-ncen/2+x]-bimg[(ncen/2-i+y)*nimg+x];
+	      }
+	    }else{
+	      if(j<ncen/2){
+		d=corrPattern[(i-ncen/2+y)*corrsize+x]-bimg[(y)*nimg+ncen/2-j+x];
+	      }else{
+		d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
+	      }
+	    }
 	    s+=fabsf(d);
 	  }
 	}
-	output[((i+corrsize/2)%corrsize)*corrsize+(j+corrsize/2)%corrsize]=s*s;
+	output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s*s/(my*mx);
       }
     }
   }

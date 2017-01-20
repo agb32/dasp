@@ -770,7 +770,22 @@ print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
                 obj.control["close_dm"]=1
             #print obj.control
         print "INFORMATION Zeroing science,closing loop etc"
-        
+    def doInitialOpenLoop(self,startiter=0):
+        cmd="ctrl.doOpenLoop()"
+        self.initialCommand(cmd,freq=-1,startiter=startiter)
+    def doOpenLoop(self):
+        for obj in self.compList:
+            if obj.control.has_key("zero_science"):
+                obj.control["zero_science"]=1
+            if obj.control.has_key("cal_source"):
+                obj.control["cal_source"]=0
+            if obj.control.has_key("zero_dm"):
+                obj.control["zero_dm"]=1
+            if obj.control.has_key("close_dm"):
+                obj.control["close_dm"]=0
+            #print obj.control
+        data="INFORMATION Zeroing science, opening loop etc"
+
         
 class myStdout:
     """A class for customising print messages"""
