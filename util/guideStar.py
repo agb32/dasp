@@ -352,7 +352,7 @@ class LGS(util.atmos.source):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height), not the height of the LGS.
         0,0 means on axis."""
-        if self.coords!=None and telDiam==self.telDiam and height==self.dmheight:
+        if self.coords is not None and telDiam==self.telDiam and height==self.dmheight:
             return#already computed
         self.telDiam=telDiam
         if self.alt<=height:
@@ -484,7 +484,7 @@ class NGS(util.atmos.source):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height).
         0,0 means on axis."""
-        if self.coords!=None and telDiam==self.telDiam and height==self.dmheight:
+        if self.coords is not None and telDiam==self.telDiam and height==self.dmheight:
             return#already computed
         self.telDiam=telDiam
         self.dmheight=height
