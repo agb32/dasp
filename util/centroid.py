@@ -1641,6 +1641,14 @@ class centroid:
             if self.linearSteps==None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
                 self.centcmod.update(util.centcmod.REFCENTS,self.refCents)
         return self.refCents
+
+    def setRefSlopes(self,refSlopes):
+        """Sets ref slopes to something provided"""
+        self.refCents=refSlopes.copy().astype(numpy.float32)
+        if self.centcmod!=None:
+            if self.linearSteps==None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
+                self.centcmod.update(util.centcmod.REFCENTS,self.refCents)
+
     
     def takeCorrImage(self,control,cameraInput=None):
         """If correlationCentroiding==1, but corrPattern==None, use a default SH spot pattern as the reference.

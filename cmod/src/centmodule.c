@@ -1220,12 +1220,12 @@ void diffCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPatte
 
     output and corrPattern are of size corrsize.
    */
-  int f,t,i,j,x,y;
+  int i,j,x,y;
   float s,d;
-  int m=nimg<corrsize?nimg:corrsize;
+  //int m=nimg<corrsize?nimg:corrsize;
   int mx,my;
-  f=(nimg-ncen)/2;
-  t=f+ncen;
+  //int f=(nimg-ncen)/2;
+  //int t=f+ncen;
   memset(output,0,sizeof(float)*corrsize*corrsize);
   if(mode==1){//best results - but higher compuation - sum(diff^2)
     for(i=0;i<ncen;i++){

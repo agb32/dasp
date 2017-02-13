@@ -739,8 +739,12 @@ class wfscent(base.aobase.aobase):
         wfs=this.wfscentObj
         data=wfs.takeReference(self.control)
         self.control["cal_source"]=cs
-        return data 
-
+        return data
+    
+    def setRefSlopes(self,refSlopes):
+        this=self.thisObjList[0]
+        wfs=this.wfscentObj
+        wfs.setRefSlopes(refSlopes)
 
     def drawCents(self,fromcent=0,objNumber=None,mask=None):
         """Draw centroids in a format that can be easily displayed.

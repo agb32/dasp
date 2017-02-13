@@ -47,6 +47,7 @@ def init(globs):
         if not globs.has_key("ncpu"):
             globs["ncpu"]=getCpus()
         globs["this"]=this
+        return this
 
 class AOXml:
     """A class for reading an AO XML config file.  If given, file (filename)
