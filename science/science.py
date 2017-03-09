@@ -272,7 +272,7 @@ class science(aobase.aobase):
 
 
 
-        phaseMultiplier=phsLam/sci_lam
+        phaseMultiplier=float(phsLam)/sci_lam
         asRad=numpy.pi/180./3600.#this.config.getVal("arcsecRad") ##Conversion rad-> arcsec
         L_D= ( (sci_lam*1.e-9)/telDiam )/asRad ##Diffraction limited resolution
         pix_scale=L_D*float(npup)/float(nfft)*float(nfft)/float(nimg) ##pixel scale (arcsec/pixel in the science image).  

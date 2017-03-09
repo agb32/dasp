@@ -114,6 +114,11 @@ def getArgs(args):
 
 
 def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0,precision=0,exclude=[],vallist=[],printval=0,valcharlist=[],before=None,after=None):
+    """glist - strings to grep for.
+    flist - list of filenames
+    ilist - list of values to return (e.g. strehl, etc)
+    
+    """
     outtxt=""
     pretxt=""
     cnt=0
