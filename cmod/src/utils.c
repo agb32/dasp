@@ -1499,7 +1499,7 @@ static PyObject* dot(PyObject* self, PyObject* args)
     }
   if(ArrayM->dimensions[1] != ArrayV->dimensions[0]) // matrix and input vector sizes must agree
     {
-      printf("N cols should equal length of second, but %d != %d\n",ArrayM->dimensions[1],ArrayV->dimensions[0]);
+      printf("N cols should equal length of second, but %ld != %ld\n",ArrayM->dimensions[1],ArrayV->dimensions[0]);
       PyErr_SetString(PyExc_ValueError, "Number of columns of 1st argument must agree with length of 2nd argument.");
       return NULL;
     }
@@ -1720,6 +1720,207 @@ static PyObject* dot(PyObject* self, PyObject* args)
 }
 
 
+static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
+  PyArrayObject *inarr,*refarr,*outarr=NULL;
+  double angle;
+  int i,j,x,y;
+  int nthreads=0;
+  float *idata,*odata;
+  int idx,idy,odx,ody;
+  rotateStruct rs;
+  rotateStructThread *rst;
+  pthread_t *thread;
+  int ystart;
+  int outsizex,outsizey;
+  PyObject *outarrobj=NULL;
+  npy_intp corrsize[2];
+  float *outdata,*indata,*refdata;
+  int outstridex,outstridey,instridex,instridey,refstridex,refstridey;
+  int inx,iny,ncenx,nceny,mx,my,refx,refy;
+  float s,d;
+  int dx,dy,minx,miny,sinx,siny,srefx,srefy;
+
+  if(!PyArg_ParseTuple(args,"O!O!|Oi",&PyArray_Type,&inarr,&PyArray_Type,&refarr,&outarrobj,&nthreads)){
+    printf("Usage: input array, reference array, output array or correlation size\n");
+    return NULL;
+  }
+  if(inarr->nd!=2){
+    printf("Input array must be 2D\n");
+    return NULL;
+  }
+  if(refarr->nd!=2){
+    printf("Reference array must be 2D\n");
+    return NULL;
+  }
+  if(inarr->descr->type_num!=NPY_FLOAT){
+    printf("Input array must be float32\n");
+    return NULL;
+  }
+  if(refarr->descr->type_num!=NPY_FLOAT){
+    printf("Reference array must be float32\n");
+    return NULL;
+  }
+  if(outarrobj==NULL){
+    corrsize[0]=inarr->dimensions[0];
+    corrsize[1]=inarr->dimensions[1];
+    outarr=(PyArrayObject*)PyArray_ZEROS(2,corrsize,NPY_FLOAT,0);
+  }else if(PyArray_Check(outarrobj)){//output array specified
+    outarr=(PyArrayObject*)outarrobj;
+    if(outarr->nd!=2){
+      printf("output array must be 2d\n");
+      return NULL;
+    }
+    if(outarr->descr->type_num!=NPY_FLOAT){
+      printf("outarr must by float32\n");
+      return NULL;
+    }
+    Py_INCREF(outarr);
+    corrsize[0]=outarr->dimensions[0];
+    corrsize[1]=outarr->dimensions[1];
+  }else if(PyInt_Check(outarrobj)){//size of output specified
+    corrsize[0]=corrsize[1]=(int)PyInt_AsLong(outarrobj);
+    outarr=(PyArrayObject*)PyArray_ZEROS(2,corrsize,NPY_FLOAT,0);
+  }else{
+    printf("Output must be an array or int\n");
+    return NULL;
+  }
+  inx=(int)inarr->dimensions[1];
+  iny=(int)inarr->dimensions[0];
+  nceny=corrsize[0];//the output size.
+  ncenx=corrsize[1];
+  instridex=inarr->strides[1]/sizeof(float);
+  instridey=inarr->strides[0]/sizeof(float);
+  refstridey=refarr->strides[0]/sizeof(float);
+  refstridex=refarr->strides[1]/sizeof(float);
+  outstridey=outarr->strides[0]/sizeof(float);
+  outstridex=outarr->strides[1]/sizeof(float);
+  refdata=(float*)refarr->data;
+  outdata=(float*)outarr->data;
+  indata=(float*)inarr->data;
+  refy=refarr->dimensions[0];
+  refx=refarr->dimensions[1];
+  //The ref must be at least as big as the inarr.
+  //Now do the correlation
+  dx=(refx-inx)/2;
+  dy=(refy-iny)/2;
+  printf("dx, dy: %d %d\n",dx,dy);
+  minx=refx<inx?refx:inx;
+  miny=refy<iny?refy:iny;
+  for(i=0;i<nceny;i++){
+    my=miny;
+    if(abs(i-nceny/2)>dy)//the overlap between input and ref.
+      my-=abs(i-nceny/2)-dy;
+    siny=0;
+    if(nceny/2-i>dy)
+      siny=nceny/2-i-dy;//starting point for input
+    srefy=dy-(i-nceny/2);//starting point for ref.
+    if(srefy<0)
+      srefy=0;
+    for(j=0;j<ncenx;j++){
+      mx=minx;//the overlap between input and ref.
+      if(abs(j-ncenx/2)>dx)
+	mx-=abs(j-ncenx/2)-dx;
+      sinx=0;
+      if(ncenx/2-j>dx)
+	sinx=ncenx/2-j-dx;//starting point for input
+      srefx=dx-(j-ncenx/2);
+      if(srefx<0)
+	srefx=0;
+      s=0;
+      printf("%d %d: %d %d   %d %d  %d %d\n",i,j,my,mx,srefy,siny,srefx,sinx);
+      for(y=0;y<my;y++){
+	for(x=0;x<mx;x++){
+	  d=refdata[(srefy+y)*refstridey+(srefx+x)*refstridex]-indata[(siny+y)*instridey+(sinx+x)*instridex];
+	  s+=d*d;
+	}
+      }
+      outdata[i*outstridey+j*outstridex]=s/(my*mx);
+    }
+  }
+  /*
+  for(i=0;i<nceny;i++){
+    my=refy-abs(nceny/2-i);
+    for(j=0;j<ncenx;j++){
+      mx=refx-abs(ncenx/2-j);
+      s=0;
+      for(y=0;y<my;y++){
+	for(x=0;x<mx;x++){
+	  if(i<nceny/2){
+	    if(j<nceny/2){
+	      if(y>=refy || x>=refx || nceny/2-i+y>=iny || ncenx/2-j+x>=inx)
+		printf("a  %d %d %d %d  %d %d %d %d\n",y,x,nceny/2-i+y,ncenx/2-j+x,i,j,y,x);
+	      d=refdata[y*refstridey+x*refstridex]-indata[(nceny/2-i+y)*instridey+(ncenx/2-j+x)*instridex];
+	    }else{
+	      if(y>=refy || j-ncenx/2+x>=refx || nceny/2-i+y>=iny || x>=inx)
+		printf("b  %d %d %d %d  %d %d %d %d\n",y,j-ncenx/2+x,nceny/2-i+y,x,i,j,y,x);
+	      d=refdata[y*refstridey+(j-ncenx/2+x)*refstridex]-indata[(nceny/2-i+y)*instridey+x*instridex];
+	    }
+	  }else{
+	    if(j<ncenx/2){
+	      if(i-nceny/2+y>=refy ||x>=refx ||y>=iny ||ncenx/2-j+x>=inx)
+		printf("c  %d %d %d %d  %d %d %d %d\n",i-nceny/2+y,x,y,ncenx/2-j+x,i,j,y,x);
+	      d=refdata[(i-nceny/2+y)*refstridey+x*refstridex]-indata[(y)*instridey+(ncenx/2-j+x)*instridex];
+	    }else{
+	      if(i-nceny/2+y>=refy ||j-ncenx/2+x>=refx ||y>=iny||x>=inx)
+		printf("d  %d %d %d %d  %d %d %d %d\n",i-nceny/2+y,j-ncenx/2+x,y,x,i,j,y,x);
+	      d=refdata[(i-nceny/2+y)*refstridey+(j-ncenx/2+x)*refstridex]-indata[(y)*instridey+x*instridex];
+	    }
+	  }
+	  s+=d*d;
+	}
+      }
+      printf("%g %g %d %d\n",s/(mx*my),s,mx,my);
+      outdata[i*outstridey+j*outstridex]=s/(my*mx);
+    }
+    }*/
+    /*
+    //compute number of pixels to correlate over:
+    //Several cases to consider.
+    //starting location is nceny/2-i from centre of ref.
+    //So refy/2-(nceny/2-i).
+    sy=refy/2-(nceny/2-i);//get the starting point in the ref array.
+    my=iny;
+    if(sy<0){
+      my+=sy;//reduce my.
+      sy=0;
+    }
+    //1. inarr is entirely within ref.
+    
+    if(iny<refy){
+      if(refy/2>=nceny/2-i)
+	
+    
+    my=corrsize[0]-abs(iny-refy)/2-i;
+    
+    
+    my=corrsize[0]-abs(nceny/2-i);
+    for(j=0;j<ncenx;j++){
+      mx=corrsize[1]-abs(ncenx/2-j);
+      s=0;
+      for(y=0;y<my;y++){
+	for(x=0;x<mx;x++){
+	  if(i<ncen/2){
+	    if(j<ncen/2){
+	      d=refarr[y*corrsize+x]-inarr[(ncen/2-i+y)*nimg+ncen/2-j+x];
+	    }else{
+	      d=refarr[y*corrsize+j-ncen/2+x]-inarr[(ncen/2-i+y)*nimg+x];
+	    }
+	  }else{
+	    if(j<ncen/2){
+	      d=corrPattern[(i-ncen/2+y)*corrsize+x]-bimg[(y)*nimg+ncen/2-j+x];
+	    }else{
+	      d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
+	    }
+	  }
+	  s+=d*d;
+	}
+      }
+      output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s/(my*mx);
+    }
+    }*/
+  return (PyObject*)outarr;
+}
+  
 static PyMethodDef UtilsMethods[] = {
   {"rotateArray",rotateArray,METH_VARARGS,"Rotate a 2D array"},
   {"compressFloatArray",CompressFloatArray,METH_VARARGS,"Compress floating point"},
@@ -1741,6 +1942,7 @@ static PyMethodDef UtilsMethods[] = {
    "Find out about a numeric array."},
   {"arrayfrombuffer", arrayfrombuffer, METH_VARARGS, "Create a Numeric array from an existing mmap.mmap object"},
   {"dot", dot, METH_VARARGS, "Matrix-Vector multiplication. Usage:\nc = dot(a, b, r, N)\n       a ... 2-D array - input matrix\n       b ... 1-D array - input vector\n       r ... 1-D array - result vector (optional)\n       N ... the number of threads (optional)"},
+  {"correlateDifferenceSquared",correlateDifferenceSquared,METH_VARARGS,"Computed the difference squared correlation"},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 //PyMODINIT_FUNC 
