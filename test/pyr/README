@@ -1,0 +1,31 @@
+Simulation generated.
+To run in pyrSim/, use:
+python scao.py params.py
+To view the simulation configuration, use:
+daspsetup.py scao.xml
+To connect to a running simulation (to view PSFs, WFSs, DMs, etc in action) use:
+daspctrl.py
+or:
+daspanalyse.py
+
+Please edit params.py to alter the simulation to meet your requirements.
+
+Some notes about this simulation:
+It will first of all take an interaction matrix.
+This will then be inverted to give a control matrix, using a simple SVD.
+This least-squares wavefront reconstructor will then be used for AO correction.
+
+Several improvements are possible (left as an excercise for the user):
+Minimum variance wavefront reconstruction from the interaction matrix.
+Model-based reconstruction (e.g. CuReD, SOR, etc)
+
+If you already have a control matrix, and thus do not need to generate one, you
+can use --user=nopoke commandline option
+
+
+Larger than default modulation rewquired:
+python scao.py --iterations=1000 --init="gain=2.0;pyrModAmp=8"
+Not sure why gain>1 also helps - probably due to matrix conditioning,
+or the non-linearity....
+
+To test: increasing padding during 2nd FFT...
