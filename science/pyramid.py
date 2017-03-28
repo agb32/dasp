@@ -97,7 +97,12 @@ class Pyramid(base.aobase.aobase):
             #multiply by pyramid phase mask (shape of pyramid)
             self.focAmp*=self.pyrPhaseMask
             #and now transport back to pupil plane and detect
+            #ss=self.focAmp.shape
+            #tmp=numpy.zeros((ss[0]*2,ss[1]*2),self.focAmp.dtype)
+            #tmp[ss[0]/2:ss[0]/2+ss[0],ss[1]/2:ss[1]/2+ss[1]]=self.focAmp
             pupilPlane=numpy.fft.ifft2(self.focAmp)
+            #pupilPlane.shape=pupilPlane.shape[0]/2,2,pupilPlane.shape[1]/2,2
+            #pupilPlane=pupilPlane.sum(3).sum(1)
             self.pyrImg[:]+=numpy.abs(pupilPlane)**2
 
         return self.pyrImg
