@@ -62,6 +62,15 @@ python scao.py --iterations=200
 After installation, run daspbuilder.py to get started on your first simulation.
 
 
+UPGRADING from ubuntu14.04 to 16.04: (gig46-51, 53 still need to do)
+sudo apt-get install libgsl-dev
+sudo apt-get remove python-mpi4py
+sudo rm /etc/apt/apt.conf.d/50unattended-upgrades.ucf-old 
+sudo apt-get install libopenmpi-dev
+sudo apt-get install python-mpi4py
+cd git/aosim
+make clean
+make
 DOCUMENTATION:
 -------------
 

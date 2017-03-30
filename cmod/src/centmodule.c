@@ -904,7 +904,7 @@ void computeOBCents(int ncen,float *img,float *cx,float *cy){
 }
 void computeCoG(int nimg,int ncen,float const * const img,float *centx,float *centy,float *weighting,int centreOnBrightest){
   //If centreOnBrightest set (i.e. if correlation centroiding), the ncenxncen array will be centred around the brightest pixel.
-  int i,j,sx,sy,ex,ey,maxpos;
+  int i,j,sx,sy,ex,ey,maxpos,minpos;
   float tmp;
   float sum=0.;
   float mx;
@@ -916,7 +916,7 @@ void computeCoG(int nimg,int ncen,float const * const img,float *centx,float *ce
     ex=nimg-sx;//end point
     sy=sx;
     ey=ex;
-  }else{
+  }else if(centreOnBrightest==1){
     //find brightest pixel:
     mx=0.;
     maxpos=0;
@@ -935,15 +935,45 @@ void computeCoG(int nimg,int ncen,float const * const img,float *centx,float *ce
     ex=sx+ncen;
     ey=sy+ncen;
     
+  }else{//find the faintest pixel
+    mx=0.;
+    minpos=0;
+    for(i=0;i<nimg*nimg;i++){
+      if(img[i]<mx || mx==0){
+	mx=img[i];
+	minpos=i;
+      }
+    }
+    sx=(int)(minpos%nimg-ncen/2.+0.5);
+    sy=(int)(minpos/nimg-ncen/2.+0.5);
+    if(sx<0)sx=0;
+    if(sy<0)sy=0;
+    if(sx>nimg-ncen)sx=nimg-ncen;
+    if(sy>nimg-ncen)sy=nimg-ncen;
+    ex=sx+ncen;
+    ey=sy+ncen;
+
   }
   if(weighting==NULL){
-    for(i=sy; i<ey; i++){
-      for(j=sx; j<ex; j++){
-	tmp=img[i*nimg+j];
-	sum+=tmp;
-	cx+=tmp*j;
-	cy+=tmp*i;
+    if(centreOnBrightest==0 || centreOnBrightest==1){
+      for(i=sy; i<ey; i++){
+	for(j=sx; j<ex; j++){
+	  tmp=img[i*nimg+j];
+	  sum+=tmp;
+	  cx+=tmp*j;
+	  cy+=tmp*i;
+	}
       }
+    }else{//do it on the -ve image.
+      for(i=sy; i<ey; i++){
+	for(j=sx; j<ex; j++){
+	  tmp=img[i*nimg+j];
+	  sum+=tmp;
+	  cx+=-tmp*j;
+	  cy+=-tmp*i;
+	}
+      }
+
     }
   }else{
     for(i=sy; i<ey; i++){
@@ -972,15 +1002,20 @@ void computeCoG(int nimg,int ncen,float const * const img,float *centx,float *ce
   }
 }
 
-inline void makeFitVector(float *vec,float *subap,int nimg,int ncen,int startx,int starty){
+inline void makeFitVector(float *vec,float *subap,int nimg,int fitsize,int startx,int starty){
   //vec should have size [6].
   int x,y;
   float val;
+  //float m;
+  //m=subap[(starty+fitsize/2)*nimg+startx+fitsize/2];
   for(y=0;y<6;y++)//probably faster than memset.
     vec[y]=0;
-  for(y=0;y<ncen;y++){
-    for(x=0;x<ncen;x++){
+  for(y=0;y<fitsize;y++){
+    for(x=0;x<fitsize;x++){
       val=subap[(y+starty)*nimg + (x+startx)];
+      //if(val<m && y!=fitsize/2 && x!=fitsize/2){
+      //	printf("Oops - min not at centre: %d %d %g %g\n",y,x,val,m);
+      //}
       vec[0]+=val*x*x;
       vec[1]+=val*x*y;
       vec[2]+=val*y*y;
@@ -1009,7 +1044,7 @@ void makeFitMx(float *fitMx,int ncen){//fitMx is 5x6.
       mx[1*6+3]+=x*x*y;
       mx[1*6+4]+=x*y*y;
       mx[1*6+5]+=x*y;
-      mx[2*6+0]+=x*x*y*x;
+      mx[2*6+0]+=x*x*y*y;
       mx[2*6+1]+=x*y*y*y;
       mx[2*6+2]+=y*y*y*y;
       mx[2*6+3]+=x*y*y;
@@ -1036,6 +1071,8 @@ void makeFitMx(float *fitMx,int ncen){//fitMx is 5x6.
       
     }
   }
+  //for(y=0;y<36;y++)
+  //printf("A %g\n",mx[y]);
   //now invert.
   int s;
   gsl_matrix_view m = gsl_matrix_view_array(mx, 6, 6);
@@ -1046,6 +1083,7 @@ void makeFitMx(float *fitMx,int ncen){//fitMx is 5x6.
   gsl_permutation_free (p);
   for(y=0;y<30;y++){//don't need the last row.
     fitMx[y]=(float)inva[y];
+    //printf("%d,%g\n",y,fitMx[y]);
   }
 }
 void sgemv(int m,int n,float *mx, float *vec, float *res){
@@ -1060,12 +1098,14 @@ void sgemv(int m,int n,float *mx, float *vec, float *res){
   }
 }
 
-void computeFit(const int nimg,const int ncen,float *img,float *centx,float *centy, float *fitMx,int *fitMxParam,int doGaussian,float gaussianMinVal,float gaussianReplaceVal){
+void computeFit(const int nimg,const int ncen,int fitsize,float *img,float *centx,float *centy, float *fitMx,int *fitMxParam,int doGaussian,float gaussianMinVal,float gaussianReplaceVal,int corrMode){
   int i,mxpos=0;
   float sum=0;
   float mx=0;
   int startx,starty;
   float minflux=0;
+  int nc=(nimg-ncen)/2;
+  //fitsize usually odd - since the correlation will be centred on 1 pixel when centred.
   //Do a parabolic/gaussian fit...
   if(doGaussian){
     //take the log of the data
@@ -1081,11 +1121,26 @@ void computeFit(const int nimg,const int ncen,float *img,float *centx,float *cen
 	img[i]=logf(img[i]);
     }
   }else{
-    for(i=0;i<nimg*nimg;i++){
-      sum+=img[i];
-      if(img[i]>mx){
-        mxpos=i;
-	mx=img[i];
+    if(corrMode==0 || corrMode==1){//maximum of parabola
+      for(i=0;i<nimg*nimg;i++){
+	sum+=img[i];
+	if(img[i]>mx){
+	  mxpos=i;
+	  mx=img[i];
+	}
+      }
+    }else{//min of parabola
+      int j;
+      mx=img[nc*nimg+nc];
+      mxpos=nc*nimg+nc;
+      for(i=nc;i<nc+ncen;i++){
+	for(j=nc;j<nc+ncen;j++){
+	  sum+=img[i*nimg+j];
+	  if(img[i*nimg+j]<mx){
+	    mxpos=i*nimg+j;
+	    mx=img[i*nimg+j];
+	  }
+	}
       }
     }
   }
@@ -1093,19 +1148,33 @@ void computeFit(const int nimg,const int ncen,float *img,float *centx,float *cen
     float vec[6];
     float res[5];
     //Should this be centred around brightest pixel, or CoG?????
-    //Since usually used with correlation images, brightest pixel probably ok (and maybe best - use it for now!)
-    startx=(int)(mxpos%nimg-ncen/2.+0.5);
-    starty=(int)(mxpos/nimg-ncen/2.+0.5);
-    if(startx<0)startx=0;
-    if(starty<0)starty=0;
-    if(startx>nimg-ncen)startx=nimg-ncen;
-    if(starty>nimg-ncen)starty=nimg-ncen;
-    makeFitVector(vec,img,nimg,ncen,startx,starty);
+    //Since usually used with correlation images, brightest pixel (or dimmest depending on corrMode) probably ok (and maybe best - use it for now!)
+    startx=(int)(mxpos%nimg-fitsize/2);//.+0.5);
+    starty=(int)(mxpos/nimg-fitsize/2);//.+0.5);
+    //startx=mxpos%nimg;
+    //starty=mxpos/nimg;
+    if(startx<nc){
+      startx=nc;
+      //printf("adjusting x to nc\n");
+    }
+    if(starty<nc){
+      starty=nc;
+      //printf("adjusting y to nc\n");
+    }
+    if(startx>nc+ncen-fitsize){
+      startx=nc+ncen-fitsize;
+      //printf("adjusting x to max\n");
+    }
+    if(starty>nc+ncen-fitsize){
+      starty=nc+ncen-fitsize;
+      //printf("adjusting y to max\n");
+    }
+    makeFitVector(vec,img,nimg,fitsize,startx,starty);
     //dot the matrix with the vector.
-    if(*fitMxParam!=ncen){
-      printf("centmodule: Creating fit matrix size %d\n",ncen);
-      makeFitMx(fitMx,ncen);//shape of matrix doens't change, but contents does.
-      *fitMxParam=ncen;
+    if(*fitMxParam!=fitsize){
+      printf("centmodule: Creating fit matrix size %d\n",fitsize);
+      makeFitMx(fitMx,fitsize);//shape of matrix doens't change, but contents does.
+      *fitMxParam=fitsize;
     }
     sgemv(5,6,fitMx,vec,res);
     if(doGaussian){
@@ -1114,6 +1183,8 @@ void computeFit(const int nimg,const int ncen,float *img,float *centx,float *cen
     }else{
       *centx=(res[1]*res[4]/(2*res[2])-res[3])/(2.*res[0]-res[1]*res[1]/(2.*res[2]));
       *centy=-(res[4]+res[1]*(*centx))/(2.*res[2]);
+      if(*centx<0 || *centy<0 || *centx>=fitsize || *centy>=fitsize)
+	printf("Warning: centx,y outside of parabolic fit region: %g %g\n",*centx,*centy);
     }
     (*centy)-=ncen/2.-0.5;
     (*centx)-=ncen/2.-0.5;
@@ -1139,6 +1210,81 @@ int testNan(int n,float* arr){
   }
   return got;
   }*/
+void diffCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPattern,float *output,int mode){
+  /*Calculate the correlation using (sum of mod difference)^2 or sum(difference^2).
+    nimg - size of image.
+    corrsize - size of corrPattern.
+    ncen - the number of pixels for which the correlation should be computed.
+    nimg - size of the image (bimg) and the refernce (corrPattern).
+    Note: ncen<=nimg.
+
+    output and corrPattern are of size corrsize.
+   */
+  int i,j,x,y;
+  float s,d;
+  //int m=nimg<corrsize?nimg:corrsize;
+  int mx,my;
+  //int f=(nimg-ncen)/2;
+  //int t=f+ncen;
+  memset(output,0,sizeof(float)*corrsize*corrsize);
+  if(mode==1){//best results - but higher compuation - sum(diff^2)
+    for(i=0;i<ncen;i++){
+      my=corrsize-abs(ncen/2-i);
+      for(j=0;j<ncen;j++){
+	mx=corrsize-abs(ncen/2-j);
+	s=0;
+	for(y=0;y<my;y++){
+	  for(x=0;x<mx;x++){
+	    if(i<ncen/2){
+	      if(j<ncen/2){
+		//printf("%g %g\n",corrPattern[y*corrsize+x],bimg[(ncen/2-i+y)*nimg+ncen/2-j+x]);
+		d=corrPattern[y*corrsize+x]-bimg[(ncen/2-i+y)*nimg+ncen/2-j+x];
+	      }else{
+		d=corrPattern[y*corrsize+j-ncen/2+x]-bimg[(ncen/2-i+y)*nimg+x];
+	      }
+	    }else{
+	      if(j<ncen/2){
+		d=corrPattern[(i-ncen/2+y)*corrsize+x]-bimg[(y)*nimg+ncen/2-j+x];
+	      }else{
+		d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
+	      }
+	    }
+	    s+=d*d;
+	  }
+	}
+	output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s/(my*mx);
+      }
+    }
+  }else{//faster computation, slightly poorer performance
+    for(i=0;i<ncen;i++){
+      my=corrsize-abs(ncen/2-i);
+      for(j=0;j<ncen;j++){
+	mx=corrsize-abs(ncen/2-j);
+	s=0;
+	for(y=0;y<my;y++){
+	  for(x=0;x<mx;x++){
+	    if(i<ncen/2){
+	      if(j<ncen/2){
+		d=corrPattern[y*corrsize+x]-bimg[(ncen/2-i+y)*nimg+ncen/2-j+x];
+	      }else{
+		d=corrPattern[y*corrsize+j-ncen/2+x]-bimg[(ncen/2-i+y)*nimg+x];
+	      }
+	    }else{
+	      if(j<ncen/2){
+		d=corrPattern[(i-ncen/2+y)*corrsize+x]-bimg[(y)*nimg+ncen/2-j+x];
+	      }else{
+		d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
+	      }
+	    }
+	    s+=fabsf(d);
+	  }
+	}
+	output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s*s/(my*mx);
+      }
+    }
+  }
+}
+
 
 #define B(y,x) corrPattern[(y)*corrsize+x]
 
@@ -1151,7 +1297,6 @@ int calcCorrelation(int nimg,int corrsize,float *corrPattern,float *bimg,float *
   //This is how the plans should be created (elsewhere).  Will need a different plan for each different sized subap (see subapLocation).  
   //c->corrPlan=fftwf_plan_r2r_2d(nimg,nimg,tmpsubap,tmpsubap2,FFTW_R2HC, FFTW_R2HC, FFTW_ESTIMATE);
   //c->invCorrPlan=fftwf_plan_r2r_2d(nimg,nimg,tmpsubap2,tmpsubap2,FFTW_HC2R, FFTW_HC2R, FFTW_ESTIMATE);
-  
   //FFT the SH image.
   if(nimg==corrsize)
     memcpy(tmp,bimg,sizeof(float)*nimg*nimg);
@@ -1465,6 +1610,13 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	  npxl=npxlcorr;//The subaps may have grown!!!
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
+	}else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
+	  int npxlcorr=c->corrsize*c->corrsize;
+	  //int npxlout=c->ncen*c->ncen;
+	  diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
+	  npxl=npxlcorr;//the subaps may have shrunk.
+	  bimg=&c->corrimg[i*npxlcorr];
+	  thresholdCorrelation(npxl,c->corrThresh,bimg);
 	}else{
 	  bimg=&(c->bimg[i*npxl]);
 	}
@@ -1472,7 +1624,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	if(c->opticalBinning==1){
 	  computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
 	}else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
-	  computeFit(c->corrsize,c->ncen,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal);
+	  computeFit(c->corrsize,c->ncen,3,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
 
 	}else{//do a CoG
 	  if(c->centWeightDim==2){//weighted CoG
@@ -1482,7 +1634,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  }else{//cog
 	    cweight=NULL;
 	  }
-	  //Note: corrsize==nimg unless convolving with something larger.  
+	  //Note: corrsize==nimg unless convolving with something larger.  Or if using diff correlation, corrsize can be < nimg.
 	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
 	}
 	//and now apply the calibration... (linearisation)
@@ -1589,6 +1741,13 @@ int centroidsFromImage(centrunstruct *runinfo){
 	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	  npxl=npxlcorr;//The subaps may have grown!!!
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
+	}else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
+	  int npxlcorr=c->corrsize*c->corrsize;
+	  //int npxlout=c->ncen*c->ncen;
+	  diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
+	  npxl=npxlcorr;//the subaps may have shrunk.
+	  bimg=&c->corrimg[i*npxlcorr];
+	  thresholdCorrelation(npxl,c->corrThresh,bimg);
 	}else{
 	  bimg=&(c->bimg[i*npxl]);
 	}
@@ -1596,7 +1755,7 @@ int centroidsFromImage(centrunstruct *runinfo){
 	if(c->opticalBinning==1){
 	  computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
 	}else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
-	  computeFit(c->corrsize,c->ncen,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal);
+	  computeFit(c->corrsize,c->ncen,3,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
 
 	}else{//do a CoG
 	  if(c->centWeightDim==2){//weighted CoG

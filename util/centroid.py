@@ -287,7 +287,10 @@ class centroid:
     
         if correlationCentroiding:
             self.corrimg=numpy.zeros(corrPattern.shape,numpy.float32)
-            self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
+            if correlationCentroiding==1:
+                self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
+            else:
+                self.corrPattern=self.corrPatternUser.copy()
         else:
             self.corrPattern=None
             self.corrimg=None
@@ -1637,7 +1640,16 @@ class centroid:
         if self.centcmod!=None:
             if self.linearSteps==None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
                 self.centcmod.update(util.centcmod.REFCENTS,self.refCents)
-                    
+        return self.refCents
+
+    def setRefSlopes(self,refSlopes):
+        """Sets ref slopes to something provided"""
+        self.refCents=refSlopes.copy().astype(numpy.float32)
+        if self.centcmod!=None:
+            if self.linearSteps==None or self.psf is not None or self.correlationCentroiding!=None or self.calNCoeff!=0:#no calibration done, or done in c, so ref can be done by c.
+                self.centcmod.update(util.centcmod.REFCENTS,self.refCents)
+
+    
     def takeCorrImage(self,control,cameraInput=None):
         """If correlationCentroiding==1, but corrPattern==None, use a default SH spot pattern as the reference.
         """
@@ -1662,7 +1674,7 @@ class centroid:
                 else:
                     self.reorderedPhs[:]=0
                     self.runCalc(control)
-                self.centcmod.update(util.centcmod.CORRELATIONCENTROIDING,1)
+                self.centcmod.update(util.centcmod.CORRELATIONCENTROIDING,self.correlationCentroiding)
                 control["cal_source"]=c
                 self.linearSteps=steps
                 if self.corrPatternUser is None:
@@ -1679,8 +1691,11 @@ class centroid:
                         else:
                             print self.corrPatternUser.shape
                             raise Exception("Not yet implemented... padding of 2d corr images")
-                self.corrPatternUser/=max(self.corrPatternUser.ravel())#normalise
-                self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
+                if self.correlationCentroiding==1:
+                    self.corrPatternUser/=max(self.corrPatternUser.ravel())#normalise
+                    self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
+                else:#other modes don't need a transformed psf...
+                    self.corrPattern=self.corrPatternUser.copy()
                 self.centcmod.update(util.centcmod.CORRPATTERN,self.corrPattern)
                 data=self.corrPatternUser
         return data

@@ -67,6 +67,9 @@ DM object (multiple source directions on this moao dm).
 
 Here, we assume the source is at infinity.
 
+What happens if the DM is to be conjugated above ground?  Which parts of other DMs should get sliced?  Perhaps compressFov helps here.
+
+
 """
 
 #from science.xinterp_dm import interpolateSpline,interpolateBicubic
@@ -136,7 +139,7 @@ class vdmUser(base.aobase.aobase):
             self.mdmTheta=self.dmInfo.primaryTheta#self.config.getVal("mdmTheta")
             #the direction in which the moao mirror is facing:
             self.mdmPhi=self.dmInfo.primaryPhi#config.getVal("mdmPhi")
-            self.fov=self.dmInfo.fov#config.getVal("fov")#mirror field of view (irrelevant if ground conjugate).
+            self.fov=self.dmInfo.fov#NOT USED #mirror field of view (irrelevant if ground conjugate).
             print "MOAO vdmUser is in direction theta=%g, phi=%g, with fov=%g"%(self.mdmTheta,self.mdmPhi,self.fov)
             self.compressFov=self.config.getVal("compressFov",default=0.)#specifies the amount of each vdm that is 
                                                 # used.  If this is zero, only a telDiam sized section of the 

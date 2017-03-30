@@ -1125,8 +1125,8 @@ class recon(base.aobase.aobase):
                     if data.shape[0]==self.reconmx.shape[0]:
                         tmp=-quick.dot(data,self.reconmx).astype(self.outputData.dtype)
                     else:
-                        print("INFORMATION:**tomorRecon**:self.reconmx.shape,"+
-                              "data.shape"+str(self.reconmx.shape)+str(data.shape))
+                        #print("INFORMATION:**tomorRecon**:self.reconmx.shape,"+
+                        #      "data.shape"+str(self.reconmx.shape)+str(data.shape))
                         tmp=-quick.dot(self.reconmx,data).astype(self.outputData.dtype)
                 else:#multi-rate WFSs
                     cnt=0

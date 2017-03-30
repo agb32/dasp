@@ -352,7 +352,7 @@ class LGS(util.atmos.source):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height), not the height of the LGS.
         0,0 means on axis."""
-        if self.coords!=None and telDiam==self.telDiam and height==self.dmheight:
+        if self.coords is not None and telDiam==self.telDiam and height==self.dmheight:
             return#already computed
         self.telDiam=telDiam
         if self.alt<=height:
@@ -413,8 +413,10 @@ class NGS(util.atmos.source):
     pupil - the telescope pupil function for this guide star.
     fov - radius of the fov, not diam, in arcsec
     centroidPower: raise calibrated pixels to this power before cog/corr.
+    pyrSteps - number of steps to do the pyramid modulation (Default 8)
+    pyrModAmp - pyramid modulation amplitude.
     """
-    def __init__(self,idstr,nsubx,theta,phi,phasesize,pupil,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0.,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None,integStepFn=None,cameraImage=0,subapLocation=None,centroidPower=1.):
+    def __init__(self,idstr,nsubx,theta,phi,phasesize,pupil,minarea=0.5,sig=None,sourcelam=None,phslam=None,reconList=None,nimg=None,nfft=None,clipsize=None,ncen=None,preBinningFactor=1,bglevel=0.,readoutNoise=0.,integSteps=1,rowint=None,threshType=0,latency=0,skyBrightness=0.,floor=0.,seed=0,atmosPhaseType="phaseonly",addPoisson=1,spotpsf=None,opticalBinning=0,magicCentroiding=0,linearSteps=None,calNCoeff=0,stepRangeFrac=1,centWeight=None,correlationCentroiding=0,corrThresh=0,corrPattern=None,useBrightest=0,fov=0.,parabolicFit=0,gaussianFitVals=None,subapFlag=None,integStepFn=None,cameraImage=0,subapLocation=None,centroidPower=1.,pyrSteps=8,pyrModAmp=1.):
         """pupil can be a util.tel object"""
         #Initialise parent...
         super(NGS,self).__init__(idstr,theta,phi,-1,sourcelam=sourcelam,phslam=phslam,sig=sig)
@@ -467,6 +469,9 @@ class NGS(util.atmos.source):
         self.telDiam=None#used in computeCoords
         self.pupil=pupil
         self.subapFlag=subapFlag#use getSubapFlag() to get this.
+        self.pyrSteps=pyrSteps
+        self.pyrModAmp=pyrModAmp
+        
         if self.phasesize==None:
             if self.nimg!=None:
                 self.phasesize=self.nimg
@@ -484,7 +489,7 @@ class NGS(util.atmos.source):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height).
         0,0 means on axis."""
-        if self.coords!=None and telDiam==self.telDiam and height==self.dmheight:
+        if self.coords is not None and telDiam==self.telDiam and height==self.dmheight:
             return#already computed
         self.telDiam=telDiam
         self.dmheight=height

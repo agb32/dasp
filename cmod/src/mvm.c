@@ -33,7 +33,8 @@ void mvm_float( mvm_data_t* args )
   float* V = args->V;  //    these three variables are float and you add 6 terms per for loop iteration
   float* R = args->R;
 
-  int i,j,cnt; // 'for'-loop indeces
+  int i,j;
+  unsigned long cnt; // 'for'-loop indeces
 
   for(i=0, cnt=0; i<m; i++)
     {
@@ -66,7 +67,8 @@ void mvm_double( mvm_data_t* args )
   double* V = args->V;  //    these three variables are double and you add 7 terms per for loop iteration
   double* R = args->R;
 
-  int i,j,cnt; // 'for'-loop indeces
+  int i,j;
+  unsigned long cnt; // 'for'-loop indeces
 
   for(i=0, cnt=0; i<m; i++)
     {
