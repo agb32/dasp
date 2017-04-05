@@ -26,7 +26,8 @@ import util.zernikeMod
 import util.regularisation
 #import cmod.svd #removed from dasp because probably depreciated.
 import cmod.utils
-import util.dot as quick
+#import util.dot as quick
+quick=numpy
 
 try:
     import scipy.linsolve
