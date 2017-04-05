@@ -1722,16 +1722,8 @@ static PyObject* dot(PyObject* self, PyObject* args)
 
 static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
   PyArrayObject *inarr,*refarr,*outarr=NULL;
-  double angle;
   int i,j,x,y;
   int nthreads=0;
-  float *idata,*odata;
-  int idx,idy,odx,ody;
-  rotateStruct rs;
-  rotateStructThread *rst;
-  pthread_t *thread;
-  int ystart;
-  int outsizex,outsizey;
   PyObject *outarrobj=NULL;
   npy_intp corrsize[2];
   float *outdata,*indata,*refdata;
@@ -1739,7 +1731,7 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
   int inx,iny,ncenx,nceny,mx,my,refx,refy;
   float s,d;
   int dx,dy,minx,miny,sinx,siny,srefx,srefy;
-
+  int offy,offx;
   if(!PyArg_ParseTuple(args,"O!O!|Oi",&PyArray_Type,&inarr,&PyArray_Type,&refarr,&outarrobj,&nthreads)){
     printf("Usage: input array, reference array, output array or correlation size\n");
     return NULL;
@@ -1803,38 +1795,107 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
   //Now do the correlation
   dx=(refx-inx)/2;
   dy=(refy-iny)/2;
-  printf("dx, dy: %d %d\n",dx,dy);
+  //printf("dx, dy: %d %d\n",dx,dy);
   minx=refx<inx?refx:inx;
   miny=refy<iny?refy:iny;
+  //imagine the reference moving over the image...
   for(i=0;i<nceny;i++){
+    offy=i-nceny/2;//the offset.  0 for the central point.
+    //size of the overlap
     my=miny;
-    if(abs(i-nceny/2)>dy)//the overlap between input and ref.
-      my-=abs(i-nceny/2)-dy;
-    siny=0;
-    if(nceny/2-i>dy)
-      siny=nceny/2-i-dy;//starting point for input
-    srefy=dy-(i-nceny/2);//starting point for ref.
-    if(srefy<0)
+    //starting point in the reference
+    srefy=-offy-(iny-refy)/2;
+    if(srefy<0){
       srefy=0;
+    }
+    //starting point in the input image
+    siny=(iny-refy)/2+offy;
+    if(siny<0){
+      siny=0;
+    }
+    if(siny+my>iny)
+      my=iny-siny;
+    if(srefy+my>refy)
+      my=refy-srefy;
     for(j=0;j<ncenx;j++){
-      mx=minx;//the overlap between input and ref.
-      if(abs(j-ncenx/2)>dx)
-	mx-=abs(j-ncenx/2)-dx;
-      sinx=0;
-      if(ncenx/2-j>dx)
-	sinx=ncenx/2-j-dx;//starting point for input
-      srefx=dx-(j-ncenx/2);
-      if(srefx<0)
+      offx=j-ncenx/2;
+      //size of the overlap
+      mx=minx;
+      //starting point in the reference
+      srefx=-offx-(inx-refx)/2;
+      if(srefx<0){
 	srefx=0;
+      }
+      //starting point in the input image
+      sinx=(inx-refx)/2+offx;
+      if(sinx<0){
+	sinx=0;
+      }
+      if(sinx+mx>inx)
+	mx=inx-sinx;
+      if(srefx+mx>refx)
+	mx=refx-srefx;
+      
+      /*
+    if(refy>=iny){
+      my=miny;
+      if(abs(offy)>dy)//the overlap between input and ref.
+	my-=abs(offy)-dy;
+      siny=0;
+      if(nceny/2-i>dy)
+	siny=nceny/2-i-dy;//starting point for input
+      srefy=dy-(nceny/2-i);//starting point for ref.
+      if(srefy<0)
+	srefy=0;
+    }else{//input larger than reference.
+      siny=(iny-refy)/2-(offy);
+      if(siny<0)
+	siny=0;
+      srefy=0;
+      if(nceny/2-i>(iny-refy)/2)
+	srefy=nceny/2-i-(iny-refy)/2;
+      my=miny;
+      if(nceny/2-i>(iny-refy)/2)
+	my-=nceny/2-i-(iny-refy)/2;
+      if(offy+my+iny/2-refy/2>iny)
+	my-=offy+my+iny/2-refy/2-iny;
+    }
+    for(j=0;j<ncenx;j++){
+      offx=j-ncenx/2;
+      if(refx>inx){
+	mx=minx;//the overlap between input and ref.
+	if(abs(offx)>dx)
+	  mx-=abs(offx)-dx;
+	sinx=0;
+	if(ncenx/2-j>dx)
+	  sinx=ncenx/2-j-dx;//starting point for input
+	srefx=dx-(ncenx/2-j);
+	if(srefx<0)
+	  srefx=0;
+      }else{//input larger than reference
+	sinx=(inx-refx)/2-(offx);
+	if(sinx<0)
+	  sinx=0;
+	srefx=0;
+	if(ncenx/2-j>(inx-refx)/2)
+	  srefx=ncenx/2-j-(inx-refx)/2;
+	mx=minx;
+	if(ncenx/2-j>(inx-refx)/2)
+	  mx-=ncenx/2-j-(inx-refx)/2;
+	if(offx+mx+inx/2-refx/2>inx)
+	  mx-=offx+mx+inx/2-refx/2-inx;
+	  }*/
+	
       s=0;
-      printf("%d %d: %d %d   %d %d  %d %d\n",i,j,my,mx,srefy,siny,srefx,sinx);
+      //printf("%d %d: %d %d   %d %d  %d %d\n",i,j,my,mx,srefy,siny,srefx,sinx);
       for(y=0;y<my;y++){
 	for(x=0;x<mx;x++){
 	  d=refdata[(srefy+y)*refstridey+(srefx+x)*refstridex]-indata[(siny+y)*instridey+(sinx+x)*instridex];
 	  s+=d*d;
 	}
       }
-      outdata[i*outstridey+j*outstridex]=s/(my*mx);
+      if(mx!=0 && my!=0)
+	outdata[i*outstridey+j*outstridex]=s/(my*mx);
     }
   }
   /*

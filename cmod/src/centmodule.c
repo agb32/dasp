@@ -69,6 +69,7 @@ typedef struct  {    // Internals are *Private*.
                                 // selected. Must *always* be odd.
 } pcg32_random_t;
 //     Generate a uniformly distributed 32-bit random number
+/*DASP uses this because it is significantly faster than the standard gsl routine, which makes a significant speed difference for noisy wavefront sensors.*/
 
 uint32_t pcg32_random_r(pcg32_random_t* rng)
 {
@@ -122,6 +123,10 @@ void pcg32_srandom_r(pcg32_random_t* rng, uint64_t initstate, uint64_t initseq)
 #define CALCOEFF 19
 #define USEBRIGHTEST 20
 #define INTEGSTEPS 21
+
+
+#define CENTROIDSFROMPHASE 1
+#define CENTROIDSFROMIMAGE 0
 typedef struct{
   int n;
 float *corr;
@@ -243,6 +248,10 @@ int planSize;
   int inputImageDims;
   int inputImagenpxlx;//x dimension of image.
   int *subapLocation;//Optional, if parent is a detector image, rather than phase.  If not specified will be auto-calculated.
+  //pthread_mutex_t mutex;
+  //pthread_cond_t cond;
+  pthread_barrier_t barrier;
+  int doWork;
 } centstruct;
 
 
@@ -2082,12 +2091,53 @@ int setSigArr(centstruct *c,PyObject *sigObj){
   return 0;
 }
 
+int workerFunc(centrunstruct *runinfo){//On xps, old took about 38Hz, 26.2s.  Now 39Hz, 25.7s.  So slight improvement - test on phi...
+  centstruct *c;
+  c=(centstruct*)runinfo->centstr;
+  //pthread_mutex_lock(&c->mutex);
+  //pthread_cond_wait(&c->cond,&c->mutex);
+  //pthread_mutex_unlock(&c->mutex);
+  pthread_barrier_wait(&c->barrier);//wait to be woken up
+  while(c->doWork){
+    switch(c->doWork){
+    case CENTROIDSFROMPHASE:
+      centroidsFromPhase(runinfo);
+      break;
+    case CENTROIDSFROMIMAGE:
+      centroidsFromImage(runinfo);
+      break;
+    default:
+      break;
+    }
+    pthread_barrier_wait(&c->barrier);//signal we've finished
+    pthread_barrier_wait(&c->barrier);//wait to be woken up
+    //pthread_mutex_lock(&c->mutex);
+    //pthread_cond_wait(&c->cond,&c->mutex);//and wait for the next bit of work.
+    //pthread_mutex_unlock(&c->mutex);
+  }
+  return 0;
+}
 
 int setupThreads(centstruct *c,int nthreads){
   int i,subapCnt,subapsLeft;
   int fftsize=c->fftsize;
-  //First free any previous memory...
+  pthread_t *thread;
+  //first stop existing threads.
+  thread=c->threadid;
+  c->doWork=0;
+  printf("setupThreads %d %d\n",nthreads,c->nthreads);
+  if(c->nthreads>0)
+    pthread_barrier_wait(&c->barrier);//wake threads up
+    //pthread_cond_broadcast(&c->cond);//wake threads up
+  for(i=0;i<c->nthreads;i++)
+    pthread_join(thread[i],NULL);
+  //Then free any previous memory...
   //printf("setting up threads\n");
+  if(c->nthreads!=0){
+    pthread_barrier_destroy(&c->barrier);
+    //pthread_mutex_destroy(&c->mutex);
+    //pthread_cond_destroy(&c->cond);
+  }
   for(i=0; i<c->nthreads; i++){
     if(c->runinfo!=NULL && c->runinfo[i]!=NULL){
       if(c->runinfo[i]->corr!=NULL){
@@ -2129,6 +2179,10 @@ int setupThreads(centstruct *c,int nthreads){
   //and now set up...
   c->nthreads=nthreads;
   if(nthreads>0){
+    printf("Setting up %d threads\n",nthreads);
+    pthread_barrier_init(&c->barrier,NULL,nthreads+1);
+    //pthread_mutex_init(&c->mutex,NULL);
+    //pthread_cond_init(&c->cond,NULL);
     c->hll=malloc(sizeof(float*)*nthreads);
     c->runinfo=malloc(sizeof(centrunstruct*)*nthreads);
     c->threadid=malloc(sizeof(pthread_t)*nthreads);
@@ -2168,8 +2222,10 @@ int setupThreads(centstruct *c,int nthreads){
 	gsl_rng_set(c->gslRand[i],c->seed+i);
       }
     }
-
-
+    for(i=0; i<nthreads; i++){
+      printf("Sparning thread %d\n",i);
+      pthread_create(&c->threadid[i],c->pthread_attr,(void*)workerFunc,c->runinfo[i]);
+    }
   }
   //printf("done setting up threads\n");
   return 0;
@@ -2480,7 +2536,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   }
   memset(c,0,sizeof(centstruct));
   c->clipsize=clipsize;
-  c->nthreads=nthreads;
+  c->nthreads=0;
   c->nsubaps=nsubaps;
   c->ncen=ncen;
   c->fftsize=fftsize;
@@ -2763,9 +2819,9 @@ PyObject *py_free(PyObject *self,PyObject *args){
 
 PyObject *py_run(PyObject *self,PyObject *args){
   centstruct *c;
-  centrunstruct **runinfo;
-  pthread_t *thread;
-  int nthreads,i;
+  //centrunstruct **runinfo;
+  //pthread_t *thread;
+  //int nthreads,i;
   float dtime=0.;
   struct timeval t1,t2;
   //pid_t pid;
@@ -2777,20 +2833,24 @@ PyObject *py_run(PyObject *self,PyObject *args){
   }
   //memset(c->bimg,0,sizeof(float)*c->nsubaps*c->imgpxls);
   gettimeofday(&t1,NULL);
-  nthreads=c->nthreads;
-  runinfo=c->runinfo;//malloc(sizeof(centrunstruct)*nthreads);
-  thread=c->threadid;//malloc(sizeof(pthread_t)*nthreads);
+  //nthreads=c->nthreads;
+  //runinfo=c->runinfo;//malloc(sizeof(centrunstruct)*nthreads);
+  //thread=c->threadid;//malloc(sizeof(pthread_t)*nthreads);
   //first create the threads and set them running, and then run ourself.
-  for(i=1; i<nthreads; i++){
-    pthread_create(&thread[i],c->pthread_attr,(void*)centroidsFromPhase,runinfo[i]);
-  }
-  //runinfo[0]->centstr=c;
-  //runinfo[0]->n=0;
-  centroidsFromPhase(runinfo[0]);//run ourself...
+  //NONONO - 2017 - spawning lots of theads a bad idea.  Instead, signal to existing ones...
+  //for(i=1; i<nthreads; i++)
+  //  pthread_create(&thread[i],c->pthread_attr,(void*)centroidsFromPhase,runinfo[i]);
+  //centroidsFromPhase(runinfo[0]);//run ourself...
   //wait for thread completion.
-  for(i=1; i<nthreads; i++){
-    pthread_join(thread[i],NULL);
-  }
+  //for(i=1; i<nthreads; i++){
+  // pthread_join(thread[i],NULL);
+  //}
+  c->doWork=CENTROIDSFROMPHASE;
+  //  pthread_cond_broadcast(&c->cond);//wake threads up
+  pthread_barrier_wait(&c->barrier);//wake threads up
+  
+  pthread_barrier_wait(&c->barrier);//now wait for threads to finish.
+  
   gettimeofday(&t2,NULL);
   dtime=(t2.tv_sec*1000000+t2.tv_usec-t1.tv_sec*1000000-t1.tv_usec)/1e6;
   //free(runinfo);
@@ -2799,9 +2859,9 @@ PyObject *py_run(PyObject *self,PyObject *args){
 }
 PyObject *py_runSlope(PyObject *self,PyObject *args){
   centstruct *c;
-  centrunstruct **runinfo;
-  pthread_t *thread;
-  int nthreads,i;
+  //centrunstruct **runinfo;
+  //pthread_t *thread;
+  //int nthreads,i;
   float dtime=0.;
   struct timeval t1,t2;
   //pid_t pid;
@@ -2813,24 +2873,27 @@ PyObject *py_runSlope(PyObject *self,PyObject *args){
   }
   //memset(c->bimg,0,sizeof(float)*c->nsubaps*c->imgpxls);
   gettimeofday(&t1,NULL);
-  nthreads=c->nthreads;
-  runinfo=c->runinfo;//malloc(sizeof(centrunstruct)*nthreads);
-  thread=c->threadid;//malloc(sizeof(pthread_t)*nthreads);
+  //nthreads=c->nthreads;
+  //runinfo=c->runinfo;//malloc(sizeof(centrunstruct)*nthreads);
+  //thread=c->threadid;//malloc(sizeof(pthread_t)*nthreads);
   //first create the threads and set them running, and then run ourself.
   if(c->inputImage==NULL){
     printf("Error: centmodule - inputImage is NULL\n");
     return NULL;
   }
-  for(i=1; i<nthreads; i++){
-    pthread_create(&thread[i],c->pthread_attr,(void*)centroidsFromImage,runinfo[i]);
-  }
-  //runinfo[0]->centstr=c;
-  //runinfo[0]->n=0;
-  centroidsFromImage(runinfo[0]);//run ourself...
+  //for(i=1; i<nthreads; i++){
+  //  pthread_create(&thread[i],c->pthread_attr,(void*)centroidsFromImage,runinfo[i]);
+  //}
+  //centroidsFromImage(runinfo[0]);//run ourself...
   //wait for thread completion.
-  for(i=1; i<nthreads; i++){
-    pthread_join(thread[i],NULL);
-  }
+  //for(i=1; i<nthreads; i++){
+  //  pthread_join(thread[i],NULL);
+  //}
+  c->doWork=CENTROIDSFROMPHASE;
+  //pthread_cond_broadcast(&c->cond);//wake threads up
+  pthread_barrier_wait(&c->barrier);//wake threads up
+  pthread_barrier_wait(&c->barrier);//now wait for threads to finish.
+
   gettimeofday(&t2,NULL);
   dtime=(t2.tv_sec*1000000+t2.tv_usec-t1.tv_sec*1000000-t1.tv_usec)/1e6;
   //free(runinfo);

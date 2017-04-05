@@ -40,11 +40,17 @@ class Pyramid(base.aobase.aobase):
             self.nfft=wfsobj.nfft
             self.clipsize=wfsobj.clipsize
             self.nimg=wfsobj.nimg
+            self.sig=wfsobj.sig
+            self.bglevel=wfsobj.bglevel
+            self.readoutNoise=wfsobj.readoutNoise
+            self.skyBrightness=wfsobj.skyBrightness
+            self.floor=wfsobj.floor
+            self.addPoisson=wfsobj.addPoisson
             if self.imageOnly==0:
                 self.outputData=numpy.zeros((self.nimg/2,self.nimg/2,2),numpy.float32)
             else:
                 self.outputData=numpy.zeros((self.nimg,self.nimg),numpy.float32)
-            self.control={"parentType":self.parent.keys()[0]}
+            self.control={"parentType":self.parent.keys()[0],"cal_source":0}
             self.nsteps=wfsobj.pyrSteps#probably want more steps than 8 for larger modulation amplitudes
             if self.nsteps==0:
                 self.nsteps=1
@@ -97,12 +103,7 @@ class Pyramid(base.aobase.aobase):
             #multiply by pyramid phase mask (shape of pyramid)
             self.focAmp*=self.pyrPhaseMask
             #and now transport back to pupil plane and detect
-            #ss=self.focAmp.shape
-            #tmp=numpy.zeros((ss[0]*2,ss[1]*2),self.focAmp.dtype)
-            #tmp[ss[0]/2:ss[0]/2+ss[0],ss[1]/2:ss[1]/2+ss[1]]=self.focAmp
             pupilPlane=numpy.fft.ifft2(self.focAmp)
-            #pupilPlane.shape=pupilPlane.shape[0]/2,2,pupilPlane.shape[1]/2,2
-            #pupilPlane=pupilPlane.sum(3).sum(1)
             self.pyrImg[:]+=numpy.abs(pupilPlane)**2
 
         return self.pyrImg
@@ -119,13 +120,28 @@ class Pyramid(base.aobase.aobase):
         return self.binImg
     
     def addNoise(self):#readout the detector
-        print "TODO: Add pyramid noise"
+        #scale for flux
+        self.binImg*=self.sig/self.binImg.sum()
+        #add background
+        if self.skyBrightness is not None and self.skyBrightness!=0:
+            self.binImg+=self.skyBrightness
+        #photon shot noise
+        if self.addPoisson:
+            self.binImg[:]=numpy.random.poisson(self.binImg)
+        #detector readout noise and bias
+        if self.readoutNoise!=0:
+            self.binImg+=numpy.random.normal(self.bglevel,self.readoutNoise,self.binImg.shape)
+        elif self.bglevel!=0:
+            self.binImg+=self.bglevel
+        #threshold
+        if self.floor is not None:
+            self.binImg[:]=numpy.where(self.binImg<self.floor,0,self.binImg-self.floor)
         return self.binImg#todo...
 
-    def takeRefSlopes(self):
+    def takeRefSlopes(self,phs=0):
         if self.imageOnly==0:
             self.refSlopes=None
-            self.calcPyrImg(0)
+            self.calcPyrImg(phs)
             self.binPyr()
             self.computeSlopes()
             self.refSlopes=self.outputData.copy()
@@ -146,7 +162,8 @@ class Pyramid(base.aobase.aobase):
     def runPyramid(self,phs):
         self.calcPyrImg(phs)
         self.binPyr()
-        self.addNoise()
+        if self.control["cal_source"]==0:#not in calibration mode...
+            self.addNoise()
         if self.imageOnly==0:
             self.computeSlopes()
         else:

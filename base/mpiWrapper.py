@@ -45,7 +45,7 @@ if mpitype==None:
         pass
 
 if mpitype==None:
-    raise Exception("No suitable MPI modules found")
+    raise Exception("No suitable MPI modules found.  If you don't need MPI, then export DASPNOMPI=YES")
 
 if mpitype=="Scientific.MPI":
     comm=Scientific.MPI.world.duplicate()
