@@ -790,9 +790,9 @@ class centroid:
                 n=self.nsubx*self.phasesize
                 xnew=(numpy.arange(n)*phs.shape[1]/float(n)-(((n-1)*phs.shape[1])/float(n) - (phs.shape[1]-1))/2.)/float(phs.shape[1]-1)
                 phs=b(xnew,xnew).astype(self.reorderedPhs.dtype)
-                self.phsInterp=phs
+                self.phsInterp=phs#just save in case someone wants to view it later.  Maybe this is a waste of memory...
             def _doassign(i,j,pos,n,phs,typecode):
-                self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)
+                self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n]#.astype(typecode)
         elif self.atmosPhaseType=="phaseamp":
             #interpolating phase not yet implemented.
             def _doassign(i,j,pos,n,phs,typecode):
