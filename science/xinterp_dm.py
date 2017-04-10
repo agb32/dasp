@@ -414,7 +414,7 @@ class dm(base.aobase.aobase):
             if self.newDataWaiting:
                 if this.parent.has_key("atmos"):
                     if this.parent["atmos"].dataValid==1:
-                        self.outputData[:,]=this.parent["atmos"].outputData # make a copy
+                        self.outputData[:]=this.parent["atmos"].outputData # make a copy
                         self.dataValid=1
                         if self.control["phaseCovariance"]:
                             self.montePhaseCovariance()

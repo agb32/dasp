@@ -954,6 +954,202 @@ void *rswsiWorkerNoGradLarge(void *threaddata){
 
 
 
+//#define CHECKBOUNDS
+void *rswsiWorkerNoGradLargeConv(void *threaddata){
+  //Version without using precomputed gradients.  Slower (but doesn't need the precoputed gradients so saves memory).
+  //Also assumes the phase screen is large enough that it won't reach the edge of it... (so doesn't check, thus speeding up computation times).
+  //About 15-20% faster.
+  //If you make changes, then define CHECKBOUNDS while compiling, and run a good few cases to check it...
+  //This version uses the convolution kernel from the wikipaedia page:
+  //https://en.wikipedia.org/wiki/Bicubic_interpolation
+  //Also see testBicubicConvolutionAlgo.py
+  //BUT THIS ONE IS A BIT SLOWER, so use GradLarge instead.
+  threadStruct *ts=(threadStruct*)threaddata;
+  interpStruct *ss=ts->s;
+  int threadno=ts->threadno;
+#ifdef CHECKBOUNDS
+  int outofrange[4];
+#endif
+  float points[4];
+  float sx,sy;
+  int wrappoint;//,nthreads,nblockx,nblocky;
+  float s;
+  float c;
+  int *dim;
+  int *imgdim;
+  double *img;
+  //double *dimg;
+  float *out;
+  int i,yy,xx,yydim;
+  float x,y,xold,yold;
+  int x1;
+  int y1,y2,y1x1,y2x1;
+  float xm,ym;//,oneminusxm,oneminusym,ymomym;  
+  //float k1,k2,Y1,Y2,a,b,val;
+  float const0,const1,const2,const3;
+  int tx,ty,ystart,yend,xstart,xend;
+  float mult0,mult3,cy2,sy3;
+  int y0,y3,y3x1,y0x1;
+  int nout=0;
+  char *pupil;
+  float t[4],tt[4],tmp[16],tmp2[4];
+  int x1last=-10,y1last=-10;
+  float mx[16]={0,2,0,0,-1,0,1,0,2,-5,4,-1,-1,3,-3,1};
+  static int frameno=0;
+  //printf("without dimg\n");
+  //each thread may have more than 1 block to do.
+  frameno++;
+  sx=ss->sx;
+  sy=ss->sy;
+  wrappoint=ss->wrappoint;
+  dim=ss->dim;
+  imgdim=ss->imgdim;
+  img=ss->img;
+  //dimg=ss->dimg;
+  out=ss->out;
+  const0=-dim[0]/2.+0.5;
+  const1=-dim[1]/2.+0.5;
+  const2=imgdim[0]/2.-0.5-sy+wrappoint;
+  const3=imgdim[1]/2.-0.5-sx;
+  s=ss->s;//(float)(r*sin(ang));
+  c=ss->c;//(float)(r*cos(ang));
+  pupil=ss->pupil;
+  t[0]=0.5;
+  tt[0]=0.5;
+  while(threadno<ss->nblockx*ss->nblocky){
+    tx=threadno%ss->nblockx;
+    ty=threadno/ss->nblockx;
+    ystart=ty*(dim[0]/ss->nblocky);
+    yend=ystart+(dim[0]/ss->nblocky);
+    if(ty==ss->nblocky-1)
+      yend=dim[0];
+    xstart=tx*(dim[1]/ss->nblockx);
+    xend=xstart+(dim[1]/ss->nblockx);
+    if(tx==ss->nblockx-1)
+      xend=dim[1];
+    //printf("Block for thread %d: %d->%d, %d->%d\n",threadno,ystart,yend,xstart,xend);
+    for(yy=ystart;yy<yend;yy++){
+      y=yy+const0;//-dim[0]/2.+0.5;
+      cy2=c*y+const2;
+      sy3=s*y+const3;
+      yydim=yy*dim[1];
+      for(xx=xstart;xx<xend;xx++){
+	if(pupil==NULL || pupil[yydim+xx]==1){
+	  x=xx+const1;//-dim[1]/2.+0.5;
+	  yold=-s*x+cy2;//+c*y+const2;//imgdim[0]/2.-.5-sy+wrappoint;
+	  xold=c*x+sy3;//+s*y+const3;//imgdim[1]/2.-.5-sx;
+	  x1=(int)floorf(xold);
+	  //First, we need to compute 4 splines in the y direction.  These are then used to compute in the x direction, giving the final value.
+	  y1=(int)floorf(yold);
+	  if(y1>=imgdim[0]){//wrap it
+	    y1-=imgdim[0];
+	    yold-=imgdim[0];
+	  }
+	  y2=y1+1;
+	  xm=xold-x1;
+	  ym=yold-y1;
+	  t[1]=0.5*ym;
+	  t[2]=t[1]*ym;
+	  t[3]=t[2]*ym;
+	  tt[1]=0.5*xm;
+	  tt[2]=t[1]*xm;
+	  tt[3]=t[2]*xm;
+	  //oneminusxm=1-xm;
+	  //oneminusym=1-ym;
+	  //ymomym=ym*oneminusym;
+	  if(y2==imgdim[0])
+	    y2=0;
+	  x1--;
+	  //WITHOUT YGRADIENTS
+	  y0=y1-1;
+	  y3=y1+2;
+	  if(y3>=imgdim[0])
+	    y3-=imgdim[0];
+#ifdef CHECKBOUNDS
+	  if(y3==wrappoint){//once testing finished, this if can be removed.
+	    printf("Error %d - wrappoint reached %d\n",frameno,y3);
+	    y3=y2;
+	    mult3=1.;
+	    }else
+#endif
+	    mult3=0.5;
+	  if(y0<0)
+	    y0+=imgdim[0];
+#ifdef CHECKBOUNDS
+	    if(y0==wrappoint){//underwrapped!  This test can be removed once testing finished.
+	    printf("ERROR %d - wrappoint reached %d\n",frameno,y0);
+	    y0=y1;
+	    mult0=1.;
+	    }else
+#endif
+	    mult0=0.5;
+	  y0x1=y0*imgdim[1]+x1;
+	  y3x1=y3*imgdim[1]+x1;
+	  //END WITHOUT YGRADIENTS
+	  y1x1=y1*imgdim[1]+x1;
+	  y2x1=y2*imgdim[1]+x1;
+	  
+	  //4 interpolations in Y direction using precomputed gradients.
+	  if(x1!=x1last || y1!=y1last){
+	    for(i=0;i<4;i++){//at x1-1, x1, x2, x2+1.
+#ifdef CHECKBOUNDS
+	    if(x1+i>=0 && x1+i<imgdim[1]){
+#endif
+	      tmp[i*4]=mx[0]*img[y0x1+i]+mx[1]*img[y1x1+i]+mx[2]*img[y2x1+i]+mx[3]*img[y3x1+i];
+	      tmp[i*4+1]=mx[4]*img[y0x1+i]+mx[5]*img[y1x1+i]+mx[6]*img[y2x1+i]+mx[7]*img[y3x1+i];
+	      tmp[i*4+2]=mx[8]*img[y0x1+i]+mx[9]*img[y1x1+i]+mx[10]*img[y2x1+i]+mx[11]*img[y3x1+i];
+	      tmp[i*4+3]=mx[12]*img[y0x1+i]+mx[13]*img[y1x1+i]+mx[14]*img[y2x1+i]+mx[15]*img[y3x1+i];
+
+#ifdef CHECKBOUNDS
+	      outofrange[i]=0;
+	      }else{//shouldn't get here!
+	      printf("OUT OF RANGE %d %d %d\n",i,x1+i,imgdim[1]);
+	      outofrange[i]=1;
+	      }
+#endif
+	    }
+	  }
+	  x1last=x1;
+	  for(i=0;i<4;i++)
+	    points[i]=t[0]*tmp[i*4]+t[1]*tmp[i*4+1]+t[2]*tmp[i*4+2]+t[3]*tmp[i*4+3];
+	    
+	  //and now interpolate in X direction (using points).
+#ifdef CHECKBOUNDS
+	  if(outofrange[0])
+	    points[0]=points[1];
+#endif
+#ifdef CHECKBOUNDS
+	  if(outofrange[3])
+	    points[3]=points[2];
+#endif
+#ifdef CHECKBOUNDS
+	  if(outofrange[1] || outofrange[2]){
+	    //printf("Out of range y:%d x:%d %g %g %d %d,%d %d,%d %d\n",yy,xx,sx,sy,wrappoint,dim[0],dim[1],imgdim[0],imgdim[1],x1+1);
+	    nout++;
+	    }else{
+#endif
+	    for(i=0;i<4;i++)
+	      tmp2[i]=mx[i*4]*points[0]+mx[i*4+1]*points[1]+\
+		mx[i*4+2]*points[2]+mx[i*4+3]*points[3];
+	    out[yydim+xx]+=tt[0]*tmp2[0]+tt[1]*tmp2[1]+tt[2]*tmp2[2]+tt[3]*tmp2[3];
+#ifdef CHECKBOUNDS
+	    }
+#endif
+	  y1last=y1;
+	}
+      }
+    }
+
+
+    threadno+=ss->nthreads;//increment to get the next set of blocks...
+  }
+  ts->nout=nout;
+  return NULL;
+}
+
+
+
+
 void *rswsiWorker(void *threaddata){
   threadStruct *t=(threadStruct*)threaddata;
   interpStruct *ss=t->s;

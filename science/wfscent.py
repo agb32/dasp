@@ -48,8 +48,7 @@ class wfscent(base.aobase.aobase):
     self.shimg (for display)  - also now centDisplay
     self.pupsub - if pupil.fn is the same (partially shared).
     outputData
-    NOT self.reorderedPhs - unless only 1 integration.
-    Not sure whether the cell stuff can be used with resource sharing - probably not, since reorderedPhs can't be shared (unless only 1 integ).
+
     Note, not a good idea to use resource sharing, unless you make a copy of outputData as soon as it is produced...
 
     Can take 1 or 2 parents, if 2, one is selected depending on the value
@@ -246,7 +245,9 @@ class wfscent(base.aobase.aobase):
             wfs_nimg=this.config.getVal("wfs_nimg",default=clipsize/2)
             wfs_int=this.config.getVal("wfs_int",tstep)                              # WFS integration time
             integstepFn=None
-            wfs_rowint=this.config.getVal("wfs_rowint",default=None,raiseerror=0)           # row integration time
+            wfs_rowint=this.config.getVal("wfs_rowint",default=None,raiseerror=0)           # row integration time - for rolling shutters
+            if wfs_rowint is not None:
+                raise Exception("wfs_rotint no longer supported due to recode of centmodule - please add it back in if you need it")
             wfs_read_mean=this.config.getVal("wfs_read_mean",0.)                  # WFS Readnoise e-
 
             wfs_read_sigma=this.config.getVal("wfs_read_sigma",0.)
@@ -341,7 +342,7 @@ class wfscent(base.aobase.aobase):
             if (float(clipsize)/wfs_nimg)%1!=0:
                 print("WARNING:wfscent: Non-integer binning of image - "+
                      "software (binimgmodule.so) cannot handle")
-        nIntegrations=int(math.ceil(wfs_int/tstep))        
+        nintegrations=int(math.ceil(wfs_int/tstep))        
 
         if (wfs_int/tstep)%1!=0:
             #print "Warning: wfs - Integration times is not a whole number of timesteps - you might misinterpret the results... %g %g"%(wfs_int,tstep)
@@ -410,9 +411,10 @@ class wfscent(base.aobase.aobase):
             if parent.values()[0].outputData.dtype.char!="f" or parent.values()[0].outputData.flags.contiguous==False:
                 raise Exception("wfscent with cameraImage!=0 requires a float32 contiguous input from parent")
             inputImage=parent.values()[0].outputData
+            phase=None
         else:
             inputImage=None
-            
+            phase=parent["closed"].outputData
         phslam=None
         wfslam=None
         atmosGeom=this.config.getVal("atmosGeom",raiseerror=0)
@@ -438,6 +440,7 @@ class wfscent(base.aobase.aobase):
 
         this.wfscentObj=util.centroid.centroid(
             wfs_nsubx,
+            phase=phase,
             addPoisson=addPoisson,
             atmosPhaseType=atmosPhaseType,
             binfactor=None,
@@ -533,16 +536,16 @@ class wfscent(base.aobase.aobase):
                 nsubxnfftmax=wfs.nsubx*wfs.fftsize
             if wfs.nsubx*wfs.phasesize>maxnpup:
                 maxnpup=wfs.nsubx*wfs.phasesize
-            if wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize>rpmax:
+            if wfs.nsubx*wfs.nsubx*wfs.nintegrations*wfs.phasesize*wfs.phasesize>rpmax:
                 atmosPhaseType=this.atmosPhaseType#config.getVal("atmosPhaseType",default="phaseonly")
                 #print("INFORMATION:wfscent: this.config.searchOrder='{0:s}'".format(str(this.config.searchOrder)) )
 ##(old)                print this.config.searchOrder
                 if atmosPhaseType=="phaseonly":
-                    rpmax=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize
+                    rpmax=wfs.nsubx*wfs.nsubx*wfs.nintegrations*wfs.phasesize*wfs.phasesize
                 else:
-                    rpmax=2*wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize
-            if wfs.nIntegrations>nIntMax:
-                nIntMax=wfs.nIntegrations
+                    rpmax=2*wfs.nsubx*wfs.nsubx*wfs.nintegrations*wfs.phasesize*wfs.phasesize
+            if wfs.nintegrations>nIntMax:
+                nIntMax=wfs.nintegrations
             if readouttime==None:
                 readouttime=wfs.integtime+wfs.latency
             if type(pup)==type(None):
@@ -557,15 +560,12 @@ class wfscent(base.aobase.aobase):
                 canSharePhs=0
             if wfs.integtime+wfs.latency!=readouttime:
                 canSharePhs=0
-            arrsize=wfs.nsubx*wfs.nsubx*wfs.nIntegrations*wfs.phasesize*wfs.phasesize*4*atmosfactor+wfs.nsubx*wfs.nsubx*2*4
+            arrsize=wfs.nsubx*wfs.nsubx*wfs.nintegrations*wfs.phasesize*wfs.phasesize*4*atmosfactor+wfs.nsubx*wfs.nsubx*2*4
             if arrsize>maxarrsize:
                 maxarrsize=arrsize
         if corrimgsizemax<imgsizemax:
             corrimgsizemax=imgsizemax
         #now allocate memories...
-        reorderedPhsMem=None
-        if canSharePhs:
-            reorderedPhsMem=numpy.zeros((rpmax,),numpy.float32)
         if self.imageOnly:
             outputDataMem=numpy.zeros((imgsizemax*imgsizemax,),numpy.float32)
         else:
@@ -582,8 +582,7 @@ class wfscent(base.aobase.aobase):
         for this in self.thisObjList:
             wfs=this.wfscentObj
             #set up the memories
-            #wfs.initMem(fpgarequired,fpgaarr=fpgaarr,shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
-            wfs.initMem(shareReorderedPhs=canSharePhs,reorderedPhsMem=reorderedPhsMem,subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
+            wfs.initMem(subimgMem=subimgMem,bimgMem=bimgMem,pupsubMem=pupsubMem,outputDataMem=outputDataMem)
             wfs.finishInit()
             wfs.initialiseCmod(self.nthreads,self.control["cal_source"],wfs.seed)
             #Take correlation image, if don't yet have one, and if doing correlationCentroiding.
@@ -605,10 +604,18 @@ class wfscent(base.aobase.aobase):
     def prepareNextIter(self):
         """prepare resource shared object for next computation..."""
         this=self.thisObjList[self.currentIdObjCnt]
-        for attr in dir(this):
-            if attr not in ["__doc__","__module__","__init__","idstr"]:
-                val=getattr(this,attr)
-                setattr(self,attr,val)
+        #print dir(this)
+        #self.atmosPhaseType=this.atmosPhaseType
+        self.wfscentObj=this.wfscentObj
+        #self.wfsobj=this.wfsobj
+        self.parent=this.parent
+        #self.covTag=covTag
+        self.config=this.config
+        #self.laserGuideStar=laserGuideStar
+        #for attr in dir(this):
+        #    if attr not in ["__doc__","__module__","__init__","idstr"]:
+        #        val=getattr(this,attr)
+        #        setattr(self,attr,val)
     def endThisIter(self):
         """Copy things back to the this object..."""
         if self.fullOutput:
@@ -639,42 +646,42 @@ class wfscent(base.aobase.aobase):
                     self.dataValid=0
             if self.inputInvalid==0: # there was an input, so we can integrate...
                 wfs=self.wfscentObj # has been copied from thisObjList before generateNext is called...
-                if wfs.inputImage is not None:
-                    #input data is an image, rather than phase.
-                    self.dataValid=1
-                    if self.control["zeroOutput"]:
-                        wfs.outputData[:]=0
-                    else:
-                        wfs.runSlopeCalc(self.control)
-                        if wfs.subtractTipTilt==-1 or (
-                                wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
-                            N=wfs.nsubaps
-                            # subtract average x centroid:
-                            wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
-                            # subtract average y centroid:
-                            wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
-                        
-                else:
+                if wfs.inputImage is None:#input is phase screen.
+                    phs=self.parent[current].outputData
                     self.dataValid=0
                     if wfs.integstepFn!=None and wfs.texp==0 and self.control["useCmod"]:
+                        raise Exception("No longer implemented")
                         wfs.updateIntegTime(wfs.integstepFn())
-                    if wfs.texp<wfs.integtime:
-                        # Still integrating...
-                        #t=time.time()
-                        # Stack up the phases
-                        wfs.reorder(self.parent[current].outputData,int(wfs.texp/wfs.tstep))              
-                        #print "wfs: Reorder time %g"%(time.time()-t)
 
-                    wfs.texp+=wfs.tstep
-                    if wfs.texp>=wfs.integtime+wfs.latency:  # Exposure Complete
-                        wfs.texp=0.
-                        if self.control["zeroOutput"]:
-                            wfs.outputData[:]=0
+                    if wfs.curInteg==0:#start of exposure
+                        if wfs.nintegrations+wfs.nlatency==1:#also end of exposure
+                            additive=-1
                         else:
-                            wfs.runCalc(self.control)
+                            additive=0
+                    elif wfs.curInteg+1<wfs.nintegrations:#mid exposure
+                        additive=1
+                    elif wfs.curInteg+1<wfs.nintegrations+wfs.nlatency:#frame transfer
+                        additive=3#do owt
+                    else:#exposure complete.
+                        additive=2
+                    #increment the counter.
+                    wfs.curInteg+=1
+                    if wfs.curInteg>=wfs.nintegrations+wfs.nlatency:
+                        wfs.curInteg=0
+                    if self.control["zeroOutput"]:
+                        wfs.outputData[:]=0
+                        if wfs.nintegrations+wfs.nlatency>1:
+                            print "Warning - centmodule not called by wfscent when zeroOutput set"
+                        self.dataValid=1
+                    else:
+                        if phs is not wfs.phase:
+                            print "wfscent Copying phase"
+                            wfs.phase[:]=phase
+                        wfs.runCalc(self.control)
+                        if additive==2 or additive==-1:#readout.
                             # this should be used for LGS sensors:
                             if wfs.subtractTipTilt==-1 or (
-                                wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
+                                    wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
                                 N=wfs.nsubaps
                                 # subtract average x centroid:
                                 wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
@@ -689,8 +696,21 @@ class wfscent(base.aobase.aobase):
                                     wfs.outSquare+=wfs.outputData**2
                                     wfs.outSum+=wfs.outputData
                                     wfs.outN+=1
-                        self.dataValid=1
-
+                            self.dataValid=1
+                else:#input data is an image, rather than phase.
+                    self.dataValid=1
+                    if self.control["zeroOutput"]:
+                        wfs.outputData[:]=0
+                    else:
+                        wfs.runSlopeCalc(self.control)
+                        if wfs.subtractTipTilt==-1 or (
+                                wfs.subtractTipTilt==1 and self.control["cal_source"]==0 and self.imageOnly==0):
+                            N=wfs.nsubaps
+                            # subtract average x centroid:
+                            wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
+                            # subtract average y centroid:
+                            wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
+                        
                 if self.timing:
                     print("INFORMATION:wfscent: time:{0:s}".format( str(time.time()-t1) ))
         else:
@@ -922,6 +942,8 @@ class wfscent(base.aobase.aobase):
             else:
                 txt+="""<plot title="Centroids%s (display slopes as a 1D plot)" cmd="data=%s.wfscentObj.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
             txt+="""<plot title="Centroids 2D%s (a 2D representation of slopes)" cmd="data=%s.drawCents(1)" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
+            txt+="""<plot title="Interpolated phase output" cmd="data=%s.wfscentObj.interpolatedPhaseOutput" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(objname)
+            txt+="""<plot title="Set interpolated phase array" cmd="%s.wfscentObj.setInterpolatedPhaseOutput();data=1" ret="data" when="cmd"/>"""%(objname)
             for i in range(len(self.thisObjList)):
                 this=self.thisObjList[i]
                 wfs=this.wfscentObj

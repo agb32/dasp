@@ -123,10 +123,10 @@ void pcg32_srandom_r(pcg32_random_t* rng, uint64_t initstate, uint64_t initseq)
 #define CALCOEFF 19
 #define USEBRIGHTEST 20
 #define INTEGSTEPS 21
-
+#define OUTPUTPHASEARR 22
 
 #define CENTROIDSFROMPHASE 1
-#define CENTROIDSFROMIMAGE 0
+#define CENTROIDSFROMIMAGE 2
 typedef struct{
   int n;
 float *corr;
@@ -156,33 +156,17 @@ int fsize;//size of fftArrays allocated.
   float *skybrightnessArr;
   int calsource;
   int nintegrations;
-  int maxIntegrations;
+  int nlatency;
+  int curInteg;//current integration.
   int spotpsfDim;
   int centWeightDim;
   float *centWeight;
   int centWeightSize;
   float pxlPower;//not yet used.
-  //int showCCDImg;
-  //int allCents;
-  //int centTotCnt;
-  //uint64 phsAddr;
-  //uint64 pupAddr;
-  //uint64 spotpsfAddr;
-  //uint64 centsAddr;
-  //uint64 ccdImgAddr;
   unsigned long seed;
-  //int nimg_v;
   int fftpxls;
-  //int phasesize_v;
   int phasepxls;
-  //int phasepxls_v;
   int imgpxls;
-  //int imgpxls_v;
-  //int nsubapInBuffer;
-  //int dmatag;
-  //dmagetstruct *phsDmaInfo;
-  //dmagetstruct *pupDmaInfo;
-  //dmagetstruct *psfDmaInfo;
 int hllSize;
 int fftArraySize;
 int planSize;
@@ -252,6 +236,11 @@ int planSize;
   //pthread_cond_t cond;
   pthread_barrier_t barrier;
   int doWork;
+  float *interpPhs;
+  int nsubx;
+  int inputPhaseSize;
+  int interpolatePhase;//whether the input phase needs interpolating.
+  float *interpolatedPhaseOutput;//only used for testing.
 } centstruct;
 
 
@@ -476,75 +465,33 @@ int addPowerSpecCentral(int fftsize,float *cdata, int psfsize,float *hll,int add
   return 0;
 }
 
-/*
-int doFFT(int fftsize,int phasesize,int forward,float *re,float *im,workstruct *workbuf){
-  //phasesize gives info about zero padding, and allows us to not do some of the ffts.
-  //make use of phasesize - ie the first for loop should be up to p4 only 
-  //(and memset parts of wr/wi to zero).
-  //Does a 2D FFT.
-
-  vector float *ar,*ai,*br,*bi,*wr,*wi;
-  int f4,p4,i,j;
-  ar=(vector float *)re;
-  ai=(vector float *)im;
-  br=(vector float *)workbuf->ffttmpre;//temporary array fftsize * fftsize in size.
-  bi=(vector float *)workbuf->ffttmpim;
-  wr=(vector float *)workbuf->singlefftre;//size fftsize (float)
-  wi=(vector float *)workbuf->singlefftim;
-
-  //printf("FFT Pointers: %p==%p, %p==%p %p==%p %p==%p %p==%p %p==%p\n",ar,re,ai,im,br,workbuf->ffttmpre,bi,workbuf->ffttmpim,wr,workbuf->singlefftre,wi,workbuf->singlefftim);
-  //forward=1-forward;
-  f4=fftsize/4;//fftsize always a multiple of 4.
-  p4=(phasesize+3)/4;//divided by 4, rounded up.
-  memset(br,0,fftsize*fftsize*sizeof(float));
-  memset(bi,0,fftsize*fftsize*sizeof(float));
-  for(i=0; i<p4; i++){
-    fft_2d(&ar[fftsize*i],&ai[fftsize*i],wr,wi,forward);
-    for(j=0; j<fftsize; j++){
-      br[i+f4*j]=wr[j];
-      bi[i+f4*j]=wi[j];
-    }
-  }
-  for(i=0; i<f4; i++){
-    fft_2d(&br[fftsize*i],&bi[fftsize*i],wr,wi,forward);
-    for(j=0; j<fftsize; j++){
-      ar[i+f4*j]=wr[j];
-      ai[i+f4*j]=wi[j];
-    }
-  }
-  return 0;
-}
-*/
-int computeHll(float *phs,int phasesize,int niters,int fftsize,int paddedsize,float *pup,float *tiltfn,complex float *fftarr,float *hll,centstruct *c){
-  int iter,i,j,rtval=0,indx;
+int computeHll(float *phs,int subx,int suby,int inputWidth,int phasesize,int fftsize,int paddedsize,float *pup,float *tiltfn,complex float *fftarr,float *hll,int additive,centstruct *c){
+  int i,j,rtval=0,indx;
   float tmp;
+  int offset;
+  //phs is a 2D or 3D (for phase+amp) array.
   memset(hll,0,sizeof(float)*paddedsize*paddedsize);
-  for(iter=0; iter<niters; iter++){
-    //for each simulation iteration to be binned...
-    memset(fftarr,0,fftsize*fftsize*sizeof(complex float));
-    if(c->phaseStep==1){
-      for(i=0; i<phasesize; i++){
-	for(j=0; j<phasesize; j++){
-	  tmp=phs[(iter*phasesize*phasesize+i*phasesize+j)]-tiltfn[i*phasesize+j];
-	  fftarr[i*fftsize+j]=pup[i*phasesize+j]*(cos(tmp)+I*sin(tmp));
-	  //workbuf->phsIm[i*fftsize+j]=pup[i*phasesize+j]*sin(tmp);
-	}
-      }
-    }else{
-      for(i=0; i<phasesize; i++){
-	for(j=0; j<phasesize; j++){
-	  indx=(iter*phasesize*phasesize+i*phasesize+j)*c->phaseStep;
-	  tmp=phs[indx]-tiltfn[i*phasesize+j];
-	  fftarr[i*fftsize+j]=pup[i*phasesize+j]*phs[indx+1]*(cos(tmp)+I*sin(tmp));
-	  //workbuf->phsIm[i*fftsize+j]=pup[i*phasesize+j]*sin(tmp);
-	}
+  memset(fftarr,0,fftsize*fftsize*sizeof(complex float));
+  offset=(suby*inputWidth+subx)*phasesize;//starting coord in the phs array.
+  if(c->phaseStep==1){//phase only.
+    for(i=0; i<phasesize; i++){
+      for(j=0; j<phasesize; j++){
+	tmp=phs[offset+(i*inputWidth+j)]-tiltfn[i*phasesize+j];
+	fftarr[i*fftsize+j]=pup[i*phasesize+j]*(cos(tmp)+I*sin(tmp));
       }
     }
-    fftwf_execute_dft(c->fftplan,fftarr,fftarr);
-    //rtval|=doFFT(fftsize,phasesize,1,workbuf->phsRe,workbuf->phsIm,workbuf);//do the 2d fft
-    rtval|=addPowerSpecCentral(fftsize,(float*)fftarr,paddedsize,hll,iter);//changed from addPowerSpec when extra tilt added to tiltfn. compute the power spectrum (ie high light level img) 
+  }else{//phase + amp.
+    for(i=0; i<phasesize; i++){
+      for(j=0; j<phasesize; j++){
+	indx=(offset+i*inputWidth+j)*c->phaseStep;
+	tmp=phs[indx]-tiltfn[i*phasesize+j];
+	fftarr[i*fftsize+j]=pup[i*phasesize+j]*phs[indx+1]*(cos(tmp)+I*sin(tmp));
+      }
+    }
   }
-  //printf("%d %d\n",fftsize,paddedsize);
+  fftwf_execute_dft(c->fftplan,fftarr,fftarr);
+    //rtval|=doFFT(fftsize,phasesize,1,workbuf->phsRe,workbuf->phsIm,workbuf);//do the 2d fft
+  rtval|=addPowerSpecCentral(fftsize,(float*)fftarr,paddedsize,hll,additive);//changed from addPowerSpec when extra tilt added to tiltfn. compute the power spectrum (ie high light level img) 
   //rtval|=flipArray(paddedsize,hll,0,NULL);//removed when extra tilt added to tiltfn.
   return rtval;
 }
@@ -1522,6 +1469,138 @@ int prebinImage(int paddedsize,float *hll,int preBinningFactor,int psfsize){
   return 0;
 }
 
+void interpolatePhase(int sub,float *phs,centstruct *c){
+  //cubic interpolate phase for subap sub, into phs.
+  //See testBicubicConvolutionAlgo.py for more details
+  //This may not be the quickest algo - the cmod/iscrn way might be a bit faster.
+  int offsetx,offsety,subx,suby,x,y,i;
+  float t[4];
+  float tt[4];
+  float f[4];
+  float p[4];
+  float tmp[16];
+  float tmp2[4];
+  int inx,iny;
+  float tx,ty;
+  int inylast=-10;
+  int inxlast=-10;
+  float mx[16]={0,2,0,0,-1,0,1,0,2,-5,4,-1,-1,3,-3,1};
+  int phasesize=c->phasesize;
+  int totOutputPhaseSize=c->phasesize*c->nsubx;
+  int totInputSize=c->inputPhaseSize;//the size of the input phase array
+  float yscale=(totInputSize-1.)/(totOutputPhaseSize-1);
+  float xscale=(totInputSize-1.)/(totOutputPhaseSize-1);
+  subx=sub%c->nsubx;
+  suby=sub/c->nsubx;
+  offsety=suby*phasesize;
+  offsetx=subx*phasesize;
+  t[0]=0.5;
+  tt[0]=0.5;
+  for(y=0;y<phasesize;y++){
+    ty=yscale*(y+offsety);
+    iny=(int)floorf(ty);
+    ty-=iny;
+    iny--;
+    if(y+offsety==totOutputPhaseSize-1){//special case required
+      ty=1;
+      iny=totInputSize-3;
+    }
+    t[1]=0.5*ty;
+    t[2]=t[1]*ty;
+    t[3]=t[2]*ty;
+    for(x=0;x<phasesize;x++){
+      tx=xscale*(x+offsetx);
+      inx=(int)floorf(tx);
+      tx-=inx;
+      inx--;
+      if(x+offsetx==totOutputPhaseSize-1){
+	tx=1;
+	inx=totInputSize-3;
+      }
+      tt[1]=0.5*tx;
+      tt[2]=tt[1]*tx;
+      tt[3]=tt[2]*tx;
+      //first interpolate in y if needed.
+      if(iny!=inylast || inx!=inxlast){
+	for(i=0;i<4;i++){
+	  if(iny<0){
+	    if(inx+i<0){//reuse first column
+	      f[1]=c->phs[0];
+	      f[2]=c->phs[totInputSize];
+	      f[3]=c->phs[totInputSize*2];
+	    }else if(inx+i>=totInputSize){//reuse last col
+	      f[1]=c->phs[totInputSize-1];
+	      f[2]=c->phs[totInputSize*2-1];
+	      f[3]=c->phs[totInputSize*3-1];
+	    }else{
+	      f[1]=c->phs[inx+i];
+	      f[1]=c->phs[totInputSize+inx+i];
+	      f[1]=c->phs[totInputSize*2+inx+i];
+	    }
+	    f[0]=f[1];//reuse first row
+	  }else if(iny+4>totInputSize){
+	    if(inx+i<0){//reuse first column
+	      f[0]=c->phs[totInputSize*(totInputSize-3)];
+	      f[1]=c->phs[totInputSize*(totInputSize-2)];
+	      f[2]=c->phs[totInputSize*(totInputSize-1)];
+	    }else if(inx+i>=totInputSize){//reuse last col
+	      f[0]=c->phs[totInputSize*(totInputSize-3)+totInputSize-1];
+	      f[1]=c->phs[totInputSize*(totInputSize-2)+totInputSize-1];
+	      f[2]=c->phs[totInputSize*(totInputSize-1)+totInputSize-1];
+	    }else{
+	      f[0]=c->phs[totInputSize*(totInputSize-3)+inx+i];
+	      f[1]=c->phs[totInputSize*(totInputSize-2)+inx+i];
+	      f[2]=c->phs[totInputSize*(totInputSize-1)+inx+i];
+	    }
+	    f[3]=f[2];//reuse last row
+	  }else{
+	    if(inx+i<0){//reuse first column
+	      f[0]=c->phs[iny*totInputSize];
+	      f[1]=c->phs[(iny+1)*totInputSize];
+	      f[2]=c->phs[(iny+2)*totInputSize];
+	      f[3]=c->phs[(iny+3)*totInputSize];
+	    }else if(inx+i>=totInputSize){
+	      f[0]=c->phs[iny*totInputSize+totInputSize-1];
+	      f[1]=c->phs[(iny+1)*totInputSize+totInputSize-1];
+	      f[2]=c->phs[(iny+2)*totInputSize+totInputSize-1];
+	      f[3]=c->phs[(iny+3)*totInputSize+totInputSize-1];
+	    }else{//this is the most common case!
+	      f[0]=c->phs[iny*totInputSize+inx+i];
+	      f[1]=c->phs[(iny+1)*totInputSize+inx+i];
+	      f[2]=c->phs[(iny+2)*totInputSize+inx+i];
+	      f[3]=c->phs[(iny+3)*totInputSize+inx+i];
+	    }
+	    //do the dot product
+	    tmp[i*4]=mx[0]*f[0]+mx[1]*f[1]+mx[2]*f[2]+mx[3]*f[3];
+	    tmp[i*4+1]=mx[4]*f[0]+mx[5]*f[1]+mx[6]*f[2]+mx[7]*f[3];
+	    tmp[i*4+2]=mx[8]*f[0]+mx[9]*f[1]+mx[10]*f[2]+mx[11]*f[3];
+	    tmp[i*4+3]=mx[12]*f[0]+mx[13]*f[1]+mx[14]*f[2]+mx[15]*f[3];
+	  }
+	}
+      }
+      inxlast=inx;
+      for(i=0;i<4;i++)
+	p[i]=t[0]*tmp[i*4]+t[1]*tmp[i*4+1]+t[2]*tmp[i*4+2]+t[3]*tmp[i*4+3];
+      //and now in x
+      for(i=0;i<4;i++){
+	tmp2[i]=mx[i*4]*p[0]+mx[i*4+1]*p[1]+mx[i*4+2]*p[2]+mx[i*4+3]*p[3];
+      }
+      phs[y*phasesize+x]=tt[0]*tmp2[0]+tt[1]*tmp2[1]+tt[2]*tmp2[2]+tt[3]*tmp2[3];
+    }
+    inylast=iny;
+  }
+  if(c->interpolatedPhaseOutput!=NULL){//for verification purposes only
+    printf("Setting interpolatedPhaseOutput\n");
+    for(y=0;y<phasesize;y++){
+      for(x=0;x<phasesize;x++){
+	c->interpolatedPhaseOutput[(suby*c->phasesize+y)*totOutputPhaseSize+subx*c->phasesize+x]=phs[y*phasesize+x];
+      }
+    }
+
+
+  }
+}
+
 int centroidsFromPhase(centrunstruct *runinfo){
   centstruct *c;
   int threadno;
@@ -1532,70 +1611,97 @@ int centroidsFromPhase(centrunstruct *runinfo){
   float totsig;
   float *bimg,*cweight;
   int indx,n;
+  int subx,suby;
   int imageOnly;
+  int inputWidth;
+  float *phs;
+  int additive=0;//0 for first integration, 1 for intermediate, 2 for readout, 3 for do nothing (no exposure, no readout - i.e. frame transfer time), -1 for first integration and readout
   c=(centstruct*)runinfo->centstr;
   imageOnly=c->imageOnly;
   threadno=runinfo->n;
+  if(c->curInteg==0){//start of exposure
+    if(c->nintegrations+c->nlatency==1)//but also end of exposure
+      additive=-1;
+    else
+      additive=0;
+  }else if(c->curInteg+1<c->nintegrations)//mid exposure
+    additive=1;
+  else if(c->curInteg+1<c->nintegrations+c->nlatency)//frame transfer
+    return 0;//do nothing!
+  else
+    additive=2;
   //printf("threadno %d doing subaps %d to %d (c %p)\n",threadno,c->subapStart[threadno],c->subapStart[threadno+1],c);
   //compute the requested centroids.
   for(i=c->subapStart[threadno]; i<c->subapStart[threadno+1]; i++){
     //memset(&(c->bimg[i*npxl]),0,npxl*sizeof(float));
     npxl=c->imgpxls;
     if(c->subflag[i]==1){//subap is full enough to use.  ie subflag[i]==1...
+      if(c->interpolatePhase){
+	phs=&c->interpPhs[c->phasesize*c->phasesize*threadno];
+	interpolatePhase(i,phs,c);//puts the correct part of phase into small arr.
+	subx=suby=0;
+	inputWidth=c->phasesize;
+      }else{//use the phase as supplied (2D array)
+	subx=i%c->nsubx;
+	suby=i/c->nsubx;
+	phs=c->phs;
+	inputWidth=c->phasesize*c->nsubx;
+      }
       nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
       //printf("computehll %d %d\n",threadno,i);
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
-      error|=computeHll(&(c->phs[i*c->phasepxls*c->maxIntegrations*c->phaseStep]),c->phasesize,c->nintegrations,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],c);//paddedsize was psfsize.
+      error|=computeHll(phs,subx,suby,inputWidth,c->phasesize,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],additive>0,c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
-      
-      if(c->preBinningFactor>1)//The binned image becomes paddedsize/prebinfact, and is then further clipped (or, usually padded) to psfsize.
-	error|=prebinImage(c->paddedsize,c->hll[threadno],c->preBinningFactor,c->psfsize);
+    
+      if(additive==2 || additive==-1){//time to readout the ccd and compute slopes.
+        if(c->preBinningFactor>1)//The binned image becomes paddedsize/prebinfact, and is then further clipped (or, usually padded) to psfsize.
+  	  error|=prebinImage(c->paddedsize,c->hll[threadno],c->preBinningFactor,c->psfsize);
 
 
-      if(c->spotpsfDim==2){
-	error|=doConvolution(c->psfsize,c->hll[threadno],c->fftArrays[threadno],c->fftPsf,c,threadno,c->clipsize);
+	if(c->spotpsfDim==2){
+          error|=doConvolution(c->psfsize,c->hll[threadno],c->fftArrays[threadno],c->fftPsf,c,threadno,c->clipsize);
 	//error|=doConvolution(c->fftsize,c->hll,NULL,workbuf);//inverse already computed and stored in workbuf.
-      }else if(c->spotpsfDim==4){//get the right psf for this subap.
-	error|=doConvolution(c->psfsize,c->hll[threadno],c->fftArrays[threadno],&(c->fftPsf[i*c->psfsize*(c->psfsize/2+1)]),c,threadno,c->clipsize);
+        }else if(c->spotpsfDim==4){//get the right psf for this subap.
+    	  error|=doConvolution(c->psfsize,c->hll[threadno],c->fftArrays[threadno],&(c->fftPsf[i*c->psfsize*(c->psfsize/2+1)]),c,threadno,c->clipsize);
 	//error|=doConvolution(c->fftsize,c->hll,&(c->spotpsf[i*c->fftpxls]),workbuf);
-      }
+        }
       //if(testNan(c->fftsize*c->fftsize,c->hll[threadno])){
       //printf("Got NaN %d\n",i);
       //}
-      error|=binImage(c->clipsize,c->hll[threadno],c->nimg,&(c->bimg[i*npxl]),c);
+        error|=binImage(c->clipsize,c->hll[threadno],c->nimg,&(c->bimg[i*npxl]),c);
       //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
       //printf("Got NaN bimg %d\n",i);
       //}
       //need to set the unneeded parts of bimg to zero for the vector sum.
-      totsig=getSum(npxl,&(c->bimg[i*npxl]));
-      if(totsig>0){//normalise the intensity in each subap
-	if(c->sigArr==NULL){
-	  multArr(npxl,&(c->bimg[i*npxl]),c->sig*nphspxl/totsig);
-	}else{
-	  multArr(npxl,&(c->bimg[i*npxl]),c->sigArr[i]/totsig);
-	}
-      }
+        totsig=getSum(npxl,&(c->bimg[i*npxl]));
+        if(totsig>0){//normalise the intensity in each subap
+	  if(c->sigArr==NULL){
+	    multArr(npxl,&(c->bimg[i*npxl]),c->sig*nphspxl/totsig);
+	  }else{
+	    multArr(npxl,&(c->bimg[i*npxl]),c->sigArr[i]/totsig);
+	  }
+        }
       //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
       //printf("Got NaN bimg2 %d\n",i);
       //}
       //if(c->calsource==0){//not a calibration source, so add noise...
       //As of 100312, have taken calsource out, and now add background, but not noise (shot or read) if a calibration source.  The floor is also included regardless
-      if(c->skybrightness*nphspxl>0)
-	addArr(npxl,&(c->bimg[i*npxl]),c->skybrightness*nphspxl);
-      if(c->skybrightnessArr!=NULL)
-	addArrArr(npxl,&(c->bimg[i*npxl]),&(c->skybrightnessArr[i*npxl]));
-      if(c->opticalBinning==1){
-	opticallyBin(c->nimg,c->ncen,&(c->bimg[i*npxl]));
-	nexposed=c->ncen*2;
-      }else{
-	nexposed=npxl;
-      }
-      if((c->addPoisson==1 && c->calsource==0) && (totsig>0 || c->skybrightness*nphspxl>0 || c->skybrightnessArr!=NULL))
-	poissonise(nexposed,&(c->bimg[i*npxl]),&c->pcg32Rand[threadno]);
-      readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
+        if(c->skybrightness*nphspxl>0)
+	  addArr(npxl,&(c->bimg[i*npxl]),c->skybrightness*nphspxl);
+        if(c->skybrightnessArr!=NULL)
+	  addArrArr(npxl,&(c->bimg[i*npxl]),&(c->skybrightnessArr[i*npxl]));
+        if(c->opticalBinning==1){
+	  opticallyBin(c->nimg,c->ncen,&(c->bimg[i*npxl]));
+	  nexposed=c->ncen*2;
+        }else{
+	  nexposed=npxl;
+        }
+        if((c->addPoisson==1 && c->calsource==0) && (totsig>0 || c->skybrightness*nphspxl>0 || c->skybrightnessArr!=NULL))
+	  poissonise(nexposed,&(c->bimg[i*npxl]),&c->pcg32Rand[threadno]);
+        readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
       //Calibration starts here.
-      if(c->calsource==0)
-	selectBrightestPixels(nexposed,&c->bimg[i*npxl],c->useBrightestArr==NULL?c->useBrightest:c->useBrightestArr[i],c->sortarr[threadno]);
+        if(c->calsource==0)
+	  selectBrightestPixels(nexposed,&c->bimg[i*npxl],c->useBrightestArr==NULL?c->useBrightest:c->useBrightestArr[i],c->sortarr[threadno]);
  	//}else{//a calibration source.
 	//if(c->opticalBinning==1){//optically bin the calibration source...
       // opticallyBin(c->nimg,c->ncen,&(c->bimg[i*npxl]));
@@ -1604,83 +1710,86 @@ int centroidsFromPhase(centrunstruct *runinfo){
       //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
       //printf("Got NaN bimg3 %d\n",i);
       //}
-      if(c->pxlPower==2){
-	multArrArr(nexposed,&c->bimg[i*npxl],&c->bimg[i*npxl]);
-      }else if(c->pxlPower!=1 && c->pxlPower!=0){
-	applyPower(nexposed,&c->bimg[i*npxl],c->pxlPower);
-      }
+        if(c->pxlPower==2){
+	  multArrArr(nexposed,&c->bimg[i*npxl],&c->bimg[i*npxl]);
+        }else if(c->pxlPower!=1 && c->pxlPower!=0){
+	  applyPower(nexposed,&c->bimg[i*npxl],c->pxlPower);
+        }
       
-      if(imageOnly==0){
-	if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation
+        if(imageOnly==0){
+	  if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation
 	  //This shouldn't be used with optical binning...
 	  //The correlation image may be bigger than nimg.  So, zeropad bimg, then do the correlation.  After that, use ncen.
-	  int npxlcorr=c->corrsize*c->corrsize;
-	  bimg=&(c->corrimg[i*npxlcorr]);
-	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
-	  npxl=npxlcorr;//The subaps may have grown!!!
-	  thresholdCorrelation(npxl,c->corrThresh,bimg);
-	}else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
-	  int npxlcorr=c->corrsize*c->corrsize;
-	  //int npxlout=c->ncen*c->ncen;
-	  diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
-	  npxl=npxlcorr;//the subaps may have shrunk.
-	  bimg=&c->corrimg[i*npxlcorr];
-	  thresholdCorrelation(npxl,c->corrThresh,bimg);
-	}else{
-	  bimg=&(c->bimg[i*npxl]);
-	}
+	    int npxlcorr=c->corrsize*c->corrsize;
+	    bimg=&(c->corrimg[i*npxlcorr]);
+	    calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
+	    npxl=npxlcorr;//The subaps may have grown!!!
+	    thresholdCorrelation(npxl,c->corrThresh,bimg);
+	  }else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
+	    int npxlcorr=c->corrsize*c->corrsize;
+	    //int npxlout=c->ncen*c->ncen;
+	    diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
+	    npxl=npxlcorr;//the subaps may have shrunk.
+	    bimg=&c->corrimg[i*npxlcorr];
+	    thresholdCorrelation(npxl,c->corrThresh,bimg);
+	  }else{
+	    bimg=&(c->bimg[i*npxl]);
+  	  }
 	//now apply the centroid mask and compute the centroids.
-	if(c->opticalBinning==1){
-	  computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
-	}else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
-	  computeFit(c->corrsize,c->ncen,3,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
+	  if(c->opticalBinning==1){
+	    computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
+	  }else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
+	    computeFit(c->corrsize,c->ncen,3,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
 
-	}else{//do a CoG
-	  if(c->centWeightDim==2){//weighted CoG
-	    cweight=c->centWeight;
-	  }else if(c->centWeightDim==4 && c->centWeight!=NULL){//weighted CoG
-	    cweight=&c->centWeight[i*npxl];
-	  }else{//cog
-	    cweight=NULL;
-	  }
+	  }else{//do a CoG
+	    if(c->centWeightDim==2){//weighted CoG
+	      cweight=c->centWeight;
+	    }else if(c->centWeightDim==4 && c->centWeight!=NULL){//weighted CoG
+	      cweight=&c->centWeight[i*npxl];
+	    }else{//cog
+	      cweight=NULL;
+	    }
 	  //Note: corrsize==nimg unless convolving with something larger.  Or if using diff correlation, corrsize can be < nimg.
-	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
-	}
-	//and now apply the calibration... (linearisation)
-	if(c->calData!=NULL){
-	  indx=c->calBounds[i*2];//c->calBounds[0,i,j,0];
-	  n=c->calBounds[i*2+1]-indx;
-	  applyCentroidCalibration(&(c->cents[i*2]),n,&c->calData[i*c->calNSteps+indx],&c->calSteps[indx]);//calData[0,i,j,indx]
-	  indx=c->calBounds[(c->nsubaps+i)*2];//[1,i,j,0];
-	  n=c->calBounds[(c->nsubaps+i)*2+1]-indx;
-	  applyCentroidCalibration(&(c->cents[i*2+1]),n,&c->calData[(c->nsubaps+i)*c->calNSteps+indx],&c->calSteps[indx]);
-	}else if(c->calCoeff!=NULL){//calibrate using a polynomial...
+	    computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
+	  }
+	  //and now apply the calibration... (linearisation)
+	  if(c->calData!=NULL){
+	    indx=c->calBounds[i*2];//c->calBounds[0,i,j,0];
+	    n=c->calBounds[i*2+1]-indx;
+	    applyCentroidCalibration(&(c->cents[i*2]),n,&c->calData[i*c->calNSteps+indx],&c->calSteps[indx]);//calData[0,i,j,indx]
+	    indx=c->calBounds[(c->nsubaps+i)*2];//[1,i,j,0];
+	    n=c->calBounds[(c->nsubaps+i)*2+1]-indx;
+	    applyCentroidCalibration(&(c->cents[i*2+1]),n,&c->calData[(c->nsubaps+i)*c->calNSteps+indx],&c->calSteps[indx]);
+	  }else if(c->calCoeff!=NULL){//calibrate using a polynomial...
 	  
-	  applyCentroidCalibrationInterpolation(&(c->cents[i*2]),c->calNCoeff,&c->calCoeff[i*2*c->calNCoeff]);
-	  applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
-	}
+	    applyCentroidCalibrationInterpolation(&(c->cents[i*2]),c->calNCoeff,&c->calCoeff[i*2*c->calNCoeff]);
+	    applyCentroidCalibrationInterpolation(&(c->cents[i*2+1]),c->calNCoeff,&c->calCoeff[(i*2+1)*c->calNCoeff]);
+	  }
 	//and now subtract reference centroids...
-	if(c->refCents!=NULL){
-	  c->cents[i*2]-=c->refCents[i*2];
-	  c->cents[i*2+1]-=c->refCents[i*2+1];
+	  if(c->refCents!=NULL){
+	    c->cents[i*2]-=c->refCents[i*2];
+	    c->cents[i*2+1]-=c->refCents[i*2+1];
 	  //printf("%g %g - after refsub\n",c->refCents[i*2],c->refCents[i*2+1]);
-	}
+	  }
+        }
       }
-    }else{
-      //return ignored centroids too.
-      if(c->imageOnly==0){
-	c->cents[i*2]=0.;
-	c->cents[i*2+1]=0.;
-      }else{//unused subaps still have noise...
+    }else{//unused subap.
+      if(additive==2 || additive==-1){
+        //return ignored centroids too.
+        if(c->imageOnly==0){
+          c->cents[i*2]=0.;
+	  c->cents[i*2+1]=0.;
+        }else{//unused subaps still have noise...
 	//add random pixel noise...
-	nexposed=npxl;
-	memset(&(c->bimg[i*npxl]),0,nexposed*sizeof(float));
-	readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
+	  nexposed=npxl;
+	  memset(&(c->bimg[i*npxl]),0,nexposed*sizeof(float));
+	  readCCD(nexposed,&(c->bimg[i*npxl]),c->readBg,c->readNoise*(c->calsource==0),c->noiseFloor,c->gslRand[threadno],c->threshType);
 	
-      }
+        }
       //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
       //printf("Got NaN bimg4 %d\n",i);
       //}
+      }
     }
   }
   return error;
@@ -2170,12 +2279,15 @@ int setupThreads(centstruct *c,int nthreads){
     free(c->pcg32Rand);
   if(c->sortarr!=NULL)
     free(c->sortarr);
+  if(c->interpPhs!=NULL)
+    free(c->interpPhs);
   c->hll=NULL;
   c->runinfo=NULL;
   c->threadid=NULL;
   c->subapStart=NULL;
   c->fftArrays=NULL;
   c->sortarr=NULL;
+  c->interpPhs=NULL;
   //and now set up...
   c->nthreads=nthreads;
   if(nthreads>0){
@@ -2189,7 +2301,7 @@ int setupThreads(centstruct *c,int nthreads){
     c->subapStart=malloc(sizeof(int)*(nthreads+1));
     c->fftArrays=malloc(sizeof(complex float*)*nthreads);
     c->sortarr=malloc(sizeof(float*)*nthreads);
-
+    c->interpPhs=malloc(sizeof(float)*nthreads*c->phasesize*c->phasesize);
     //c->fftplan=malloc(sizeof(fftw_plan)*nthreads);
     subapCnt=0;
     subapsLeft=c->nsubaps;
@@ -2483,19 +2595,32 @@ PyObject *py_update(PyObject *self,PyObject *args){
     case INTEGSTEPS://should always be smaller than the value this is initialised with.
       if(PyInt_Check(obj)){
 	c->nintegrations=(int)PyInt_AsLong(obj);
-	if(c->nintegrations>c->maxIntegrations){
-	  printf("centmodule: Error - nintegrations>%d (max integrations)\n",c->maxIntegrations);
-	  return NULL;
-	}
       }else{
 	printf("centmodule: Error in set integsteps\n");
 	return NULL;
       }
       break;
-    default:
-      printf("centmodule: Code %d not recognised, nothing updated\n",code);
-      return NULL;
-      break;
+  case OUTPUTPHASEARR://only used for testing.
+    if(PyArray_Check(obj)){
+      if(checkFloatContigArr((PyArrayObject*)obj)!=0){
+	printf("Error: centmodule - outputPhaseArray should be None or contig float32\n");
+	c->interpolatedPhaseOutput=NULL;
+	return NULL;
+      }
+      if(((PyArrayObject*)obj)->nd!=2 || ((PyArrayObject*)obj)->dimensions[0]!=c->phasesize*c->nsubx || ((PyArrayObject*)obj)->dimensions[1]!=c->phasesize*c->nsubx){
+	printf("Error - centmodule - outputPhaseArray should be shape %d square\n",c->phasesize*c->nsubx);
+	c->interpolatedPhaseOutput=NULL;
+	return NULL;
+      }
+      printf("Setting output phase arr\n");
+      c->interpolatedPhaseOutput=(float*)(((PyArrayObject*)obj)->data);
+    }else
+      c->interpolatedPhaseOutput=NULL;
+    break;
+  default:
+    printf("centmodule: Code %d not recognised, nothing updated\n",code);
+    return NULL;
+    break;
   }
   Py_INCREF(Py_None);
   return Py_None;
@@ -2503,7 +2628,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
 
 PyObject *py_initialise(PyObject *self,PyObject *args){
   int nthreads,nsubaps, ncen,fftsize,clipsize,nimg,phasesize,addPoisson,calsource;
-  int nintegrations,correlationCentroiding;
+  int nintegrations,nlatency,correlationCentroiding;
   int i,j;
   size_t stacksize;
   int scope;
@@ -2519,15 +2644,15 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj,*inputImageObj,*subapLocationObj;
   PyArrayObject *phs,*pupfn,*cents,*fracSubArea,*subflag,*bimg,*sigArrObj,*aobj,*corrPattern=NULL,*corrimg=NULL,*inputImageArr=NULL,*subapLocationArr=NULL;
   centstruct *c;
-  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifilO!O!OO!O!O!O!iOifOOiiOiiiffOO",&nthreads,
+  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifiilO!O!OO!O!O!O!iOifOOiiOiiiffOO",&nthreads,
 		       &nsubaps,&ncen,&fftsize,&clipsize,
 		       &nimg,&phasesize,&readnoise,&readbg,&addPoisson,&noiseFloor,
 		       &sigObj,&skybrightnessObj,&calsource,
-		       &pxlPower,&nintegrations,&seed,
+		       &pxlPower,&nintegrations,&nlatency,&seed,
 		       &PyArray_Type,&phs,&PyArray_Type,
 		       &pupfn,&spotpsfObj,&PyArray_Type,&cents,
 		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor,&parabolicFit,&gaussianFit,&gaussianMinVal,&gaussianReplaceVal,&inputImageObj,&subapLocationObj)){
-    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\ninputImage(None), subapLocation(None) (for when input is an input image)");
+    printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,nlatency,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\ninputImage(None), subapLocation(None) (for when input is an input image)");
     return NULL;
   }
   if((c=malloc(sizeof(centstruct)))==NULL){
@@ -2538,6 +2663,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->clipsize=clipsize;
   c->nthreads=0;
   c->nsubaps=nsubaps;
+  c->nsubx=(int)sqrtf((float)nsubaps);
   c->ncen=ncen;
   c->fftsize=fftsize;
   c->nimg=nimg;
@@ -2561,16 +2687,17 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     printf("Error: centmodule - phs must be float and contiguous\n");
     return NULL;
   }
-  j=1;
-  for(i=0;i<phs->nd;i++)
-    j*=phs->dimensions[i];
-  if(j==phasesize*phasesize*nsubaps*nintegrations)
+  if(phs->nd==2)
     c->phaseStep=1;
-  else if(j==phasesize*phasesize*nsubaps*nintegrations*2)
-    c->phaseStep=2;//phaseamp mode.
+  else if(phs->nd==3)
+    c->phaseStep=2;
   else{
-    printf("Error: centmodule - phs size is wrong\n");
+    printf("Error: centmodule - phase should be 2D or 3D (for phase+amp)\n");
     return NULL;
+  }
+  if(phs->dimensions[0]!=phasesize*c->nsubx || phs->dimensions[1]!=phasesize*c->nsubx){//we need to interpolate the phase.
+    c->interpolatePhase=1;
+    c->inputPhaseSize=phs->dimensions[0];
   }
     
   if(checkFloatContigArr(pupfn)!=0){
@@ -2687,7 +2814,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->calsource=calsource;
   c->pxlPower=pxlPower;
   c->nintegrations=nintegrations;
-  c->maxIntegrations=nintegrations;
+  c->nlatency=nlatency;//number of frames where not exposing during readout.
   c->seed=seed;
   c->phs=(float*)phs->data;//can include amplitude data too (interleaved, phase first).
   c->pupfn=(float*)pupfn->data;
@@ -2850,7 +2977,9 @@ PyObject *py_run(PyObject *self,PyObject *args){
   pthread_barrier_wait(&c->barrier);//wake threads up
   
   pthread_barrier_wait(&c->barrier);//now wait for threads to finish.
-  
+  c->curInteg++;
+  if(c->curInteg>=c->nintegrations+c->nlatency)
+    c->curInteg=0;
   gettimeofday(&t2,NULL);
   dtime=(t2.tv_sec*1000000+t2.tv_usec-t1.tv_sec*1000000-t1.tv_usec)/1e6;
   //free(runinfo);
@@ -2889,7 +3018,7 @@ PyObject *py_runSlope(PyObject *self,PyObject *args){
   //for(i=1; i<nthreads; i++){
   //  pthread_join(thread[i],NULL);
   //}
-  c->doWork=CENTROIDSFROMPHASE;
+  c->doWork=CENTROIDSFROMIMAGE;
   //pthread_cond_broadcast(&c->cond);//wake threads up
   pthread_barrier_wait(&c->barrier);//wake threads up
   pthread_barrier_wait(&c->barrier);//now wait for threads to finish.

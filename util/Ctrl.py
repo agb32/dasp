@@ -491,12 +491,13 @@ class Ctrl:
         except:
             print "\n\n\n\nERROR in sockConn.doCmdList\n\n\n\n"
         print "INFORMATION ^^Entering main loop^^"
+        tlast=time.time()
         while self.running():
             if not self.paused:
                 if self.debug!=None:
                     print "INFORMATION Ctrl: rank %d (debug=%s) doing iteration %d"%(self.rank,str(self.debug),self.thisiter)
                 pausedMsg=0
-                t=time.time()
+                #t=time.time()
                 for i in rangeLenCompList:
                     self.compListPos=i
                     module=compList[i]
@@ -521,7 +522,10 @@ class Ctrl:
                     else:
                         break
                 #data=parent.next("stickman")
-                self.frametime=time.time()-t
+                #self.frametime=time.time()-t
+                t=time.time()
+                self.frametime=t-tlast
+                tlast=t
                 self.thisiter+=1
                 #print "Done %d iterations"%self.thisiter
                 if self.nextniters!=None:

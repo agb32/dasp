@@ -98,21 +98,21 @@ class centroid:
     (memory and FPGA shared by more than one wfscent algorithm calculator).
 
     To use on the command line, you need:
-    c=util.centroid.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)#addPoisson=0,sig=1.
+    c=util.centroidNew.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)#addPoisson=0,sig=1.
     c.easy()
     c.runCalc({"cal_source":0})
     c.outputData is the slopes
     c.cmodbimg is the wfs image (divided into subaps).
-    Then, put your data into self.reorderedPhs... 
-    c.reformatImg() can be used to get a displayable image.
-    If you have a 2D phase map, you can put this into reorderdPhs by calling:
-    c.reformatPhs(phs)
 
-    Or, you can use util.centroid.compute(phase,nsubx) which does the same thing.
+    c.reformatImg() can be used to get a displayable image.
+    #If you have a 2D phase map, you can put this into reorderdPhs by calling:
+    #c.reformatPhs(phs)
+
+    Or, you can use util.centroidNew.compute(phase,nsubx) which does the same thing.
 
     """
     #def __init__(self,nsubx,pup=None,oversamplefactor=1,readnoise=0.,readbg=0.,addPoisson=0,noiseFloor=0.,binfactor=1,sig=1.,skybrightness=0.,warnOverflow=None,atmosPhaseType="phaseonly",fpDataType=numpy.float32,useFPGA=0,waitFPGA=0,waitFPGATime=0.,phasesize=None,fftsize=None,clipsize=None,nimg=None,ncen=None,tstep=0.05,integtime=0.05,latency=0.,wfs_minarea=0.5,spotpsf=None,centroidPower=None,opticalBinning=0,useCell=0,waitCell=1,usecmod=1,subtractTipTilt=0,magicCentroiding=0,linearSteps=None,stepRangeFrac=1.,phaseMultiplier=1,centWeight=None,correlationCentroiding=0,corrThresh=0.,corrPattern=None,threshType=0,imageOnly=0,calNCoeff=0,useBrightest=0):
-    def __init__(self, nsubx, pup=None, oversamplefactor=1, readnoise=0,
+    def __init__(self, nsubx, pup=None, phase=None,oversamplefactor=1, readnoise=0,
           readbg=0., addPoisson=0, noiseFloor=0., binfactor=1, sig=1.,
           skybrightness=0., warnOverflow=None, atmosPhaseType="phaseonly",
           fpDataType=numpy.float32, phasesize=None, fftsize=None, clipsize=None,
@@ -135,6 +135,7 @@ class centroid:
          - nsubx: number of subaps in 1 direction
          - pupfn: pupil function array (pupil mask) or util.tel.Pupil instance
            (if using PS3).
+         - phase - the input phase screen array. (not necessarily nsubx*phasesize in shape)
          - oversamplefactor: scaling to expand phase by when doing FFTs.
            Ignored if fftsize!=None.
          - readnoise: ccd readnoise
@@ -207,6 +208,11 @@ class centroid:
         """
         self.nsubx=nsubx
         self.warnOverflow=warnOverflow
+        if phase is None or (phase.dtype.char=="f" and phase.flags.contiguous):
+            self.phase=phase
+        else:
+            print "centroid: will need to copy phase since non contiguous or not correct datatype"
+            self.phase=phase.astype(numpy.float32)
         self.sig=sig
         self.timing=0
         self.skybrightness=skybrightness
@@ -245,7 +251,9 @@ class centroid:
         self.integtime=integtime
         self.latency=latency
         self.integstepFn=integstepFn#None, or a function if variable integration time is required.  
-        self.nIntegrations=int(numpy.ceil(self.integtime/self.tstep))
+        self.nintegrations=int(numpy.ceil(self.integtime/self.tstep))
+        self.nlatency=int(numpy.ceil(self.latency/self.tstep))
+        self.curInteg=0
         self.rowintegtime=None # start with this
         if rowintegtime!=None:
             if usecmod:
@@ -262,7 +270,7 @@ class centroid:
                self.rowinteg_nIntegrations=int(numpy.ceil(rowintegtime/tstep))
         if self.rowintegtime!=None:
             r=self.rowintegtime/self.tstep
-            l=self.nIntegrations-r
+            l=self.nintegrations-r
             print("INFORMATION:DEBUG:**centroid**:"+
                      "Rolling Shutter approximation")
             print("INFORMATION:DEBUG:**centroid**:"+
@@ -271,7 +279,7 @@ class centroid:
                      "**r**={0[0]:d}, **l**={0[1]:d}".format(
                            [int(x) for x in (r,l)]))
             print("INFORMATION:DEBUG:**centroid**:"+
-                     "**#**integ.={0:d}".format( int(self.nIntegrations) ))
+                     "**#**integ.={0:d}".format( int(self.nintegrations) ))
         self.wfs_minarea=wfs_minarea
         self.psf=spotpsf#eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)
         self.centroidPower=centroidPower
@@ -319,12 +327,15 @@ class centroid:
             self.computePxlToRad(self.wfsn)
 
         self.magicCentroiding=magicCentroiding
+        self.interpolatedPhaseOutput=None
         self.linearSteps=linearSteps
         self.calNCoeff=calNCoeff
         self.stepRangeFrac=stepRangeFrac
         self.inputImage=inputImage
         self.subapLocation=subapLocation
         self.phaseMultiplier=phaseMultiplier
+        if self.phaseMultiplier!=1:
+            self.phase=self.phase.copy()#make sure its no longer pointing to the outputData of the parent.
         if magicCentroiding:
             self.magicSlopes=None#self.magicSHSlopes()
         self.outSquare=None#for covariance calculation.
@@ -394,7 +405,7 @@ class centroid:
         self.initialiseCmod(nthreads,calsource)
         self.takeReference({'cal_source':1})
         self.outputData[:]=0
-        #Then, put your data into self.reorderedPhs... 
+
         #Now, can use self.runCalc({'cal_source':0/1})
 
     def reformatImg(self,indata=None,out=None):
@@ -409,47 +420,32 @@ class centroid:
                 out[i*nimg:(i+1)*nimg,j*nimg:(j+1)*nimg]=indata[i,j]
         return out
 
-    def reformatPhs(self,indata,out=None):
-        if out is None:
-            out=self.reorderedPhs
-        nsubx=out.shape[0]
-        n=out.shape[-1]
-        sh=out.shape
-        out.shape=nsubx,nsubx,n,n
-        for i in range(nsubx):
-            for j in range(nsubx):
-                out[i,j]=indata[i*n:i*n+n,j*n:j*n+n]
-        out.shape=sh
-        return out
+#    def reformatPhs(self,indata,out=None):
+#        if out is None:
+#            out=self.reorderedPhs
+#        nsubx=out.shape[0]
+#        n=out.shape[-1]
+#        sh=out.shape
+#        out.shape=nsubx,nsubx,n,n
+#        for i in range(nsubx):
+#            for j in range(nsubx):
+#                out[i,j]=indata[i*n:i*n+n,j*n:j*n+n]
+#        out.shape=sh
+#        return out
             
 
-    def initMem(self,shareReorderedPhs=0,subimgMem=None,bimgMem=None,pupsubMem=None,reorderedPhsMem=None,outputDataMem=None):
+    def initMem(self,subimgMem=None,bimgMem=None,pupsubMem=None,outputDataMem=None):
         """initialise memory banks - useful if resource sharing is used in the simulation.
         Not needed if not using simulation framework.
-        if useFPGA is set, tells us that we're using the FPGA... (only used
-        if allocating the memories here...)
-        if useCell is set, tells us that we're using the cell...
-        if all resource sharing objects expect to do the wfs/cent calc every iteration, then they can share reorderedPhs.  Otherwise, they must each have their own version.
+
         """
         #print "centroid - initMem"
         nsubx=self.nsubx
         phasesize=self.phasesize
         fftsize=self.fftsize
-        nIntegrations=self.nIntegrations
+        nintegrations=self.nintegrations
         self.fittedSubaps=None
-        self.shareReorderedPhs=shareReorderedPhs
         phasesize_v=self.phasesize_v
-        if shareReorderedPhs==0 or type(reorderedPhsMem)==type(None):
-            if self.atmosPhaseType=="phaseonly":
-                self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
-            else:
-                self.reorderedPhs=numpy.empty((nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
-            self.reorder(None,numpy.nan) # fill with nan
-        else:
-            if self.atmosPhaseType=="phaseonly":
-                self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v),numpy.float32)
-            else:
-                self.reorderedPhs=util.arrayFromArray.arrayFromArray(reorderedPhsMem,(nsubx,nsubx,nIntegrations,phasesize,phasesize_v,2),numpy.float32)
         if type(outputDataMem)==type(None):
             if self.imageOnly==0:
                 self.outputData=numpy.zeros((nsubx,nsubx,2),numpy.float32)       # Centroid arrays
@@ -500,15 +496,16 @@ class centroid:
             if type(self.sig)==numpy.ndarray:
                 sig=self.sig.ravel()
             #temporary til I get it done properly...
-            self.centcmod=util.centcmod.centcmod(nthreads,self.nsubx,self.ncen,self.fftsize,self.clipsize,
-                                                 self.nimg,self.phasesize,self.readnoise,self.readbg,
-                                                 self.addPoisson,self.noiseFloor,sig,self.skybrightness,
-                                                 calsource,self.centroidPower,self.nIntegrations,seed,
-                                                 self.reorderedPhs,self.pup,self.psf,self.outputData,
-                                                 self.cmodbimg,self.wfs_minarea,self.opticalBinning,
-                                                 self.centWeight,self.correlationCentroiding,
-                                                 self.corrThresh,self.corrPattern,self.corrimg,
-                                                 self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor,self.parabolicFit,self.gaussianFitVals,self.inputImage,self.subapLocation)
+            self.centcmod=util.centcmod.centcmod(
+                nthreads,self.nsubx,self.ncen,self.fftsize,self.clipsize,
+                self.nimg,self.phasesize,self.readnoise,self.readbg,
+                self.addPoisson,self.noiseFloor,sig,self.skybrightness,
+                calsource,self.centroidPower,self.nintegrations,self.nlatency,seed,
+                self.phase,self.pup,self.psf,self.outputData,
+                self.cmodbimg,self.wfs_minarea,self.opticalBinning,
+                self.centWeight,self.correlationCentroiding,
+                self.corrThresh,self.corrPattern,self.corrimg,
+                self.threshType,self.imageOnly,self.useBrightest,self.preBinningFactor,self.parabolicFit,self.gaussianFitVals,self.inputImage,self.subapLocation)
             #print "initialised cmod - done"
         else:
             self.centcmod=None
@@ -559,13 +556,7 @@ class centroid:
     def runCalc(self,control):
         doref=1
         if self.phaseMultiplier!=1:
-            self.reorderedPhs*=self.phaseMultiplier
-        # if control.get("useFPGA",0) and self.canUseFPGA:
-        #     # use the FPGA - note that you might get a non-zero centroid value for parts of the array which are masked off simply because of the ccd readout noise.  The software version handles this incorrectly.
-        #     self.setFPGARegs(control["cal_source"])#check whether registers are still valid for this object, and if not, change them so that they are.
-        #     self.runFPGA()
-        # elif control.get("useCell",0) and self.canUseCell:
-        #     self.runCell(control["cal_source"])
+            self.phase*=self.phaseMultiplier
         if control.get("useCmod",1):
             self.runCmod(control["cal_source"])
             # no calibration done, or done in c, so ref can be done by c:
@@ -573,7 +564,6 @@ class centroid:
                 doref=0#ref subtraction is done in c code...
         else:
             # use software version
-            # t=time.time()
             # Create the images
             self.runPy(control["cal_source"])
         if self.linearSteps is not None:
@@ -582,14 +572,6 @@ class centroid:
             if self.refCents is not None:
                 self.outputData-=self.refCents
 
-    # def runCell(self,calsource):
-    #     """Tell the cell to perform computations."""
-    #     if self.magicCentroiding:
-    #         self.magicShackHartmann()
-    #         return
-    #     if self.canUseCell:
-    #         self.cellObj.setCalSource(calsource)
-    #         self.cellObj.startProcessing(block=self.waitCell)#if waitCell==0, will need to call self.cellObj.waitForCents() at some later time.
 
     def runPy(self,calsource):
         """run the python version"""
@@ -635,7 +617,10 @@ class centroid:
         self.integtime=steps*self.tstep
         self.centcmod.update(util.centcmod.INTEGSTEPS,int(steps))
             
-
+    def setInterpolatedPhaseOutput(self):
+        self.interpolatedPhaseOutput=numpy.zeros((self.phasesize*self.nsubx,self.phasesize*self.nsubx),numpy.float32)
+        self.centcmod.update(util.centcmod.OUTPUTPHASEARR,self.interpolatedPhaseOutput)
+        
     def calcCovariance(self):
         if self.outSquare is not None:
             cov=self.outSquare/self.outN-(self.outSum/self.outN)**2
@@ -647,193 +632,116 @@ class centroid:
 
 
 
-
+#     def reorder(self,phs,pos):
+#         """Do a reodering of the phase buffer, so that it is in the form ready
+#         for the fpga.  Phases corresponding to subaps should be placed next to
+#         those for the same subap at a later time (greater pos).
+#         Also use with createSHImg() but not integrate().  If the FPGA has been
+#         initialised, this will place it in FPGA readable memory...
         
-    # def runFPGA(self):
-    #     """Tell the FPGA where the data is..."""
-    #     if self.magicCentroiding:
-    #         self.magicShackHartmann()
-    #         return
-    #     fpid=self.fpid
-    #     #now, we set the FPGA going (after copying data if necessary).
-    #     t0=time.time()
-    #     #print "runfpga"
-    #     if self.doPartialFPGA:
-    #         #array is too large to DMA all at once to FPGA, so do in parts.
-    #         #calculate number of times a full array is needed...
-    #         if self.atmosPhaseType=="phaseonly":
-    #             reordered=util.arrayFromArray.arrayFromArray(self.reorderedPhs,(self.nsubx*nsubx,self.nIntegrations,self.phasesize,self.phasesize),numpy.float32)
-    #         else:
-    #             raise Exception("not phaseonly")
-    #         output=util.arrayFromArray.arrayFromArray(self.outputData,(self.nsubx*self.nsubx,2),numpy.float32)
-    #         fpga.writeAddr(fpid,self.fpgaInArr,1)#input address
-    #         fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
-    #         fpga.writeAddr(fpid,self.fpgaOutArr,3)#output address
-    #         fpga.writeReg(fpid,self.fittedSubaps,4)#size to write (in bytes).
-    #         for i in range(self.partialFull):
-    #             #copy memory into FPGA buffer
-    #             self.fpgaInArr[:,]=reordered[i*self.fittedSubaps:(i+1)*self.fittedSubaps]
-    #             fpga.writeReg(fpid,0x2,6)#reinitialise
-    #             fpga.writeReg(fpid,1,6)#set it going.
-    #             time.sleep(self.waitFPGATime/self.partialFull)#wait for it to complete (or almost)
-    #             while fpga.readReg(fpid,5)!=7:#wait for reading to complete by checking register.
-    #                 pass
-    #             #copy centroids to the output...
-    #             output[i*self.fittedSubaps:(i+1)*self.fittedSubaps]=self.fpgaOutArr
-    #         if self.partialLeftOver>0:#copy the last bit...
-    #             self.fpgaInArr[:self.partialLeftOver]=reordered[self.partialFull*self.fittedSubaps:self.partialFull*self.fittedSubaps+self.partialLeftOver]
-    #             fpga.writeReg(fpid,0x2,6)#reinitialise
-    #             fpga.writeReg(fpid,self.partialLeftOver*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#read siz
-    #             fpga.writeReg(fpid,self.partialLeftOver,4)#size to write
-    #             fpga.writeReg(fpid,1,6)#set it going
-    #             time.sleep(self.waitLeftOver)
-    #             while fpga.readReg(fpid,5)!=7:#wait til finished
-    #                 pass
-    #             #and copy centroids to the output array.
-    #             output[self.partialFull*self.fittedSubaps:self.partialFull*self.fittedSubaps+self.partialLeftOver]=self.fpgaOutArr[:self.partialLeftOver]
-
-    #             #now reset the registers for next time...
-    #             fpga.writeReg(fpid,self.fittedSubaps*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#read siz
-    #             fpga.writeReg(fpid,self.fittedSubaps,4)#size to write
-
-                      
-    #     else:
-    #         #all subaps at once...
-    #         if self.shareReorderedPhs:#this must be the only object using it...
-    #             pass#already in the fpga array
-    #         else:#copy to fpga array.
-    #             self.fpgaInput[:,]=self.reorderedPhs
-    #         fpga.writeReg(fpid,0x2,6)#reinitialise
-    #         fpga.writeAddr(fpid,self.fpgaarr,1)#input address
-    #         fpga.writeReg(fpid,self.nsubx*self.nsubx*self.nIntegrations*self.phasesize*self.phasesize*4/8,2)#size (quad words)
-    #         fpga.writeAddr(fpid,self.outputData,3)#output address
-    #         fpga.writeReg(fpid,self.nsubx*self.nsubx,4)#size to write (in bytes).
-    #         #print "reading fpga reg %s"%hex(fpga.readReg(fpid,5))
-    #         t0=time.time()
-    #         fpga.writeReg(fpid,1,6)#set it going.
-    #         if self.waitFPGA:
-    #             if self.waitFPGATime>0:
-    #                 time.sleep(self.waitFPGATime)#wait for it to complete (or almost).
-    #             v=fpga.readReg(fpid,5)
-    #             #print hex(v)
-    #             while v!=7:#wait for reading to complete by checking register...
-    #                 v=fpga.readReg(fpid,5)
-    #                 #print hex(v)
-    #                 pass
-    #     if self.timing:
-    #         t1=time.time()
-    #         print "WFSCent time taken: %s"%str(t1-t0)
-        #print "runfpgadone"
-    def reorder(self,phs,pos):
-        """Do a reodering of the phase buffer, so that it is in the form ready
-        for the fpga.  Phases corresponding to subaps should be placed next to
-        those for the same subap at a later time (greater pos).
-        Also use with createSHImg() but not integrate().  If the FPGA has been
-        initialised, this will place it in FPGA readable memory...
-        
-        To support a rolling shutter, calling with pos==-1 rolls the buffer
-        backwards.
+#         To support a rolling shutter, calling with pos==-1 rolls the buffer
+#         backwards.
       
-         -- time/pos ------------------------------>
-           |-- j -->
-            <-----> = r
-                    <---- -> = r
-                             <---- -> = r
-         _          <---> = l         
-         | |1111111-22222|22#33333-3344444#44
-         ' |.111111-12222|22#23333-3334444#444
-         i |..11111-11222|22#22333-3333444#4444
-         , |...1111-11122|22#22233-3333344#44444
-         | |....111-11112|22#22223-3333334#444444
-         V |.....11-11111|22#22222-3333333#4444444
-            <---> = l         
+#          -- time/pos ------------------------------>
+#            |-- j -->
+#             <-----> = r
+#                     <---- -> = r
+#                              <---- -> = r
+#          _          <---> = l         
+#          | |1111111-22222|22#33333-3344444#44
+#          ' |.111111-12222|22#23333-3334444#444
+#          i |..11111-11222|22#22333-3333444#4444
+#          , |...1111-11122|22#22233-3333344#44444
+#          | |....111-11112|22#22223-3333334#444444
+#          V |.....11-11111|22#22222-3333333#4444444
+#             <---> = l         
 
-        The intepretation of the above is that the first frame lies between the
-        '|' symbols, the second between the '-', and the third between the '#',
-        The '.' symbol implies recorded data which is later discarded.
-        The actual processing of the data is done in createSHimg; here only the
-        appropriate storage of the data is considered.
-        Thus for the first frame, all positions must be filled, for the
-        subsequent (after calling with pos=-1), only those corresponding to the
-        final row which is specified by 'l' are stored i.e. skip the first l.
-        This action preserves the values recorded in the previous frame, and so
-        most accurately represents a rolling shutter.
-        At the end of the first frame (after calling with pos=-1), roll the array
-        back by 'r'.
-        To start a camera streaming, the reorderedPhs array should be set to NaN
-        so any 'dirty' data is wiped: call with pos==numpy.nan.
-        """
-        if numpy.isnan(pos):
-            # It is not thought that this clause will ever be true after
-            # initialization (see above) since the WFS never stops receiving
-            # data... 
-            # Implemented for completeness.
+#         The intepretation of the above is that the first frame lies between the
+#         '|' symbols, the second between the '-', and the third between the '#',
+#         The '.' symbol implies recorded data which is later discarded.
+#         The actual processing of the data is done in createSHimg; here only the
+#         appropriate storage of the data is considered.
+#         Thus for the first frame, all positions must be filled, for the
+#         subsequent (after calling with pos=-1), only those corresponding to the
+#         final row which is specified by 'l' are stored i.e. skip the first l.
+#         This action preserves the values recorded in the previous frame, and so
+#         most accurately represents a rolling shutter.
+#         At the end of the first frame (after calling with pos=-1), roll the array
+#         back by 'r'.
+#         To start a camera streaming, the reorderedPhs array should be set to NaN
+#         so any 'dirty' data is wiped: call with pos==numpy.nan.
+#         """
+#         if numpy.isnan(pos):
+#             # It is not thought that this clause will ever be true after
+#             # initialization (see above) since the WFS never stops receiving
+#             # data... 
+#             # Implemented for completeness.
 
-            # wipe array and return
-            self.reorderedPhs[:]=numpy.nan # fill with nan
-            return
-        if not self.atmosPhaseType in ("phaseonly","atmosphasetype"):
-            raise NotImplementedError("self.atmosPhaseType")
+#             # wipe array and return
+#             self.reorderedPhs[:]=numpy.nan # fill with nan
+#             return
+#         if not self.atmosPhaseType in ("phaseonly","atmosphasetype"):
+#             raise NotImplementedError("self.atmosPhaseType")
 
-        ## it is assumed that the two functions below are compiled into
-        ## efficient bytecode, hence the switch only occurs once per
-        ## call to reorder
-        elif self.atmosPhaseType=="phaseonly":
-            #If the phase isn't the same size as expected, interpolate it.  This works best when there is no dm pupil - and its best to check that the new pupil specified for this centroid object is the right size.  i.e. have a look at (in simCtrl):  
-            #w=wfscentList[0].thisObjList[0].wfscentObj;data=w.phsInterp.copy()*w.pupfn
-            #It might be necessary to slightly oversize the pupil for atmos module, so that interpolation is okay.
-            if phs.shape!=(self.nsubx*self.phasesize,self.nsubx*self.phasesize):
-                x=numpy.arange(phs.shape[1])/float(phs.shape[1]-1)
-                if phs.shape[0]!=phs.shape[1]:
-                    raise Exception("Expected square phase")
-                b=scipy.interpolate.interp2d(x,x,phs,kind="cubic")
-                n=self.nsubx*self.phasesize
-                xnew=(numpy.arange(n)*phs.shape[1]/float(n)-(((n-1)*phs.shape[1])/float(n) - (phs.shape[1]-1))/2.)/float(phs.shape[1]-1)
-                phs=b(xnew,xnew).astype(self.reorderedPhs.dtype)
-                self.phsInterp=phs#just save in case someone wants to view it later.  Maybe this is a waste of memory...
-            def _doassign(i,j,pos,n,phs,typecode):
-                self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n]#.astype(typecode)
-        elif self.atmosPhaseType=="phaseamp":
-            #interpolating phase not yet implemented.
-            def _doassign(i,j,pos,n,phs,typecode):
-                self.reorderedPhs[i,j,pos,:,:n,0]=phs[0,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#phase
-                self.reorderedPhs[i,j,pos,:,:n,1]=phs[1,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#amplitude
-        #nsubx=    self.nsubx
-        n=self.phasesize
-        typecode=self.reorderedPhs.dtype
-        if self.rowintegtime!=None:
-            # support for rolling shutter model
-            r=self.rowintegtime/self.tstep
-            l=self.nIntegrations-r
-            if int(pos)==0: # first frame
-                # roll backwards, irrelevant for the first exposure since it all wraps around
-                self.reorderedPhs[:,:,:,:,:n]=numpy.roll(
-                     self.reorderedPhs[:,:,:,:,:n], -int(r), axis=2 )
-##(DEBUGing)                print("DEBUG:rolling back by **{0:d}**".format(-int(r)))
+#         ## it is assumed that the two functions below are compiled into
+#         ## efficient bytecode, hence the switch only occurs once per
+#         ## call to reorder
+#         elif self.atmosPhaseType=="phaseonly":
+#             #If the phase isn't the same size as expected, interpolate it.  This works best when there is no dm pupil - and its best to check that the new pupil specified for this centroid object is the right size.  i.e. have a look at (in simCtrl):  
+#             #w=wfscentList[0].thisObjList[0].wfscentObj;data=w.phsInterp.copy()*w.pupfn
+#             #It might be necessary to slightly oversize the pupil for atmos module, so that interpolation is okay.
+#             if phs.shape!=(self.nsubx*self.phasesize,self.nsubx*self.phasesize):
+#                 x=numpy.arange(phs.shape[1])/float(phs.shape[1]-1)
+#                 if phs.shape[0]!=phs.shape[1]:
+#                     raise Exception("Expected square phase")
+#                 b=scipy.interpolate.interp2d(x,x,phs,kind="cubic")
+#                 n=self.nsubx*self.phasesize
+#                 xnew=(numpy.arange(n)*phs.shape[1]/float(n)-(((n-1)*phs.shape[1])/float(n) - (phs.shape[1]-1))/2.)/float(phs.shape[1]-1)
+#                 phs=b(xnew,xnew).astype(self.reorderedPhs.dtype)
+#                 self.phsInterp=phs#just save in case someone wants to view it later.  Maybe this is a waste of memory...
+#             def _doassign(i,j,pos,n,phs,typecode):
+#                 self.reorderedPhs[i,j,pos,:,:n]=phs[i*n:(i+1)*n,j*n:(j+1)*n]#.astype(typecode)
+#         elif self.atmosPhaseType=="phaseamp":
+#             #interpolating phase not yet implemented.
+#             def _doassign(i,j,pos,n,phs,typecode):
+#                 self.reorderedPhs[i,j,pos,:,:n,0]=phs[0,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#phase
+#                 self.reorderedPhs[i,j,pos,:,:n,1]=phs[1,i*n:(i+1)*n,j*n:(j+1)*n].astype(typecode)#amplitude
+#         #nsubx=    self.nsubx
+#         n=self.phasesize
+#         typecode=self.reorderedPhs.dtype
+#         if self.rowintegtime!=None:
+#             # support for rolling shutter model
+#             r=self.rowintegtime/self.tstep
+#             l=self.nintegrations-r
+#             if int(pos)==0: # first frame
+#                 # roll backwards, irrelevant for the first exposure since it all wraps around
+#                 self.reorderedPhs[:,:,:,:,:n]=numpy.roll(
+#                      self.reorderedPhs[:,:,:,:,:n], -int(r), axis=2 )
+# ##(DEBUGing)                print("DEBUG:rolling back by **{0:d}**".format(-int(r)))
 
-            # If the array isn't nan (hi gramps!) then we know some of the
-            # data is valid and for rolling shutter mode, don't overwrite the first
-            # l position, so the i loop is j dependent.  If the array is nan (hi gran!)
-            # then this is the first frame.
-        for i in xrange(self.nsubx):
-            for j in xrange(self.nsubx):
-                if self.rowintegtime!=None and pos<l and j==0:
-                    # only needs to be carried out for the the first j:-
-                    # if rolling shutter and are at the start, either,
-                    # (a) check i and if not used in the next frame, overwrite
-                    #     the unused parts with nan or, more simply,
-                    # (b) skip overwriting and hope for the best.
-                    # Option (b) is harder to diagnose if there is a mistake in
-                    # the code.
-                    # To enable option (b), comment out the if statement.
-                    # To enable option (a), keep the if statement.
-                    # Both require the escape-from-the-loop clause.
-                    # <<< EOL                                     # option (a) 
-                    if pos<int(i*(self.nsubx-1)**-1.0*l+0.5):     # option (a) 
-                        self.reorderedPhs[i,:,pos,:,:n]=numpy.nan # option (a) 
-##(DEBUGing)                        print("DEBUG:setting {0[0]:d},{0[2]:d} to nan".format((i,j,pos)))
-                    continue                         # option (a) & option (b)
-                _doassign(i,j,pos,n,phs,typecode) # more efficient than switching everytime
+#             # If the array isn't nan (hi gramps!) then we know some of the
+#             # data is valid and for rolling shutter mode, don't overwrite the first
+#             # l position, so the i loop is j dependent.  If the array is nan (hi gran!)
+#             # then this is the first frame.
+#         for i in xrange(self.nsubx):
+#             for j in xrange(self.nsubx):
+#                 if self.rowintegtime!=None and pos<l and j==0:
+#                     # only needs to be carried out for the the first j:-
+#                     # if rolling shutter and are at the start, either,
+#                     # (a) check i and if not used in the next frame, overwrite
+#                     #     the unused parts with nan or, more simply,
+#                     # (b) skip overwriting and hope for the best.
+#                     # Option (b) is harder to diagnose if there is a mistake in
+#                     # the code.
+#                     # To enable option (b), comment out the if statement.
+#                     # To enable option (a), keep the if statement.
+#                     # Both require the escape-from-the-loop clause.
+#                     # <<< EOL                                     # option (a) 
+#                     if pos<int(i*(self.nsubx-1)**-1.0*l+0.5):     # option (a) 
+#                         self.reorderedPhs[i,:,pos,:,:n]=numpy.nan # option (a) 
+# ##(DEBUGing)                        print("DEBUG:setting {0[0]:d},{0[2]:d} to nan".format((i,j,pos)))
+#                     continue                         # option (a) & option (b)
+#                 _doassign(i,j,pos,n,phs,typecode) # more efficient than switching everytime
 
     def makeImage(self,phs,img,pup):
         tmpphs=numpy.zeros(img.shape,numpy.complex64)
@@ -848,13 +756,13 @@ class centroid:
         self.subimg*=0.0                                                  # Zero the CCD
         if self.rowintegtime!=None:
             r=self.rowintegtime/self.tstep
-            l=self.nIntegrations-r
+            l=self.nintegrations-r
 ##(DEBUGing)            print("DEBUG:createSHImgs:",r,l)
         #nsubx=self.nsubx
         for i in xrange(self.nsubx):
            for j in xrange(self.nsubx):
               if self.subflag[i][j]!=1: continue
-              for k in xrange(self.nIntegrations):
+              for k in xrange(self.nintegrations):
                  if ( self.rowintegtime!=None and
                        ( k<int(i*(self.nsubx-1)**-1.0*l+0.5) or
                          k>int(i*(self.nsubx-1)**-1.0*l+r-0.5) )):
@@ -890,10 +798,8 @@ class centroid:
                          raise Exception("Error with typecodes in "+
                                 "wfs.py mkimg")
                      if self.atmosPhaseType=="phaseonly":
-                         #cmod.mkimgfloat.mkimg(self.fftwPlan,phssub,self.tmpImg,self.pupsub[i][j])
                          self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
                      elif self.atmosPhaseType=="phaseamp":
-                         #cmod.mkimgfloat.mkimg(self.fftwPlan,phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
                          self.makeImage(phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
                      elif self.atmosPhaseType=="realimag":
                          raise Exception("realimag")
@@ -1205,18 +1111,25 @@ class centroid:
 
         #now need to reorder... first average the different integration times
         #Actually, maybe we should just use the latest, since we're magic... oh well.
-        phs=(self.reorderedPhs.sum(2)/self.reorderedPhs.shape[2])[:,:,:,:self.phasesize]
+        #phs=(self.reorderedPhs.sum(2)/self.reorderedPhs.shape[2])[:,:,:,:self.phasesize]
         #phs.shape=nsubx,nsubx,phasesize,phasesize_v
         
 
         #tmp1=phs*magicSlopes#*R0_LAMBDA/WFS_LAMBDA
         #tmp2=phs*magicSlopes.transpose()#*R0_LAMBDA/WFS_LAMBDA
         cent=self.outputData#numpy.zeros((nsubx**2,2),numpy.float32)
-        for i in range(nsubx):
-            for j in range(nsubx):
-                if self.subflag[i,j]:
-                    cent[i,j,0]=(phs[i,j]*magicSlopes[i*n:(i+1)*n,j*n:(j+1)*n]).sum()
-                    cent[i,j,1]=(phs[i,j]*magicSlopes.transpose()[i*n:(i+1)*n,j*n:(j+1)*n]).sum()
+        n=self.phase.shape[0]/self.nsubx
+        res=self.phase*magicSlopes
+        res.shape=self.nsubx,n,self.nsubx,n
+        cent[:,:,0]=res.sum(3).sum(1)
+        res=self.phase*magicSlopes.T
+        res.shape=self.nsubx,n,self.nsubx,n
+        cent[:,:,1]=res.sum(3).sum(1)
+        #for i in range(nsubx):
+        #    for j in range(nsubx):
+        #        if self.subflag[i,j]:
+                    #cent[i,j,0]=(phs[i,j]*magicSlopes[i*n:(i+1)*n,j*n:(j+1)*n]).sum()
+                    #cent[i,j,1]=(phs[i,j]*magicSlopes.transpose()[i*n:(i+1)*n,j*n:(j+1)*n]).sum()
         return cent
 
     def magicSHSlopes(self):
@@ -1264,15 +1177,18 @@ class centroid:
             raise Exception("Not yet sorted for non-cmod type things")
         for i in range(steps):
             #put a slope into it
-            tilt=-numpy.arange(self.phasesize)*stepList[i]
-            self.reorderedPhs[:,:,:]=tilt
+            #tilt=-numpy.arange(self.phasesize)*stepList[i]
+            tilt=-numpy.arange(self.phase.shape[1])*stepList[i]
+            #self.reorderedPhs[:,:,:]=tilt
+            self.phase[:]=tilt
             #compute centroids (x)
             self.runCalc(control)
             #Now take the x centroids and store...
             self.calibrateData[0,:,:,i]=self.centx
 
             #And now repeat for the y centroids
-            self.reorderedPhs[:,:,:]=tilt[None].transpose()
+            #self.reorderedPhs[:,:,:]=tilt[None].transpose()
+            self.phase[:]=tilt[None].T
             self.runCalc(control)
             self.calibrateData[1,:,:,i]=self.centy
         if self.centcmod!=None:#restore the original values.
@@ -1416,15 +1332,18 @@ class centroid:
         #TODO: the best way of doing this is to use cal_source==0, and set addPoisson=0, readnoise=0, and that way the backgrounds are correct.
         for i in range(steps):
             #put a slope into it
-            tilt=-numpy.arange(self.phasesize)*stepList[i]
-            self.reorderedPhs[:,:,:]=tilt
+            #tilt=-numpy.arange(self.phasesize)*stepList[i]
+            tilt=-numpy.arange(self.phase.shape[1])*stepList[i]
+            #self.reorderedPhs[:,:,:]=tilt
+            self.phase[:]=tilt
             #compute centroids (x)
             self.runCalc(control)
             #Now take the x centroids and store...
             self.calibrateData[0,:,:,i]=self.centx
 
             #And now repeat for the y centroids
-            self.reorderedPhs[:,:,:]=tilt[None].transpose()
+            #self.reorderedPhs[:,:,:]=tilt[None].transpose()
+            self.phase[:]=tilt[None].T
             self.runCalc(control)
             self.calibrateData[1,:,:,i]=self.centy
         if self.centcmod!=None:#restore the original values.
@@ -1629,7 +1548,8 @@ class centroid:
             print "Taking reference slopes from current camera input"
             self.runSlopeCalc(control)
         else:
-            self.reorderedPhs[:]=0
+            #self.reorderedPhs[:]=0
+            self.phase[:]=0
             self.runCalc(control)
         control["cal_source"]=c
         #self.linearSteps=steps
@@ -1672,7 +1592,8 @@ class centroid:
                     print "Taking reference slopes from current camera input"
                     self.runSlopeCalc(control)
                 else:
-                    self.reorderedPhs[:]=0
+                    #self.reorderedPhs[:]=0
+                    self.phase[:]=0
                     self.runCalc(control)
                 self.centcmod.update(util.centcmod.CORRELATIONCENTROIDING,self.correlationCentroiding)
                 control["cal_source"]=c
@@ -1711,7 +1632,8 @@ class centroid:
                 self.linearSteps=None
                 if self.centcmod==None:
                     raise Exception("Not yet sorted for non-cmod type things")
-                self.reorderedPhs[:]=0
+                #self.reorderedPhs[:]=0
+                self.phase[:]=0
                 self.runCalc(control)
                 control["cal_source"]=c
                 self.linearSteps=steps
@@ -1732,13 +1654,13 @@ def compute(phase,nsubx):
     phasesize=npup/nsubx
     nimg=phasesize
     ncen=phasesize
-    c=util.centroid.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)#addPoisson=0,sig=1.
+    c=util.centroidNew.centroid(nsubx,util.tel.Pupil(npup,npup/2,0,nsubx),phase=phase,fftsize=fftsize,binfactor=None,phasesize=phasesize,nimg=nimg,ncen=ncen)#addPoisson=0,sig=1.
     c.easy()
-    c.reformatPhs(phase)
+    #c.reformatPhs(phase)
     c.runCalc({"cal_source":0})
     #c.outputData is the slopes
     #c.cmodbimg is the wfs image (divided into subaps).
-    #Then, put your data into self.reorderedPhs... 
+
     img=c.reformatImg()# can be used to get a displayable image.
     #If you have a 2D phase map, you can put this into reorderdPhs by calling:
     return img,c

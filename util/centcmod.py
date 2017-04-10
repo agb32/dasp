@@ -37,9 +37,10 @@ REFCENTS=18
 CALCOEFF=19
 USEBRIGHTEST=20
 INTEGSTEPS=21#should never be changed to something larger than the initial value.
+OUTPUTPHASEARR=22#just for testing
 class centcmod:
   def __init__(self,nthreads,nsubx,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,
-               addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,
+               addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,nlatency,seed,
                phs,pup,spotpsf,cents,bimg,minarea,opticalBinning,centWeight,correlationCentroiding,
                corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFitVals,inputImage=None,subapLocation=None):
     """Wrapper for the c centroid module.
@@ -67,6 +68,7 @@ class centcmod:
     self.pxlPower=pxlPower
     
     self.nintegrations=nintegrations
+    self.nlatency=nlatency
     self.seed=seed
     self.phs=phs
     
@@ -107,12 +109,12 @@ class centcmod:
             raise Exception("corrimg wrong shape or type")
 
     print "centcmod: cmod.cent.initialise"
-    #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor
+    #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.nlatency,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor
     #Problem? self.seed has been a list sometimes?
     try:
-      self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal,self.inputImage,self.subapLocation)
+      self.centstruct=cmod.cent.initialise(self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.nlatency,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal,self.inputImage,self.subapLocation)
     except:
-      print [type(x) for x in [self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal,self.inputImage,self.subapLocation]]
+      print [type(x) for x in [self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.nlatency,self.seed,self.phs,self.pupfn,self.spotpsf,self.cents,self.subflag,self.bimg,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,self.parabolicFit,self.gaussianFit,self.gaussianMinVal,self.gaussianReplaceVal,self.inputImage,self.subapLocation]]
       raise
   def run(self,calsource):
     if calsource!=self.calsource:
@@ -143,7 +145,7 @@ class centcmod:
     cmod.cent.update(self.centstruct,what,val)
 
 if __name__=="__main__":
-  import Numeric
+#  import Numeric
   import util.centcmod
   import util.tel
   import gist
@@ -165,13 +167,13 @@ if __name__=="__main__":
   nintegrations=1
   seed=1
   pup=util.tel.Pupil(nsubx*phasesize,nsubx*phasesize/2,0,nsubx)
-  #subflag=pup.subflag.astype(Numeric.Int32)
-  #fracSubArea=(pup.subarea/phasesize**2).astype(Numeric.Float32)
+  #subflag=pup.subflag.astype(numpy.int32)
+  #fracSubArea=(pup.subarea/phasesize**2).astype(numpy.float32)
   #pupfn=pup.perSubap(nsubx)
-  cents=Numeric.zeros((nsubx*nsubx,2),Numeric.Float32)
-  phs=Numeric.zeros((nsubx*phasesize,nsubx*phasesize),Numeric.Float32)
-  phs[:,]=(Numeric.arange(nsubx*phasesize)*10./15.).astype("f")
-  reorderedPhs=Numeric.zeros((nsubx,nsubx,nintegrations,phasesize,(phasesize+3)&~3),Numeric.Float32)
+  cents=numpy.zeros((nsubx*nsubx,2),numpy.float32)
+  phs=numpy.zeros((nsubx*phasesize,nsubx*phasesize),numpy.float32)
+  phs[:,]=(numpy.arange(nsubx*phasesize)*10./15.).astype("f")
+  reorderedPhs=numpy.zeros((nsubx,nsubx,nintegrations,phasesize,(phasesize+3)&~3),numpy.float32)
   for i in range(nsubx):
     for j in range(nsubx):
       for k in range(nintegrations):
@@ -180,12 +182,12 @@ if __name__=="__main__":
 
   spotpsfdim=4
   if spotpsfdim==2:
-    spotpsf=Numeric.zeros((fftsize,fftsize),"f")
+    spotpsf=numpy.zeros((fftsize,fftsize),"f")
     spotpsf[fftsize/2-5:fftsize/2+5,fftsize/2-5:fftsize/2+5]=1
     spotpsf[fftsize/2-7:fftsize/2-3,fftsize/2-7:fftsize/2-3]=1
     spotpsf[fftsize/2+3:fftsize/2+7,fftsize/2+3:fftsize/2+7]=1
   elif spotpsfdim==4:
-    spotpsf=Numeric.zeros((nsubx,nsubx,fftsize,fftsize),"f")
+    spotpsf=numpy.zeros((nsubx,nsubx,fftsize,fftsize),"f")
     spotpsf[:,:,fftsize/2-5:fftsize/2+5,fftsize/2-5:fftsize/2+5]=1
     spotpsf[:,:,fftsize/2-7:fftsize/2-3,fftsize/2-7:fftsize/2-3]=1
     spotpsf[:,:,fftsize/2+3:fftsize/2+7,fftsize/2+3:fftsize/2+7]=1
@@ -193,9 +195,9 @@ if __name__=="__main__":
     #spotpsf[2,2]=0.
   else:
     spotpsf=None
-  if type(sig)==Numeric.ArrayType:
+  if type(sig)==numpy.ArrayType:
     sig=sig.flat
-  bimg=Numeric.zeros((nsubx,nsubx,nimg,nimg),Numeric.Float32)
+  bimg=numpy.zeros((nsubx,nsubx,nimg,nimg),numpy.float32)
   print "Initialising"
   cc=util.centcmod.centcmod(nthreads,nsubx,ncen,fftsize,nimg,phasesize,readnoise,readbg,addPoisson,noiseFloor,sig,skybrightness,calsource,pxlPower,nintegrations,seed,reorderedPhs,pup,spotpsf,cents,bimg)
   print "Running"
@@ -203,7 +205,7 @@ if __name__=="__main__":
   print "Time taken",t
 
   def makeImage(bimg):
-    img=Numeric.zeros((nsubx*nimg,nsubx*nimg),Numeric.Float32)
+    img=numpy.zeros((nsubx*nimg,nsubx*nimg),numpy.float32)
     for i in range(nsubx):
       for j in range(nsubx):
         img[i*nimg:(i+1)*nimg,j*nimg:(j+1)*nimg]=bimg[i,j]
