@@ -30,8 +30,8 @@ git clone https://bitbucket.org/mpi4py/mpi4py.git
 cd mpi4py
 python setup.py build   #(if this fails, it means you won't have MPI... but thats okay for small/medium simulations)
 sudo python setup.py install
-(cd /usr/lib64 && ln -s atlas/libsatlas.so libcblas.so)
-(cd /usr/lib64 && ln -s atlas/libsatlas.so libatlas.so)
+(cd /usr/lib64 && sudo ln -s atlas/libsatlas.so libcblas.so)
+(cd /usr/lib64 && sudo ln -s atlas/libsatlas.so libatlas.so)
 
 Secondly, check MPI is working (only necessary if you want large
 simulations, e.g. ELT-scale):
