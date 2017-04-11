@@ -2641,15 +2641,15 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   float gaussianMinVal,gaussianReplaceVal;
   int threshType;
   float *sigArr=NULL;
-  PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj,*inputImageObj,*subapLocationObj;
+  PyObject *spotpsfObj,*sigObj,*skybrightnessObj,*centWeightObj,*corrPatternObj,*corrimgObj,*useBrightestObj,*inputImageObj,*subapLocationObj,*phsObj;
   PyArrayObject *phs,*pupfn,*cents,*fracSubArea,*subflag,*bimg,*sigArrObj,*aobj,*corrPattern=NULL,*corrimg=NULL,*inputImageArr=NULL,*subapLocationArr=NULL;
   centstruct *c;
-  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifiilO!O!OO!O!O!O!iOifOOiiOiiiffOO",&nthreads,
+  if(!PyArg_ParseTuple(args,"iiiiiiiffifOOifiilOO!OO!O!O!O!iOifOOiiOiiiffOO",&nthreads,
 		       &nsubaps,&ncen,&fftsize,&clipsize,
 		       &nimg,&phasesize,&readnoise,&readbg,&addPoisson,&noiseFloor,
 		       &sigObj,&skybrightnessObj,&calsource,
 		       &pxlPower,&nintegrations,&nlatency,&seed,
-		       &PyArray_Type,&phs,&PyArray_Type,
+		       &phsObj,&PyArray_Type,
 		       &pupfn,&spotpsfObj,&PyArray_Type,&cents,
 		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor,&parabolicFit,&gaussianFit,&gaussianMinVal,&gaussianReplaceVal,&inputImageObj,&subapLocationObj)){
     printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,nlatency,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\ninputImage(None), subapLocation(None) (for when input is an input image)");
@@ -2683,21 +2683,27 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     printf("Error: centmodule - cents must be float and contiguous\n");
     return NULL;
   }
-  if(checkFloatContigArr(phs)!=0){
-    printf("Error: centmodule - phs must be float and contiguous\n");
-    return NULL;
-  }
-  if(phs->nd==2)
-    c->phaseStep=1;
-  else if(phs->nd==3)
-    c->phaseStep=2;
-  else{
-    printf("Error: centmodule - phase should be 2D or 3D (for phase+amp)\n");
-    return NULL;
-  }
-  if(phs->dimensions[0]!=phasesize*c->nsubx || phs->dimensions[1]!=phasesize*c->nsubx){//we need to interpolate the phase.
-    c->interpolatePhase=1;
-    c->inputPhaseSize=phs->dimensions[0];
+  if(PyArray_Check(phsObj)){
+    phs=(PyArrayObject*)phsObj;
+    if(checkFloatContigArr(phs)!=0){
+      printf("Error: centmodule - phs must be float and contiguous\n");
+      return NULL;
+    }
+    if(phs->nd==2)
+      c->phaseStep=1;
+    else if(phs->nd==3)
+      c->phaseStep=2;
+    else{
+      printf("Error: centmodule - phase should be 2D or 3D (for phase+amp)\n");
+      return NULL;
+    }
+    if(phs->dimensions[0]!=phasesize*c->nsubx || phs->dimensions[1]!=phasesize*c->nsubx){//we need to interpolate the phase.
+      c->interpolatePhase=1;
+      c->inputPhaseSize=phs->dimensions[0];
+    }
+    c->phs=(float*)phs->data;//can include amplitude data too (interleaved, phase first).
+  }else{//input phase not specified - must be image input.
+    c->phs=NULL;
   }
     
   if(checkFloatContigArr(pupfn)!=0){
@@ -2816,7 +2822,6 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->nintegrations=nintegrations;
   c->nlatency=nlatency;//number of frames where not exposing during readout.
   c->seed=seed;
-  c->phs=(float*)phs->data;//can include amplitude data too (interleaved, phase first).
   c->pupfn=(float*)pupfn->data;
   c->cents=(float*)cents->data;
   c->subflag=(int*)subflag->data;

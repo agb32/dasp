@@ -752,6 +752,7 @@ class centroid:
     def createSHImgs(self):
         """Do the FFTs etc and add integrations to create the powerspectra (high light level images).
         All this will eventually (we hope) be done in the FPGAs"""
+        raise Exception("Currently - this won't work, since reorderedPhs has been removed... if you need this, then we need to update")
         tmp=0.5*float(self.phasesize)/float(self.fftsize)*2.*numpy.pi
         self.subimg*=0.0                                                  # Zero the CCD
         if self.rowintegtime!=None:
