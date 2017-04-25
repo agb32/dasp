@@ -102,7 +102,7 @@ class centcmod:
     self.inputImage=inputImage#should be None if input to wfscent is phase.
     self.subapLocation=subapLocation#can be None.  Should be if input to wfscent is phase.
     if correlationCentroiding:
-      if corrPattern!=None:
+      if corrPattern is not None:
         if corrPattern.dtype.char!="f" or corrPattern.shape[:2]!=(nsubx,nsubx) or corrPattern.shape[2]<nimg or corrPattern.shape[3]!=corrPattern.shape[2]:
           raise Exception("corrPattern wrong shape or type: %s, %s - should be (%d,%d,>=%d,>=%d), f"%(str(corrPattern.shape),corrPattern.dtype.char,nsubx,nsubx,nimg,nimg))
           if corrimg.dtype.char!="f" or corrimg.shape!=corrPattern.shape:

@@ -121,7 +121,7 @@ class MultiGauss:
 
 
 class LineProfile:
-    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None,lam=589.,sig=None):
+    def __init__(self,n,nsubx,centralHeight,profile,heights,pxlscale,telDiam,launchDist=0.,launchTheta=0.,unelong=1.,oversamplefactor=1,ny=None,psfsize=None,lam=589.,sig=None,xoff=0.,yoff=-1.):
         """profile is the Na layer strengths, at heights.
         xoff,yoff can be used to shift the spots by this many pixels.
         pxlscale is arcsec per pixel (of the LGS psf, not the binned final images).
@@ -152,8 +152,8 @@ class LineProfile:
         self.centralHeight=centralHeight
         self.profile=profile
         self.heights=heights
-        self.xoff=0.
-        self.yoff=0.
+        self.xoff=xoff
+        self.yoff=yoff
         self.pxlscale=pxlscale
         self.telDiam=telDiam
         self.launchTheta=launchTheta*numpy.pi/180.
@@ -168,7 +168,7 @@ class LineProfile:
             self.psfsize=self.no
         else:
             self.psfsize=psfsize
-        self.psf=util.centroid.createAiryDisc2(self.psfsize,unelong/self.pxlscale*oversamplefactor,0,-1)
+        self.psf=util.centroid.createAiryDisc2(self.psfsize,unelong/self.pxlscale*oversamplefactor,self.xoff,self.yoff)
     def generate(self,clearPadding=0,includeFocus=0):
         """How this works:
         Integrates along the line profile at required resolution.

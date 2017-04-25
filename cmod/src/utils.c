@@ -1724,15 +1724,18 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
   PyArrayObject *inarr,*refarr,*outarr=NULL;
   int i,j,x,y;
   int nthreads=0;
+  int mode=0;//0 to normalise by overlap size, 1 to normalise by prod of flux.
+  //Use 0 for solar and 1 for LGS.
   PyObject *outarrobj=NULL;
   npy_intp corrsize[2];
   float *outdata,*indata,*refdata;
   int outstridex,outstridey,instridex,instridey,refstridex,refstridey;
   int inx,iny,ncenx,nceny,mx,my,refx,refy;
   float s,d;
-  int dx,dy,minx,miny,sinx,siny,srefx,srefy;
+  int minx,miny,sinx,siny,srefx,srefy;
   int offy,offx;
-  if(!PyArg_ParseTuple(args,"O!O!|Oi",&PyArray_Type,&inarr,&PyArray_Type,&refarr,&outarrobj,&nthreads)){
+  float b,c,tot,tot2;
+  if(!PyArg_ParseTuple(args,"O!O!|Oii",&PyArray_Type,&inarr,&PyArray_Type,&refarr,&outarrobj,&nthreads,&mode)){
     printf("Usage: input array, reference array, output array or correlation size\n");
     return NULL;
   }
@@ -1752,7 +1755,7 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
     printf("Reference array must be float32\n");
     return NULL;
   }
-  if(outarrobj==NULL){
+  if(outarrobj==NULL || outarrobj==Py_None){
     corrsize[0]=inarr->dimensions[0];
     corrsize[1]=inarr->dimensions[1];
     outarr=(PyArrayObject*)PyArray_ZEROS(2,corrsize,NPY_FLOAT,0);
@@ -1793,9 +1796,6 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
   refx=refarr->dimensions[1];
   //The ref must be at least as big as the inarr.
   //Now do the correlation
-  dx=(refx-inx)/2;
-  dy=(refy-iny)/2;
-  //printf("dx, dy: %d %d\n",dx,dy);
   minx=refx<inx?refx:inx;
   miny=refy<iny?refy:iny;
   //imagine the reference moving over the image...
@@ -1805,14 +1805,12 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
     my=miny;
     //starting point in the reference
     srefy=-offy-(iny-refy)/2;
-    if(srefy<0){
+    if(srefy<0)
       srefy=0;
-    }
     //starting point in the input image
     siny=(iny-refy)/2+offy;
-    if(siny<0){
+    if(siny<0)
       siny=0;
-    }
     if(siny+my>iny)
       my=iny-siny;
     if(srefy+my>refy)
@@ -1823,162 +1821,48 @@ static PyObject* correlateDifferenceSquared(PyObject *self,PyObject *args){
       mx=minx;
       //starting point in the reference
       srefx=-offx-(inx-refx)/2;
-      if(srefx<0){
+      if(srefx<0)
 	srefx=0;
-      }
       //starting point in the input image
       sinx=(inx-refx)/2+offx;
-      if(sinx<0){
+      if(sinx<0)
 	sinx=0;
-      }
       if(sinx+mx>inx)
 	mx=inx-sinx;
       if(srefx+mx>refx)
 	mx=refx-srefx;
       
-      /*
-    if(refy>=iny){
-      my=miny;
-      if(abs(offy)>dy)//the overlap between input and ref.
-	my-=abs(offy)-dy;
-      siny=0;
-      if(nceny/2-i>dy)
-	siny=nceny/2-i-dy;//starting point for input
-      srefy=dy-(nceny/2-i);//starting point for ref.
-      if(srefy<0)
-	srefy=0;
-    }else{//input larger than reference.
-      siny=(iny-refy)/2-(offy);
-      if(siny<0)
-	siny=0;
-      srefy=0;
-      if(nceny/2-i>(iny-refy)/2)
-	srefy=nceny/2-i-(iny-refy)/2;
-      my=miny;
-      if(nceny/2-i>(iny-refy)/2)
-	my-=nceny/2-i-(iny-refy)/2;
-      if(offy+my+iny/2-refy/2>iny)
-	my-=offy+my+iny/2-refy/2-iny;
-    }
-    for(j=0;j<ncenx;j++){
-      offx=j-ncenx/2;
-      if(refx>inx){
-	mx=minx;//the overlap between input and ref.
-	if(abs(offx)>dx)
-	  mx-=abs(offx)-dx;
-	sinx=0;
-	if(ncenx/2-j>dx)
-	  sinx=ncenx/2-j-dx;//starting point for input
-	srefx=dx-(ncenx/2-j);
-	if(srefx<0)
-	  srefx=0;
-      }else{//input larger than reference
-	sinx=(inx-refx)/2-(offx);
-	if(sinx<0)
-	  sinx=0;
-	srefx=0;
-	if(ncenx/2-j>(inx-refx)/2)
-	  srefx=ncenx/2-j-(inx-refx)/2;
-	mx=minx;
-	if(ncenx/2-j>(inx-refx)/2)
-	  mx-=ncenx/2-j-(inx-refx)/2;
-	if(offx+mx+inx/2-refx/2>inx)
-	  mx-=offx+mx+inx/2-refx/2-inx;
-	  }*/
 	
       s=0;
-      //printf("%d %d: %d %d   %d %d  %d %d\n",i,j,my,mx,srefy,siny,srefx,sinx);
-      for(y=0;y<my;y++){
-	for(x=0;x<mx;x++){
-	  d=refdata[(srefy+y)*refstridey+(srefx+x)*refstridex]-indata[(siny+y)*instridey+(sinx+x)*instridex];
-	  s+=d*d;
+      if(mode==0){
+	for(y=0;y<my;y++){
+	  for(x=0;x<mx;x++){
+	    d=refdata[(srefy+y)*refstridey+(srefx+x)*refstridex]-indata[(siny+y)*instridey+(sinx+x)*instridex];
+	    s+=d*d;
+	  }
 	}
+	if(mx!=0 && my!=0)
+	  outdata[i*outstridey+j*outstridex]=s/(mx*my);
+	
+      }else{
+	tot=0;
+	tot2=0;
+	for(y=0;y<my;y++){
+	  for(x=0;x<mx;x++){
+	    b=indata[(siny+y)*instridey+(sinx+x)*instridex];
+	    c=refdata[(srefy+y)*refstridey+(srefx+x)*refstridex];
+	    d=c-b;
+	    tot+=b;
+	    tot2+=c;
+	    s+=d*d;
+	  }
+	}
+	if(tot!=0 && tot2!=0)
+	  outdata[i*outstridey+j*outstridex]=s/(tot*tot2);
+	
       }
-      if(mx!=0 && my!=0)
-	outdata[i*outstridey+j*outstridex]=s/(my*mx);
     }
   }
-  /*
-  for(i=0;i<nceny;i++){
-    my=refy-abs(nceny/2-i);
-    for(j=0;j<ncenx;j++){
-      mx=refx-abs(ncenx/2-j);
-      s=0;
-      for(y=0;y<my;y++){
-	for(x=0;x<mx;x++){
-	  if(i<nceny/2){
-	    if(j<nceny/2){
-	      if(y>=refy || x>=refx || nceny/2-i+y>=iny || ncenx/2-j+x>=inx)
-		printf("a  %d %d %d %d  %d %d %d %d\n",y,x,nceny/2-i+y,ncenx/2-j+x,i,j,y,x);
-	      d=refdata[y*refstridey+x*refstridex]-indata[(nceny/2-i+y)*instridey+(ncenx/2-j+x)*instridex];
-	    }else{
-	      if(y>=refy || j-ncenx/2+x>=refx || nceny/2-i+y>=iny || x>=inx)
-		printf("b  %d %d %d %d  %d %d %d %d\n",y,j-ncenx/2+x,nceny/2-i+y,x,i,j,y,x);
-	      d=refdata[y*refstridey+(j-ncenx/2+x)*refstridex]-indata[(nceny/2-i+y)*instridey+x*instridex];
-	    }
-	  }else{
-	    if(j<ncenx/2){
-	      if(i-nceny/2+y>=refy ||x>=refx ||y>=iny ||ncenx/2-j+x>=inx)
-		printf("c  %d %d %d %d  %d %d %d %d\n",i-nceny/2+y,x,y,ncenx/2-j+x,i,j,y,x);
-	      d=refdata[(i-nceny/2+y)*refstridey+x*refstridex]-indata[(y)*instridey+(ncenx/2-j+x)*instridex];
-	    }else{
-	      if(i-nceny/2+y>=refy ||j-ncenx/2+x>=refx ||y>=iny||x>=inx)
-		printf("d  %d %d %d %d  %d %d %d %d\n",i-nceny/2+y,j-ncenx/2+x,y,x,i,j,y,x);
-	      d=refdata[(i-nceny/2+y)*refstridey+(j-ncenx/2+x)*refstridex]-indata[(y)*instridey+x*instridex];
-	    }
-	  }
-	  s+=d*d;
-	}
-      }
-      printf("%g %g %d %d\n",s/(mx*my),s,mx,my);
-      outdata[i*outstridey+j*outstridex]=s/(my*mx);
-    }
-    }*/
-    /*
-    //compute number of pixels to correlate over:
-    //Several cases to consider.
-    //starting location is nceny/2-i from centre of ref.
-    //So refy/2-(nceny/2-i).
-    sy=refy/2-(nceny/2-i);//get the starting point in the ref array.
-    my=iny;
-    if(sy<0){
-      my+=sy;//reduce my.
-      sy=0;
-    }
-    //1. inarr is entirely within ref.
-    
-    if(iny<refy){
-      if(refy/2>=nceny/2-i)
-	
-    
-    my=corrsize[0]-abs(iny-refy)/2-i;
-    
-    
-    my=corrsize[0]-abs(nceny/2-i);
-    for(j=0;j<ncenx;j++){
-      mx=corrsize[1]-abs(ncenx/2-j);
-      s=0;
-      for(y=0;y<my;y++){
-	for(x=0;x<mx;x++){
-	  if(i<ncen/2){
-	    if(j<ncen/2){
-	      d=refarr[y*corrsize+x]-inarr[(ncen/2-i+y)*nimg+ncen/2-j+x];
-	    }else{
-	      d=refarr[y*corrsize+j-ncen/2+x]-inarr[(ncen/2-i+y)*nimg+x];
-	    }
-	  }else{
-	    if(j<ncen/2){
-	      d=corrPattern[(i-ncen/2+y)*corrsize+x]-bimg[(y)*nimg+ncen/2-j+x];
-	    }else{
-	      d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
-	    }
-	  }
-	  s+=d*d;
-	}
-      }
-      output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s/(my*mx);
-    }
-    }*/
   return (PyObject*)outarr;
 }
   

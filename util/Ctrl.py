@@ -204,7 +204,10 @@ class Ctrl:
             self.simID=self.initParamString
 
         self.config.this.simID=self.simID
-        self.sockConn=util.SockConn.SockConn(self.config.getVal("testrunport",default=9000)+self.rank,globals=self.globals,startThread=1,listenSTDIN=self.listenSTDIN,mpiWorldSize=self.mpiComm.size)
+        port=self.config.getVal("testrunport",default=9000)
+        if port is not None:
+            port+=self.rank
+        self.sockConn=util.SockConn.SockConn(port,globals=self.globals,startThread=1,listenSTDIN=self.listenSTDIN,mpiWorldSize=self.mpiComm.size)
         os.nice(self.config.getVal("nice",default=nice))
         if self.config.getVal("connectPortDict",default=0,warn=0):
             try:
@@ -472,7 +475,10 @@ class Ctrl:
             connParamsDict[i]=numpy.zeros((5,),numpy.int32)
             if i==self.mpiComm.rank:
                 connParamsDict[i][:4]=map(int,socket.gethostbyname(sockConn.host).split("."))
-                connParamsDict[i][4]=sockConn.port
+                if sockConn.port is None:
+                    connParamsDict[i][4]=-1
+                else:
+                    connParamsDict[i][4]=sockConn.port
             self.mpiComm.broadcast(connParamsDict[i],i)
             # and put them into a dict...
             connParamsDict[i]=(string.join(map(str,connParamsDict[i][:4]),"."),int(connParamsDict[i][4]))

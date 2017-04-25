@@ -97,28 +97,32 @@ class SockConn:
         self.host=host
         self.go=1
         self.fwd=fwd
-        self.lsock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         self.printmsg=0
-        bound=0
-        cnt=0
-        while bound==0 and cnt<1000:
-            try:
-                self.lsock.bind((host,port))
-            except:
-                print "WARNING Couldn't bind to port %d.  "%port,
-                port+=mpiWorldSize#Scientific.MPI.world.size#inc by number of processes in this mpi run
-                print "INFORMATION Trying port %d"%port
-                cnt+=1
-                self.port=port
-            else:
-                bound=1
-                print "INFORMATION Bound to port %d"%port
-        self.lsock.listen(1)
+        if port is None:
+            self.lsock=None
+            self.selIn=[]
+        else:
+            self.lsock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+            bound=0
+            cnt=0
+            while bound==0 and cnt<1000:
+                try:
+                    self.lsock.bind((host,port))
+                except:
+                    print "WARNING Couldn't bind to port %d.  "%port,
+                    port+=mpiWorldSize#Scientific.MPI.world.size#inc by number of processes in this mpi run
+                    print "INFORMATION Trying port %d"%port
+                    cnt+=1
+                    self.port=port
+                else:
+                    bound=1
+                    print "INFORMATION Bound to port %d"%port
+            self.lsock.listen(1)
+            self.selIn=[self.lsock]
         self.listenSTDIN=listenSTDIN
         if mpiWorldSize>1:#Scientific.MPI.world.size>1:
             self.listenSTDIN=0
-        self.selIn=[self.lsock]
         if self.listenSTDIN:
             self.selIn.append(sys.stdin)
         self.selOut=[]
@@ -182,7 +186,7 @@ class SockConn:
                         ft=1.
                     if ft==0:
                         ft=1.
-                    print "INFORMATION At iteration %d, taking %gs per frame (%g fps) on port %d"%(ti,ft,1./ft,self.port)
+                    print "INFORMATION At iteration %d, taking %gs per frame (%g fps) on port %s"%(ti,ft,1./ft,str(self.port))
                     #print data,len(data)
                 elif s==self.fsock:#forward data... (return to client)
                     data=s.recv(1024)

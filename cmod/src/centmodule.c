@@ -175,6 +175,7 @@ int planSize;
   float *pupfn;//store the pupil
   float *spotpsf;//array 2 or 4D holding the PSFs - used for LGS spot elongation.
   float *sigArr;//optional array holding subap sig values if varying across ap - used for LGS.
+  float *totsigArr;//precompute the total signal for normalisation. This is related to FFT size, and is used as the demoninator in the normalisation - i.e. sigArr[i]/totsigArr[i].
   float *cents;
   //int ccdImgSize;
   //float *ccdImg;
@@ -491,8 +492,14 @@ int computeHll(float *phs,int subx,int suby,int inputWidth,int phasesize,int fft
   }
   fftwf_execute_dft(c->fftplan,fftarr,fftarr);
     //rtval|=doFFT(fftsize,phasesize,1,workbuf->phsRe,workbuf->phsIm,workbuf);//do the 2d fft
+  /*double tot=0.;
+  for(i=0;i<fftsize*fftsize;i++)
+    tot+=crealf(fftarr[i])*crealf(fftarr[i])+cimagf(fftarr[i])*cimagf(fftarr[i]);
+    printf("tot %g %d\n",tot,fftsize);//equal to fftsize*fftsize*phasesize*phasesize  (or fftsize*fftsize*sum(pup)*/
   rtval|=addPowerSpecCentral(fftsize,(float*)fftarr,paddedsize,hll,additive);//changed from addPowerSpec when extra tilt added to tiltfn. compute the power spectrum (ie high light level img) 
   //rtval|=flipArray(paddedsize,hll,0,NULL);//removed when extra tilt added to tiltfn.
+  //The total power in the unclipped image is equal to the image size, i.e. the total number of pixels multiplied by pupil function.  i.e. the sum of the pupil function.
+  
   return rtval;
 }
 void multArrArr(int datasize,float *data1,float *data2){
@@ -1061,6 +1068,13 @@ void computeFit(const int nimg,const int ncen,int fitsize,float *img,float *cent
   int startx,starty;
   float minflux=0;
   int nc=(nimg-ncen)/2;
+  int quadInterp=0;
+  if(fitsize<0){//do a quadratic interpolation fit (on a 3x3 region)
+    quadInterp=1;
+    fitsize=3;
+  }
+  if(fitsize<3)
+    fitsize=3;
   //fitsize usually odd - since the correlation will be centred on 1 pixel when centred.
   //Do a parabolic/gaussian fit...
   if(doGaussian){
@@ -1125,22 +1139,37 @@ void computeFit(const int nimg,const int ncen,int fitsize,float *img,float *cent
       starty=nc+ncen-fitsize;
       //printf("adjusting y to max\n");
     }
-    makeFitVector(vec,img,nimg,fitsize,startx,starty);
-    //dot the matrix with the vector.
-    if(*fitMxParam!=fitsize){
-      printf("centmodule: Creating fit matrix size %d\n",fitsize);
-      makeFitMx(fitMx,fitsize);//shape of matrix doens't change, but contents does.
-      *fitMxParam=fitsize;
+    if(quadInterp==0){
+      makeFitVector(vec,img,nimg,fitsize,startx,starty);
+      //dot the matrix with the vector.
+      if(*fitMxParam!=fitsize){
+	printf("centmodule: Creating fit matrix size %d\n",fitsize);
+	makeFitMx(fitMx,fitsize);//shape of matrix doens't change, but contents does.
+	*fitMxParam=fitsize;
+      }
+      sgemv(5,6,fitMx,vec,res);
+      if(doGaussian){
+	*centx=-res[3]/(2*res[0]);
+	*centy=-res[4]/(2*res[2]);
+      }else{
+	*centx=(res[1]*res[4]/(2*res[2])-res[3])/(2.*res[0]-res[1]*res[1]/(2.*res[2]));
+	*centy=-(res[4]+res[1]*(*centx))/(2.*res[2]);
+      }
+    }else{//do quadratic interpolation (cf Lofsdahl paper) must be 3x3.
+      float a2,a3,a4,a5,a6;
+      img=&img[starty*nimg+startx];
+      a2=(img[2*nimg+1]-img[1])/2.;
+      a3=(img[2*nimg+1]-2*img[nimg+1]+img[1])/2.;
+      a4=(img[nimg+2]-img[nimg])/2.;
+      a5=(img[nimg+2]-2*img[nimg+1]+img[nimg])/2.;
+      a6=(img[2*nimg+2]-img[2]-img[2*nimg]+img[0])/4.;
+      *centy=(2*a2*a5-a4*a6)/(a6*a6-4*a3*a5)+1;
+      *centx=(2*a3*a4-a2*a6)/(a6*a6-4*a3*a5)+1;
     }
-    sgemv(5,6,fitMx,vec,res);
-    if(doGaussian){
-      *centx=-res[3]/(2*res[0]);
-      *centy=-res[4]/(2*res[2]);
-    }else{
-      *centx=(res[1]*res[4]/(2*res[2])-res[3])/(2.*res[0]-res[1]*res[1]/(2.*res[2]));
-      *centy=-(res[4]+res[1]*(*centx))/(2.*res[2]);
-      if(*centx<0 || *centy<0 || *centx>=fitsize || *centy>=fitsize)
-	printf("Warning: centx,y outside of parabolic fit region: %g %g\n",*centx,*centy);
+    if(*centx<0 || *centy<0 || *centx>=fitsize || *centy>=fitsize){
+      printf("Warning: x,y outside of parabolic fit region: %g %g - adjusting\n",*centx,*centy);
+      *centx=mxpos%nimg-startx;
+      *centy=mxpos/nimg-starty;
     }
     (*centy)-=ncen/2.-0.5;
     (*centx)-=ncen/2.-0.5;
@@ -1175,43 +1204,105 @@ void diffCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPatte
     Note: ncen<=nimg.
 
     output and corrPattern are of size corrsize.
+
+    mode: If 1, does diff squared, normalised by number of pixels.
+    If 2, does abs diff allsquared, normlaised by number of pixels.
+    If 3, does diff squared, normalised by sum of flux in image and ref.
    */
   int i,j,x,y;
-  float s,d;
+  float s,b,tot,c,tot2,d;
   //int m=nimg<corrsize?nimg:corrsize;
   int mx,my;
+  int miny,minx,offy,offx,srefy,srefx,siny,sinx;
   //int f=(nimg-ncen)/2;
   //int t=f+ncen;
   memset(output,0,sizeof(float)*corrsize*corrsize);
-  if(mode==1){//best results - but higher compuation - sum(diff^2)
+  minx=corrsize<nimg?corrsize:nimg;
+  miny=corrsize<nimg?corrsize:nimg;
+  if(mode==1){//best results for solar - but higher compuation - sum(diff^2)
     for(i=0;i<ncen;i++){
-      my=corrsize-abs(ncen/2-i);
+      offy=i-ncen/2;//ths offset.  0 for the central point.
+      my=miny;
+      srefy=-offy-(nimg-corrsize)/2;//starting point in the reference
+      if(srefy<0)
+	srefy=0;
+      siny=(nimg-corrsize)/2+offy;//starting point in the input image
+      if(siny<0)
+	siny=0;
+      if(siny+my>nimg)
+	my=nimg-siny;
+      if(srefy+my>corrsize)
+	my=corrsize-srefy;
       for(j=0;j<ncen;j++){
-	mx=corrsize-abs(ncen/2-j);
+	offx=j-ncen/2;
+	mx=minx;
+	srefx=-offx-(nimg-corrsize)/2;
+	if(srefx<0)
+	  srefx=0;
+	sinx=(nimg-corrsize)/2+offx;
+	if(sinx<0)
+	  sinx=0;
+	if(sinx+mx>nimg)
+	  mx=nimg-sinx;
+	if(srefx+mx>corrsize)
+	  mx=corrsize-srefx;
 	s=0;
 	for(y=0;y<my;y++){
 	  for(x=0;x<mx;x++){
-	    if(i<ncen/2){
-	      if(j<ncen/2){
-		//printf("%g %g\n",corrPattern[y*corrsize+x],bimg[(ncen/2-i+y)*nimg+ncen/2-j+x]);
-		d=corrPattern[y*corrsize+x]-bimg[(ncen/2-i+y)*nimg+ncen/2-j+x];
-	      }else{
-		d=corrPattern[y*corrsize+j-ncen/2+x]-bimg[(ncen/2-i+y)*nimg+x];
-	      }
-	    }else{
-	      if(j<ncen/2){
-		d=corrPattern[(i-ncen/2+y)*corrsize+x]-bimg[(y)*nimg+ncen/2-j+x];
-	      }else{
-		d=corrPattern[(i-ncen/2+y)*corrsize+j-ncen/2+x]-bimg[(y)*nimg+x];
-	      }
-	    }
+	    d=corrPattern[(srefy+y)*corrsize+srefx+x]-bimg[(siny+y)*nimg+sinx+x];
 	    s+=d*d;
 	  }
 	}
-	output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s/(my*mx);
+	if(mx!=0 && my!=0)
+	  output[(i+(corrsize-ncen)/2)*corrsize+j+(corrsize-ncen)/2]=s/(mx*my);
+      }
+    }
+  }else if(mode==3){//best results for lgs
+    for(i=0;i<ncen;i++){
+      offy=i-ncen/2;//ths offset.  0 for the central point.
+      my=miny;
+      srefy=-offy-(nimg-corrsize)/2;//starting point in the reference
+      if(srefy<0)
+	srefy=0;
+      siny=(nimg-corrsize)/2+offy;//starting point in the input image
+      if(siny<0)
+	siny=0;
+      if(siny+my>nimg)
+	my=nimg-siny;
+      if(srefy+my>corrsize)
+	my=corrsize-srefy;
+      for(j=0;j<ncen;j++){
+	offx=j-ncen/2;
+	mx=minx;
+	srefx=-offx-(nimg-corrsize)/2;
+	if(srefx<0)
+	  srefx=0;
+	sinx=(nimg-corrsize)/2+offx;
+	if(sinx<0)
+	  sinx=0;
+	if(sinx+mx>nimg)
+	  mx=nimg-sinx;
+	if(srefx+mx>corrsize)
+	  mx=corrsize-srefx;
+	s=0;
+	tot=0;
+	tot2=0;
+	for(y=0;y<my;y++){
+	  for(x=0;x<mx;x++){
+	    b=bimg[(siny+y)*nimg+sinx+x];
+	    tot+=b;
+	    c=corrPattern[(srefy+y)*corrsize+srefx+x];
+	    tot2+=c;
+	    d=c-b;
+	    s+=d*d;
+	  }
+	}
+	if(tot!=0 && tot2!=0)
+	  output[(i+(corrsize-ncen)/2)*corrsize+j+(corrsize-ncen)/2]=s/(tot*tot2);
       }
     }
   }else{//faster computation, slightly poorer performance
+    printf("oops - doesn't work in centmodule\n");//need to make same as previous one, but with abs rather than d*d.
     for(i=0;i<ncen;i++){
       my=corrsize-abs(ncen/2-i);
       for(j=0;j<ncen;j++){
@@ -1647,12 +1738,10 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	phs=c->phs;
 	inputWidth=c->phasesize*c->nsubx;
       }
-      nphspxl=c->fracSubArea[i];//getSum(c->phasepxls,&c->pup[i*c->phasepxls])/(float)c->phasepxls;//fraction of active pixels.
-      //printf("computehll %d %d\n",threadno,i);
+      nphspxl=c->fracSubArea[i];
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
       error|=computeHll(phs,subx,suby,inputWidth,c->phasesize,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],additive>0,c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
-    
       if(additive==2 || additive==-1){//time to readout the ccd and compute slopes.
         if(c->preBinningFactor>1)//The binned image becomes paddedsize/prebinfact, and is then further clipped (or, usually padded) to psfsize.
   	  error|=prebinImage(c->paddedsize,c->hll[threadno],c->preBinningFactor,c->psfsize);
@@ -1665,15 +1754,33 @@ int centroidsFromPhase(centrunstruct *runinfo){
     	  error|=doConvolution(c->psfsize,c->hll[threadno],c->fftArrays[threadno],&(c->fftPsf[i*c->psfsize*(c->psfsize/2+1)]),c,threadno,c->clipsize);
 	//error|=doConvolution(c->fftsize,c->hll,&(c->spotpsf[i*c->fftpxls]),workbuf);
         }
-      //if(testNan(c->fftsize*c->fftsize,c->hll[threadno])){
-      //printf("Got NaN %d\n",i);
-      //}
         error|=binImage(c->clipsize,c->hll[threadno],c->nimg,&(c->bimg[i*npxl]),c);
-      //if(testNan(c->nimg*c->nimg,&(c->bimg[i*npxl]))){
-      //printf("Got NaN bimg %d\n",i);
-      //}
-      //need to set the unneeded parts of bimg to zero for the vector sum.
-        totsig=getSum(npxl,&(c->bimg[i*npxl]));
+	//compute total flux in the unclipped image to use for scaling.
+	if(c->phaseStep==1){//amplitude only.  So total power equal to number of pixels not vignetted *fftsize*fftsize.
+	  //And if convolution is used, multiply by the total power in the psf image.
+	  totsig=c->totsigArr[i];
+	  
+	}else{//phase+amplitude: total power = sum of (pup*phase amplitude)
+	  int ii,jj;
+	  float totpup=0.;
+	  int offset=(suby*inputWidth+subx)*c->phasesize;//start coord in phs array.
+	  totsig=0;
+	  for(ii=0; ii<c->phasesize; ii++){
+	    for(jj=0; jj<c->phasesize; jj++){
+	      indx=(offset+ii*inputWidth+jj)*c->phaseStep;
+	      totsig+=c->pupfn[i*c->phasepxls+ii*c->phasesize+jj]*phs[indx+1];
+	      totpup+=c->pupfn[i*c->phasepxls+ii*c->phasesize+jj];
+	    }
+	  }
+	  if(totpup!=0)
+	    totsig*=c->totsigArr[i]/totpup;
+	  else
+	    totsig=0;
+	}
+	
+	//need to set the unneeded parts of bimg to zero for the vector sum.
+        //totsig=getSum(npxl,&(c->bimg[i*npxl]));
+	//printf("Comparing new/old totsig: %g %g %d %d %p\n",totsig,getSum(npxl,&(c->bimg[i*npxl])),runinfo->n,i,c->totsigArr);
         if(totsig>0){//normalise the intensity in each subap
 	  if(c->sigArr==NULL){
 	    multArr(npxl,&(c->bimg[i*npxl]),c->sig*nphspxl/totsig);
@@ -1725,7 +1832,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	    calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	    npxl=npxlcorr;//The subaps may have grown!!!
 	    thresholdCorrelation(npxl,c->corrThresh,bimg);
-	  }else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
+	  }else if((c->correlationCentroiding>1) && c->corrPattern!=NULL){
 	    int npxlcorr=c->corrsize*c->corrsize;
 	    //int npxlout=c->ncen*c->ncen;
 	    diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
@@ -1738,9 +1845,8 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	//now apply the centroid mask and compute the centroids.
 	  if(c->opticalBinning==1){
 	    computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
-	  }else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
-	    computeFit(c->corrsize,c->ncen,3,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
-
+	  }else if(c->parabolicFit!=0 || c->gaussianFit>0){//do a parabolic/gaussian fit.  Note, if one of these is set, the other must be 0.
+	    computeFit(c->corrsize,c->ncen,c->parabolicFit+c->gaussianFit,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
 	  }else{//do a CoG
 	    if(c->centWeightDim==2){//weighted CoG
 	      cweight=c->centWeight;
@@ -1859,7 +1965,7 @@ int centroidsFromImage(centrunstruct *runinfo){
 	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	  npxl=npxlcorr;//The subaps may have grown!!!
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
-	}else if((c->correlationCentroiding==2 || c->correlationCentroiding==3) && c->corrPattern!=NULL){
+	}else if((c->correlationCentroiding>1) && c->corrPattern!=NULL){
 	  int npxlcorr=c->corrsize*c->corrsize;
 	  //int npxlout=c->ncen*c->ncen;
 	  diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
@@ -1872,8 +1978,8 @@ int centroidsFromImage(centrunstruct *runinfo){
 	//now apply the centroid mask and compute the centroids.
 	if(c->opticalBinning==1){
 	  computeOBCents(c->ncen,&(c->bimg[i*npxl]),&(c->cents[i*2]),&(c->cents[i*2+1]));
-	}else if(c->parabolicFit==1 || c->gaussianFit==1){//do a parabolic/gaussian fit
-	  computeFit(c->corrsize,c->ncen,3,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
+	}else if(c->parabolicFit!=0 || c->gaussianFit>0){//do a parabolic/gaussian fit
+	  computeFit(c->corrsize,c->ncen,c->parabolicFit+c->gaussianFit,bimg,&c->cents[i*2],&c->cents[i*2+1],c->fitMx,&c->fitMxParam,c->gaussianFit,c->gaussianMinVal,c->gaussianReplaceVal,c->correlationCentroiding);
 
 	}else{//do a CoG
 	  if(c->centWeightDim==2){//weighted CoG
@@ -2200,6 +2306,32 @@ int setSigArr(centstruct *c,PyObject *sigObj){
   return 0;
 }
 
+int updateTotSigArr(centstruct *c){
+  int i,j;
+  float tot;
+  for(i=0;i<c->nsubaps;i++){
+    tot=0;
+    c->totsigArr[i]=0;
+    //So total power equal to number of pixels not vignetted *fftsize*fftsize.
+    //And if convolution is used, multiply by the total power in the psf image.
+    for(j=0; j<c->phasesize*c->phasesize; j++)
+      c->totsigArr[i]+=c->pupfn[i*c->phasepxls+j];
+    c->totsigArr[i]*=c->fftsize*c->fftsize;//fft scaling, squared.
+    if(c->spotpsfDim==2){
+      for(j=0;j<c->psfsize*c->psfsize;j++)
+	tot+=c->spotpsf[j];
+      //Scale by: psfsize - fft of image, psfsize - fft of psf, psfsize - inverse fft.
+      c->totsigArr[i]*=tot*c->psfsize*c->psfsize;//*c->psfsize;
+    }else if(c->spotpsfDim==4){//get the right psf for this subap.
+      for(j=0;j<c->psfsize*c->psfsize;j++)
+	tot+=c->spotpsf[i*c->psfsize*c->psfsize+j];
+      c->totsigArr[i]*=tot*c->psfsize*c->psfsize;//*c->psfsize;
+    }
+  }
+  return 0;
+}
+
+
 int workerFunc(centrunstruct *runinfo){//On xps, old took about 38Hz, 26.2s.  Now 39Hz, 25.7s.  So slight improvement - test on phi...
   centstruct *c;
   c=(centstruct*)runinfo->centstr;
@@ -2234,7 +2366,7 @@ int setupThreads(centstruct *c,int nthreads){
   //first stop existing threads.
   thread=c->threadid;
   c->doWork=0;
-  printf("setupThreads %d %d\n",nthreads,c->nthreads);
+  //printf("setupThreads %d %d\n",nthreads,c->nthreads);
   if(c->nthreads>0)
     pthread_barrier_wait(&c->barrier);//wake threads up
     //pthread_cond_broadcast(&c->cond);//wake threads up
@@ -2335,7 +2467,7 @@ int setupThreads(centstruct *c,int nthreads){
       }
     }
     for(i=0; i<nthreads; i++){
-      printf("Sparning thread %d\n",i);
+      //printf("Sparning thread %d\n",i);
       pthread_create(&c->threadid[i],c->pthread_attr,(void*)workerFunc,c->runinfo[i]);
     }
   }
@@ -2375,6 +2507,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
 	  return NULL;
 	}
 	c->sig=dval;
+	updateTotSigArr(c);
       }else if(rt==-1)
 	return NULL;//failed
       break;
@@ -2456,6 +2589,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
 	return NULL;
       if(prepareSpotPsf(c)==-1)
 	return NULL;
+      updateTotSigArr(c);
       break;
     case NTHREADS:
       lval=PyInt_AsLong(obj);
@@ -2835,6 +2969,10 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->corrThresh=corrThresh;
   //ns=c->nsubaps/c->nthreads;//number of subaps per thread (roughly).
   //nx=c->nsubaps-ns*c->nthreads;//the number that didn't get divided correctly...
+  if((c->totsigArr=malloc(sizeof(float)*c->nsubaps))==NULL){
+    printf("Failed to alloc totsigarr\n");
+    return NULL;
+  }
 
   c->tiltfn=malloc(sizeof(float)*phasesize*phasesize);
   memset(c->tiltfn,0,sizeof(float)*phasesize*phasesize);
@@ -2920,6 +3058,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     }
     c->subapLocation=(int*)(subapLocationArr->data);
   }
+  updateTotSigArr(c);
   //printf("centmodule: finished initialise\n");
   return Py_BuildValue("l",(long)c);//return a pointer to centstruct.
 }
