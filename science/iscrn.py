@@ -179,11 +179,10 @@ def computeInitialScreen(config,idstr=None):
     vWind=atmosGeom.layerSpeed(idstr)
     globR0=atmosGeom.r0
     L0=atmosGeom.l0
-    print "Generating phasescreen %s size %s"%(str(idstr),str((scrnXPxls,scrnYPxls)))
     tstep=config.getVal("tstep")
     scrnDir=config.getVal("scrnDir",default="scrn")
     natype="d"#config.getVal("dataType")
-    phaseArray=makeInitialScreen(dpix,Dtel,L0,scrnXPxls,scrnYPxls,seed,tstep,globR0,strLayer,natype,windDirection,vWind,scrnDir=scrnDir)
+    phaseArray=makeInitialScreen(dpix,Dtel,L0,scrnXPxls,scrnYPxls,seed,tstep,globR0,strLayer,natype,windDirection,vWind,scrnDir=scrnDir,idstr=idstr)
     ##we return the array corresponding to the pupil
     config.setSearchOrder(so)
     return phaseArray
@@ -193,7 +192,7 @@ def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0,scrnDir="scrn"):
     raise Exception("Need to sort this - clipping/oversizing no longer necessary")
     scrn=makeInitialScreen(dpix=npup+1,Dtel=telDiam,L0=l0,globR0=r0,seed=seed,scrnDir=scrnDir)[1:-1,1:-1]
     return scrn
-def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.,scrnDir="scrn"):
+def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.,scrnDir="scrn",idstr=None):
     """dpix is the telescope aperture diameter, and dtel is tel diameter.
     The actual number of pixels used is scrnXPxls x scrnYPxls.
     """
@@ -219,6 +218,7 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
             print "Unable to load file %s - generating"%fname
             fname=None
 
+    print "Generating phasescreen %s size %s"%(str(idstr),str((scrnXPxls,scrnYPxls)))
     scrnPxls=max(scrnXPxls,scrnYPxls)
     pixScale=Dtel/float(dpix)
     r0=globR0*(strLayer**(-3./5.))##we compute the r0 in the considered layer
@@ -404,7 +404,7 @@ class iscrn(base.aobase.aobase):
                         print "Unable to load covariance data... generating"
                         traceback.print_exc()
                         covMatPhix=None
-                if covMatPhix==None:
+                if covMatPhix is None:
                     print "Computation of the X phase covariance matrix"
                     covMatPhix=self.computePhaseCovarianceMatrix(this.scrnXPxls,self.L0,self.pixScale,self.nbColToAdd,self.nbCol)
                     print "Computation of the Ax and Bx matrixes"        
@@ -600,7 +600,7 @@ class iscrn(base.aobase.aobase):
             if indx<0:#wrap around.
                 indx+=this.scrnYPxls
             oldPhi=this.screen[indx]
-            if AZ==None:
+            if AZ is None:
                 AZ=matrixdot(this.Ax[:,i*this.scrnXPxls:(i+1)*this.scrnXPxls],oldPhi)
             else:
                 AZ+=matrixdot(this.Ax[:,i*this.scrnXPxls:(i+1)*this.scrnXPxls],oldPhi)

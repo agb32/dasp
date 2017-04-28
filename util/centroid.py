@@ -555,7 +555,7 @@ class centroid:
             if self.refCents is not None:
                 self.outputData-=self.refCents
                 
-    def runCalc(self,control):
+    def runCalc(self,control={"cal_source":0}):
         doref=1
         if self.phaseMultiplier!=1:
             self.phase*=self.phaseMultiplier
@@ -1625,6 +1625,33 @@ class centroid:
             else:
                 print "corrPattern already exists - not taking correlation image"
         return data
+
+    def updateCorrReference(self,ref):
+        """Updates the reference image used for correlation."""
+        if self.corrPatternUser is None:
+            self.corrPatternUser=ref.copy()
+        else:
+            if self.corrPatternUser.shape==ref.shape:
+                self.corrPatternUser[:]=ref
+            else:
+                self.corrPatternUser[:]=0
+                if len(self.corrPatternUser.shape)==4:
+                    s=(self.corrPatternUser.shape[-2]-ref.shape[-2])//2
+                    e=s+ref.shape[-2]
+                    self.corrPatternUser[:,:,s:e,s:e]=ref
+                else:
+                    print self.corrPatternUser.shape
+                    raise Exception("Not yet implemented... padding of 2d corr images")
+        if self.correlationCentroiding==1:
+            self.corrPatternUser/=max(self.corrPatternUser)#normalise
+            self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)
+        else:#other modes don't need a transformed psf.
+            self.corrPattern=self.corrPatternUser.copy()
+            
+        self.centcmod.update(util.centcmod.CORRPATTERN,self.corrPattern)
+        
+
+        
     def takeCentWeight(self,control):
         """If centWeight is a string (eg make or something similar), use a default SH spot pattern as the reference centroid weighting.
         """

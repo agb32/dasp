@@ -85,7 +85,7 @@ class loadOutput(base.aobase.aobase):
             self.dtype="1"
         else:
             raise Exception("base.loadOutput - bitpix not known (please update)")
-        self.dataSize=reduce(lambda x,y:x*y,self.shape)*numpy.fabs(self.bitpix)/8
+        self.dataSize=reduce(lambda x,y:x*y,self.shape)*numpy.abs(self.bitpix)/8
         self.dataValid=0#never changes... no output...
         if forGUISetup:
             self.outputData=[self.shape,self.dtype]

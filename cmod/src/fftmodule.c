@@ -47,7 +47,7 @@ static PyObject* InitialiseThreading(PyObject *self,PyObject *args){
     fftwf_init_threads();
     fftwf_plan_with_nthreads(nthreads);
   }else{
-    printf("InitialiseThreading call ignored - already initialised\n");
+    //printf("fftmodule InitialiseThreading call ignored - already initialised\n");
   }
   Py_INCREF(Py_None);
   return Py_None;

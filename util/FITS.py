@@ -235,7 +235,7 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     data.tofile(file)
     #data = data.tostring()
     #file.write(data)
-    numBlock = (data.itemsize*data.size + 2880 - 1) / 2880
+    numBlock = (data.itemsize*data.size + 2880 - 1) // 2880
     padding = ' ' * (numBlock*2880 - data.itemsize*data.size)
     file.write(padding)
     if numpy.little_endian and doByteSwap and preserveData==1:
