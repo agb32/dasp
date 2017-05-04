@@ -91,9 +91,7 @@ class recon(base.aobase.aobase):
         for dm in self.dmList:
             if dm.zonalDM:
                 tmp=dm.getDMFlag(self.atmosGeom,centObscuration=self.pupil.r2)
-                # tmp is dmflag,subarea (or None,None for modal DMs.)
                 self.dmPupList.append(tmp)
-                
                 self.nactsList.append(int(tmp.sum()))
                 if self.dmModeType=="poke":
                     if dm.pokeSpacing!=None:
