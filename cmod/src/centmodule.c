@@ -496,7 +496,7 @@ int computeHll(float *phs,int subx,int suby,int inputWidth,int phasesize,int fft
   for(i=0;i<fftsize*fftsize;i++)
     tot+=crealf(fftarr[i])*crealf(fftarr[i])+cimagf(fftarr[i])*cimagf(fftarr[i]);
     printf("tot %g %d\n",tot,fftsize);//equal to fftsize*fftsize*phasesize*phasesize  (or fftsize*fftsize*sum(pup)*/
-  rtval|=addPowerSpecCentral(fftsize,(float*)fftarr,paddedsize,hll,additive);//changed from addPowerSpec when extra tilt added to tiltfn. compute the power spectrum (ie high light level img) 
+  rtval|=addPowerSpecCentral(fftsize,(float*)fftarr,paddedsize,hll,additive);//changed from addPowerSpec when extra tilt added to tiltfn. compute the power spectrum (ie high light level img)
   //rtval|=flipArray(paddedsize,hll,0,NULL);//removed when extra tilt added to tiltfn.
   //The total power in the unclipped image is equal to the image size, i.e. the total number of pixels multiplied by pupil function.  i.e. the sum of the pupil function.
   
@@ -1738,7 +1738,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	phs=c->phs;
 	inputWidth=c->phasesize*c->nsubx;
       }
-      nphspxl=c->fracSubArea[i];
+      nphspxl=c->fracSubArea[i];//should be between 0 and 1.
       //phaseStep==1 for phaseOnly, 2 for phaseamp.
       error|=computeHll(phs,subx,suby,inputWidth,c->phasesize,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],additive>0,c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
@@ -1755,6 +1755,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	//error|=doConvolution(c->fftsize,c->hll,&(c->spotpsf[i*c->fftpxls]),workbuf);
         }
         error|=binImage(c->clipsize,c->hll[threadno],c->nimg,&(c->bimg[i*npxl]),c);
+	    
 	//compute total flux in the unclipped image to use for scaling.
 	if(c->phaseStep==1){//amplitude only.  So total power equal to number of pixels not vignetted *fftsize*fftsize.
 	  //And if convolution is used, multiply by the total power in the psf image.
@@ -1777,7 +1778,6 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  else
 	    totsig=0;
 	}
-	
 	//need to set the unneeded parts of bimg to zero for the vector sum.
         //totsig=getSum(npxl,&(c->bimg[i*npxl]));
 	//printf("Comparing new/old totsig: %g %g %d %d %p\n",totsig,getSum(npxl,&(c->bimg[i*npxl])),runinfo->n,i,c->totsigArr);
@@ -1822,7 +1822,6 @@ int centroidsFromPhase(centrunstruct *runinfo){
         }else if(c->pxlPower!=1 && c->pxlPower!=0){
 	  applyPower(nexposed,&c->bimg[i*npxl],c->pxlPower);
         }
-      
         if(imageOnly==0){
 	  if(c->correlationCentroiding==1 && c->corrPattern!=NULL){//compute the correlation
 	  //This shouldn't be used with optical binning...
@@ -2314,6 +2313,7 @@ int updateTotSigArr(centstruct *c){
     c->totsigArr[i]=0;
     //So total power equal to number of pixels not vignetted *fftsize*fftsize.
     //And if convolution is used, multiply by the total power in the psf image.
+    //Unless c->totSig is also used.  But perhaps this is no longer needed?
     for(j=0; j<c->phasesize*c->phasesize; j++)
       c->totsigArr[i]+=c->pupfn[i*c->phasepxls+j];
     c->totsigArr[i]*=c->fftsize*c->fftsize;//fft scaling, squared.
@@ -2960,6 +2960,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->cents=(float*)cents->data;
   c->subflag=(int*)subflag->data;
   c->bimg=(float*)bimg->data;
+  printf("init bimg %p\n",c->bimg);
   c->fracSubArea=(float*)fracSubArea->data;
   c->fftpxls=fftsize*fftsize;
   c->phasepxls=phasesize*phasesize;

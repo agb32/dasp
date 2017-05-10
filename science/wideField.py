@@ -438,14 +438,9 @@ class WideField(base.aobase.aobase):
                             else:
                                 #update for field
                                 #We have nFieldX/Y covering this field, and each sub-field overlaps by 50%.  Therefore, (nFieldX+1)/2*subfov - which should equal the full fov.  
-                                #ydiff=-atmosObj.fov+pitchY/2.+fieldY*pitchY/2.
-                                #xdiff=-atmosObj.fov+pitchX/2.+fieldX*pitchX/2.
                                 ydiff=(-(self.nFieldY-1)/2.+fieldY)*fovpitchY/2.
                                 xdiff=(-(self.nFieldX-1)/2.+fieldX)*fovpitchX/2.
 
-
-                                #ydiff=(fieldY/float(self.nFieldY-1)-0.5)*atmosObj.fov
-                                #xdiff=(fieldX/float(self.nFieldX-1)-0.5)*atmosObj.fov
                                 xcentre=sourceTheta*numpy.cos(sourcePhi*numpy.pi/180.)
                                 ycentre=sourceTheta*numpy.sin(sourcePhi*numpy.pi/180.)
                                 xnew=xcentre+xdiff
@@ -582,6 +577,8 @@ class WideField(base.aobase.aobase):
         for y in range(self.nsubx):
             for x in range(self.nsubx):
                 img=wfsimg[y,x]
+                #if y==0 and x==3:
+                #    print "img in prepareOutput",img
                 if img.shape!=window.shape:
                     #select the central part
                     img=img[fy:fy+window.shape[0],fx:fx+window.shape[1]]
