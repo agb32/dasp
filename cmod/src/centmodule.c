@@ -29,6 +29,10 @@
 #include "numpy/arrayobject.h"
 #include "qsort.h"
 
+#ifdef __APPLE__
+#include "pthread_barrier_macos.h"
+#endif //__APPLE__
+
 static PyObject *CentError;
 
 
