@@ -24,7 +24,7 @@ ld=os.environ.get("LD_LIBRARY_PATH","").split(":")+[sys.prefix+'/lib','/usr/lib'
 if sys.platform=='darwin':
 	# MacOSX vecLib framework, for BLAS, NAB 08/Apr/2013
 	idveclib=['/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/'] 
-	scrnmodule_extra_link_args=['-lgsl','-framework vecLib']
+	scrnmodule_extra_link_args=['-lgsl']
 else:
 	scrnmodule_extra_link_args=['-lm','-latlas','-lgsl']
 	# now search for (in order) blas and cblas, and if neither exist,
@@ -58,7 +58,7 @@ cent = Extension('centmodule',
 		libraries=["fftw3f"],
                 extra_compile_args=["-pthread"],
 		extra_link_args=["-lfftw3f",'-lgsl','-lgslcblas','-lm','-lpthread'],
-	        sources = ['centmodule.c']
+	        sources = ['centmodule.c', 'pthread_barrier_macos.c']
 		)
 binimg=Extension('binimgmodule',
 		include_dirs=idnumpy,
