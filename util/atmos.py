@@ -93,7 +93,10 @@ class source(object):
             d=telDiam/self.nsubx
         else:
             d=telDiam
-        return util.calcPxlScale.pxlScale(self.sourcelam,d,self.phasesize,self.nfft,self.clipsize/self.nimg)
+        scale=util.calcPxlScale.pxlScale(self.sourcelam,d,self.phasesize,self.nfft,self.clipsize/self.nimg)
+        if hasattr(self,"preBinningFactor"):
+            scale*=self.preBinningFactor
+        return scale
         
 class geom:
     """A class to hold information about atmospheric/source geometry.  Typically used by the parameter file."""

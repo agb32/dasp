@@ -379,7 +379,7 @@ class LGS(util.atmos.source):
             f.close()
     def getSubapFlag(self):
         """Compute the subap flags for a given nsubx"""
-        if self.subapFlag!=None:
+        if self.subapFlag is not None:
             return self.subapFlag
         nsubx=self.nsubx
         subflag=numpy.zeros((nsubx,nsubx),numpy.int32)

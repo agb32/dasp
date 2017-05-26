@@ -983,7 +983,16 @@ class recon(base.aobase.aobase):
                 elif self.reconType=="spmxSVD":
                     print("INFORMATION:**tomoRecon**:"+
                           "Computing SVD control matrix")
-                    self.createSVDControl(self.spmx.todense())
+                    try:
+                        tmp=self.spmx.todense()
+                    except:
+                        tmp=self.spmx
+                    self.createSVDControl(tmp)
+                    if self.reconmxFilename!=None:
+                        print("INFORMATION:**tomoRecon**:"+
+                          "Writing reconmx to file %s"%self.reconmxFilename)
+                        util.FITS.Write(self.reconmx,self.reconmxFilename)
+
                 elif self.reconType=="spmxGI":
                     print("INFORMATION:**tomoRecon**:"+
                           "Computing generalized inverse control matrix")
