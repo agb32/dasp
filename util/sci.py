@@ -74,7 +74,12 @@ class sciInfo(util.atmos.source):
 class luckyInfo:
     def __init__(self,filename=None,imgFilename=None,imgSize=None,nSampFrames=1,byteswap=0,integrate=1,histSize=None):
         self.filename=filename
-        etc
+        self.imgFilename=imgFilename
+        self.imgSize=imgSize
+        self.nSampFrames=nsampFrames
+        self.byteswap=byteswap
+        self.integrate=integrate
+        self.histSize=histSize
 
 class science:
     """A class of utilities related to science imaging.  This can be used
