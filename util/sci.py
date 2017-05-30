@@ -76,7 +76,7 @@ class luckyInfo:
         self.filename=filename
         self.imgFilename=imgFilename
         self.imgSize=imgSize
-        self.nSampFrames=nsampFrames
+        self.nSampFrames=nSampFrames
         self.byteswap=byteswap
         self.integrate=integrate
         self.histSize=histSize
