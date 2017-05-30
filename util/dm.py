@@ -257,7 +257,7 @@ class dmInfo:
             reconstructList=self.reconstructList
         if self.reconstructList==reconstructList:
             #may already have computed stuff...
-            if (self.dmflag is not None) and (self.subarea is not None):
+            if (self.dmflag is not None):# and (self.subarea is not None): nothing actually uses subarea, so don't bother computing it if dmflag has been specified...
                 if retPupil and (self.dmpupil is not None):
                     return self.dmflag,self.subarea,self.dmpupil
                 else:
@@ -380,7 +380,7 @@ class dmInfo:
                 if (self.dmflag is not None) and (self.subarea is not None) and (self.dmpupil is not None):
                     return self.dmflag,self.subarea,self.dmpupil
             else:
-                if (self.dmflag is not None) and (self.subarea is not None):
+                if (self.dmflag is not None):# and (self.subarea is not None):
                     return self.dmflag,self.subarea
             nAct=self.nact
             dmminarea=self.minarea # = 0.45 used for DiCuRe debugging, UB 2012 Aug 16
