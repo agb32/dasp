@@ -47,8 +47,21 @@ def init(globs):
         if not globs.has_key("ncpu"):
             globs["ncpu"]=getCpus()
         globs["this"]=this
-        return this
+    this.getVal=GetVal(this).getVal
+    return this
 
+class GetVal:
+    """Class for python param file - to enable the param file to easily get values specified on the command line (--init) or a default value if not specified."""
+    def __init__(self,this):
+        self.this=this
+    def getVal(self,name,default):
+        """Used within a python param file if there is a parameter that may be pre-initialised on the command line (using --init=...).  Default is the value which should be used if the user hasn't definied it."""
+        if hasattr(self.this.globals,name):
+            return getattr(self.this.globals,name)
+        else:
+            return default
+    
+    
 class AOXml:
     """A class for reading an AO XML config file.  If given, file (filename)
     is parsed on init.  If given, searchOrder defines the order in which

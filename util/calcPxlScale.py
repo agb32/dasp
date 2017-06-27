@@ -50,12 +50,40 @@ def spotMotionRMS(lam,r0,d,r0IsAt500nm=1):
         print "Scaling r0 from 500nm to %gnm gives %g"%(lam*1e9,r0)
     return numpy.sqrt(0.162*lam**2*r0**(-5./3)*d**(-1./3)*(3600*180/numpy.pi)**2)
 
+def calcSeeing(r0,lam,l0,r0IsAt500nm=1):
+    """Compute seeing from r0, wavelength at which to compute seeing, and L0.
+    Note, L0 should be defined at lam.
+    """
+    
+    
+    if lam>1:#probably in nm.  convert to m
+        lam=lam*1e-09
+    if r0>1:#probably in cm.  Convert to m.
+        r0=r0/100.
+
+    if r0IsAt500nm:
+        r0*=(lam/500e-9)**(6./5)
+
+    seeing = 0.976* lam/r0*180/numpy.pi*3600
+
+    if l0!=0:#outer scale is defined...
+        seeing = seeing * sqrt(1-2.183*(r0/l0)**0.356)
+    return seeing
+    
+
+
 """Seeing/seeing and turbulence:
 
 http://www.astrosurf.com/cavadore/optique/turbulence/
 
 r0 defines observed seeing:  seeing = 251*lambda/r0 with lambda in um, r0 in mm.
 In arcsecs.
+
+From Tim B:
+seeingKolmog = 0.976 lambda/r0.  *180/numpy.pi*3600 (lambda and r0 in m)
+
+SeeingVK = seeingKolmog * sqrt(1-2.183*(r0/L0)^0.356)
+
 
 
 Or, 0.0251*lambda/r0 with lambda in nm, r0 in cm.

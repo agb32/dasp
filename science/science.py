@@ -661,7 +661,7 @@ else:
         txt+="""<plot title="Compute OTF Strehl%s" when="cmd" ret="feedback" texttype="1" wintype="mainwindow">\n<cmd>\nso=%s.thisObjList[%d].sciObj\nfeedback=1-so.computeOTF\nso.computeOTF=feedback\n</cmd>\nbutton=feedback\n</plot>\n"""%(id,objname,self.sentPlotsCnt)
         txt+="""<plot title="Lucky history%s" cmd="data=%s.thisObjList[%s].sciObj.luckyHistory[:,:%s.thisObjList[%s].sciObj.luckyHistoryCnt]" ret="data" when="rpt%d" type="pylab" dim="2" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt,objname,self.sentPlotsCnt,this.sciObj.sciPSFSamp*this.sciObj.luckyNSampFrames)
         txt+="""<plot title="Lucky image%s" cmd="data=%s.thisObjList[%s].sciObj.luckyLastImg" ret="data" when="rpt%d" type="pylab" dim="2" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt,this.sciObj.sciPSFSamp*this.sciObj.luckyNSampFrames)
-
+        txt+="""<plot title="Radial profile%s" cmd="data=%s.thisObjList[%d].sciObj.computeRadialProfileAndEncircledEnergy(%s.thisObjList[%d].sciObj.longExpPSF);data[1]=data[0];data[0]=%s.thisObjList[%d].sciObj.rad" ret="data" when="rpt" type="pylab" dim="1"/>\n"""%(id,objname,self.sentPlotsCnt,objname,self.sentPlotsCnt,objname,self.sentPlotsCnt)
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
 
         return txt

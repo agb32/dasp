@@ -192,9 +192,10 @@ def makeScrnQuick(npup,telDiam,l0=30.,r0=0.2,seed=0,scrnDir="scrn"):
     raise Exception("Need to sort this - clipping/oversizing no longer necessary")
     scrn=makeInitialScreen(dpix=npup+1,Dtel=telDiam,L0=l0,globR0=r0,seed=seed,scrnDir=scrnDir)[1:-1,1:-1]
     return scrn
-def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.,scrnDir="scrn",idstr=None):
+def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,seed=0,tstep=0.05,globR0=0.2,strLayer=1.,natype=na.float64,windDirection=0.,vWind=10.,scrnDir="scrn",idstr=None,innerscale=None):
     """dpix is the telescope aperture diameter, and dtel is tel diameter.
     The actual number of pixels used is scrnXPxls x scrnYPxls.
+    innerscale is in m, and if set, means a modified Von Karman spectrum is used (Schmidt 2010 book).  But - currently, the screen propagation does not take this into account, so use with care (i.e its nots complete yet)
     """
 
     if scrnXPxls==None:
@@ -222,6 +223,7 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
     scrnPxls=max(scrnXPxls,scrnYPxls)
     pixScale=Dtel/float(dpix)
     r0=globR0*(strLayer**(-3./5.))##we compute the r0 in the considered layer
+    #print "r0 scaled by %g^-0.6 is %g"%(strLayer,r0)
     #colAdd=-vWind*na.cos(windDirection*na.pi/180)/pixScale*tstep#number of pixels to step each iteration (as float).
     #rowAdd=-vWind*na.sin(windDirection*na.pi/180)/pixScale*tstep#number of pixels to step each iteration (as float).
     #colAdd=0.#we don't add columns any more
@@ -263,7 +265,10 @@ def makeInitialScreen(dpix=1024,Dtel=42.,L0=30.,scrnXPxls=None,scrnYPxls=None,se
     ##we compute the phase power spectrum
     f = (ff**2.+phozero**2.)**(-11./12.)
     f*=na.sqrt(fact*((scrnSize/r0)**(5./3.))*(nfft*1.)**2.) ## Von Karman phase power spectrum : 0.023/ro*(f^2+fo^2)^(-11/6)
-
+    if innerscale is not None:#modified von karman schmidt 2010 book
+        print "Using inner scale of %g"%innerscale
+        fm = Dtel*5.92/innerscale/(2*numpy.pi)#inner scale frequency (m^-1) multiplied by telDiam, since we need ff to be divided by telDiam.
+        f*=na.sqrt(numpy.exp(-(ff/fm)**2))
     ##FFT of white noise
     ff = FFT.fft2(rn);
 
@@ -351,6 +356,7 @@ class iscrn(base.aobase.aobase):
             this.strLayer=self.atmosGeom.layerStrength(id)
             this.strLayerToPowMinusThreeOverFive=this.strLayer**(-3./5)
             this.windDirRad=this.windDirection*self.degRad
+            this.seed=self.atmosGeom.layerInitSeed(id)
             # if colAdd<zero, we are adding now columns on the right of the array.
             # we are adding new rows at the bottom of the array (note, that if plotting in Gist, this is the top of the array).
             this.rowAdd=this.vWind/self.pixScale*self.tstep#number of pixels to step each iteration (as float).
@@ -460,7 +466,10 @@ class iscrn(base.aobase.aobase):
                     this.randarr=numpy.zeros((this.scrnXPxls,),numpy.float64)# if self.scrnXPxls>self.scrnYPxls else self.scrnYPxls+1,),numpy.float64)
                     this.r0last=this.r0
                     this.ysteplast=this.ystep
-                    seed=0 if self.seed==None else self.seed
+                    seed=this.seed
+                    if seed is None:
+                        seed=0
+                    #seed=0 if self.seed==None else self.seed
                     this.cmodInfo=cmod.iscrn.initialise(nthreads,this.r0,self.L0,this.scrnXPxls,this.scrnYPxls,self.sendWholeScreen,this.maxRowAdd,this.rowAdd,seed,this.screen,this.Ax,this.Bx,this.AStartx,this.ystep,this.randarr,this.rowOutput)
 
     def __del__(self):

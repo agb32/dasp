@@ -34,10 +34,11 @@ enough.
  3  LTAO
  4  MCAO
  5  MOAO
- 6  Interaction matrix
- 7  Wavefront recorder
- 8  MPI instructions
- 9  Help and notes
+ 6  Solar
+ 7  Interaction matrix
+ 8  Wavefront recorder
+ 9  MPI instructions
+ 10  Help and notes
 """)
     if len(simtyp)==0:
         simtyp="1"
@@ -53,12 +54,14 @@ enough.
     elif simtyp==5:
         makemoao()
     elif simtyp==6:
-        makepmx()
+        makesolar()
     elif simtyp==7:
-        makelearn()
+        makepmx()
     elif simtyp==8:
-        printmpi()
+        makelearn()
     elif simtyp==9:
+        printmpi()
+    elif simtyp==10:
         printhelp()
     else:
         print("Idiot!")
@@ -715,6 +718,61 @@ poking simulation.
     print(txt)
     save(txt,dirname,"README")
 
+
+def makesolar(dirname=None,fname="solar"):
+    scao=raw_input("You can have SCAO or MCAO.  Do you want SCAO? [y]/n")
+    if dirname is None:
+        if scao!="n":
+            dirname="solarScao"
+        else:
+            dirname="solarMcao"
+    tmp=raw_input("\n\nPlease enter an output directory name:\n[%s] "%dirname)
+    if len(tmp)>0:
+        dirname=tmp
+    if os.path.exists(dirname):
+        print("Using existing directory %s"%dirname)
+    else:
+        os.mkdir(dirname)
+    readme="""Instructions: Feel free to edit params.py or SIM.py as you wish, to suit your needs.
+
+To run, do:
+python SIM.py
+
+Note - this requires a solar image, imsol.fits.
+This should have been downloaded for you, but if not, please get it from:
+http://community.dur.ac.uk/a.g.basden/imsol.fits
+
+To connect to a running simulation (to view PSFs, WFSs, DMs, etc in action) use:
+daspctrl.py
+or:
+daspanalyse.py
+
+Please edit params.py to alter the simulation to meet your requirements.
+
+Some notes about this simulation:
+It will first of all take reference images, and an interaction matrix.
+This will then be inverted to give a control matrix, using a simple SVD.
+This least-squares wavefront reconstructor will then be used for AO correction.
+
+"""
+    if scao!="n":#mcao
+        txt=solarScao
+        save(txt,dirname,fname+".py")
+        save(solarScaoParams,dirname,"params.py")
+        readme=readme.replace("SIM",fname)
+    else:
+        txt=solarMcao
+        save(txt,dirname,fname+".py")
+        save(solarMcaoParams,dirname,"params.py")
+        readme=readme.replace("SIM",fname)
+    save(readme,dirname,"README")
+    if not os.path.exists(os.path.join(dirname,"imsol.fits")):
+        print "Getting solar image"
+        os.system("wget http://community.dur.ac.uk/a.g.basden/imsol.fits -O %s/imsol.fits"%dirname)
+    print "Simulation generated"
+    print "Please change to directory %s"%dirname
+    print readme
+    
 
 
 def makelearn(dirname="learnSim",fname="learn"):
@@ -1713,6 +1771,402 @@ r.gainFactor=0.5#Loop gain
 r.computeControl=1#To compute the control matrix after poking
 r.reconmxFilename="rmx.fits"#control matrix name (will be created)
 r.pmxFilename="pmx.fits"#interation matrix name (will be created)
+"""
+
+###################################################################################
+
+solarScao="""import numpy
+import science.iscrn
+import science.xinterp_dm
+import science.wideField
+import science.wfscent
+import science.tomoRecon
+import science.iatmos
+import science.science
+import base.readConfig
+import util.Ctrl
+ctrl=util.Ctrl.Ctrl(globals=globals())
+ctrl.doInitialOpenLoop(startiter=0)
+ctrl.initialCommand("wf.control['cal_source']=1",freq=-1,startiter=0)
+ctrl.initialCommand("wf.control['cal_source']=0",freq=-1,startiter=1)
+ctrl.initialCommand("c.newCorrRef();print 'Done new corr ref'",freq=-1,startiter=1)
+if not "nopoke" in ctrl.userArgList:
+    ctrl.doInitialPokeThenRun(startiter=2)
+else:
+    ctrl.doInitialOpenLoop(startiter=2)
+    ctrl.doInitialSciRun(startiter=3)
+iscrn=science.iscrn.iscrn(None,ctrl.config,idstr="allLayers")
+iatmos=science.iatmos.iatmos({"allLayers":iscrn},ctrl.config,idstr="b")
+dm=science.xinterp_dm.dm(None,ctrl.config,idstr="dma")#this one (with no phase) for the widefield object (which adds the phase)
+dm2=science.xinterp_dm.dm(None,ctrl.config,idstr="dmNFb")#this one for the science.
+wf=science.wideField.WideField({"allLayers":iscrn,"dma":dm},ctrl.config,idstr="a")#generate the wide fov images
+c=science.wfscent.wfscent(wf,ctrl.config,idstr="acent")#this does the centroiding
+r=science.tomoRecon.recon({"acent":c},ctrl.config,idstr="recon")
+dm.newParent({"recon":r},"dma")#dm for the wide-field object
+dm2.newParent({"recon":r,"atmos":iatmos},"dmNFb")#narrow field DM, science direction
+s=science.science.science(dm2,ctrl.config,idstr="b")
+s2=science.science.science(iatmos,ctrl.config,idstr="buncorr")
+execOrder=[iscrn,iatmos,dm,dm2,wf,c,r,s,s2]
+ctrl.mainloop(execOrder)
+"""
+
+solarScaoParams="""
+import base.readConfig
+this=base.readConfig.init(globals())
+tstep=1/250.#iteration time step.
+AOExpTime=40.
+
+#number of phase pupils.
+npup=80
+
+#telescope diameter
+telDiam=4.
+ntel=npup
+wfs_nsubx=10#number of subaps
+wfs_n=npup/wfs_nsubx
+ngsLam=640.#ngs wavelength.
+sciLam=1650.#sci wavelength in nm
+nlayer=3#number of atmospheric layers
+decayFactor=0.99#integrator decay.
+fov=5.#only used in param file - fov of the wfs.
+nFieldX=6#number of fields to evaluate to make the shs image.
+widefieldImageBoundary=8# The extra rows/cols added to the psf. This will ideally depend on pixel scale and seeing - i.e. should be equal to likely maximum spot motion
+import util.FITS
+data=util.FITS.Read("imsol.fits")[1]#imsol is 50 arcsec with 3600 pixels.
+if hasattr(this.globals,"offsetx"):
+    offsetx=this.globals.offsetx
+else:
+    offsetx=1000
+if hasattr(this.globals,"offsety"):
+    offsety=this.globals.offsety
+else:
+    offsety=100
+npixels=int(3600/50.*fov*2)
+data=data[offsety:offsety+npixels,offsetx:offsetx+npixels]*10
+#Note - for this one above to work, need centroidPower=2.  And
+#wide-field image boundary of 8.
+
+from scipy.ndimage import interpolation
+b=widefieldImageBoundary
+fftsize=wfs_n*2
+n=fftsize*(nFieldX+1.)/2
+#For a different image per subap use this one:
+#data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
+#For identical image per subap, use this one:
+data=interpolation.zoom(data,(n+2*b)/data.shape[0])*100
+widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
+for i in range(wfs_nsubx):
+    for j in range(wfs_nsubx):
+        widefieldImage[i,j]=data # use this for same image per subap.
+
+studySubap=(3,3)
+telSec=0.
+import util.tel
+spider=None
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
+wfs_sig=1e6 #wfs flux - but actually not used (taken from the solar images)
+
+layerList={"allLayers":["L%d"%x for x in range(nlayer)]}
+
+from scipy.ndimage import interpolation
+nimg=int(wfs_n*(nFieldX+1.)/2)
+if hasattr(this.globals,"ncen"):
+    ncen=this.globals.ncen
+else:
+    ncen=nimg//2
+corrPattern=numpy.zeros((wfs_nsubx,wfs_nsubx,nimg,nimg),"f")
+
+import util.guideStar
+sourceTheta=0.
+sourcePhi=0.
+#create the wfs objects:  First one is for widefield image generation
+wdict={"a":util.guideStar.NGS("a",wfs_nsubx,sourceTheta,sourcePhi,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,spotpsf=numpy.ones((wfs_nsubx,wfs_nsubx,npup/wfs_nsubx*4,npup/wfs_nsubx*4),numpy.float32),floor=2500.),
+#and this one is for the image -> slope module.
+"acent":util.guideStar.NGS("acent",wfs_nsubx,sourceTheta,sourcePhi,npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,nimg=nimg,ncen=ncen,correlationCentroiding=2,corrThresh=0.,corrPattern=corrPattern,cameraImage=1,reconList=["recon"],parabolicFit=1,centroidPower=1.0),
+}
+
+fovpitchX=fov*2*2/(nFieldX+1.)
+fovpitchY=fov*2*2/(nFieldX+1.)
+for i in range(nFieldX):
+ for j in range(nFieldX):
+  id="%d"%(i*nFieldX+j)
+  ydiff=(-(nFieldX-1)/2.+i)*fovpitchY/2.
+  xdiff=(-(nFieldX-1)/2.+j)*fovpitchX/2.
+  xcentre=sourceTheta*numpy.cos(sourcePhi*numpy.pi/180.)
+  ycentre=sourceTheta*numpy.sin(sourcePhi*numpy.pi/180.)
+  xnew=xcentre+xdiff
+  ynew=ycentre+ydiff
+  theta=numpy.sqrt(xnew*xnew+ynew*ynew)
+  phi=numpy.arctan2(ynew,xnew)
+
+  wdict[id]=util.guideStar.NGS(id,wfs_nsubx,theta,phi,npup/wfs_nsubx,sig=1e6,sourcelam=ngsLam,pupil=pupil)
+wfsOverview=util.guideStar.wfsOverview(wdict)
+
+
+
+import util.sci
+sciOverview=util.sci.sciOverview({"b":util.sci.sciInfo("b",0.,0.,pupil,sciLam,calcRMS=1),
+"buncorr":util.sci.sciInfo("buncorr",0.,0.,pupil,sciLam,calcRMS=1),})
+
+#Now atmosphere stuff
+from util.atmos import geom,layer,source
+import util.compare
+strList=[0.5,0.3,0.2]
+hList=[0.,4000.,10000.]
+vList=[4.55,12.61,8.73]
+dirList=numpy.arange(10)*36
+d={}
+for i in range(nlayer):
+    d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+
+r0=0.10
+l0=25.
+sourceList=[]
+
+sourceList+=wfsOverview.values()
+sourceList.append(sciOverview.getSciByID("b"))
+
+atmosGeom=geom(d,sourceList,
+	       ntel,npup,telDiam,r0,l0
+	      )
+
+#Now DM stuff.  2 DM objects needed here, even though there is only 1.  The first one generates the entire DM surface.  The second is for the DM metapupil - i.e. for non-ground-conjugate DMs, will select only the relevant line of sight.
+from util.dm import dmOverview,dmInfo
+dmHeight=0.
+dmInfoList=[dmInfo('dm',['a'],dmHeight,wfs_nsubx+1,fov=fov,minarea=0.1,actuatorsFrom="recon",pokeSpacing=None,maxActDist=1.5,decayFactor=decayFactor,sendFullDM=1,reconLam=ngsLam),#sendFullDM must be set for wideField.
+dmInfo('dmNF',['b'],dmHeight,wfs_nsubx+1,fov=fov,minarea=0.1,actuatorsFrom="Nothing",pokeSpacing=None,maxActDist=1.5,decayFactor=decayFactor,sendFullDM=0,reconLam=ngsLam)
+]
+dmOverview=dmOverview(dmInfoList,atmosGeom)
+
+
+seed=1
+
+this.wfscent_a=new()
+this.wfscent_a.imageOnly=1
+
+#reconstructor parameters.
+this.tomoRecon=new()
+this.tomoRecon.rcond=0.05
+this.tomoRecon.recontype="pinv"
+this.tomoRecon.pokeval=1.
+this.tomoRecon.gainFactor=0.9
+this.tomoRecon.computeControl=1
+this.tomoRecon.reconmxFilename="rmx.fits"
+this.tomoRecon.pmxFilename="pmx.fits"
+
+"""
+
+solarMcao="""
+import numpy
+import science.iscrn
+import science.xinterp_dm
+import science.wideField
+import science.wfscent
+import science.tomoRecon
+import science.iatmos
+import science.science
+import base.readConfig
+import util.Ctrl
+ctrl=util.Ctrl.Ctrl(globals=globals())
+iscrn=science.iscrn.iscrn(None,ctrl.config,idstr="L0-2")
+nwfs=ctrl.config.getVal("nwfs")
+ndm=ctrl.config.getVal("ndm")
+iatmosList=[]
+dmList=[]
+dm2List=[]
+wfList=[]
+cList=[]#
+wfsdict={}
+
+ctrl.initialCommand("for wf in wfList:\\n wf.control['cal_source']=1",freq=-1,startiter=0)
+ctrl.initialCommand("for wf in wfList:\\n wf.control['cal_source']=0",freq=-1,startiter=1)
+ctrl.initialCommand("for c in cList:\\n c.newCorrRef()\\nprint 'Done new corr ref'",freq=-1,startiter=1)
+if not "nopoke" in ctrl.userArgList:ctrl.doInitialPokeThenRun(startiter=2)
+
+
+iatmosList.append(science.iatmos.iatmos({"L0-2":iscrn},ctrl.config,idstr="b"))#science.
+for i in range(ndm):
+    dm2List.append(science.xinterp_dm.dm(None,ctrl.config,idstr="dmNF%db"%i))#this one for the Narrow Field science.
+
+for i in range(nwfs):#in direction %d
+    d={"L0-2":iscrn}
+    for j in range(ndm):
+        dmList.append(science.xinterp_dm.dm(None,ctrl.config,idstr="dm%d_%d"%(j,i)))#this one (with no phase) for the widefield object (which adds the phase) in a particular direction.
+        d["dm%d_%d"%(j,i)]=dmList[-1]
+    wfList.append(science.wideField.WideField(d,ctrl.config,idstr="%d"%i))
+    cList.append(science.wfscent.wfscent(wfList[-1],ctrl.config,idstr="%dcent"%i))
+    wfsdict["%dcent"%i]=cList[-1]
+r=science.tomoRecon.recon(wfsdict,ctrl.config,idstr="recon")
+p=iatmosList[0]
+for i in range(ndm):
+    dm2List[i].newParent({"recon":r,"atmos":p},"dmNF%db"%i)
+    p=dm2List[i]
+
+for i in range(nwfs):
+    for j in range(ndm):
+        dmList[i*ndm+j].newParent({"recon":r},"dm%d_%d"%(j,i))
+
+s=science.science.science(dm2List[-1],ctrl.config,idstr="b")
+s2=science.science.science(iatmosList[0],ctrl.config,idstr="buncorr")
+execOrder=[iscrn]+iatmosList+dm2List+dmList+wfList+cList+[r,s,s2]
+ctrl.mainloop(execOrder)
+"""
+solarMcaoParams="""
+import base.readConfig
+this=base.readConfig.init(globals())
+tstep=1/250.#iteration time step.
+AOExpTime=40.
+
+#number of phase pupils.
+npup=80
+
+#telescope diameter
+telDiam=4.
+ntel=npup
+wfs_nsubx=10#number of subaps
+wfs_n=npup/wfs_nsubx
+ngsLam=640.#ngs wavelength.
+sciLam=1650.#sci wavelength in nm
+nlayer=3
+if hasattr(this.globals,"nwfs"):
+    nwfs=this.globals.nwfs
+else:
+    nwfs=3
+ndm=3
+if hasattr(this.globals,"wfsRadius"):
+    wfsRadius=this.globals.wfsRadius
+else:
+    wfsRadius=5.
+if hasattr(this.globals,"imgOffsetX"):
+    imgOffsetX=this.globals.imgOffsetX
+else:
+    imgOffsetX=600
+if hasattr(this.globals,"imgOffsetY"):
+    imgOffsetY=this.globals.imgOffsetY
+else:
+    imgOffsetY=1520
+if hasattr(this.globals,"resFile"):
+    resFile=this.globals.resFile
+else:
+    resFile="resMcao.csv"
+decayFactor=0.99#integrator decay.
+fov=5.#only used in param file - fov of the wfs.
+nFieldX=6#number of fields to evaluate to make the shs image.
+widefieldImageBoundary=8# The extra rows/cols added to the psf. This will ideally depend on pixel scale and seeing - i.e. should be equal to likely maximum spot motion
+
+studySubap=(3,3)
+telSec=0.
+import util.tel
+spider=None
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
+
+layerList={"L0-2":["L%d"%x for x in range(nlayer)]}
+wfs_sig=1e6 #wfs flux - but actually not used (taken from the solar images)
+
+
+nimg=int(wfs_n*(nFieldX+1.)/2)
+corrPattern=numpy.zeros((wfs_nsubx,wfs_nsubx,nimg,nimg),"f")
+
+
+import util.guideStar
+#create the wfs objects:  First one is for widefield image generation
+wfsDict={}
+for i in range(nwfs):
+    wfsDict["%d"%i]=util.guideStar.NGS("%d"%i,wfs_nsubx,wfsRadius,i*(360./nwfs),npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,spotpsf=numpy.ones((wfs_nsubx,wfs_nsubx,npup/wfs_nsubx*4,npup/wfs_nsubx*4),numpy.float32),floor=2500.)
+#and this one is for the image -> slope module.
+    wfsDict["%dcent"%i]=util.guideStar.NGS("%dcent"%i,wfs_nsubx,wfsRadius,i*(360./nwfs),npup/wfs_nsubx,sig=wfs_sig,sourcelam=ngsLam,fov=fov,pupil=pupil,nimg=nimg,ncen=nimg/2,correlationCentroiding=2,corrThresh=0.0,corrPattern=corrPattern,cameraImage=1,reconList=["recon"],parabolicFit=1,centroidPower=1.0)
+
+wfsOverview=util.guideStar.wfsOverview(wfsDict)    
+
+import util.sci
+sciOverview=util.sci.sciOverview({"b":util.sci.sciInfo("b",0.,0.,pupil,sciLam,calcRMS=1,summaryFilename=resFile),
+"buncorr":util.sci.sciInfo("buncorr",0.,0.,pupil,sciLam,calcRMS=1,summaryFilename=resFile),})
+
+#Now atmosphere stuff
+from util.atmos import geom,layer,source
+import util.compare
+strList=[0.5,0.3,0.2]
+hList=[0.,4000.,10000.]
+vList=[4.55,12.61,8.73]
+dirList=numpy.arange(10)*36
+d={}
+for i in range(nlayer):
+    d["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+
+r0=0.10
+l0=25.
+sourceList=[]
+
+sourceList+=wfsOverview.values()
+sourceList.append(sciOverview.getSciByID("b"))
+
+atmosGeom=geom(d,sourceList,
+	       ntel,npup,telDiam,r0,l0
+	      )
+
+#Now DM stuff.  2 DM objects needed here, even though there is only 1.  The first one generates the entire DM surface.  The second is for the DM metapupil - i.e. for non-ground-conjugate DMs, will select only the relevant line of sight.
+from util.dm import dmOverview,dmInfo
+dmHeight=[0.,4000.,10000.]
+dmInfoList=[]
+for i in range(ndm):
+    dmInfoList.append(dmInfo('dm%d_'%i,['%d'%j for j in range(nwfs)],dmHeight[i],wfs_nsubx+1,fov=fov+wfsRadius,minarea=0.1,actuatorsFrom="recon",pokeSpacing=None,maxActDist=1.5,decayFactor=decayFactor,sendFullDM=1,reconLam=ngsLam))#sendFullDM must be set for wideField.
+    dmInfoList.append(dmInfo('dmNF%d'%i,['b'],dmHeight[i],wfs_nsubx+1,fov=fov+wfsRadius,minarea=0.1,actuatorsFrom="Nothing",pokeSpacing=None,maxActDist=1.5,decayFactor=decayFactor,sendFullDM=0,reconLam=ngsLam))
+
+dmOverview=dmOverview(dmInfoList,atmosGeom)
+
+
+seed=1
+for i in range(nwfs):
+    setattr(this,"wfscent_%d"%i,new())
+    getattr(this,"wfscent_%d"%i).imageOnly=1
+
+
+import util.FITS
+from scipy.ndimage import interpolation
+for i in range(nwfs):
+    setattr(this,"wideField_%d"%i,new())
+    wf=getattr(this,"wideField_%d"%i)
+    wfs=i
+    print "Making widefield image for module wideField_%d"%i
+    #shape should be
+    #(nsubx,nsubx,fftsize*(nFieldX+1)/2,fftsize*(nFieldX+1)/2)
+    data=util.FITS.Read("imsol.fits")[1]#imsol is 50 arcsec with 3600 pixels.
+    pxlPerArcsec=3600/50.
+    offsetx=int(imgOffsetX+wfsRadius*numpy.cos(wfs*360./nwfs*numpy.pi/180.)*pxlPerArcsec)
+    offsety=int(imgOffsetY+wfsRadius*numpy.sin(wfs*360./nwfs*numpy.pi/180.)*pxlPerArcsec)
+    print "Image offset for wfs %d is %d, %d"%(wfs,offsetx,offsety)
+    npixels=int(3600/50.*fov*2)
+    if offsetx<0 or offsety<0 or (offsetx+npixels)>data.shape[1] or (offsety+npixels)>data.shape[0]:
+        raise Exception("Offsets not good for image selection")
+    data=data[offsety:offsety+npixels,offsetx:offsetx+npixels]*10
+    #Note - for this one above to work, need centroidPower=2.  And
+    #wide-field image boundary of 8.
+
+    b=widefieldImageBoundary
+    fftsize=wfs_n*2
+    n=fftsize*(nFieldX+1.)/2
+    #For a different image per subap use this one:
+    #data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
+    #For identical image per subap, use this one:
+    data=interpolation.zoom(data,(n+2*b)/data.shape[0])*100
+    widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
+    for i in range(wfs_nsubx):
+        for j in range(wfs_nsubx):
+            widefieldImage[i,j]=data # use this for same image per subap.
+    wf.widefieldImage=widefieldImage
+
+
+    
+#reconstructor parameters.
+this.tomoRecon=new()
+this.tomoRecon.rcond=0.05
+this.tomoRecon.recontype="pinv"
+this.tomoRecon.pokeval=1.
+this.tomoRecon.gainFactor=0.5
+this.tomoRecon.computeControl=1
+this.tomoRecon.reconmxFilename="rmx.fits"
+this.tomoRecon.pmxFilename="pmx.fits"
+
 """
 
 
