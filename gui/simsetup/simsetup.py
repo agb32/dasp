@@ -1390,7 +1390,8 @@ class simsetup:
                     l.append((int(e.x),int(e.y)))
                     l.drawTmp()
             elif self.doing=="group":
-                print "DOING group"
+                #print "DOING group"
+                pass
         else:
             if self.doing=="connect":
                 if self.connectObject!=None:
@@ -1696,12 +1697,14 @@ class boxObj(lineObj):
             width=self.coordList[1][0]-self.coordList[0][0]
             txtlist=txt.split(",")
             while self.layout.get_pixel_size()[0]>width and len(txtlist)>2:
-                txtlist.pop(len(txtlist)//2)
-                txt=string.join(txtlist[:len(txtlist)//2]+["..."]+txtlist[len(txtlist)//2:],",")[:-1]
+                pos=len(txtlist)//2
+                txtlist.pop(pos)
+                txt=string.join(txtlist[:pos]+["..."]+txtlist[pos:],",")
+                if len(txt)>0 and txt[-1]==",":
+                    txt=txt[:-1]
                 self.layout.set_text(txt)
                 
             self.drawable.draw_layout(self.gc,self.coordList[0][0],self.coordList[0][1],self.layout)
-        
     def moveSelectedPoint(self,x,y):
         """move a virtex and corresponding sides by x,y"""
         if self.selectedPoint!=None:
