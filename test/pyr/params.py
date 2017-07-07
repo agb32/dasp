@@ -1,6 +1,5 @@
-
 import base.readConfig
-base.readConfig.init(globals())
+this=base.readConfig.init(globals())
 wfs_nsubx=10 #Number of subaps
 tstep=1/250.#Simulation timestep in seconds (250Hz).
 AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)

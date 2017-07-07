@@ -11,14 +11,12 @@ textcol="red" import="science.infScrn" object="infScrn"/>
 <simobj name="Atmos (infinite)" shortname="atmos" comment="Atmospheric
 pupil phase from infinite phase screens" pixmap="infAtmos.xpm"
 textcol="red" import="science.infAtmos" object="infAtmos"/>
-<simobj name="Wfscent" shortname="wfscent" comment="Wavefront and centroiding
-module" pixmap="wfscent.xpm" textcol="red" import="science.wfscent"
-object="wfscent"/>
+<simobj name="Wfscent" shortname="wfscent" comment="Shack-Hartmann and centroiding module" pixmap="wfscent.xpm" textcol="red" import="science.wfscent" object="wfscent"/>
+<simobj name="Pyramid" shortname="pyramid" comment="Pyramid and centroiding module" pixmap="pyramid.xpm" textcol="red" import="science.pyramid" object="Pyramid"/>
 <simobj name="Xinetics DM" shortname="xdm" comment="Model for xinetics
 DM" pixmap="xinterp_dm.xpm"
 textcol="red" import="science.xinterp_dm" object="dm"/>
-<simobj name="Tomo reconstructor" shortname="tomoRecon" comment="Tomographic reconstructor"
-pixmap="xinterp_recon.xpm" textcol="red" import="science.tomoRecon" object="recon" givesFeedback="1"/>
+<simobj name="Tomo reconstructor" shortname="tomoRecon" comment="Tomographic reconstructor" pixmap="xinterp_recon.xpm" textcol="red" import="science.tomoRecon" object="recon" givesFeedback="1"/>
 <simobj name="Science" shortname="science" comment="A science module"
 pixmap="sci.xpm" textcol="red" import="science.science" object="science"/>
 <simobj name="Xinetics recon" shortname="x_recon"

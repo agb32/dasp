@@ -1736,7 +1736,7 @@ def createAiryDisc2(npup,halfwidth,xoff=0.,yoff=0.,defocus=0):
     bn=int(n/npup)+1
     #bn=1
     nfft=npup*bn
-    print "createAiryDisc2:  n=%g, nfft=%d, binfactor=%d"%(n,nfft,bn)
+    #print "createAiryDisc2:  n=%g, nfft=%d, binfactor=%d"%(n,nfft,bn)
     pup=util.tel.Pupil(int(numpy.ceil(n)),n/2,0).fn
     #centre on 2x2 pixels
     yoff-=0.5/bn

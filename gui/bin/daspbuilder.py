@@ -34,11 +34,12 @@ enough.
  3  LTAO
  4  MCAO
  5  MOAO
- 6  Solar
- 7  Interaction matrix
- 8  Wavefront recorder
- 9  MPI instructions
- 10  Help and notes
+ 6  Pyramid SCAO
+ 7  Solar
+ 8  Interaction matrix
+ 9  Wavefront recorder
+ 10  MPI instructions
+ 11  Help and notes
 """)
     if len(simtyp)==0:
         simtyp="1"
@@ -54,14 +55,16 @@ enough.
     elif simtyp==5:
         makemoao()
     elif simtyp==6:
-        makesolar()
+        makepyramid()
     elif simtyp==7:
-        makepmx()
+        makesolar()
     elif simtyp==8:
-        makelearn()
+        makepmx()
     elif simtyp==9:
-        printmpi()
+        makelearn()
     elif simtyp==10:
+        printmpi()
+    elif simtyp==11:
         printhelp()
     else:
         print("Idiot!")
@@ -718,7 +721,62 @@ poking simulation.
     print(txt)
     save(txt,dirname,"README")
 
+def makepyramid(dirname=None,fname="pyramid"):
+    if dirname is None:
+        dirname="pyrSim"
+        tmp=raw_input("Please enter an output directory name: [%s] "%dirname)
+        if len(tmp.strip())!=0:
+            dirname=tmp
+    readme="""Simulation generated.
+To run in %s/, use:
+python pyrSim.py params.py
+To view the simulation configuration, use:
+daspsetup.py pyrSim.xml
+To connect to a running simulation (to view PSFs, WFSs, DMs, etc in action) use:
+daspctrl.py
+or:
+daspanalyse.py
 
+Please edit params.py to alter the simulation to meet your requirements.
+
+Some notes about this simulation:
+It will first of all take an interaction matrix.
+This will then be inverted to give a control matrix, using a simple SVD.
+This least-squares wavefront reconstructor will then be used for AO correction.
+
+Things like pyramid modulation radius and loop gain can be changed.
+
+It does a simple SCAO Pyramid simulation.  You are free to change it as you wish!
+
+Several improvements are possible (left as an excercise for the user):
+Minimum variance wavefront reconstruction from the interaction matrix.
+Model-based reconstruction (e.g. CuReD, SOR, etc)
+
+If you already have a control matrix, and thus do not need to generate one, you
+can use --user=nopoke commandline option
+"""%dirname
+    xmltxt=scao1sciTxt
+    xmltxt=xmltxt.replace("science.wfscent","science.pyramid")
+    xmltxt=xmltxt.replace("wfscent","Pyramid")
+    xmltxt=xmltxt.replace("Pyramid.xpm","pyramid.xpm")
+    p=util.parseSimXml.parseSimXml(xmltxt)
+    pystr=p.makePython()
+    if os.path.exists(dirname):
+        print("Using existing directory %s"%dirname)
+    else:
+        os.mkdir(dirname)
+
+    save(pystr,dirname,"pyrSim.py")
+    save(xmltxt,dirname,"pyrSim.xml")
+    save(pyrParams,dirname,"params.py")
+    save(readme,dirname,"README")
+    print "Simulation generated"
+    print "Please change to directory %s"%dirname
+    print readme
+                      
+        
+
+    
 def makesolar(dirname=None,fname="solar"):
     scao=raw_input("You can have SCAO or MCAO.  Do you want SCAO? [y]/n")
     if dirname is None:
@@ -2169,7 +2227,93 @@ this.tomoRecon.pmxFilename="pmx.fits"
 
 """
 
+pyrParams="""
+import base.readConfig
+this=base.readConfig.init(globals())
+wfs_nsubx=10 #Number of subaps
+tstep=1/250.#Simulation timestep in seconds (250Hz).
+AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)
+npup=wfs_nsubx*8#Number of phase points across the pupil
+telDiam=4.2
+telSec=telDiam/7.#Central obscuration
+ntel=npup#Telescope diameter in pixels
+nAct=wfs_nsubx+1#Number of actuators across the DM
+ngsLam=640.#NGS wavelength
+sciLam=1650.#Science wavelength
+nsci=1
+import util.tel
+#Create a pupil function
+pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam)
 
+if hasattr(this.globals,"pyrSteps"):
+ pyrSteps=this.globals.pyrSteps
+else:
+ pyrSteps=8
+if hasattr(this.globals,"pyrModAmp"):
+ pyrModAmp=this.globals.pyrModAmp
+else:
+ pyrModAmp=8.
+
+#Create the WFS overview
+import util.guideStar
+wfsDict={"1":util.guideStar.NGS("1",wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,nfft=npup*2,clipsize=npup*2,nimg=wfs_nsubx*2,minarea=0.5,sig=1e6,sourcelam=ngsLam,reconList=["recon"],pupil=pupil,pyrSteps=pyrSteps,pyrModAmp=pyrModAmp)}
+wfsOverview=util.guideStar.wfsOverview(wfsDict)
+
+#Create a Science overview.
+import util.sci
+sciDict={}
+if nsci==1:
+ phslam=ngsLam
+else:
+ phslam=sciLam
+for i in range(nsci):
+ sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),i*10.,0.,pupil,sciLam,phslam=phslam)
+ sciOverview=util.sci.sciOverview(sciDict)
+
+#Create the atmosphere object and source directions.
+from util.atmos import geom,layer,source
+atmosDict={}
+nlayer=2 #2 atmospheric layers
+layerList={"allLayers":["L%d"%x for x in range(nlayer)]}
+strList=[0.9]+[0.1]*(nlayer-1)#relative strength of the layers
+hList=range(0,nlayer*1000,1000)#height of the layers
+vList=[10.]*nlayer#velocity of the layers
+dirList=[0.]*nlayer#direction (degrees) of the layers
+for i in range(nlayer):
+ atmosDict["L%d"%i]=layer(hList[i],dirList[i],vList[i],strList[i],10+i)
+sourceList=[]
+#the wfs
+sourceList.append(wfsOverview.getWfsByID("1"))
+
+#and psf
+for i in range(nsci):
+ sourceList.append(sciOverview.getSciByID("sci%d"%(i+1)))
+l0=10. #outer scale
+r0=0.137 #fried's parameter
+atmosGeom=geom(atmosDict,sourceList,ntel,npup,telDiam,r0,l0)
+
+
+#Create the DM object.
+from util.dm import dmOverview,dmInfo
+dmInfoList=[dmInfo('dm',[x.idstr for x in sourceList],0.,nAct,minarea=0.1,actuatorsFrom="recon",                   pokeSpacing=(None if wfs_nsubx<20 else 10),maxActDist=1.5,decayFactor=0.95)]
+dmOverview=dmOverview(dmInfoList,atmosGeom)
+
+#reconstructor
+this.tomoRecon=new()
+r=this.tomoRecon
+r.rcond=0.05#condtioning value for SVD
+r.recontype="pinv"#reconstruction type
+r.pokeval=1.#strength of poke
+if hasattr(this.globals,"gain"):
+ r.gainFactor=this.globals.gain
+else:
+ r.gainFactor=2.0#Loop gain - of 2! Seems better than 0.5, probably conditioning
+r.computeControl=1#To compute the control matrix after poking
+r.reconmxFilename="rmx.fits"#control matrix name (will be created)
+r.pmxFilename="pmx.fits"#interation matrix name (will be created)
+
+
+"""
 
 if __name__=="__main__":
     makesim()

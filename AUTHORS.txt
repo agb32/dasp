@@ -1,0 +1,25 @@
+A list of authors who have contributed to DASP in some way.  The code
+for DASP dates back to the early 1990s, however, the DASP era is
+recognised as dating from 2004, when DASP was significantly refactored
+and updated to enable ELT-scale modelling.
+
+If you have contributed, and are not on this list, then please either
+add yourself and submit a pull request, or contact Alastair.  These
+authors are in no particular order.
+
+For more details and statistics about author contributions since 2012,
+please see the git log.
+
+David Buscher (before DASP era)
+Pete Dole (before DASP era)
+Alastair Basden
+Francois Assemat
+Richard Myers
+Tim Morris
+Andrew Reeves
+Nazim Ali Bharmal
+Urban Bitenc
+Tim Butterley
+Richard Wilson
+Matthew Townson
+

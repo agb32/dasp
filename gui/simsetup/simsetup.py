@@ -26,8 +26,270 @@ import util.parseSimXml as parseSimXml
 import gui.dialog.dialog
 from gui.myFileSelection.myFileSelection import myFileSelection
 from sys import argv
+
 class simsetup:
     def __init__(self):
+        self.w=gtk.Window()
+        self.w.set_title("DaspSetup")
+        self.w.connect("delete-event",self.deleteevent)
+        self.w.connect("key-press-event",self.keypress)
+        self.w.set_default_size(500,500)
+        self.h1=gtk.HBox()
+        self.w.add(self.h1)
+        self.vLeft=gtk.VBox()
+        self.h1.pack_start(self.vLeft,False)
+        self.menuWidget=gtk.MenuBar()
+        self.vLeft.pack_start(self.menuWidget,False)
+        accelGroup=gtk.AccelGroup()
+        self.w.add_accel_group(accelGroup)
+        fileItem=gtk.MenuItem("File")
+        menu=gtk.Menu()
+        fileItem.set_submenu(menu)
+        self.menuWidget.append(fileItem)
+        for mtxt,func in [("_New",self.newSetup),("_Open",self.openSetup),("_Save",self.saveSetup),("Save As",self.saveAsSetup),("_Quit",self.deleteevent)]:
+            mitem=gtk.MenuItem(mtxt,use_underline=True)
+            menu.append(mitem)
+            mitem.connect("activate",func)
+            if "_" in mtxt:
+                char=mtxt[mtxt.index("_")+1]
+                mitem.add_accelerator("activate",accelGroup,ord(char),gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+
+        fileItem=gtk.MenuItem("Preferences")
+        menu=gtk.Menu()
+        fileItem.set_submenu(menu)
+        self.menuWidget.append(fileItem)
+        for mtxt,func in [("Reload widgets",self.loadSciWidgets),("Add widget",self.runWidgetGui)]:
+            mitem=gtk.MenuItem(mtxt,use_underline=True)
+            menu.append(mitem)
+            mitem.connect("activate",func)
+
+
+        fileItem=gtk.MenuItem("Help")
+        menu=gtk.Menu()
+        fileItem.set_submenu(menu)
+        self.menuWidget.append(fileItem)
+        for mtxt,func in [("About",self.about),("Print drawlist",self.printDrawlist)]:
+            mitem=gtk.MenuItem(mtxt,use_underline=True)
+            menu.append(mitem)
+            mitem.connect("activate",func)
+            
+
+
+        t=gtk.Table(rows=6,columns=2,homogeneous=True)
+        self.vLeft.pack_start(t,False)
+        buttons=[("S_elect","Mouse can be used to select and move objects",self.buttonSelect),
+                 ("_Connect","Connect tool",self.buttonConnect),
+                 ("_Re-place","Move modules to different nodes",self.buttonRePlace),
+                 ("S_hare","Connect similar modules for resource sharing",self.buttonShare),
+                 ("New _module","Place a new module",self.buttonNewModule),
+                 ("_Delete","Delete a module, connection or group",self.buttonDeleteModule),
+                 ("_Group","Create a repeating group (objects within this get repeated for a comma-separated list in the idstr box",self.buttonGroup),
+                 ("_Py generate","Generate python code",self.buttonGenerate),
+                 ]
+        self.shortcutDict={}
+        group=None
+        for i in range(len(buttons)):
+            if buttons[i][0]=="_Py generate":
+                b=gtk.Button(buttons[i][0])
+                sig="clicked"
+            else:
+                b=gtk.RadioButton(group,buttons[i][0])
+                if group is None:
+                    group=b
+                if i==4:
+                    b.set_active(True)
+                sig="toggled"
+            b.connect(sig,buttons[i][2])
+                
+            b.set_tooltip_text(buttons[i][1])
+            t.attach(b,i//4,i//4+1,i%4,i%4+1)
+            if "_" in buttons[i][0]:
+                indx=buttons[i][0].index("_")
+                ch=buttons[i][0][indx+1].lower()
+                self.shortcutDict[ch]=b
+                b.add_accelerator("activate",accelGroup,ord(ch),gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+
+        t.attach(gtk.Label("Node number:"),0,1,4,5)
+        t.attach(gtk.Label("Proc number:"),0,1,5,6)
+        e=gtk.Entry()
+        e.set_width_chars(3)
+        e.set_text("1")
+        e.set_tooltip_text("The node number for the module which is next placed.\n(select re-place and then click on the module to move a module)")
+        e.connect("changed",self.selectNode)
+        t.attach(e,1,2,4,5)
+        e=gtk.Entry()
+        e.set_width_chars(3)
+        e.set_text("1")
+        e.set_tooltip_text("The process number within the node for the module which is next placed.\n(select re-place and then click on the module to move a module)")
+        e.connect("changed",self.selectProc)
+        t.attach(e,1,2,5,6)
+
+        self.curNode=1
+        self.curProc=1
+        
+        #now the modules themselves...
+        #scrolled window etc.
+        self.moduleScroll=gtk.ScrolledWindow()
+        self.vLeft.pack_start(self.moduleScroll,True)
+        vp=gtk.Viewport()
+        self.moduleScroll.add(vp)
+        self.vboxSimSelect=gtk.VBox()
+        vp.add(self.vboxSimSelect)
+
+        #Object preferences
+        self.vLeft.pack_start(gtk.Label("Object preferences"),False)
+        h=gtk.HBox()
+        self.hboxName=h
+        self.vLeft.pack_start(h,False)
+        h.pack_start(gtk.Label("Name:"),False)
+        self.entryName=gtk.Entry()
+        self.entryName.set_width_chars(5)
+        self.entryName.set_tooltip_text("Optional - select a name for the python object")
+        self.entryName.connect("changed",self.nameChanged)
+        h.pack_start(self.entryName,True)
+
+        self.checkButtonGroupShare=gtk.CheckButton("Share")
+        self.checkButtonGroupShare.set_tooltip_text("Does the object in the group implement resource sharing?")
+        self.vLeft.pack_start(self.checkButtonGroupShare,False)
+        self.checkButtonGroupShare.connect("toggled",self.groupShareToggled)
+        
+        h=gtk.HBox()
+        self.vLeft.pack_start(h,False)
+        h.pack_start(gtk.Label("idstr:"),False)
+        self.entryIdstr=gtk.Entry()
+        self.entryIdstr.set_width_chars(5)
+        self.entryIdstr.set_tooltip_text("Select an idstr (identification string) for the python object.  This will be used to match to entries within the parameter file")
+        self.entryIdstr.connect("changed",self.idstrChanged)
+        h.pack_start(self.entryIdstr,True)
+        
+        h=gtk.HBox()
+        self.vLeft.pack_start(h,False)
+        h.pack_start(gtk.Label("CPU:"),False)
+        self.entryCpu=gtk.Entry()
+        self.entryCpu.set_text("1, 1")
+        self.entryCpu.set_width_chars(5)
+        self.entryCpu.set_tooltip_text("Select an node and process for this module (comma separated)")
+        self.entryCpu.connect("changed",self.cpuChanged)
+        h.pack_start(self.entryCpu,True)
+
+        c=gtk.CheckButton("Feedback")
+        c.set_tooltip_text("Does this module provide feedback?  e.g. a reconstructor module in a closed loop AO system.  If selected, it means the module output is valid even before the module has been iterated for this frame")
+        c.connect("toggled",self.feedbackToggled)
+        h.pack_start(c,False)
+        self.checkbuttonFeedback=c
+
+        h=gtk.HBox()
+        self.vLeft.pack_start(h,False)
+        h.pack_start(gtk.Label("Args:"),False)
+        self.entryArgs=gtk.Entry()
+        self.entryArgs.set_width_chars(5)
+        self.entryArgs.set_tooltip_text("Optional arguments to be provided to the module upon initialisation.  Probably not required.")
+        self.entryArgs.connect("changed",self.argsChanged)
+        h.pack_start(self.entryArgs,True)
+
+        #pre-module text
+        e=gtk.EventBox()
+        self.vLeft.pack_start(e,False)
+        h=gtk.HBox()
+        e.add(h)
+        e.connect("button-press-event",self.eventReleaseTxt)
+        h.pack_start(gtk.Label("Pre:"),False)
+        s=gtk.ScrolledWindow()
+        s.set_size_request(100,20)
+        h.pack_start(s,True)
+        vp=gtk.Viewport()
+        s.add(vp)
+        self.textviewPrecode=gtk.TextView()
+        self.textviewPrecode.set_tooltip_text("Optional python code to be placed before the module is initiated.  Probably not used.  Use tab to indent if needed.")
+        self.textviewPrecode.get_buffer().connect("changed",self.textPrecodeChanged)
+        vp.add(self.textviewPrecode)
+
+        #post-module text
+        e=gtk.EventBox()
+        self.vLeft.pack_start(e,False)
+        h=gtk.HBox()
+        e.add(h)
+        e.connect("button-press-event",self.eventReleaseTxt)
+        h.pack_start(gtk.Label("Post:"),False)
+        s=gtk.ScrolledWindow()
+        s.set_size_request(100,20)
+        h.pack_start(s,True)
+        vp=gtk.Viewport()
+        s.add(vp)
+        self.textviewPostcode=gtk.TextView()
+        self.textviewPostcode.set_tooltip_text("Optional python code to be placed after the module is initiated.  Probably not used.  Use tab to indent if needed.")
+        self.textviewPostcode.get_buffer().connect("changed",self.textPostcodeChanged)
+        vp.add(self.textviewPostcode)
+
+        #initialisation text:
+        e=gtk.EventBox()
+        self.vLeft.pack_start(e,False)
+        v=gtk.VBox()
+        e.add(v)
+        e.connect("button-press-event",self.eventReleaseTxt)
+        l=gtk.Label("<b>Initialisation text</b>")
+        l.set_use_markup(True)
+        v.pack_start(l,False)
+        s=gtk.ScrolledWindow()
+        s.set_size_request(100,20)
+        v.pack_start(s,True)
+        vp=gtk.Viewport()
+        s.add(vp)
+        t=gtk.TextView()
+        t.set_tooltip_text("Optional python code to be used for initialisation, after importing modules, before setting up the simulation.  e.g. to add some user control logic, etc")
+        vp.add(t)
+        t.get_buffer().connect("changed",self.textInitChanged)
+        self.textviewInitText=t
+
+
+        #finalisation text:
+        e=gtk.EventBox()
+        self.vLeft.pack_start(e,False)
+        v=gtk.VBox()
+        e.add(v)
+        e.connect("button-press-event",self.eventReleaseTxt)
+        l=gtk.Label("<b>Finalisation text</b>")
+        l.set_use_markup(True)
+        v.pack_start(l,False)
+        s=gtk.ScrolledWindow()
+        s.set_size_request(100,20)
+        v.pack_start(s,True)
+        vp=gtk.Viewport()
+        s.add(vp)
+        t=gtk.TextView()
+        t.set_tooltip_text("Optional python code to go at the end of the simulation.  e.g. for saving internal state of something, etc.")
+        vp.add(t)
+        t.get_buffer().connect("changed",self.textFinalChanged)
+        self.textviewFinalText=t
+
+        #fit button
+        h=gtk.HBox()
+        self.vLeft.pack_start(h,False)
+        b=gtk.Button("Fit area")
+        b.set_tooltip_text("Fit the canvas size to the modules")
+        b.connect("clicked",self.fitarea)
+        h.pack_start(b,False)
+        self.labelInfo=gtk.Label("300 x 300")
+        h.pack_start(self.labelInfo,True)
+
+        #And now the drawing canvas.
+        self.scrollDraw=gtk.ScrolledWindow()
+        self.h1.pack_start(self.scrollDraw)
+        self.vp=gtk.Viewport()
+        self.scrollDraw.add(self.vp)
+        self.da=gtk.DrawingArea()
+        self.vp.add(self.da)
+        self.da.connect("expose_event",self.daexpose)
+#        self.da.connect("realize",self.darealise)
+        self.da.connect("button_press_event",self.dabuttonpressed)
+        self.da.connect("button_release_event",self.dabuttonreleased)
+        self.da.connect("key_press_event",self.dakey)
+        self.da.connect("motion_notify_event",self.damotion)
+        self.da.connect("enter_notify_event",self.daenter)
+        self.da.connect("leave_notify_event",self.daleave)
+        self.da.connect("drag_begin",self.dadragbegin)
+
+
         self.drawMode="full"#whether to do full or partial redraws.  full will be slower, but ensures all is correct...
         self.cwd=os.getcwd()
         try:
@@ -40,73 +302,10 @@ class simsetup:
             self.filepath="./"
             print "Guessing current directory for filepath (did you run this from the simsetup directory?)"
         self.drawlist=[]
-        gladefile="simsetup.glade"
-        self.gladetree=glade.XML(gladefile)
-        self.sigdict={"on_togglebuttonNewModule_toggled":self.buttonNewModule,
-                      "on_togglebuttonDelete_toggled":self.buttonDeleteModule,
-                      "on_togglebuttonSelect_toggled":self.buttonSelect,
-                      "on_togglebuttonConnect_toggled":self.buttonConnect,
-                      "on_togglebuttonRePlace_toggled":self.buttonRePlace,
-                      "on_togglebuttonShare_toggled":self.buttonShare,
-                      "on_togglebuttonGroup_toggled":self.buttonGroup,
-                      "on_buttonGenerate_clicked":self.buttonGenerate,
-                      "on_window1_delete_event":self.deleteevent,
-                      "on_window2_delete_event":self.deleteevent,
-                      "on_window3_delete_event":self.closeParamGui,
-                      "on_window4_delete_event":self.doWidgetGui,
-                      "on_buttonWidOK_clicked":self.doWidgetGui,
-                      "on_buttonWidCancel_clicked":self.doWidgetGui,
-                      "on_add_widget1_activate":self.runWidgetGui,
-                      "on_buttonParamGuiOk_clicked":self.closeParamGui,
-                      "on_buttonParamGuiCancel_clicked":self.closeParamGui,
-                      "on_window1_key_press_event":self.keypress,
-                      "on_window1_key_release_event":self.keyrelease,
-                      "on_window2_key_press_event":self.keypress,
-                      "on_window2_key_release_event":self.keyrelease,
-#                      "on_drawingarea1_configure_event":self.daconfig,
-                      "on_drawingarea1_expose_event":self.daexpose,
-                      "on_drawingarea1_realize":self.darealise,
-                      "on_drawingarea1_button_press_event":self.dabuttonpressed,
-                      "on_drawingarea1_key_press_event":self.dakey,
-                      "on_drawingarea1_motion_notify_event":self.damotion,
-                      "on_drawingarea1_enter_notify_event":self.daenter,
-                      "on_drawingarea1_leave_notify_event":self.daleave,
-                      "on_drawingarea1_button_release_event":self.dabuttonreleased,
-                      "on_drawingarea1_drag_begin":self.dadragbegin,
-                      "on_buttonFit_clicked":self.fitarea,
-                      "on_togglebuttonSwallow_toggled":self.buttonSwallow,
-                      "on_button2_clicked":self.button2,
-                      "on_reload_widgets1_activate":self.loadSciWidgets,
-                      "on_connect_to_paramgui_activate":self.connectParamGui,
-                      "on_entryName_changed":self.nameChanged,
-                      "on_checkbuttonGroupShare_toggled":self.groupShareToggled,
-                      "on_entryCPU_changed":self.cpuChanged,
-                      "on_entryArgs_changed":self.argsChanged,
-                      "on_entryIDStr_changed":self.idstrChanged,
-                      "on_checkbuttonFeedback_toggled":self.feedbackToggled,
-                      "on_eventboxObjectPrefs_button_press_event":self.hideShowWidgets,
-                      "on_eventboxInitTxt_button_press_event":self.hideShowWidgets,
-                      "on_eventboxFinalTxt_button_press_event":self.hideShowWidgets,
-                      "on_eventboxFinalisation_button_press_event":self.eventReleaseTxt,
-                      "on_eventboxInitialisation_button_press_event":self.eventReleaseTxt,
-                      "on_eventboxReleaseObjectPrefs_button_press_event":self.eventReleaseTxt,
-                      "on_handleboxWidgets_child_detatched":self.childDetached,
-                      "on_save1_activate":self.saveSetup,
-                      "on_save_as1_activate":self.saveAsSetup,
-                      "on_new1_activate":self.newSetup,
-                      "on_open1_activate":self.openSetup,
-                      "on_quit1_activate":self.deleteevent,
-                      "on_print_drawlist1_activate":self.printDrawlist
-                      
-                     }
-        self.gladetree.signal_autoconnect(self.sigdict)
-        self.da=self.gladetree.get_widget("drawingarea1")
-        #self.da.set_double_buffered(True)
         self.da.set_events(gtk.gdk.EXPOSURE_MASK |
                            gtk.gdk.LEAVE_NOTIFY_MASK |
                            gtk.gdk.BUTTON_PRESS_MASK |
                            gtk.gdk.POINTER_MOTION_MASK |
-                           #gtk.gdk.POINTER_MOTION_HINT_MASK |
                            gtk.gdk.KEY_PRESS_MASK |
                            gtk.gdk.BUTTON_MOTION_MASK |
                            gtk.gdk.BUTTON_RELEASE_MASK |
@@ -114,13 +313,11 @@ class simsetup:
                            gtk.gdk.ENTER_NOTIFY_MASK |
                            gtk.gdk.LEAVE_NOTIFY_MASK |
                            gtk.gdk.VISIBILITY_NOTIFY_MASK)#these are set in glade - Events selection.
-        self.gladetree.get_widget("textviewPrecode").get_buffer().connect("changed",self.textPrecodeChanged)
-        self.gladetree.get_widget("textviewPostcode").get_buffer().connect("changed",self.textPostcodeChanged)
-        self.gladetree.get_widget("textviewInitTxt").get_buffer().connect("changed",self.textInitChanged)
-        self.gladetree.get_widget("textviewFinalTxt").get_buffer().connect("changed",self.textFinalChanged)
+        self.colourDict={}
+        self.colourList=["red","#800","green","light green","blue","light blue","yellow","light yellow","orange","#7f5500","purple","#502078"]
 
-        #self.mincanvsizex=300
-        #self.mincanvsizey=300
+                         
+        self.addWidgetWin=None
         self.canvsizex=300
         self.canvsizey=300
         self.currTagID=0
@@ -132,16 +329,14 @@ class simsetup:
         self.cursors["replace"]=gtk.gdk.Cursor(gtk.gdk.TREK)
         self.cursors["share"]=gtk.gdk.Cursor(gtk.gdk.SB_H_DOUBLE_ARROW)
         self.cursors["group"]=gtk.gdk.Cursor(gtk.gdk.BOGOSITY)
-        #self.da.window.set_cursor(self.cursors[self.doing]) to change cursor
         self.prefsVisible=1
         self.da.connect("configure-event",self.adjustCanvasSize)
         self.da.connect("expose-event", self.daexpose)
-        self.gladetree.get_widget("window1").show()
+        self.w.show_all()
         self.drawable=self.da.window
         self.style = self.da.get_style()
         self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
         self.gc=self.style.black_gc
-        #self.drawable.draw_line(self.gc,10,10,20,20)
         self.oldpyfilename="tmp.py"
         self.oldxmlfilename=""
         self.doing="object"
@@ -154,18 +349,15 @@ class simsetup:
         self.selobj=None
         self.connectObject=None
         self.blitimg=None
-        self.initTxt=""
-        self.finalTxt=""
-        self.vp=self.gladetree.get_widget("viewport1")
+        self.initText=""
+        self.finalText=""
         self.vpx=self.vp.get_hadjustment()
         self.vpy=self.vp.get_vadjustment()
         self.tooltip=gtk.Tooltips()
         self.loadSciWidgets(fn="simwidgets.xml")
         self.modified(0)
         self.newObj=self.createNewSimObj()
-        self.hideShowWidgets(self.gladetree.get_widget("eventboxInitTxt"))
-        self.hideShowWidgets(self.gladetree.get_widget("eventboxFinalTxt"))
-        self.gladetree.get_widget("checkbuttonGroupShare").hide()
+        self.checkButtonGroupShare.hide()
         os.chdir(self.cwd)
         self.autoOpenFilename=None
         if len(argv)>1:
@@ -174,41 +366,12 @@ class simsetup:
                 self.autoOpenFilename=self.autoOpenFilename[:-3]+".xml"
             gobject.idle_add(self.openSetup,None)
 
-    def prepareDrawable(self):
-        self.da=self.gladetree.get_widget("drawingarea1")
-        #self.da.set_double_buffered(True)
-##         self.da.set_events(gtk.gdk.EXPOSURE_MASK |
-##                            gtk.gdk.LEAVE_NOTIFY_MASK |
-##                            gtk.gdk.BUTTON_PRESS_MASK |
-##                            gtk.gdk.POINTER_MOTION_MASK |
-##                            #gtk.gdk.POINTER_MOTION_HINT_MASK |
-##                            gtk.gdk.KEY_PRESS_MASK |
-##                            gtk.gdk.BUTTON_MOTION_MASK |
-##                            gtk.gdk.BUTTON_RELEASE_MASK |
-##                            gtk.gdk.KEY_RELEASE_MASK |
-##                            gtk.gdk.ENTER_NOTIFY_MASK |
-##                            gtk.gdk.LEAVE_NOTIFY_MASK |
-##                            gtk.gdk.VISIBILITY_NOTIFY_MASK)#these are set in glade - Events selection.
-        self.da.connect("configure-event",self.adjustCanvasSize)
-        self.da.connect("expose-event", self.daexpose)
-        self.da.connect("realize",self.darealise)
-        self.drawable=self.da.window
-        self.style = self.da.get_style()
-        self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
-        self.gc=self.style.black_gc
-        for obj in self.drawlist:
-            obj.gc=self.gc
-            obj.drawable=self.drawable
-        self.newObj=self.createNewSimObj()
-        
 
     def loadSciWidgets(self,w=None,fn=None):
         if fn==None:
-            fn=myFileSelection("Choose the node/widget XML file","simwidgets.xml",complete="*.xml",parent=self.gladetree.get_widget("window2")).fname
+            fn=myFileSelection("Choose the node/widget XML file","simwidgets.xml",complete="*.xml",parent=self.w).fname
         if fn==None:
             fn="simwidgets.xml"
-        vbox=self.gladetree.get_widget("vboxSelections")
-        vbox2=self.gladetree.get_widget("vboxSimSelect")
         try:
             txt=open(fn).read()
         except:
@@ -216,80 +379,33 @@ class simsetup:
             print "file %s not found"%fn
         p = xml.parsers.expat.ParserCreate()
         self.simButtonList=[]
-        self.cpuList=[]
         self.xmlInList=[]
         self.defaultObjAttribs={"name":"Unknown","shortname":"Unknown","comment":"Does nothing","pixmap":None,"textcol":"black","import":None,"object":None,"givesFeedback":0}
-        self.defaultCpuAttribs={"pe":"1","processor":"1","colour":"white"}
         p.StartElementHandler = self.start_element
         p.EndElementHandler = self.end_element
-        #p.CharacterDataHandler = self.char_data
         p.returns_unicode=0
         p.Parse(txt)
-        if len(self.cpuList)==0:
-            self.cpuList.append(self.defaultCpuAttribs.copy())
         if len(self.simButtonList)==0:
             self.simButtonList.append(self.defaultObjAttribs.copy())
-        vbox.forall(vbox.remove)
-        vbox2.forall(vbox2.remove)
+        self.vboxSimSelect.forall(self.vboxSimSelect.remove)
         radButtonGroup=None
         indx=0
-        for cpu in self.cpuList:
-            #colours can be in form #rrggbb or name found in /usr/X11R6/lib/X11/rgb.txt
-
-            #print "adding cpu",cpu["colour"]
-            radButtonGroup=gtk.RadioButton(radButtonGroup,label="Node "+cpu["pe"]+", CPU "+cpu["processor"])
-            radButtonGroup.connect("toggled", self.newCPUSelected,indx)
-            eb = gtk.EventBox()
-            eb.add(radButtonGroup)
-            eb.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse(cpu["colour"]))
-            eb.modify_bg(gtk.STATE_SELECTED, gtk.gdk.color_parse(cpu["colour"]))
-            eb.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse(cpu["colour"]))
-            eb.modify_bg(gtk.STATE_PRELIGHT, gtk.gdk.color_parse(cpu["colour"]))
-            vbox.pack_start(eb)
-            indx+=1
         indx=0
         self.sciWidGroup=None
         for sim in self.simButtonList:
             self.addSciWidget(sim,indx)
-##             hbox=gtk.HBox(False,0)
-##             if sim["pixmap"]!=None:
-##                 img=gtk.Image()
-##                 img.set_from_file(sim["pixmap"])
-##                 hbox.pack_start(img)
-##             label=gtk.Label(sim["name"])
-##             hbox.pack_start(label)
-                
-##             radButtonGroup=gtk.RadioButton(radButtonGroup)
-##             if sim.has_key("comment"):
-##                 self.tooltip.set_tip(radButtonGroup,sim["comment"])
-##             radButtonGroup.add(hbox)
-##             radButtonGroup.connect("toggled", self.newSimObjSelected,indx)
-##             vbox2.pack_start(radButtonGroup)
             indx+=1
         self.selectedSimObj=0
         self.selectedCPU=0
-        self.gladetree.get_widget("window2").show_all()
+        self.vboxSimSelect.show_all()
 
     def addSciWidget(self,sim,indx):
         """Add a science widget to the selection panel..."""
-        vbox2=self.gladetree.get_widget("vboxSimSelect")
+        vbox2=self.vboxSimSelect
         hbox=gtk.HBox(False,0)
         if sim["pixmap"]!=None:
             img=gtk.Image()
             failed=0
-##             print "trying",self.filepath,sim["pixmap"]
-##             try:
-##                 os.stat(sim["pixmap"])
-##             except:
-##                 failed=1
-##             if failed==1:
-##                 failed=0
-##                 try:
-##                     os.stat(self.filepath+sim["pixmap"])
-##                 except:
-##                     failed=1
-##             if failed:
-##                 print "File did not exist",self.filepath,sim["pixmap"]
             try:
                 pb=gtk.gdk.pixbuf_new_from_file(sim["pixmap"])
                 img.set_from_pixbuf(pb)
@@ -317,69 +433,63 @@ class simsetup:
         vbox2.show_all()
         
     def runWidgetGui(self,w,d2=None):
-        self.gladetree.get_widget("window4").show_all()
-        gtk.main()
-        self.gladetree.get_widget("window4").hide_all()
-
-    def doWidgetGui(self,w,d2=None):
-        if w==self.gladetree.get_widget("buttonWidOK"):
-            wdict={"name":"entryWidName",
-                   "comment":"entryWidComment",
-                   "pixmap":"entryWidPixmap",
-                   "shortname":"entryWidShort",
-                   "textcol":"entryWidColour",
-                   "import":"entryWidImport",
-                   "object":"entryWidObject"
-                   }
+        if self.addWidgetWin is None:
+            w=gtk.Window()
+            w.set_title("Add Science widget")
+            self.addWidgetWin=w
+            v=gtk.VBox()
+            w.add(v)
+            w.connect("delete-event",self.doWidgetGui,False)
+            entryList=["Name","Comment","Pixmap","Short name","Text colour","Import","Object"]
+            tips=["What is the name for the science object (e.g. wfscent)",
+                  "Do you want a comment for it?",
+                  "Do you want a pixmap (filename)?",
+                  "To display on the icon",
+                  "e.g. red",
+                  "The text thats needed to import the object, e.g. science.wfscent",
+                  "Text to create the object, e.g. wfscent"
+                  ]
+            self.addWidgetDict={}
+            t=gtk.Table(rows=len(entryList),columns=2)
+            v.pack_start(t,False)
+            for i in range(len(entryList)):
+                t.attach(gtk.Label(entryList[i]),0,1,i,i+1)
+                e=gtk.Entry()
+                e.set_tooltip_text(tips[i])
+                t.attach(e,1,2,i,i+1)
+                key=entryList[i].lower().replace(" ","")
+                if key=="textcolour":
+                    key="textcol"
+                self.addWidgetDict[key]=e
+            c=gtk.CheckButton("Feedback")
+            self.addWidgetFeedback=c
+            v.pack_start(c,False)
+            h=gtk.HBox()
+            v.pack_start(h,False)
+            b=gtk.Button("OK")
+            b.connect("clicked",self.doWidgetGui)
+            self.addWidgetOk=b
+            h.pack_start(b,False)
+            b=gtk.Button("Cancel")
+            b.connect("clicked",self.doWidgetGui)
+            h.pack_start(b,False)
+            
+        self.addWidgetWin.show_all()
+        
+    def doWidgetGui(self,w,d2=None,d3=None):
+        if w is self.addWidgetOk:
             d={}
-            for key in wdict.keys():
-                d[key]=self.gladetree.get_widget(wdict[key]).get_text()
-            d["givesFeedback"]=str(int(self.gladetree.get_widget("checkbuttonWidFeedback").get_active()))
+            for key in self.addWidgetDict.keys():#wdict.keys():
+                d[key]=self.addWidgetDict[key].get_text().strip()
+            d["givesFeedback"]=str(int(self.addWidgetFeedback.get_active()))
             self.simButtonList.append(d)
             self.addSciWidget(d,len(self.simButtonList)-1)
-            print "ok",d
-        gtk.main_quit()
+        self.addWidgetWin.hide()
+        return True #if its a delete event, stop it propagating further.
+        
     def printDrawlist(self,w,d2=None):
         print "drawlist",self.drawlist
                       
-    def connectParamGui(self,w,d2=None):
-        if w.get_active():
-            self.gladetree.get_widget("window3").show_all()
-            gtk.main()
-            self.gladetree.get_widget("window3").hide_all()
-            host=socket.gethostname()
-            port=8990
-            if self.paramGuiConnect:
-                details=self.gladetree.get_widget("entryParamGuiPort").get_text().split(",")
-                if len(details)==1:
-                    port=int(details[0])
-                elif len(details)==2:
-                    port=int(details[1])
-                    host=details[0]
-                print "Connecting",host,port
-                self.paramguiSock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                err=0
-                try:
-                    self.paramguiSock.connect((host,port))
-                except:
-                    print "Couldn't connect"
-                    err=1
-                if err:
-                    w.set_active(0)
-            else:
-                w.set_active(0)
-        else:
-            if self.paramguiSock!=None:
-                print "Disconnecting"
-                self.paramguiSock.close()
-                self.paramguiSock=None
-                
-    def closeParamGui(self,w=None,d2=None):
-        self.paramGuiConnect=0
-        if w==self.gladetree.get_widget("buttonParamGuiOk"):
-            self.paramGuiConnect=1
-        gtk.main_quit()
-        return True
         
     def textPrecodeChanged(self,w,data1=None):
         if self.selobj!=None and self.selobj.has_key("obj"):
@@ -398,21 +508,21 @@ class simsetup:
                     o.postcode=txt
                     self.modified(1)
     def textFinalChanged(self,w,data1=None):
-        self.finalTxt=w.get_text(w.get_start_iter(),w.get_end_iter()).strip()
+        self.finalText=w.get_text(w.get_start_iter(),w.get_end_iter()).strip()
         self.modified(1)
     def textInitChanged(self,w,data1=None):
-        self.initTxt=w.get_text(w.get_start_iter(),w.get_end_iter()).strip()
+        self.initText=w.get_text(w.get_start_iter(),w.get_end_iter()).strip()
         self.modified(1)
     def modified(self,val):
         self.simmodified=val
-        txt="Simulation setup: "
+        txt="DASP setup: "
         if self.oldxmlfilename=="":
             txt+="Untitled"
         else:
             txt+=self.oldxmlfilename
         if val:
             txt+=" *"
-        self.gladetree.get_widget("window1").set_title(txt)
+        self.w.set_title(txt)
     def saveSetup(self,w=None,d=None):
         if self.oldxmlfilename=="":
             self.saveAsSetup()
@@ -445,7 +555,7 @@ class simsetup:
             open(fn,"w").write(newtxt)
             self.modified(0)
     def saveAsSetup(self,w=None,d=None):
-        fn=myFileSelection("Choose an output XML file",self.oldxmlfilename,complete="*.xml",parent=self.gladetree.get_widget("window2")).fname
+        fn=myFileSelection("Choose an output XML file",self.oldxmlfilename,complete="*.xml",parent=self.w).fname
         if fn!=None:
             self.oldxmlfilename=fn
             if w!=None:
@@ -453,7 +563,7 @@ class simsetup:
                 
     def openSetup(self,w=None,d=None):
         if self.autoOpenFilename==None:
-            fn=myFileSelection("Choose a simulation setup XML file",self.oldxmlfilename,complete="*.xml",parent=self.gladetree.get_widget("window2")).fname
+            fn=myFileSelection("Choose a simulation setup XML file",self.oldxmlfilename,complete="*.xml",parent=self.w).fname
         else:
             fn=self.autoOpenFilename
         self.autoOpenFilename=None
@@ -463,10 +573,10 @@ class simsetup:
             self.oldxmlfilename=fn
             txt=open(fn).read()
             p=parseSimXml.parseSimXml(txt)
-            self.initTxt=p.globalPreCode
-            self.finalTxt=p.globalPostCode
-            self.gladetree.get_widget("textviewInitTxt").get_buffer().set_text(self.initTxt)
-            self.gladetree.get_widget("textviewFinalTxt").get_buffer().set_text(self.finalTxt)
+            self.initText=p.globalPreCode
+            self.finalText=p.globalPostCode
+            self.textviewInitText.get_buffer().set_text(self.initText)
+            self.textviewFinalText.get_buffer().set_text(self.finalText)
 
             maxtag=0
             for obj in p.objList:
@@ -474,12 +584,7 @@ class simsetup:
                     if obj.tag>maxtag:
                         maxtag=obj.tag
                     colour="white"
-                    for cpu in self.cpuList:
-                        #print cpu["pe"],cpu["processor"],obj.cpu,type(obj.cpu),type(cpu["pe"])
-                        if int(cpu["pe"])==obj.cpu[0] and int(cpu["processor"])==obj.cpu[1]:
-                            colour=cpu["colour"]
-                            break
-                    #dcpu=self.cpuList[obj.cpu]
+                    colour=self.makeCpuColour(obj.cpu)
                     os.chdir(self.filepath)
                     nobj=simObj(self.drawable,self.gc,"sci",obj.tag,x=obj.pos[0],y=obj.pos[1],msg=obj.shortname,textcol=obj.textcol,pango_context=self.da.create_pango_context(),pixmap=obj.pixmap,colour=colour,rank=obj.cpu,imp=obj.imp,object=obj.object,feedback=obj.feedback)
                     os.chdir(self.cwd)
@@ -516,7 +621,6 @@ class simsetup:
                         cobj=self.getObjWithTag(tag,self.drawlist)
                         obj.lines[i].append(cobj.getHandlePos("top"))
                         obj.lines[i].insert(0,obj.getHandlePos("bottom"))
-                        #cobj.endlines[cobj.connectfrom.index(obj.tagID)]=obj.lines
                         l=lineObj(self.drawable,self.gc,obj.lines[i])#(int(e.x),int(e.y))])
                         obj.lines[i]=l
                         cobj.endlines[cobj.connectfrom.index(obj.tagID)]=l
@@ -546,7 +650,7 @@ class simsetup:
             msg=" (current simulation is modified)"
         else:
             msg=""
-        if gui.dialog.dialog.myDialog(msg="New project?\nAre you sure%s?\n"%msg,title="New projet?",parent=self.gladetree.get_widget("window1")).resp=="ok":
+        if gui.dialog.dialog.myDialog(msg="New project?\nAre you sure%s?\n"%msg,title="New projet?",parent=self.w).resp=="ok":
             self.drawlist=[]
             self.selobj=None
             self.currTagID=0
@@ -574,7 +678,7 @@ class simsetup:
     def keypress(self,w,e=None):
         #print "todo",e,e.type,e.keyval,e.string,hex(e.state)
 
-        if e.state & gtk.gdk.CONTROL_MASK:
+        if (e.state & gtk.gdk.CONTROL_MASK) or (e.state & gtk.gdk.META_MASK):
             #pressed with control
             if e.keyval>0 and e.keyval<256:
                 ch=chr(e.keyval)
@@ -594,73 +698,39 @@ class simsetup:
                }
 
             if f.has_key(ch):
-                f[ch]()
+                #f[ch]()
+                pass
             elif ch=="S":
+                print "Save as"
                 self.saveAsSetup(1)
             elif d.has_key(ch):
-                self.gladetree.get_widget(d[ch]).set_active(1)
-                self.da.window.set_cursor(self.cursors[self.doing])#change cursor
+                pass
             elif ch=="p":
-                self.gladetree.get_widget("buttonGenerate").clicked()
+                pass
 
 
-                
-##             if ch=='s':#115:#s
-##                 self.saveSetup()
-##             elif ch=='n':#110:#n
-##                 self.newSetup()
-##             elif ch=='o':#111:#o
-##                 self.openSetup()
-##             elif ch=='d':#100:#d
-##                 pass
-##             elif ch=='c':#99:#c
-##                 pass
-##             elif ch=='g':#103:#g
-##                 pass
-##             elif ch=='p':#112:#p
-##                 pass
-##             elif ch=='r':#114:#r
-##                 pass
-##             elif ch=='e':#101:#e
-##                 pass
-##             elif ch=='m':#109:#m
-##                 pass
-##             elif ch=='S':
-##                 print "saveas"
+    def selectNode(self,w,a=None):
+        try:
+            self.curNode=int(w.get_text())
+            if self.curNode<1:
+                self.curNode=1
+                w.set_text("1")
+            if self.doing=="object":
+                self.newObj=self.createNewSimObj()
+        except:
+            pass
             
-##             else:
-##                 print "keyval=",e.keyval
-##             if e.state&gtk.gdk.SHIFT_MASK:
-##                 if e.keyval==83:
-##                     self.saveAsSetup(1)
-##         else:
-##             if not (e.state&gtk.gdk.SHIFT_MASK):
-##                 d={"s":"togglebuttonSelect",
-##                    "c":"togglebuttonConnect",
-##                    "n":"togglebuttonNewModule",
-##                    "r":"togglebuttonRePlace",
-##                    "d":"togglebuttonDelete",
-##                    "m":"togglebuttonShare",
-##                    "g":"togglebuttonGroup"
-##                    }
-                
-##                 if d.has_key(e.string):
-##                     self.gladetree.get_widget(d[e.string]).set_active(1)
-##                     self.da.window.set_cursor(self.cursors[self.doing])#change cursor
-                    
-##                 elif e.string=="p":
-##                     self.gladetree.get_widget("buttonGenerate").clicked()
-                    
-        #if e.keyval==65507 or e.keyval==65508:
-        #    self.ctrlPressed=1
-        #if e.keyval==65505 or e.keyval==65506:
-        #    self.shiftPressed=1
-    def keyrelease(self,w,e=None):
-        #if e.keyval==65507 or e.keyval==65508:
-        #    self.ctrlPressed=0
-        #if e.keyval==65505 or e.keyval==65506:
-        #    self.shiftPressed=0
-        pass
+        
+    def selectProc(self,w,a=None):
+        try:
+            self.curProc=int(w.get_text())
+            if self.curProc<1:
+                self.curProc=1
+                w.set_text("1")
+            if self.doing=="object":
+                self.newObj=self.createNewSimObj()
+        except:
+            pass
 
     def nameChanged(self,w,data=None):
         if self.selobj!=None and self.selobj.has_key("obj"):
@@ -691,14 +761,8 @@ class simsetup:
                     except:
                         pass
                 if node!=None:
-                    for currcpu in self.cpuList:
-                        if int(currcpu["pe"])==node and int(currcpu["processor"])==cpu:
-                            #change the colour...
-                            #Note, even if not in current list, should still
-                            #allow the user to change it...
-                            o.setColour(currcpu["colour"])
-                            break
                     o.rank=(node,cpu)
+                    o.setColour(self.makeCpuColour(o.rank))
                     o.setText()
                     o.draw()
                     o.drawSelected()
@@ -707,6 +771,7 @@ class simsetup:
                 txt=w.get_text()
                 o.cpuList=txt
     def idstrChanged(self,w,data=None):
+        #print self.selobj
         if self.selobj!=None and self.selobj.has_key("obj"):
             o=self.selobj["obj"]
             self.modified(1)
@@ -714,6 +779,9 @@ class simsetup:
             o.setText()
             o.draw()
             o.drawSelected()
+            if isinstance(o,boxObj):
+                self.daexpose()
+                
     def argsChanged(self,w,data=None):
         if self.selobj!=None and self.selobj.has_key("obj"):
             o=self.selobj["obj"]
@@ -733,8 +801,7 @@ class simsetup:
         if w.get_active():
             self.selectedSimObj=data1
             self.newObj=self.createNewSimObj()
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(1)
-            
+            self.shortcutDict["m"].set_active(1)
     def newCPUSelected(self,w,data1=None):
         if w.get_active():
             self.selectedCPU=data1
@@ -757,17 +824,14 @@ class simsetup:
                             attrs[key]=self.defaultObjAttribs[key]
                     self.simButtonList.append(attrs)
                 elif name=="cpu":
-                    for key in self.defaultCpuAttribs.keys():
-                        if not attrs.has_key(key):
-                            attrs[key]=self.defaultCpuAttribs[key]
-                    self.cpuList.append(attrs)
+                    pass
     def end_element(self,name):
         if self.xmlInList[-1]!=name:
             print "XML error..."
             raise Exception("XML parsing error")
         else:
             self.xmlInList.pop()
-                
+            
     def button2(self,w=None,a=None):
         print "**********************************button2"
         print self.drawable.get_size()
@@ -783,7 +847,6 @@ class simsetup:
         self.testbutton=gtk.Button(label="test")
         self.testbutton.set_parent_window(self.da.window)
         self.testbutton.show()
-        #self.da.queue_resize()
     def adjustCanvasSize(self,w=None,a=None):
         #print "adjustCanvasSize",w,a,self.canvsizex,self.canvsizey
         if self.canvsizex<300:
@@ -798,13 +861,7 @@ class simsetup:
             self.da.set_size_request(int(self.canvsizex),int(self.canvsizey))
             # need to see what current size is and adjust canvsizex/y to this.
             # ie since when initiated will be >300,300.
-            self.gladetree.get_widget("labelInfo").set_text("%d x %d"%(self.canvsizex,self.canvsizey))
-##     def drawobject(self,x,y):
-##         x=int(x)
-##         y=int(y)
-##         self.drawable.draw_rectangle(self.gc,True,x-10,y-10,20,20)
-##         self.drawlist.append(simObj(self.drawable,self.gc,"rect",x-10,y-10,20,20))
-##         return (20,20)#return object width, height.
+            self.labelInfo.set_text("%d x %d"%(self.canvsizex,self.canvsizey))
     
     def getobject(self,x,y,remove=1,name=None):
         """Gets the object currently under position x,y."""
@@ -814,7 +871,6 @@ class simsetup:
             if d!=None:
                 if name==None or d.name==name:
                     if d.atPosition(x,y):
-                        #if d.x<x and d.x+d.w>x and d.y<y and d.y+d.h>y:
                         if remove:
                             obj=self.drawlist.pop(i)
                         else:
@@ -823,21 +879,19 @@ class simsetup:
         return obj
     def shiftAll(self,x,y):
         """Shift everythings position by x,y"""
-        #print "shifting by",x,y
         for d in self.drawlist:
             if d!=None:
                 d.shift(x,y)
-                #d.x+=x
-                #d.y+=y
     def fitarea(self,w=None,a=None):
         """Fit the canvas size to widgets on it."""
+        if len(self.drawlist)==0:
+            return
         minx=None
         miny=None
         maxx=0
         maxy=0
         for d in self.drawlist:
             if d!=None:
-                #print d.x,d.y,d.x+d.w,d.y+d.h
                 if minx==None or d.x<minx:
                     minx=d.x
                 if miny==None or d.y<miny:
@@ -846,16 +900,11 @@ class simsetup:
                     maxx=d.x+d.w
                 if d.y+d.h>maxy:
                     maxy=d.y+d.h
-        
+                    
         minx-=30
         miny-=30
         maxx+=30
         maxy+=30
-        #print "max, min",minx,maxx,miny,maxy
-        #if minx<0: minx=0
-        #if miny<0: miny=0
-        #if minx>0 or miny>0:
-        #    self.shiftAll(-minx,-miny)
         self.shiftAll(-minx,-miny)
         maxx-=minx
         maxy-=miny
@@ -866,96 +915,46 @@ class simsetup:
         self.daexpose()
         
     def buttonNewModule(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonNewModule")
         if w.get_active():
             self.doing="object"
             self.newObj=self.createNewSimObj()
-            #self.newObj=simObj(self.drawable,self.gc,"sci",colour="red",pango_context=self.da.create_pango_context())
-            self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            #self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            self.gladetree.get_widget("togglebuttonGroup").set_active(0)
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
+            
     def buttonDeleteModule(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonDelete")
         if w.get_active():
             self.doing="delete"
-            #self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            self.gladetree.get_widget("togglebuttonGroup").set_active(0)
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
 
     def buttonSelect(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonSelect")
         if w.get_active():
             self.doing="select"
-            self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            #self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            self.gladetree.get_widget("togglebuttonGroup").set_active(0)
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
             
     def buttonConnect(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonConnect")
         if w.get_active():
             self.doing="connect"
             self.connectObject=None
-            self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            #self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            self.gladetree.get_widget("togglebuttonGroup").set_active(0)
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
 
     def buttonRePlace(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonRePlace")
         if w.get_active():
             self.doing="replace"
-            self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            #self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            self.gladetree.get_widget("togglebuttonGroup").set_active(0)
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
 
     def buttonShare(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonShare")
         if w.get_active():
             self.doing="share"
             self.connectObject=None
-            self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            #self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            self.gladetree.get_widget("togglebuttonGroup").set_active(0)
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
 
     def buttonGroup(self,w,a=None):
-        w=self.gladetree.get_widget("togglebuttonGroup")
         if w.get_active():
             self.doing="group"
             self.connectObject=None
-            self.gladetree.get_widget("togglebuttonDelete").set_active(0)
-            self.gladetree.get_widget("togglebuttonConnect").set_active(0)
-            self.gladetree.get_widget("togglebuttonSelect").set_active(0)
-            self.gladetree.get_widget("togglebuttonNewModule").set_active(0)
-            self.gladetree.get_widget("togglebuttonRePlace").set_active(0)
-            self.gladetree.get_widget("togglebuttonShare").set_active(0)
-            #self.gladetree.get_widget("togglebuttonGroup").set_active(0)
-
+            self.da.window.set_cursor(self.cursors[self.doing])#change cursor
 
     def buttonGenerate(self,w,a=None):
-        fn=myFileSelection("Choose an output python file",self.oldxmlfilename[:-3]+"py",complete="",parent=self.gladetree.get_widget("window2")).fname
+        fn=myFileSelection("Choose an output python file",self.oldxmlfilename[:-3]+"py",complete="",parent=self.w).fname
         if fn!=None:
             self.oldfilename=fn
             txt=self.createSetupXml()
@@ -1001,28 +1000,7 @@ class simsetup:
                     
             else:
                 open(fn,"w").write(pycode)
-    def buttonSwallow(self,w,a=None):
-        if w.get_active():
-            print "Swallowing"
-            vbox=self.gladetree.get_widget("vbox1")
-            win=self.gladetree.get_widget("window1")
-            hpane=self.gladetree.get_widget("hpanedToolbar")
-            #self.da.unrealize()
-            win.remove(vbox)
-            hpane.add2(vbox)
-            win.hide()
-            self.prepareDrawable()
-            hpane.show_all()
 
-        else:
-            print "Retching"
-            vbox=self.gladetree.get_widget("vbox1")
-            hpane=self.gladetree.get_widget("hpanedToolbar")
-            win=self.gladetree.get_widget("window1")
-            hpane.remove(vbox)
-            win.add(vbox)
-            win.show_all()
-            self.prepareDrawable()
     def createSetupXml(self,all=1,prepost=1):
         remlist=[]
         txt=""
@@ -1041,10 +1019,10 @@ class simsetup:
         if all:
             txt+="<aosim>\n<simSetup>\n"
         if prepost:
-            if self.initTxt!="":
-                txt+="<precode>\n%s\n</precode>\n"%self.initTxt
-            if self.finalTxt!="":
-                txt+="<postcode>\n%s\n</postcode>\n"%self.finalTxt
+            if self.initText!="":
+                txt+="<precode>\n%s\n</precode>\n"%self.initText
+            if self.finalText!="":
+                txt+="<postcode>\n%s\n</postcode>\n"%self.finalText
         remlist=[]
         for d in self.drawlist:
             if d.removed:
@@ -1060,12 +1038,11 @@ class simsetup:
             txt+="</simSetup>\n</aosim>\n"
         return txt
     def deleteevent(self,w,a=None):
-        print "deleteevent"
         if self.simmodified:
             msg=" (current simulation is modified)"
         else:
             msg=""
-        if gui.dialog.dialog.myDialog(msg="Quit?\nAre you sure%s?\n"%msg,title="Really quit?!?",parent=self.gladetree.get_widget("window1")).resp=="ok":
+        if gui.dialog.dialog.myDialog(msg="Quit?\nAre you sure%s?\n"%msg,title="Really quit?!?",parent=self.w).resp=="ok":
             gtk.main_quit()
             return False
         return True
@@ -1088,81 +1065,75 @@ class simsetup:
                 x=y=0
                 pass
         self.drawable.draw_rectangle(self.style.white_gc,True,x,y,w,h)#clear it
-        #self.drawable.draw_line(self.gc,10,10,20,20)
         remlist=[]
         for d in self.drawlist:
             if d.removed:
                 remlist.append(d)
             else:
                 d.draw(rect=(x,y,w,h))#redraw the object if any part lies in the area.
-            #d.draw()
+                #d.draw()
         for d in remlist:
             self.drawlist.remove(d)
         self.updateSelectedObject()#draw mark at the object
     def fillPrefs(self):
         if self.selobj!=None and self.selobj.has_key("obj"):
             o=self.selobj["obj"]
-            self.gladetree.get_widget("entryIDStr").set_text(o.idstr)
+            self.entryIdstr.set_text(o.idstr)
             if o.name=="sci":
-                self.gladetree.get_widget("entryName").set_sensitive(1)
-                self.gladetree.get_widget("checkbuttonGroupShare").set_sensitive(1)
+                self.entryName.set_sensitive(1)
+                self.checkButtonGroupShare.set_sensitive(1)
                 if self.isInGroup(o)!=None:
-                    self.gladetree.get_widget("labelPrefName").set_text("Share")
-                    self.gladetree.get_widget("entryName").hide()
-                    self.gladetree.get_widget("checkbuttonGroupShare").set_active(o.groupShare)
-                    self.gladetree.get_widget("checkbuttonGroupShare").show()
+                    self.hboxName.hide()
+                    self.checkButtonGroupShare.set_active(o.groupShare)
+                    self.checkButtonGroupShare.show()
 
                 else:
-                    self.gladetree.get_widget("labelPrefName").set_text("Name")
-                    self.gladetree.get_widget("entryName").set_text(o.pyname)
-                    self.gladetree.get_widget("checkbuttonGroupShare").hide()
-                    self.gladetree.get_widget("entryName").show()
-                w=self.gladetree.get_widget("entryCPU")
+                    self.hboxName.show_all()
+                    self.entryName.set_text(o.pyname)
+                    self.checkButtonGroupShare.hide()
+                w=self.entryCpu
                 w.set_sensitive(1)
                 w.set_text("%s, %s"%(o.rank[0],o.rank[1]))
-                w=self.gladetree.get_widget("entryArgs")
+                w=self.entryArgs
                 w.set_sensitive(1)
                 w.set_text(o.args)
-                w=self.gladetree.get_widget("checkbuttonFeedback")
+                w=self.checkbuttonFeedback
                 w.set_sensitive(1)
                 w.set_active(int(o.feedback))
-                w=self.gladetree.get_widget("textviewPrecode")
+                w=self.textviewPrecode
                 w.set_sensitive(1)
                 w.get_buffer().set_text(o.precode)
-                w=self.gladetree.get_widget("textviewPostcode")
+                w=self.textviewPostcode
                 w.set_sensitive(1)
                 w.get_buffer().set_text(o.postcode)
             elif o.name=="box":
-                #self.gladetree.get_widget("labelPrefName").set_text("Share")
-                self.gladetree.get_widget("entryName").set_sensitive(0)
-                w=self.gladetree.get_widget("entryCPU")
+                self.entryName.set_sensitive(0)
+                w=self.entryCpu
                 w.set_sensitive(1)
                 w.set_text("%s"%(o.cpuList))
-                w=self.gladetree.get_widget("entryArgs")
+                w=self.entryArgs
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("checkbuttonFeedback")
+                w=self.checkbuttonFeedback
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("textviewPrecode")
+                w=self.textviewPrecode
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("textviewPostcode")
+                w=self.textviewPostcode
                 w.set_sensitive(0)
-                self.gladetree.get_widget("checkbuttonGroupShare").set_sensitive(0)
-                
+                self.checkButtonGroupShare.set_sensitive(0)
             else:
-                self.gladetree.get_widget("labelPrefName").set_text("Name")
-                self.gladetree.get_widget("entryName").set_sensitive(1)
-                self.gladetree.get_widget("entryName").set_text(o.pyname)
-                w=self.gladetree.get_widget("entryCPU")
+                self.entryName.set_sensitive(1)
+                self.entryName.set_text(o.pyname)
+                w=self.entryCpu
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("entryArgs")
+                w=self.entryArgs
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("checkbuttonFeedback")
+                w=self.checkbuttonFeedback
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("textviewPrecode")
+                w=self.textviewPrecode
                 w.set_sensitive(0)
-                w=self.gladetree.get_widget("textviewPostcode")
+                w=self.textviewPostcode
                 w.set_sensitive(0)
-                self.gladetree.get_widget("checkbuttonGroupShare").set_sensitive(0)
+                self.checkButtonGroupShare.set_sensitive(0)
 
 
     def updateSelectedObject(self):
@@ -1170,21 +1141,10 @@ class simsetup:
             self.selobj["obj"].drawSelected()
             self.fillPrefs()
 
-    def darealise(self,w,a=None):
-        #print "darealise"
-        pass
-
-    def doParamGui(self,obj):
-        if self.paramguiSock!=None and obj.name=="sci":
-            try:
-                self.paramguiSock.send("self.findOrAdd('%s','%s','%s')"%(obj.imp.split(".")[-1],obj.imp,obj.getIDStr()))
-            except:
-                self.gladetree.get_widget("connect_to_paramgui").set_active(0)
         
     def dabuttonpressed(self,w,e=None):
         """If select, getobject(), and prepare to place it at end of list
         once button is released, possibly in new position or something"""
-        #print "dabuttonpressed",type(w),type(e)
         self.buttonpressed=1
         
         self.buttonpresspos=(e.x,e.y)
@@ -1199,13 +1159,11 @@ class simsetup:
             if tmp!=None:
                 if tmp.name=="sci":
                     self.modified(1)
-                    dcpu=self.cpuList[self.selectedCPU]
-                    rank=(int(dcpu["pe"]),int(dcpu["processor"]))
-                    col=dcpu["colour"]
+                    rank=(self.curNode,self.curProc)
+                    col=self.makeCpuColour(rank)
                     tmp.rank=rank
                     tmp.setText()
                     tmp.setColour(col)
-                self.doParamGui(tmp)
                 self.selobj={"obj":tmp}
                 self.daexpose()
         elif self.doing=="select":#select an object...
@@ -1224,10 +1182,8 @@ class simsetup:
                 if self.drawMode!="full":# now redraw the object.
                     self.selobj["obj"].draw()
                     self.updateSelectedObject()#draw mark at the object
-                # self.drawable.draw_rectangle(self.gc,True,self.selobj["obj"].x,self.selobj["obj"].y,self.selobj["obj"].w,self.selobj["obj"].h)
                 self.selobj["coords"]=(e.x,e.y)
                 self.selobj["offset"]=(e.x-self.selobj["obj"].x,e.y-self.selobj["obj"].y)
-                self.doParamGui(tmp)
             else:
                 self.selobj=None
         elif self.doing=="delete":
@@ -1333,7 +1289,7 @@ class simsetup:
             self.connectObject=None
             self.modified(1)
             self.daexpose()
-                            
+            
 
                         
                         
@@ -1482,7 +1438,6 @@ class simsetup:
             if rd:
                 self.adjustCanvasSize()
             self.doing="object"
-            self.doParamGui(self.newObj)
             self.newObj=self.createNewSimObj()
             self.selobj={"obj":self.drawlist[-1]}
             #self.updateSelectedObject()
@@ -1504,20 +1459,32 @@ class simsetup:
         print "dragbegin"
     def eventReleaseTxt(self,wid,d=None):
         """Detatch the finalisation text from the gui..."""
-        #txtw=self.gladetree.get_widget("frameFinalTxt")
         txtw=wid#.get_parent().get_parent()
-        txtw.get_parent().remove(txtw)#detatch from parent...
-        #create new window to put it in...
-        w=gtk.Window()
-        w.connect("delete-event",self.closeFinalTxtWindow,txtw)
-        w.set_title("Freed text...")
-        w.set_transient_for(self.gladetree.get_widget("window2"))
-        w.add(txtw)
-        w.show_all()
+        if isinstance(txtw.get_parent(),gtk.VBox):
+            txtw.get_parent().remove(txtw)#detatch from parent...
+            #create new window to put it in...
+            w=gtk.Window()
+            w.set_default_size(300,300)
+            w.connect("delete-event",self.closeFinalTxtWindow,txtw)
+            w.set_title("Freed text...")
+            w.set_transient_for(self.w)
+            w.add(txtw)
+            w.show_all()
+
     def closeFinalTxtWindow(self,w,e,txtw):
-        #txtw=self.gladetree.get_widget("frameFinalTxt")
         txtw.get_parent().remove(txtw)
-        self.gladetree.get_widget("vbox2").pack_start(txtw,expand=False,fill=False)
+        self.vLeft.pack_start(txtw,expand=False,fill=False)
+        labeltxt=txtw.get_children()[0].get_children()[0].get_text()
+        n=len(self.vLeft.get_children())
+        if "Pre" in labeltxt:
+            pos=n-5
+        elif "Post" in labeltxt:
+            pos=n-4
+        elif "Init" in labeltxt:
+            pos=n-3
+        else:
+            pos=n-2
+        self.vLeft.reorder_child(txtw,pos)
         txtw.show_all()
         w.destroy()
     def childDetached(self,h,w,d=None):
@@ -1525,14 +1492,13 @@ class simsetup:
         w.set_size_request(400,400)
     def createNewSimObj(self):
         d=self.simButtonList[self.selectedSimObj]
-        dcpu=self.cpuList[self.selectedCPU]
-        rank=(int(dcpu["pe"]),int(dcpu["processor"]))
+        rank=(self.curNode,self.curProc)
         imp=d["import"]
         object=d["object"]
         feedback=int(d["givesFeedback"])
         self.currTagID+=1
         os.chdir(self.filepath)
-        obj=simObj(self.drawable,self.gc,"sci",self.currTagID,msg=d["shortname"],textcol=d["textcol"],pango_context=self.da.create_pango_context(),pixmap=d["pixmap"],colour=dcpu["colour"],rank=rank,imp=imp,object=object,feedback=feedback)
+        obj=simObj(self.drawable,self.gc,"sci",self.currTagID,msg=d["shortname"],textcol=d["textcol"],pango_context=self.da.create_pango_context(),pixmap=d["pixmap"],colour=self.makeCpuColour(rank),rank=rank,imp=imp,object=object,feedback=feedback)
         os.chdir(self.cwd)
         return obj
     def isInGroup(self,obj):
@@ -1543,14 +1509,37 @@ class simsetup:
             if g.isIn(obj):
                 gr=g
                 break
-            #g.calcArea()
-            #if x>g.x and x<g.x+g.w and y>g.y and y<g.y+g.h:
-            #    gr=g
-            #    break
-        #print "In group",gr
         return gr
-        
+    
+    def makeCpuColour(self,rank):
+        node=rank[0]
+        proc=rank[1]
+        tmp={1:(255,0,0),
+             2:(0,255,0),
+             3:(0,0,255),
+             4:(255,255,0),
+             5:(255,0,255),
+             6:(0,255,255),
+             7:(255,128,0),
+             8:(128,255,0),
+             9:(255,0,128),
+             10:(128,0,255),
+             11:(0,255,128),
+             12:(0,128,255)
+             }
+        col=tmp.get(node,(255,255,255))
+        frac=(10-proc)/9.
+        if frac<=0:
+            frac=0.1
+        col=("#%2x%2x%2x"%(int(col[0]*frac),int(col[1]*frac),int(col[2]*frac))).replace(" ","0")[:7]
+        return col
 
+    def about(self,w=None):
+        d=gtk.Dialog("About",self.w,gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+        d.vbox.pack_start(gtk.Label("DASP\ndaspsetup.py: Tool for setting up dasp simulations"))
+        d.show_all()
+        d.run()
+        d.destroy()
         
 RED=0
 GREEN=1
@@ -1684,10 +1673,10 @@ class boxObj(lineObj):
         lineObj.__init__(self,drawable,gc,coordList)
         self.name="box"
         self.cpuList="[]"
+        context=gtk.gdk.pango_context_get_for_screen(self.drawable.get_screen())
+        self.layout=pango.Layout(context)
     def __repr__(self):
         txt="""<groupShare idstr="%s" cpu="%s" coordlist="%s"/>\n"""%(str(self.idstr),str(self.cpuList),str(self.coordList))
-        #txt+="idstr: %s\n"%str(self.idstr)
-        #txt+="coordList: %s\n"%str(self.coordList)
         return txt
     def append(self,coord):
         raise Exception("Box objects can't be appended")
@@ -1701,7 +1690,18 @@ class boxObj(lineObj):
         #print "draw"
         cl=self.coordList+[self.coordList[0]]
         self.drawable.draw_lines(self.gc,cl)
-        #print "draw done"
+        if self.idstr is not None:
+            txt=str(self.idstr)
+            self.layout.set_text(txt)
+            width=self.coordList[1][0]-self.coordList[0][0]
+            txtlist=txt.split(",")
+            while self.layout.get_pixel_size()[0]>width and len(txtlist)>2:
+                txtlist.pop(len(txtlist)//2)
+                txt=string.join(txtlist[:len(txtlist)//2]+["..."]+txtlist[len(txtlist)//2:],",")[:-1]
+                self.layout.set_text(txt)
+                
+            self.drawable.draw_layout(self.gc,self.coordList[0][0],self.coordList[0][1],self.layout)
+        
     def moveSelectedPoint(self,x,y):
         """move a virtex and corresponding sides by x,y"""
         if self.selectedPoint!=None:
@@ -1814,12 +1814,6 @@ class simObj:
                     self.pixmapx=self.w-6
                 if self.pixmapy>self.h-16:
                     self.pixmapy=self.h-16
-            #self.pixmapimg=gtk.Image()
-            #self.pixmapimg.set_from_file(self.pixmapfile)
-            #print dir(self.pixmapimg)
-            #self.pixmap=self.pixmapimg.get_image()[0]
-            #print dir(self.pixmap)
-            #print self.pixmap.get_size()
 
     def __repr__(self):
         txt='<simulationObject cpu="%s" import="%s" object="%s" pos="%d,%d" tag="%s" shortname="%s" pixmap="%s" feedback="%d" pyname="%s" groupshare="%d" args="%s" connectto="%s" connectfrom="%s" textcol="%s" idstr="%s">\n'%(str(self.rank),self.imp,self.object,self.x+self.w/2,self.y+self.h/2,str(self.tagID),self.msg,self.pixmapfile,self.feedback,self.pyname,self.groupShare,self.args,self.connectto,self.connectfrom,self.textcol,self.idstr)
@@ -1848,10 +1842,6 @@ class simObj:
         for t,l in self.sharedTo:
             tlist.append(t)
         txt=txt+"<sharedTo>\n"+str(tlist)+"\n</sharedTo>\n"
-        #l=[]
-        #for t,l in self.sharedFrom:
-        #    l.append(t)
-        #txt=txt+"<sharedFrom>\n"+str(l)+"\n"</sharedFrom>\n"
         txt=txt+"</simulationObject>\n"
         return txt
 
@@ -1994,27 +1984,7 @@ class simObj:
             self.sharedTo[i][1].coordList[0]=self.getHandlePos("main")
         for i in range(len(self.sharedFrom)):
             self.sharedFrom[i][1].coordList[-1]=self.getHandlePos("main")
-        #for i in remlist:
-        #    self.endlines.pop(i)
-        #    self.connectfrom.pop(i)
 
-##         for l in self.lines:
-##             #l.eraseTmp()
-##             l.coordList[0]=self.getHandlePos("bottom")
-##             if l.removed:
-##                 remlist.append(l)
-##             #l.draw()
-##         for l in remlist:
-##             self.lines.remove(l)
-##         remlist=[]
-##         for l in self.endlines:
-##             #l.eraseTmp()
-##             l.coordList[-1]=self.getHandlePos("top")
-##             if l.removed:
-##                 remlist.append(l)
-##             #l.draw()
-##         for l in remlist:
-##             self.endlines.remove(l)
     def shift(self,x,y):
         self.x+=x
         self.y+=y
@@ -2128,32 +2098,6 @@ class simObj:
             # self.drawlist.append(simObj("rect",x-10,y-10,20,20))
         else: #draw any part of the object that lies within rect.
             xn,yn,wn,hn=self.overlapRects((self.x,self.y,self.w,self.h),rect)
-##             x,y,w,h=rect
-##             xn=yn=wn=hn=None
-##             if (self.x<x and self.x+self.w>=x):#start before and ends in or past redraw area
-##                 xn=x#start position
-##                 if self.x+self.w>=x1:#spans redraw area
-##                     wn=w
-##                 else:#ends in redraw area
-##                     wn=self.x+self.w-x
-##             elif self.x>=x and self.x<x+w:#starts in redraw area
-##                 xn=self.x
-##                 if self.x+self.w<x+w:#ends in redraw area
-##                     wn=self.w
-##                 else:#ends outside redraw area
-##                     wn=x+w-self.x
-##             if (self.y<y and self.y+self.h>=y):#start before and ends in or past redraw area
-##                 yn=y#start position
-##                 if self.y+self.h>=y1:#spans redraw area
-##                     hn=h
-##                 else:#ends in redraw area
-##                     hn=self.y+self.h-y
-##             elif self.y>=y and self.y<y+h:#starts in redraw area
-##                 yn=self.y
-##                 if self.y+self.h<y+h:#ends in redraw area
-##                     hn=self.h
-##                 else:#ends outside redraw area
-##                     hn=y+h-self.y
             if xn!=None and yn!=None:
                 self.drawable.draw_rectangle(self.gc,True,xn,yn,wn,hn)
 

@@ -85,7 +85,7 @@ atmosGeom=geom(d,sourceList,
 </var>
 <var name="dmOverview" type="code">
 from util.dm import dmOverview,dmInfo
-dmInfoList=[dmInfo('dm',['a'],10000.,wfs_nsubx+1,fov=60.,minarea=0.1,actuatorsFrom="recon",                   pokeSpacing=None,maxActDist=1.5,decayFactor=0.95)]
+dmInfoList=[dmInfo('dm',['a'],10000.,wfs_nsubx+1,fov=60.,minarea=0.1,actuatorsFrom="recon",                   pokeSpacing=None,maxActDist=1.5,decayFactor=0.95,sendFullDM=1)]
 dmOverview=dmOverview(dmInfoList,atmosGeom)
 
 </var>
