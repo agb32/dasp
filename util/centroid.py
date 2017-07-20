@@ -1573,7 +1573,7 @@ class centroid:
                 self.centcmod.update(util.centcmod.REFCENTS,self.refCents)
 
     
-    def takeCorrImage(self,control={"cal_source":1},cameraInput=None):
+    def takeCorrImage(self,control={"cal_source":1},cameraInput=None,doThreshold=0):
         """If correlationCentroiding==1, but corrPattern==None, use a default SH spot pattern as the reference.
         """
         data=None
@@ -1615,6 +1615,8 @@ class centroid:
                         else:
                             print self.corrPatternUser.shape
                             raise Exception("Not yet implemented... padding of 2d corr images")
+                if doThreshold:
+                    self.corrPatternUser=numpy.where(self.corrPatternUser<self.noiseFloor,0,self.corrPatternUser-self.noiseFloor)
                 if self.correlationCentroiding==1:
                     self.corrPatternUser/=max(self.corrPatternUser.ravel())#normalise
                     self.corrPattern=util.correlation.transformPSF(self.corrPatternUser)

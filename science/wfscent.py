@@ -735,14 +735,17 @@ class wfscent(base.aobase.aobase):
                 readnoise=wfsobj.readoutNoise
                 util.FITS.Write(cov,"wfsCovariance_%s%s_%g_%g.fits"%(obj.covTag,obj.idstr,sig,readnoise))
 
-    def newCorrRef(self):
-        """Grabs current SHS images and sets these as the correlation reference.  Then computes new reference slopes too"""
+    def newCorrRef(self,doThreshold=0):
+        """Grabs current SHS images and sets these as the correlation reference.  Then computes new reference slopes too.
+        If doThreshold is 0, then thresholding won't be done.
+        Otherwise, it will be.
+        """
         cs=self.control["cal_source"]
         self.control["cal_source"]=1
         this=self.thisObjList[0]
         wfs=this.wfscentObj
         wfs.corrPattern=None
-        data=wfs.takeCorrImage(self.control)
+        data=wfs.takeCorrImage(self.control,doThreshold=doThreshold)
         #now calibrate the SHS
         #wfs.calibrateSHS(self.control)
         #Now take reference centorids...

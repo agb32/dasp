@@ -129,8 +129,8 @@ class dmInfo:
         self.actCoupling=actCoupling
         self.actFlattening=actFlattening
         self.interpType=interpType
-        self.tiltAngle=tiltAngle
-        self.tiltTheta=tiltTheta
+        self.tiltAngle=tiltAngle#degrees
+        self.tiltTheta=tiltTheta#degrees
         self.rotation=rotation
         self.alignmentOffset=alignmentOffset
         self.infFunc=infFunc
@@ -176,7 +176,7 @@ class dmInfo:
         Offset specifies the offset as a fraction of actuator spacing.  0 will put actuators on the edge of subaps
         (if nact==nsubx+1), and 0.5 will put them in the centre (if nact==nsubx).  This helps to specify
         the geometry, eg hudgins, fried etc.
-        Note - I'm not sure this has been modified completely to handle tiltAngle!=0.
+        Note - I'm not sure this has been modified completely to handle tiltAngle!=0. (actually, its probably ok).
         """
         if self.zonalDM==0:
             raise Exception("computeCoords failed for a modal DM")
@@ -197,6 +197,7 @@ class dmInfo:
             f.write("\n")
             f.close()
     def computeEffectiveObscuration(self,npup,telDiam,r2):
+        """telDiam in m, r2 in pixels (size of the central obscuration)."""
         scale=npup/telDiam
         r2=(r2-abs(self.height)*numpy.tan(self.fov/3600./180.*numpy.pi)*scale)/numpy.cos(numpy.pi/180*self.tiltAngle)
         if r2<0.:
@@ -1884,7 +1885,7 @@ class MirrorSurface:
 class DMLineOfSight:
     def __init__(self,dmpup,npup,conjHeight,dmphs,sourceAlt,sourceTheta,sourcePhi,telDiam,wavelengthAdjustor=1.,dmxaxisInterp=None,dmyaxisInterp=None,dmTiltAngle=0.,dmTiltTheta=0.,alignmentOffset=(0,0),subpxlInterp=1,pupil=None,nthreads=2):
         """sourcetheta,sourcephi in radians.
-        dmTiltAngle in degrees.
+        dmTiltAngle and dmTiltTheta in degrees.
         
         dmphs is the full DM phase, of size dmpup x dmpup.
 

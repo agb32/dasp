@@ -7,7 +7,7 @@ On Linux
 Installation should be relatively straight forward on Linux.
 
 First, get the packages you need, e.g.:
-make ubuntu1404
+make ubuntu1604
 etc.  If your particular distribution isn't in the Makefile, then install by hand, e.g.:
 
 Ubuntu derivatives:
@@ -64,14 +64,16 @@ After installation, run daspbuilder.py to get started on your first simulation.
 
 UPGRADING from ubuntu14.04 to 16.04: (gig46-51, 53 still need to do. 47 done - clean install)  
 sudo do-release-upgrade
+sudo rm /etc/apt/apt.conf.d/50unattended-upgrades.ucf-old 
 sudo apt-get install libgsl-dev
 sudo apt-get remove python-mpi4py
-sudo rm /etc/apt/apt.conf.d/50unattended-upgrades.ucf-old 
 sudo apt-get install libopenmpi-dev
 sudo apt-get install python-mpi4py
 cd git/aosim
+git pull
 make clean
 make
+Files that have been modified (i.e. make a backup): /etc/bash.bashrc 
 DOCUMENTATION:
 -------------
 

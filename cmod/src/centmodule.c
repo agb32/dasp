@@ -1951,8 +1951,10 @@ int centroidsFromImage(centrunstruct *runinfo){
 	nexposed=npxl;
       }
       //Calibration starts here.
-      if(c->calsource==0)
+      if(c->calsource==0){
+	readCCD(nexposed,&(c->bimg[i*npxl]),0.,0.,c->noiseFloor,c->gslRand[threadno],c->threshType);
 	selectBrightestPixels(nexposed,&c->bimg[i*npxl],c->useBrightestArr==NULL?c->useBrightest:c->useBrightestArr[i],c->sortarr[threadno]);
+      }
       if(c->pxlPower==2){
 	multArrArr(nexposed,&c->bimg[i*npxl],&c->bimg[i*npxl]);
       }else if(c->pxlPower!=1 && c->pxlPower!=0){
