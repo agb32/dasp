@@ -779,7 +779,7 @@ class centroid:
                  if self.atmosPhaseType=="phaseonly":
                      phssub=(self.reorderedPhs[i,j,k,:,:self.phasesize]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
                  elif self.atmosPhaseType=="phaseamp":
-                     phssub=(self.reorderedPhs[i,j,k,:,:,0]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
+                     phssub=(self.reorderedPhs[i,j,k,0,:,:]-tmp*self.xtiltfn-tmp*self.ytiltfn).astype(self.fpDataType)
                  #now do the FFT: plan, phsin, imgout, pypupil
                  if self.fpDataType==numpy.float64:
                      if phssub.dtype!=self.fpDataType or self.tmpImg.dtype!=self.fpDataType or self.pupsub.dtype!=self.fpDataType:
@@ -790,7 +790,7 @@ class centroid:
                          self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
                      elif self.atmosPhaseType=="phaseamp":
                          #cmod.mkimg.mkimg(self.fftwPlan,phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
-                         self.makeImage(pupsub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
+                         self.makeImage(pupsub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,1,:,:]).astype(self.fpDataType))
                      elif self.atmosPhaseType=="realimag":
                          raise Exception("realimag")
                  else:
@@ -803,7 +803,7 @@ class centroid:
                      if self.atmosPhaseType=="phaseonly":
                          self.makeImage(phssub,self.tmpImg,self.pupsub[i,j])
                      elif self.atmosPhaseType=="phaseamp":
-                         self.makeImage(phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,:,:,1]).astype(self.fpDataType))
+                         self.makeImage(phssub,self.tmpImg,(self.pupsub[i,j]*self.reorderedPhs[i,j,k,1,:,:]).astype(self.fpDataType))
                      elif self.atmosPhaseType=="realimag":
                          raise Exception("realimag")
                  self.subimg[i][j]+=self.tmpImg                    # Long exposure image

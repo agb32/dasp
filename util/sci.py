@@ -425,6 +425,8 @@ class science:
 ##         return result
     def calcRMS(self,phase,mask=None):
         """calcs rms in radians (or whatever phase is in)"""
+        if self.atmosPhaseType=="phaseamp":
+            phase=phase[0]
         if type(mask)==type(None):
             rms=numpy.sqrt(numpy.average(phase.flat**2)-numpy.average(phase.flat)**2)
         else:
@@ -474,21 +476,25 @@ class science:
 ##        self.pup2=pup2
         t1=time.time()
         npup=self.npup ##to have the dimensions of the input phase array
-        if self.phaseTilt!=None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
-            phs=phs+self.phaseTilt
         
         # print self.pupilAmplitude.shape,self.phs.shape,self.pup.shape
         # We fill the complex amplitude
         if self.atmosPhaseType=="phaseonly":
+            if self.phaseTilt!=None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
+                phs=phs+self.phaseTilt
             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
             self.pupilAmplitude[:npup,npup:,]=0.
             self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs)
             self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs)
         elif self.atmosPhaseType=="phaseamp":#phs[1] is amplitude, phs[0] is phase
+            if self.phaseTilt!=None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
+                phs0=phs[0]+self.phaseTilt
+            else:
+                phs0=phs[0]
             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
             self.pupilAmplitude[:npup,npup:,]=0.
-            self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs[0])*phs[1]
-            self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs[0])*phs[1]
+            self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs0)*phs[1]
+            self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs0)*phs[1]
         elif self.atmosPhaseType=="realimag":#phs in real/imag already.
             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
             self.pupilAmplitude[:npup,npup:,]=0.
@@ -505,10 +511,19 @@ class science:
         ##print phs2.shape,phs2.typecode(),self.tempImg.shape,self.tempImg.typecode(),pup2.shape,pup2.typecode()
         ##We compute the PSF by using fliparray2
         #self.instImg=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
-        if self.nimg!=self.nfft:#bin the image...
+        if self.nimg!=self.nfft:#bin the image... (and if they are equal, tempImg and binImg point to same data)
             cmod.binimg.binimg(self.tempImg,self.binImg)
         fliparray2(self.binImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
-        self.instImg/=numpy.sum(self.instImg) ##We normalise the instantaneous PSF to 1
+        if self.atmosPhaseType=="phaseonly":
+            tot=numpy.sum(self.instImg) ##We normalise the instantaneous PSF to 1
+            if tot!=0:
+                self.instImg/=tot
+            else:
+                print "No signal in sci.py (phase shape %s)"%str(phs.shape)
+        elif self.atmosPhaseType=="phaseamp":
+            self.instImg/=self.pupsum*self.nfft*self.nfft
+        else:
+            print "todo - sci.py normalise image"
         t2=time.time()
         self.PSFTime=t2-t1
         #print numpy.sum(numpy.sum(self.instImg))
@@ -672,10 +687,24 @@ class science:
             #numpy.put(self.phs.ravel(),self.idxPup,numpy.take(inputData.ravel(),self.idxPup)-pist) ##we remove the piston only from stuff in the pupil.
             else:
                 self.phs[:]=inputData
+        elif self.atmosPhaseType=="phaseamp":
+            if inputData.shape!=(2,self.npup,self.npup):#are we binning the phase before centroid calculation - might be needed for XAO systems if want to use the fpga (npup max is 1024 for the fpga).
+                #This assumes that the inputData size is a power of 2 larger than phs, ie 2, 4, 8 etc times larger.
+                print "Binning pupil for science calculation %d %s "%(self.npup,str(inputData.shape))
+                cmod.binimg.binimg(inputData[0],self.phs[0])
+                cmod.binimg.binimg(inputData[1],self.phs[1])
+                self.phs[0]/=self.realPupBinned
+                inputData=self.phs#now the binned version.
+            else:
+                self.phs[:]=inputData
         else:
             raise Exception("science: todo: don't know how to remove piston")
         if self.phaseMultiplier!=1:
-            self.phs*=self.phaseMultiplier
+            if self.atmosPhaseType=="phaseonly":
+                self.phs*=self.phaseMultiplier
+            else:
+                print "Warning sci.py scaling phase - might not work due to phase unwrapping"
+                self.phs[0]*=self.phaseMultiplier
         
         
     def doScienceCalc(self,inputData,control,curtime=0):

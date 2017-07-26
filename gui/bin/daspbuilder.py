@@ -2026,7 +2026,7 @@ import science.science
 import base.readConfig
 import util.Ctrl
 ctrl=util.Ctrl.Ctrl(globals=globals())
-iscrn=science.iscrn.iscrn(None,ctrl.config,idstr="L0-2")
+iscrn=science.iscrn.iscrn(None,ctrl.config,idstr="allLayers")
 nwfs=ctrl.config.getVal("nwfs")
 ndm=ctrl.config.getVal("ndm")
 iatmosList=[]
@@ -2042,12 +2042,12 @@ ctrl.initialCommand("for c in cList:\\n c.newCorrRef()\\nprint 'Done new corr re
 if not "nopoke" in ctrl.userArgList:ctrl.doInitialPokeThenRun(startiter=2)
 
 
-iatmosList.append(science.iatmos.iatmos({"L0-2":iscrn},ctrl.config,idstr="b"))#science.
+iatmosList.append(science.iatmos.iatmos({"allLayers":iscrn},ctrl.config,idstr="b"))#science.
 for i in range(ndm):
     dm2List.append(science.xinterp_dm.dm(None,ctrl.config,idstr="dmNF%db"%i))#this one for the Narrow Field science.
 
 for i in range(nwfs):#in direction %d
-    d={"L0-2":iscrn}
+    d={"allLayers":iscrn}
     for j in range(ndm):
         dmList.append(science.xinterp_dm.dm(None,ctrl.config,idstr="dm%d_%d"%(j,i)))#this one (with no phase) for the widefield object (which adds the phase) in a particular direction.
         d["dm%d_%d"%(j,i)]=dmList[-1]
@@ -2118,7 +2118,7 @@ import util.tel
 spider=None
 pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam,spider=spider)
 
-layerList={"L0-2":["L%d"%x for x in range(nlayer)]}
+layerList={"allLayers":["L%d"%x for x in range(nlayer)]}
 wfs_sig=1e6 #wfs flux - but actually not used (taken from the solar images)
 
 

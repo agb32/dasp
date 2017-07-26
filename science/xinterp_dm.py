@@ -41,16 +41,23 @@ class dm(base.aobase.aobase):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.datatype=self.config.getVal("xinterpdmDataType",default=numpy.float32)
+        self.atmosPhaseType=self.config.getVal("atmosPhaseType",default="phaseonly")
         #self.sendFullDM=self.config.getVal("sendFullDM",default=0)#used if connecting to wideField.py science module
         if forGUISetup==1:
             #if self.sendFullDM:
             self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
             if self.dmObj.getDM(idstr).sendFullDM:
                 dmpup=self.dmObj.calcdmpup(self.idstr[0])
-                self.outputData=[(dmpup,dmpup),"f"]
+                if self.atmosPhaseType=="phaseonly":
+                    self.outputData=[(dmpup,dmpup),"f"]
+                else:
+                    self.outputData=[(2,dmpup,dmpup),"f"]
             else:
                 npup=self.config.getVal("npup")
-                self.outputData=[(npup,npup),self.datatype]
+                if self.atmosPhaseType=="phaseonly":
+                    self.outputData=[(npup,npup),self.datatype]
+                else:
+                    self.outputData=[(2,npup,npup),self.datatype]
         else: # set up for simulation.
             self.control={"dm_update":1,"zoffset":None,"phaseCovariance":0}#,"zpoke":numpy.zeros((self.nact*self.nact,),self.datatype)}#,"poke":0}
             
@@ -153,6 +160,7 @@ class dm(base.aobase.aobase):
             #self.wfsn=self.config.getVal("wfs_n")
             #self.dmminarea=self.config.getVal("dmminarea",default=0.25)
             self.dmphs=numpy.zeros((self.dmpup,self.dmpup),numpy.float32) # DM figure
+                
             self.mirrorSurface.phsOut=self.dmphs
             #we now need to work out which part of the DM to use... this depends on conjugate height, and source location.
             self.reconData=None#numpy.zeros(self.nact*self.nact,self.datatype)
@@ -172,8 +180,13 @@ class dm(base.aobase.aobase):
             
             if self.sendFullDM:
                 self.outputData=self.dmphs
+                if self.atmosPhaseType!="phaseonly":
+                    print "Warning - sendFullDM selected with phase type %s.  May not work..."%self.atmosPhaseType
             else:
-                self.outputData=numpy.zeros((self.npup,self.npup),self.datatype)
+                if self.atmosPhaseType=="phaseonly":
+                    self.outputData=numpy.zeros((self.npup,self.npup),self.datatype)
+                else:
+                    self.outputData=numpy.zeros((2,self.npup,self.npup),self.datatype)
             self.lowOrderModeDict={}#dict containing low order modes which can be subtracted from the atmos phase.
             self.lowOrderModeNormDict={}
             for i in xrange(len(self.idstr)):
@@ -399,7 +412,7 @@ class dm(base.aobase.aobase):
             print "xinterp_dm object assigning parents automatically"
             keylist=this.parent.keys()
             for key in keylist:
-                if this.parent[key].outputData.shape==(self.npup,self.npup):#the right shape for an atmos object
+                if this.parent[key].outputData.shape[-2:]==(self.npup,self.npup):#the right shape for an atmos object
                     print "xinterp_dm parent object %s becoming atmos"%str(key)
                     this.parent["atmos"]=this.parent[key]
                 else:

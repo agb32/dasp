@@ -226,7 +226,7 @@ int planSize;
   int useBrightest;
   int *useBrightestArr;
   float **sortarr;
-  int phaseStep;
+  int atmosPhaseType;//0 for phaseonly, 1 for phaseamp
   float fitMx[30];
   int fitMxParam;
   int gaussianFit;
@@ -478,7 +478,7 @@ int computeHll(float *phs,int subx,int suby,int inputWidth,int phasesize,int fft
   memset(hll,0,sizeof(float)*paddedsize*paddedsize);
   memset(fftarr,0,fftsize*fftsize*sizeof(complex float));
   offset=(suby*inputWidth+subx)*phasesize;//starting coord in the phs array.
-  if(c->phaseStep==1){//phase only.
+  if(c->atmosPhaseType==0){//phase only.
     for(i=0; i<phasesize; i++){
       for(j=0; j<phasesize; j++){
 	tmp=phs[offset+(i*inputWidth+j)]-tiltfn[i*phasesize+j];
@@ -486,11 +486,12 @@ int computeHll(float *phs,int subx,int suby,int inputWidth,int phasesize,int fft
       }
     }
   }else{//phase + amp.
+    int phsArrSize=inputWidth*inputWidth;
     for(i=0; i<phasesize; i++){
       for(j=0; j<phasesize; j++){
-	indx=(offset+i*inputWidth+j)*c->phaseStep;
+	indx=(offset+i*inputWidth+j);//*c->phaseStep;
 	tmp=phs[indx]-tiltfn[i*phasesize+j];
-	fftarr[i*fftsize+j]=pup[i*phasesize+j]*phs[indx+1]*(cos(tmp)+I*sin(tmp));
+	fftarr[i*fftsize+j]=pup[i*phasesize+j]*phs[indx+phsArrSize]*(cos(tmp)+I*sin(tmp));
       }
     }
   }
@@ -1564,7 +1565,7 @@ int prebinImage(int paddedsize,float *hll,int preBinningFactor,int psfsize){
   return 0;
 }
 
-void interpolatePhase(int sub,float *phs,centstruct *c){
+void interpolatePhase(int sub,float *phs,float *inputPhs,centstruct *c){
   //cubic interpolate phase for subap sub, into phs.
   //See testBicubicConvolutionAlgo.py for more details
   //This may not be the quickest algo - the cmod/iscrn way might be a bit faster.
@@ -1620,50 +1621,50 @@ void interpolatePhase(int sub,float *phs,centstruct *c){
 	for(i=0;i<4;i++){
 	  if(iny<0){
 	    if(inx+i<0){//reuse first column
-	      f[1]=c->phs[0];
-	      f[2]=c->phs[totInputSize];
-	      f[3]=c->phs[totInputSize*2];
+	      f[1]=inputPhs[0];
+	      f[2]=inputPhs[totInputSize];
+	      f[3]=inputPhs[totInputSize*2];
 	    }else if(inx+i>=totInputSize){//reuse last col
-	      f[1]=c->phs[totInputSize-1];
-	      f[2]=c->phs[totInputSize*2-1];
-	      f[3]=c->phs[totInputSize*3-1];
+	      f[1]=inputPhs[totInputSize-1];
+	      f[2]=inputPhs[totInputSize*2-1];
+	      f[3]=inputPhs[totInputSize*3-1];
 	    }else{
-	      f[1]=c->phs[inx+i];
-	      f[1]=c->phs[totInputSize+inx+i];
-	      f[1]=c->phs[totInputSize*2+inx+i];
+	      f[1]=inputPhs[inx+i];
+	      f[1]=inputPhs[totInputSize+inx+i];
+	      f[1]=inputPhs[totInputSize*2+inx+i];
 	    }
 	    f[0]=f[1];//reuse first row
 	  }else if(iny+4>totInputSize){
 	    if(inx+i<0){//reuse first column
-	      f[0]=c->phs[totInputSize*(totInputSize-3)];
-	      f[1]=c->phs[totInputSize*(totInputSize-2)];
-	      f[2]=c->phs[totInputSize*(totInputSize-1)];
+	      f[0]=inputPhs[totInputSize*(totInputSize-3)];
+	      f[1]=inputPhs[totInputSize*(totInputSize-2)];
+	      f[2]=inputPhs[totInputSize*(totInputSize-1)];
 	    }else if(inx+i>=totInputSize){//reuse last col
-	      f[0]=c->phs[totInputSize*(totInputSize-3)+totInputSize-1];
-	      f[1]=c->phs[totInputSize*(totInputSize-2)+totInputSize-1];
-	      f[2]=c->phs[totInputSize*(totInputSize-1)+totInputSize-1];
+	      f[0]=inputPhs[totInputSize*(totInputSize-3)+totInputSize-1];
+	      f[1]=inputPhs[totInputSize*(totInputSize-2)+totInputSize-1];
+	      f[2]=inputPhs[totInputSize*(totInputSize-1)+totInputSize-1];
 	    }else{
-	      f[0]=c->phs[totInputSize*(totInputSize-3)+inx+i];
-	      f[1]=c->phs[totInputSize*(totInputSize-2)+inx+i];
-	      f[2]=c->phs[totInputSize*(totInputSize-1)+inx+i];
+	      f[0]=inputPhs[totInputSize*(totInputSize-3)+inx+i];
+	      f[1]=inputPhs[totInputSize*(totInputSize-2)+inx+i];
+	      f[2]=inputPhs[totInputSize*(totInputSize-1)+inx+i];
 	    }
 	    f[3]=f[2];//reuse last row
 	  }else{
 	    if(inx+i<0){//reuse first column
-	      f[0]=c->phs[iny*totInputSize];
-	      f[1]=c->phs[(iny+1)*totInputSize];
-	      f[2]=c->phs[(iny+2)*totInputSize];
-	      f[3]=c->phs[(iny+3)*totInputSize];
+	      f[0]=inputPhs[iny*totInputSize];
+	      f[1]=inputPhs[(iny+1)*totInputSize];
+	      f[2]=inputPhs[(iny+2)*totInputSize];
+	      f[3]=inputPhs[(iny+3)*totInputSize];
 	    }else if(inx+i>=totInputSize){
-	      f[0]=c->phs[iny*totInputSize+totInputSize-1];
-	      f[1]=c->phs[(iny+1)*totInputSize+totInputSize-1];
-	      f[2]=c->phs[(iny+2)*totInputSize+totInputSize-1];
-	      f[3]=c->phs[(iny+3)*totInputSize+totInputSize-1];
+	      f[0]=inputPhs[iny*totInputSize+totInputSize-1];
+	      f[1]=inputPhs[(iny+1)*totInputSize+totInputSize-1];
+	      f[2]=inputPhs[(iny+2)*totInputSize+totInputSize-1];
+	      f[3]=inputPhs[(iny+3)*totInputSize+totInputSize-1];
 	    }else{//this is the most common case!
-	      f[0]=c->phs[iny*totInputSize+inx+i];
-	      f[1]=c->phs[(iny+1)*totInputSize+inx+i];
-	      f[2]=c->phs[(iny+2)*totInputSize+inx+i];
-	      f[3]=c->phs[(iny+3)*totInputSize+inx+i];
+	      f[0]=inputPhs[iny*totInputSize+inx+i];
+	      f[1]=inputPhs[(iny+1)*totInputSize+inx+i];
+	      f[2]=inputPhs[(iny+2)*totInputSize+inx+i];
+	      f[3]=inputPhs[(iny+3)*totInputSize+inx+i];
 	    }
 	    //do the dot product
 	    tmp[i*4]=mx[0]*f[0]+mx[1]*f[1]+mx[2]*f[2]+mx[3]*f[3];
@@ -1732,10 +1733,15 @@ int centroidsFromPhase(centrunstruct *runinfo){
     npxl=c->imgpxls;
     if(c->subflag[i]==1){//subap is full enough to use.  ie subflag[i]==1...
       if(c->interpolatePhase){
-	phs=&c->interpPhs[c->phasesize*c->phasesize*threadno];
-	interpolatePhase(i,phs,c);//puts the correct part of phase into small arr.
+	if(c->atmosPhaseType==1){//first interpolate the amplitude
+	  phs=&c->interpPhs[c->phasesize*c->phasesize*threadno*(c->atmosPhaseType==0?1:2)+c->phasesize*c->phasesize];
+	  interpolatePhase(i,phs,&c->phs[c->phasesize*c->phasesize*c->nsubx*c->nsubx],c);//puts the correct part of phase into phs.
+	}
+	//interpolate the phase
+	phs=&c->interpPhs[c->phasesize*c->phasesize*threadno*(c->atmosPhaseType==0?1:2)];
+	interpolatePhase(i,phs,c->phs,c);//puts the correct part of phase into small arr.
 	subx=suby=0;
-	inputWidth=c->phasesize;
+	inputWidth=c->phasesize;//need to consider phasestep
       }else{//use the phase as supplied (2D array)
 	subx=i%c->nsubx;
 	suby=i/c->nsubx;
@@ -1743,7 +1749,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	inputWidth=c->phasesize*c->nsubx;
       }
       nphspxl=c->fracSubArea[i];//should be between 0 and 1.
-      //phaseStep==1 for phaseOnly, 2 for phaseamp.
+      //atmosPhaseType==0 for phaseOnly, 1 for phaseamp.
       error|=computeHll(phs,subx,suby,inputWidth,c->phasesize,c->fftsize,c->paddedsize,&(c->pupfn[i*c->phasepxls]),c->tiltfn,c->fftArrays[threadno],c->hll[threadno],additive>0,c);//paddedsize was psfsize.
       //Optional - do a binning here, before convolution.  Why?  To reduce the size necessary for the convolution and thus improve performance.  Note, a binning after convolution is also usually necessary to give correct results.  This option is useful when trying to get larger pixel scales (i.e. larger phase size) without needing huge psfs.
       if(additive==2 || additive==-1){//time to readout the ccd and compute slopes.
@@ -1761,7 +1767,7 @@ int centroidsFromPhase(centrunstruct *runinfo){
         error|=binImage(c->clipsize,c->hll[threadno],c->nimg,&(c->bimg[i*npxl]),c);
 	    
 	//compute total flux in the unclipped image to use for scaling.
-	if(c->phaseStep==1){//amplitude only.  So total power equal to number of pixels not vignetted *fftsize*fftsize.
+	if(c->atmosPhaseType==0){//amplitude only.  So total power equal to number of pixels not vignetted *fftsize*fftsize.
 	  //And if convolution is used, multiply by the total power in the psf image.
 	  totsig=c->totsigArr[i];
 	  
@@ -1770,10 +1776,13 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	  float totpup=0.;
 	  int offset=(suby*inputWidth+subx)*c->phasesize;//start coord in phs array.
 	  totsig=0;
+
+	  int phsArrSize=inputWidth*inputWidth;
+	  
 	  for(ii=0; ii<c->phasesize; ii++){
 	    for(jj=0; jj<c->phasesize; jj++){
-	      indx=(offset+ii*inputWidth+jj)*c->phaseStep;
-	      totsig+=c->pupfn[i*c->phasepxls+ii*c->phasesize+jj]*phs[indx+1];
+	      indx=(offset+ii*inputWidth+jj);//*c->phaseStep;
+	      totsig+=c->pupfn[i*c->phasepxls+ii*c->phasesize+jj]*phs[indx+phsArrSize];
 	      totpup+=c->pupfn[i*c->phasepxls+ii*c->phasesize+jj];
 	    }
 	  }
@@ -2439,7 +2448,7 @@ int setupThreads(centstruct *c,int nthreads){
     c->subapStart=malloc(sizeof(int)*(nthreads+1));
     c->fftArrays=malloc(sizeof(complex float*)*nthreads);
     c->sortarr=malloc(sizeof(float*)*nthreads);
-    c->interpPhs=malloc(sizeof(float)*nthreads*c->phasesize*c->phasesize);
+    c->interpPhs=malloc(sizeof(float)*nthreads*c->phasesize*c->phasesize*(c->atmosPhaseType==0?1:2));
     //c->fftplan=malloc(sizeof(fftw_plan)*nthreads);
     subapCnt=0;
     subapsLeft=c->nsubaps;
@@ -2814,7 +2823,6 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->gaussianFit=gaussianFit;
   c->gaussianMinVal=gaussianMinVal;
   c->gaussianReplaceVal=gaussianReplaceVal;
-    
   //Now check that the arrays are okay...
   if(setSpotPsf(c,spotpsfObj)==-1){
     return NULL;
@@ -2830,18 +2838,19 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
       return NULL;
     }
     if(phs->nd==2)
-      c->phaseStep=1;
+      c->atmosPhaseType=0;//phaseonly
     else if(phs->nd==3)
-      c->phaseStep=2;
+      c->atmosPhaseType=1;//phaseamp
     else{
       printf("Error: centmodule - phase should be 2D or 3D (for phase+amp)\n");
       return NULL;
     }
-    if(phs->dimensions[0]!=phasesize*c->nsubx || phs->dimensions[1]!=phasesize*c->nsubx){//we need to interpolate the phase.
+    if(phs->dimensions[0+(c->atmosPhaseType==0?0:1)]!=phasesize*c->nsubx || phs->dimensions[1+(c->atmosPhaseType==0?0:1)]!=phasesize*c->nsubx){//we need to interpolate the phase.
       c->interpolatePhase=1;
-      c->inputPhaseSize=phs->dimensions[0];
+      printf("Interpolating phase needed.  %d %d %d %d\n",phs->dimensions[0+c->atmosPhaseType==0?0:1],phs->dimensions[1+c->atmosPhaseType==0?0:1],phasesize,c->nsubx);
+      c->inputPhaseSize=phs->dimensions[0+(c->atmosPhaseType==0?0:1)];
     }
-    c->phs=(float*)phs->data;//can include amplitude data too (interleaved, phase first).
+    c->phs=(float*)phs->data;//can include amplitude data too (phase first, then the amplitude).
   }else{//input phase not specified - must be image input.
     c->phs=NULL;
   }

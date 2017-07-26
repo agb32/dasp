@@ -37,9 +37,13 @@ class layer:
         self.seed=seed#random number seed
         self.zenith=None
         self.zenithAz=None
-    def adjustForZenith(self,zenith,zenithAz):
+    def adjustForZenith(self,zenith,zenithAz,ignoreZenithWarning=0):
         if self.zenith!=None:
-            raise Exception("Zenith already adjusted for")
+            if ignoreZenithWarning:
+                print "Warning - zenith already adjusted for - not redoing"
+                return
+            else:
+                raise Exception("Zenith already adjusted for")
         self.zenith=zenith
         self.zenithAz=zenithAz
         if zenith==0.:
@@ -100,7 +104,7 @@ class source(object):
         
 class geom:
     """A class to hold information about atmospheric/source geometry.  Typically used by the parameter file."""
-    def __init__(self,layerDict,sourceList,ntel,npup,telDiam,r0,l0,zenith=0.,zenithAz=0.):
+    def __init__(self,layerDict,sourceList,ntel,npup,telDiam,r0,l0,zenith=0.,zenithAz=0.,ignoreZenithWarning=0):
         """layerDict is a dictionary with keys equal to the layer name (the idstr used by infScrn objects)
         and values equal to either a layer() object or (depreciated) to a tuple of:
         (height, wind direction, speed, strength,initSeed) (metres, degrees, metres per second, fraction, int).
@@ -125,7 +129,7 @@ class geom:
                 print "DEPRECATION: WARNING - atmosGeom object layerDict should have values equal to util.atmos.layer() objects"
                 self.layerDict[key]=layer(*self.layerDict[key])
             totstr+=self.layerDict[key].strength
-            self.layerDict[key].adjustForZenith(self.zenith,self.zenithAz)
+            self.layerDict[key].adjustForZenith(self.zenith,self.zenithAz,ignoreZenithWarning)
         if totstr!=1.:
             print "WARNING: atmospheric layer strenghts do not add up to 1 - correcting..."
             for key in self.layerDict.keys():
@@ -290,26 +294,14 @@ class geom:
                 xposlist.append(x-xfov)
                 yposlist.append(y+yfov)
                 yposlist.append(y-yfov)
-                #The sqrt(2) on fov is because the fov could be sampled square. 
-                #xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
-                #yposlist.append(layerAlt*numpy.tan((self.sourceTheta(key)+self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
-                #if self.sourceFov(key)!=0:
-                #    xposlist.append(layerAlt/numpy.cos(self.zenithOld*degrad)*numpy.tan((self.sourceTheta(key)-self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(key)*degrad+rotangle))
-                #    yposlist.append(layerAlt*numpy.tan((self.sourceTheta(key)-self.sourceFov(key)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(key)*degrad+rotangle))
 
             maxx=max(xposlist)
             minx=min(xposlist)
             maxy=max(yposlist)
             miny=min(yposlist)
-            #scrnXPxls=int(Numeric.ceil(maxx*ntel/telDiam+npup+Numeric.ceil(minx*ntel/telDiam))+1)
-            #scrnYPxls=int(Numeric.ceil(maxy*ntel/telDiam+npup+Numeric.ceil(miny*ntel/telDiam))+1)
-            #print altkey,maxx,minx,(maxx-minx),maxy,miny,(maxy-miny)
             extra=numpy.cos(numpy.pi/4-rotangle%(numpy.pi/2))/numpy.cos(numpy.pi/4)#take into account the rotation of the square pupil.
             scrnXPxls=int(numpy.ceil(npup*extra/numpy.cos(self.zenithOld*degrad)))+int(self.oversize)+int(numpy.ceil((maxx-minx)*ntel/telDiam))#agb 090313 - changed from ceil(maxx-minx) to ceil of whole thing. 090518 added zenith part.
             scrnYPxls=int(numpy.ceil(npup*extra))+int(self.oversize)+int(numpy.ceil((maxy-miny)*ntel/telDiam))
-            #if rotateDirections:
-            #    scrnSize[altkey]=(scrnYPxls,scrnXPxls)
-            #else:
             scrnSize[altkey]=(scrnXPxls,scrnYPxls)
         print "scrnSize: %s"%str(scrnSize)
         self.scrnSize=scrnSize
@@ -353,12 +345,6 @@ class geom:
                 xpos.append(x-xfov)
                 ypos.append(y+yfov)
                 ypos.append(y-yfov)
- 
-                #xpos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
-                #ypos.append(numpy.tan((self.sourceTheta(sourceKey)+self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
-                #if self.sourceFov(sourceKey)!=0:
-                #    xpos.append(numpy.tan((self.sourceTheta(sourceKey)-self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.cos(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/numpy.cos(self.zenithOld*degrad)/telDiam*ntel-npup*extra/numpy.cos(self.zenithOld*degrad)/2.)#scrnSize[altKey][0]/2.)
-                #    ypos.append(numpy.tan((self.sourceTheta(sourceKey)-self.sourceFov(sourceKey)*numpy.sqrt(2))*arcsecrad)*numpy.sin(self.sourcePhi(sourceKey)*degrad+rotangle)*self.layerHeight(altKey)/telDiam*ntel-npup*extra/2.)#scrnSize[altKey][1]/2.)
 
             minx=min(xpos)
             miny=min(ypos)
@@ -528,7 +514,7 @@ class atmos:
     """A class to carry out computation of a pupil phase screen
     for a given source direction.  This can (possibly) be used stand-alone
     and is used as part of the AO simulation (infAtmos module)."""
-    def __init__(self,parent,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,colAdd,rowAdd,layerAltitude,phaseScreens,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=0,):
+    def __init__(self,parent,sourceAlt,sourceLam,sourceTheta,sourcePhi,npup,pupil,colAdd,rowAdd,layerAltitude,phaseScreens,scrnScale,layerXOffset,layerYOffset,layerList=None,zenith=0.,intrinsicPhase=None,storePupilLayers=0,computeUplinkTT=0,launchApDiam=0.35,ntel=None,telDiam=0.,interpolationNthreads=0):
         """parent is a dictionary of parents (keys are the layers).  Source altitude, wavelength and position are given, and info about all the phase screen layers.
         storePupilLayers - if 1, a dictionary of layers along this line of sight will be created - unexpanded in the case of LGS - i.e. full pupil.
         computeUplinkTT - if 1 then uplink tip/tilt will be computed.
@@ -558,6 +544,7 @@ class atmos:
         self.zenithOld=0.#used to be used when stretching screens - now no longer.
         self.layerAltitude=layerAltitude#these are pre-scaled by zenith.
         self.sortedLayerList=[]
+        self.fresnelKernels={}
         hh=sorted(self.layerAltitude.values())
         for h in hh:
             for key in self.layerList:
@@ -598,23 +585,8 @@ class atmos:
                     alt=self.layerAltitude[key]
                     if alt<self.sourceAlt:
                         self.distToFocus[key]=self.sourceAlt-alt
-                #for i in range(len(self.sortedLayerList)):
-                #    key=self.sortedLayerList[i]
-                #    alt=self.layerAltitude[key]
-                #    if i<len(self.sortedLayerList)-1:
-                #        keynext=self.sortedLayerList[i+1]
-                #        altnext=self.layerAltitude[keynext]
-                #    else:
-                #        altnext=self.sourceAlt
-                #    if altnext>self.sourceAlt:
-                #        altnext=self.sourceAlt
-                #    if alt<self.sourceAlt:
-                #        self.distToNextLayer[key]=altnext-alt
-                #        if self.distToNextLayer[key]<0:
-                #            raise Exception("Distance to next layer negative: %s (key %s)"%(str(self.distToNextLayer),key))
 
         #Now, for each layer, compute where abouts in this layer we should take phase from.
-
         self.positionDict={}
         xpos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.cos(self.sourcePhi*degRad)
         ypos=numpy.tan(self.sourceTheta*arcsecRad)*numpy.sin(self.sourcePhi*degRad)
@@ -624,7 +596,6 @@ class atmos:
                 shape=self.phaseScreens[key].shape
                 x=xpos*self.layerAltitude[key]/numpy.cos(self.zenithOld*numpy.pi/180.)/self.scrnScale-self.npup/numpy.cos(self.zenithOld*degRad)/2+self.layerXOffset[key]#+shape[0]/2#zenith added 090518
                 y=ypos*self.layerAltitude[key]/self.scrnScale-self.npup/2+self.layerYOffset[key]#+shape[1]/2
-                #if x<0 or y<0 or numpy.ceil(x+self.npup)>shape[1] or numpy.ceil(y+self.npup)>shape[0]:#agb removed +1 in x+npup and y+npup, and replaced with numpy.ceil, date 070831.
                 if x<0 or y<0 or x+self.npup/numpy.cos(self.zenithOld*degRad)+1>shape[1] or y+self.npup+1>shape[0]:#zenith added 090518
                     print "ERROR: util.atmos - phasescreen %s is not large enough to contain this source %g %g %g %g %g %g"%(str(key),x,y,x+self.npup/numpy.cos(self.zenithOld*degRad)+1,y+self.npup+1,shape[1],shape[0])#agbc changed shape[0->1] and vice versa zenith added 090518
                     raise Exception("ERROR: util.atmos - phasescreen is not large enough to contain this source")
@@ -860,21 +831,6 @@ class atmos:
     def createSingleLayerPhs(self,phaseScreens,interpPosColDict,interpPosRowDict,key,control):
         """Just do the interpolation for a single layer."""
         posDict=self.positionDict[key]
-##         interpPosCol=interpPosColDict[key]+posDict[4]
-##         interpPosRow=interpPosRowDict[key]+posDict[5]
-        
-##         #print "%g %g"%(interpPosCol,interpPosRow)
-##         phsShiftY=int(interpPosCol)
-##         phsShiftX=int(interpPosRow)
-##         interpPosCol-=phsShiftY
-##         interpPosRow-=phsShiftX
-##         if self.colAdd[key]>=0:
-##             interpPosCol=1-interpPosCol
-##             #phsShiftY*=-1
-##         if self.rowAdd[key]>=0:
-##             interpPosRow=1-interpPosRow
-##             #phsShiftX*=-1
-
         interpPosCol=posDict[4]#static offset due to source direction.
         interpPosRow=posDict[5]#static offset due to source direction.
         if self.colAdd[key]>=0:#add on to start...
@@ -936,14 +892,122 @@ class atmos:
 
 
 
+    def doPhysProp(self,phaseScreens,interpPosColDict,interpPosRowDict,control):
+        """Do a physical (Fresnel) propagation of the phase screens down to telescope pupil.
+        Here, the layers really need to be oversized by approx 4x.  Then, at the end, clip out the middle part...
+        i.e. npup*4.
+        """
+        
+        nlayer=len(self.sortedLayerList)
+        for ii in range(nlayer):#for each atmosphere layer... (increasing in height, but inverted, so start at top.)
+            key=self.sortedLayerList[nlayer-1-ii]#reverse order
+            posDict=self.positionDict[key]
+            if len(posDict)>0:#this layer is used (ie below star height)
+                #print "atmos time2 %g"%(time.time()-t1)
+                interpPosCol=posDict[4]#static offset due to source direction.
+                interpPosRow=posDict[5]#static offset due to source direction.
+                if self.colAdd[key]>=0:#add on to start...
+                    if interpPosColDict[key]>0:
+                        interpPosCol+=1-interpPosColDict[key]
+                else:
+                    if interpPosColDict[key]>0:
+                        interpPosCol+=interpPosColDict[key]
+                    else:
+                        interpPosCol+=1
+                phsShiftY=int(numpy.floor(interpPosCol))
+                tmpcol=interpPosCol
+                interpPosCol-=phsShiftY
+
+                if self.rowAdd[key]>=0:#add on to start
+                    if interpPosRowDict[key]>0:
+                        interpPosRow+=1-interpPosRowDict[key]
+                else:
+                    if interpPosRowDict[key]>0:
+                        interpPosRow+=interpPosRowDict[key]
+                    else:
+                        interpPosRow+=1
+                phsShiftX=int(numpy.floor(interpPosRow))
+                tmprow=interpPosRow
+                interpPosRow-=phsShiftX
+
+                #now select the area we're interested in for this target...
+                phs=phaseScreens[key][posDict[1]+phsShiftX:posDict[1]+posDict[3]+1+phsShiftX,
+                                      posDict[0]+phsShiftY:posDict[0]+posDict[2]+1+phsShiftY]
 
 
+                linearshift(phs,interpPosCol,interpPosRow,self.interpPhs[:posDict[3],:posDict[2]])
 
 
+                if self.sourceAlt>0:
+                    #this is a LGS... need to project (interpolate/expand up to the full npup sized array.)
+                    x2=posDict[6]
+                    x=posDict[7]
+                    gslCubSplineInterp(self.interpPhs[:posDict[3],:posDict[3]],x2,x2,x,x,self.interpPhs,0,self.interpolationNthreads)
+                #So, now, in interpPhs, we have the phase for this layer.
+                #Add it to the existing complex phase, and propagate to the next layer.
+                if self.sourceLam!=500.:
+                    self.interpPhs*=500./self.sourceLam
+                if key==self.sortedLayerList[-1]:#first layer
+                    complexAmp=numpy.exp(1j*self.interpPhs)
+                else:#modify phase of existing signal by the new layer phase.
+                    phs=numpy.angle(complexAmp)
+                    phs+=self.interpPhs
+                    amp=numpy.absolute(complexAmp)
+                    complexAmp=amp*numpy.exp(1j*phs)
+                if self.layerAltitude[key]!=0:
+                    if not self.fresnelKernels.has_key(key):
+                        if ii!=nlayer-1:
+                            propagationDist=self.layerAltitude[key]-self.layerAltitude[self.sortedLayerList[nlayer-2-ii]]
+                        else:
+                            propagationDist=self.layerAltitude[key]
+                        print "Computing kernel to propagate %gm"%propagationDist
+                        self.fresnelKernels[key]=self.computeFresnelKernel(complexAmp.shape[0],propagationDist,self.telDiam/self.npup,self.sourceLam*1e-9)#n should be approx 4x or more npup. 
+                    kernel=self.fresnelKernels[key]
+                    #now propagate the phase
+                    temp1=numpy.fft.fft2(complexAmp,s=(kernel.shape[0],kernel.shape[1]))
+                    temp1*=kernel
+                    complexAmp=numpy.fft.ifft2(temp1)#/float(n*n)
+                else:#for the ground layer, no further propagation is needed.
+                     pass   
+        #Now get the phase and amplitude.
+        self.phs=numpy.angle(complexAmp)
+        self.amp=numpy.absolute(complexAmp)
+        f=(self.phs.shape[0]-self.outputData.shape[1])//2
+        t=f+self.outputData.shape[1]
+        phs=self.phs[f:t,f:t]
+        amp=self.amp[f:t,f:t]
+        if control["fullPupil"]:
+            pfn=1
+            pfnArea=phs.size#self.npup*self.npup
+        else:
+            pfn=self.pupil.fn
+            pfnArea=self.pupil.area
+        if control["removePiston"]:
+            pist=numpy.sum(phs*pfn)/pfnArea
+            phs-=pist
 
-
-
-
+        # Multiply by pupil.  Scaling to wavelength has already been done.  AND NOTE, cannot scale to other wavelengths, because of phase unwrapping.
+        if not control["fullPupil"]:
+            phs*=pfn
+            amp*=pfn
+        self.outputData[0,:,:]=phs#[f:t,f:t]
+        self.outputData[1,:,:]=amp#[f:t,f:t]
+        #self.outputData[1]/=pfnArea - not needed, this is done in wfscent.
+                    
+    def computeFresnelKernel(self,n,z,scale,L=500e-9):
+        """n is number of pixels.
+        z is the propagation distance.
+        scale is telDiam/npup
+        L is wavelength in m.
+        """
+        PropDefocus = numpy.arange(-n/2.0 , n/2.0)**2
+        PropDefocus = numpy.add.outer(PropDefocus,PropDefocus)
+        PropDefocus *= numpy.pi*L*z/(float(n)*scale)**2
+        PropDefocus = numpy.cos(PropDefocus) + 1.0j*numpy.sin(PropDefocus)
+        #PropDefocus = fliparrayc(PropDefocus)
+        PropDefocus=numpy.fft.fftshift(PropDefocus)
+        return PropDefocus
+                
 
 
 

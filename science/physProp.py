@@ -53,7 +53,7 @@ def calcLayerOffset(scrnSize,thetas,phis,altitude,npup,ntel,telDiam):
     return layerOffset
 
 
-class infAtmos(base.aobase.aobase):
+class PhysProp(base.aobase.aobase):
     """Create an infAtmos object.  This object can take several infScrn
     objects as parents, and returns the pupil phase for a given source
 
@@ -83,8 +83,9 @@ class infAtmos(base.aobase.aobase):
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.dataType="d"#self.config.getVal("dataType")
         self.npup=self.config.getVal("npup")#pupil size (pixels)
+        self.npupClipped=self.config.getVal("npupClipped",self.npup)#output gets clipped to this.
         if forGUISetup==1:
-            self.outputData=[(self.npup,self.npup),self.dataType]
+            self.outputData=[(self.npupClipped,self.npupClipped),self.dataType]
         else:#setup for real
             self.timing=self.config.getVal("timing",default=0)
             self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)
@@ -103,7 +104,9 @@ class infAtmos(base.aobase.aobase):
             self.directPhaseScreen=self.config.getVal("directPhaseScreen",default=0)#are we allowed to access parent.screen if parent is an infScrn object?  
             self.parentSendWholeScreen=self.config.getVal("sendWholeScreen",default=0)#Is the infScrn object sending the whole screen or just the new bits?  This is similar to the directPhaseScreen but also works across MPI connections...
             self.telDiam=self.config.getVal("telDiam")
-            self.ntel=self.config.getVal("ntel",default=self.npup)#tel diameter in pxls.  
+            self.ntel=self.config.getVal("ntel",default=self.npup)#tel diameter in pxls.
+            if self.telDiam/self.ntel>0.02:
+                print "Warning: physProp - typically 1cm sampling is necessary"
             self.pupil=self.config.getVal("pupil")
             #self.telSec=self.config.getVal("telSec")
             self.scrnScale=self.telDiam/float(self.ntel)#self.config.getVal("scrnScale")
@@ -127,10 +130,10 @@ class infAtmos(base.aobase.aobase):
                 self.r0=self.atmosGeom.r0
                 self.L0=self.atmosGeom.l0
     
-            self.control={"cal_source":0,"profilePhase":0,"fullPupil":0,"removePiston":1}#full pupil is used as a flag for phase profiling (xinterp_recon etc) if want to return the whole pupil.
+            self.control={"cal_source":0,"profilePhase":0,"fullPupil":1,"removePiston":0}#full pupil is used as a flag for phase profiling (xinterp_recon etc) if want to return the whole pupil.
             self.tstep=self.config.getVal("tstep")
             #self.niters=0
-            self.outputData=numpy.zeros((self.npup,self.npup),self.dataType)#resource sharing
+            self.outputData=numpy.zeros((2,self.npupClipped,self.npupClipped),self.dataType)#resource sharing
             #self.scrnXPxls=self.config.getVal("scrnXPxls")#will depend on which screen it is, so this is no good!
             #self.scrnYPxls=self.config.getVal("scrnYPxls")
             #Get the initial phase screen.
@@ -303,9 +306,10 @@ class infAtmos(base.aobase.aobase):
                         self.dataValid=0
                 if self.dataValid:
                     if self.control["cal_source"]:#calibration source
-                        self.outputData[:,]=0.
+                        self.outputData[0]=0.#amp 
+                        self.outputData[1]=1.#phase
                     else:
-                        self.thisObjList[self.currentIdObjCnt].atmosObj.createPupilPhs(self.phaseScreens,self.interpPosCol,self.interpPosRow,self.control)
+                        self.thisObjList[self.currentIdObjCnt].atmosObj.doPhysProp(self.phaseScreens,self.interpPosCol,self.interpPosRow,self.control)
                         if self.control["profilePhase"]:#compute phase covariance and profile.  This won't work if resource sharing.
                             #But doesn't matter, because its only really for testing anyway.
                             self.zernikeVariance(self.outputData,forDisplay=0)
@@ -400,6 +404,8 @@ class infAtmos(base.aobase.aobase):
                     self.phaseScreens[key][:,:naddCol]=numpy.transpose(self.colInput[key][self.maxColAdd[key]-naddCol:,])
                     self.phaseScreens[key][:naddRow]=self.rowInput[key][:naddRow]
 
+                    
+                    
 
     def zernikeVariance(self,phase,forDisplay=0):
         """computes the zernike coefficients and stores them.
@@ -506,11 +512,17 @@ class infAtmos(base.aobase.aobase):
             id=""
         else:
             id=" (%s)"%this.idstr
-        txt="""<plot title="Pupil phase screen%s" cmd="data=%s.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+        txt="""<plot title="OutputData%s" cmd="data=%s.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+        txt+="""<plot title="Phase%s" cmd="data=%s.outputData[0]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+        txt+="""<plot title="Amplitude%s" cmd="data=%s.outputData[1]" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname)
+        txt+="""<plot title="Full Phase%s" cmd="data=%s.thisObjList[%d].atmosObj.phs" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname,self.sentPlotsCnt)
+        txt+="""<plot title="Full Amplitude%s" cmd="data=%s.thisObjList[%d].atmosObj.phs" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(id,objname,self.sentPlotsCnt)
+
+
         if len(self.thisObjList)==1:
-            txt+="""<plot title="profile phase%s?" cmd="feedback=1-%s.control['profilePhase'];%s.control['profilePhase']=feedback" ret="feedback" when="cmd" texttype="1" wintype="mainwindow">\nbutton=feedback\n</plot>"""%(id,objname,objname)
-            txt+="""<plot title="phase structure function%s" cmd="pr,rr=%s.phaseStructFunc(None,1);data=numpy.array((rr,pr,%s.theoreticalPhaseStructFunc()))" ret="data" type="pylab" when="rpt" dim="1"/>"""%(id,objname,objname)
-            txt+="""<plot title="zernike variance %s" cmd="varZ,tabJ=%s.zernikeVariance(None,1);data=numpy.array((tabJ.astype('f'),varZ,%s.theoreticalZernikeVariance()))" ret="data" type="pylab" when="rpt" dim="1"/>"""%(id,objname,objname)
+            #txt+="""<plot title="profile phase%s?" cmd="feedback=1-%s.control['profilePhase'];%s.control['profilePhase']=feedback" ret="feedback" when="cmd" texttype="1" wintype="mainwindow">\nbutton=feedback\n</plot>"""%(id,objname,objname)
+            #txt+="""<plot title="phase structure function%s" cmd="pr,rr=%s.phaseStructFunc(None,1);data=numpy.array((rr,pr,%s.theoreticalPhaseStructFunc()))" ret="data" type="pylab" when="rpt" dim="1"/>"""%(id,objname,objname)
+            #txt+="""<plot title="zernike variance %s" cmd="varZ,tabJ=%s.zernikeVariance(None,1);data=numpy.array((tabJ.astype('f'),varZ,%s.theoreticalZernikeVariance()))" ret="data" type="pylab" when="rpt" dim="1"/>"""%(id,objname,objname)
             for key in self.parent.keys():
                 txt+="""<plot title="layer phase %s%s" cmd="data=%s.createSingleLayerPhase('%s')" ret="data" type="pylab" when="rpt" palette="gray"/>"""%(key,id,objname,key)
 

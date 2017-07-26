@@ -2037,9 +2037,13 @@ class DMLineOfSight:
     def selectSubPupil(self,outputData,addToOutput=0,removePiston=1):
         """It the DM isn't ground conjugate, or requires a shift, then not all of the DM surface will be seen by the line of sight.  Here, we select the relevant part.
 
-        OutputData can already contain phase (eg from atmos)
+        OutputData can already contain phase (eg from atmos) or phase+amp.
         
         """
+        if len(outputData.shape)==3:#phase and amplitude.
+            outputData=outputData[0]#here we're only modifying the phase.  This is a simple DM model, does not do fresnel prop.
+            if self.wavelengthAdjustor!=1:
+                print "Warning - dm.py - wavelength adjustor not equal to 1, for phase+amplitude atmosphere."#to fix this, need to do proper phase unwrapping.
         out=self.selectedDmPhs
         if self.subpxlInterp:
             if self.xoffsub==0 and self.yoffsub==0:#no interp needed

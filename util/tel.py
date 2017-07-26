@@ -620,6 +620,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
             tmp=na.abs(theta-k*2.*na.pi/narms)
             arm=na.where((tmp<thickness) + (2*na.pi-tmp<thickness),0,1)
             self.fn*=arm
+        self.area=self.fn.sum()
 
 #        for i in xrange(self.npup):
 #            for j in xrange(self.npup):
@@ -694,6 +695,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         #bottom left spider
         phi=(19.5+theta)*na.pi/180.
         self.fn*=na.where(na.logical_and(na.abs(na.sin(phi-tgrid2)*grid2)<ht,xpos<=0),0,1)
+        self.area=na.sum(na.sum(self.fn))
         
     def atHeight(self,height,fov,telDiam):
         """Computes a new pupil conjugate at height, with fov.
