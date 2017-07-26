@@ -1,5 +1,6 @@
 import base.readConfig
 base.readConfig.init(globals())
+#For physical optics propagation, the phase screen needs to be larger than the pupil, and needs to be sampled at approx 1cm or so.
 this.infScrn=new()
 this.infScrn.npup=400
 this.infScrn.telDiam=4.2
@@ -9,8 +10,7 @@ this.physProp.npupClipped=100
 this.physProp.telDiam=4.2
 this.physProp.ntel=400
 
-tstep=1/250.#Simulation timestep in seconds (250Hz).
-AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)
+#The rest of the simulation sees a pupil of 100x100 phase elements for a 1.05m telescope.
 npup=100
 telDiam=4.2/4.
 telSec=telDiam/7.#Central obscuration
@@ -19,6 +19,10 @@ ngsLam=640.#NGS wavelength
 sciLam=640.#sci wavelength - for fresnel, probably has to equal ngsLam unless a different atmos module is used.
 import util.tel
 pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam)
+
+tstep=1/250.#Simulation timestep in seconds (250Hz).
+AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)
+
 
 from util.atmos import geom,layer,source
 atmosDict={}
