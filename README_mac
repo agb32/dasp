@@ -67,18 +67,12 @@ Note that most installs were using the 'py' prefix but for GSL and matplotlib, i
 (The software installed can also be summarized as: Python, ATLAS (LAPACK and BLAS), complete FFTW3, GTK and PyGTK, scipy, Scientific Python, GNU Scientific Library and the Python binding, matplotlib with the GTK backend.)
 
 
-mkdir DASP
 
-cd DASP
+git clone git@github.com:agb32/dasp.git
+or
+git clone https://github.com/agb32/dasp.git
 
-git clone gitaosim@elise.cfai.dur.ac.uk:/home/gitaosim/aosim.git
-
-
-Note to access the GIT repository on elise, you will have to ask Alastair Basden for the password to the gitaosim user account.
-
-
-cd aosim
-
+cd dasp
 
 Now you will attempt a compilation which will succeed iff the include directories in the makefiles include,
 
@@ -95,8 +89,9 @@ make -s
 then I would suggest checking the include directories first. A key file that could need adjusting is,
 
 
-aosim/cmod/src/Makefile.Darwin
-
+dasp/cmod/src/Makefile.Darwin
+or
+dasp/cmos/src/setup.py
 
 Once compilation is complete, follow the final instruction which will be similar to
 
@@ -106,11 +101,13 @@ Remember to export PYTHONPATH=$PYTHONPATH:/Users/nab/sauce/aosim/working and add
 
 where '/Users/nab/sauce/aosim/working' is replaced by the directory where aosim is installed. To test correct installation, type
 
+daspbuilder.py
+and follow the instructions to create,run, and connect to, a simulation.
 
-simctrl.py &
-
-
-to bring up the DASP control GUI. For further instructions and simulation examples, contact anyone using DASP. Obvious contacts are,
+Use:
+daspctrl.py
+to bring up the DASP control GUI (which you can use to connect to a
+running simulation). For further instructions and simulation examples, contact anyone using DASP. Obvious contacts are,
 
 
 Ali Bharmal	for Mac OS X/Darwin questions
