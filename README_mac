@@ -99,15 +99,20 @@ Once compilation is complete, follow the final instruction which will be similar
 Remember to export PYTHONPATH=$PYTHONPATH:/Users/nab/sauce/aosim/working and add gui/bin to your path (export PATH=$PATH:/Users/nab/sauce/aosim/working/gui/bin ).
 
 
-where '/Users/nab/sauce/aosim/working' is replaced by the directory where aosim is installed. To test correct installation, type
+where '/Users/nab/sauce/aosim/working' is replaced by the directory where aosim is installed. To test correct installation, type:
 
 daspbuilder.py
-and follow the instructions to create,run, and connect to, a simulation.
 
-Use:
+and follow the instructions to create,run, and connect to, a
+simulation.
+
+
+To bring up a DASP control GUI (which you can use to connect to a
+running simuilation), use:
+
 daspctrl.py
-to bring up the DASP control GUI (which you can use to connect to a
-running simulation). For further instructions and simulation examples, contact anyone using DASP. Obvious contacts are,
+
+For further instructions and simulation examples, contact anyone using DASP. Obvious contacts are,
 
 
 Ali Bharmal	for Mac OS X/Darwin questions
