@@ -44,7 +44,7 @@ else:
 	      
 	idveclib=[]
 fft=Extension('fftmodule',
-              include_dirs=idnumpy,
+              include_dirs=idnumpy + ['/opt/local/include'],
               library_dirs=ld,
               libraries=["pthread","fftw3f_threads","fftw3f"],
               extra_compile_args=[],
@@ -119,14 +119,14 @@ xpoke=Extension('xpokemodule',
 #                  extra_link_args=['-lm'],
 #                  )
 scrn=Extension('scrnmodule',
-      include_dirs=idnumpy+idveclib+idgsl,
+      include_dirs=idnumpy+idveclib+idgsl + ['/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/Headers'],
 		sources=['scrnmodule.c'],
 		library_dirs=ld+["/usr/lib64","/usr/lib64/atlas"],
 		extra_link_args=scrnmodule_extra_link_args,
 		)
 
 iscrn=Extension('iscrnmodule',
-      include_dirs=idnumpy+idveclib+idgsl,
+      include_dirs=idnumpy+idveclib+idgsl + ['/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/Headers'],
 		sources=['iscrnmodule.c'],
 		library_dirs=ld+["/usr/lib64","/usr/lib64/atlas"],
 		extra_link_args=scrnmodule_extra_link_args,
