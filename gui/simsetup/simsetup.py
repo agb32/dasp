@@ -1676,6 +1676,7 @@ class boxObj(lineObj):
         self.cpuList="[]"
         context=gtk.gdk.pango_context_get_for_screen(self.drawable.get_screen())
         self.layout=pango.Layout(context)
+        self.layout.set_font_description(pango.FontDescription("8"))
     def __repr__(self):
         txt="""<groupShare idstr="%s" cpu="%s" coordlist="%s"/>\n"""%(str(self.idstr),str(self.cpuList),str(self.coordList))
         return txt
@@ -1696,6 +1697,8 @@ class boxObj(lineObj):
             self.layout.set_text(txt)
             width=self.coordList[1][0]-self.coordList[0][0]
             txtlist=txt.split(",")
+            if len(txtlist[-1])==0:
+                txtlist=txtlist[:-1]
             while self.layout.get_pixel_size()[0]>width and len(txtlist)>2:
                 pos=len(txtlist)//2
                 txtlist.pop(pos)
