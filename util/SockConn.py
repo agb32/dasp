@@ -189,7 +189,20 @@ class SockConn:
                     print "INFORMATION At iteration %d, taking %gs per frame (%g fps) on port %s"%(ti,ft,1./ft,str(self.port))
                     if len(data)>0:
                         if data[0]=="s":
-                            print "TODO - print science info"
+                            try:
+                                txt=""
+                                ctrl=self.globals["ctrl"]
+                                scienceList=ctrl.compList
+                                dlist=[]
+                                for s in scienceList:
+                                    if hasattr(s,'strParams') and s not in dlist:
+                                        dlist.append(s)
+                                        for i in range(len(s.thisObjList)):
+                                            txt+=s.thisObjList[i].idstr+': '+s.strParams(i)+'\n'
+                                txt+='Iter %d frametime %g (mean %g) batch %d\n%s'%(ctrl.thisiter,ctrl.frametime,ctrl.meanTiming.sum()/ctrl.thisiter,ctrl.batchno,ctrl.simID)
+                                print txt
+                            except:
+                                traceback.print_exc()
                         elif data[0]=="h":
                             print "HELP: <ret> for iteration number\ns<ret> for science information"
                         else:
