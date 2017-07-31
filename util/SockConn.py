@@ -187,7 +187,14 @@ class SockConn:
                     if ft==0:
                         ft=1.
                     print "INFORMATION At iteration %d, taking %gs per frame (%g fps) on port %s"%(ti,ft,1./ft,str(self.port))
-                    #print data,len(data)
+                    if len(data)>0:
+                        if data[0]=="s":
+                            print "TODO - print science info"
+                        elif data[0]=="h":
+                            print "HELP: <ret> for iteration number\ns<ret> for science information"
+                        else:
+                            print data,len(data)
+                        
                 elif s==self.fsock:#forward data... (return to client)
                     data=s.recv(1024)
                     length=len(data)

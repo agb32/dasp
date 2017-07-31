@@ -422,6 +422,8 @@ class iscrn(base.aobase.aobase):
                         util.FITS.Write(this.AStartx,fname,writeMode="a")
                     except:
                         print "Failed to write covariance matrices - disk full?  Continuing anyway..."
+                    else:
+                        print "Saved %s with shape %s %s %s %s, dtype %s %s %s %s"%(fname,str(covMatPhix.shape),str(this.Ax.shape),str(this.Bx.shape),str(this.AStartx.shape),covMatPhix.dtype.char,this.Ax.dtype.char,this.Bx.dtype.char,this.AStartx.dtype.char)
                 if self.keepCovMat:
                     this.covMatPhix=covMatPhix
                 else:
