@@ -1,0 +1,6 @@
+For a SCAO loop with physical prop:
+python testFresnel.py params.py
+
+For a simulation with many open loop science images (no AO):
+python manySci.py paramsManySci.py --init="nsci=XXX" where XXX is the
+number you want...
