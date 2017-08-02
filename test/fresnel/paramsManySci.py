@@ -2,21 +2,20 @@ import base.readConfig
 base.readConfig.init(globals())
 #For physical optics propagation, the phase screen needs to be larger than the pupil, and needs to be sampled at approx 1cm or so.
 this.infScrn=new()
-this.infScrn.npup=400
-this.infScrn.telDiam=4.2
+this.infScrn.npup=160
+this.infScrn.telDiam=0.8
 this.physProp=new()
-this.physProp.npup=400
-this.physProp.npupClipped=100
-this.physProp.telDiam=4.2
-this.physProp.ntel=400
+this.physProp.npup=160
+this.physProp.npupClipped=40
+this.physProp.telDiam=0.8
+this.physProp.ntel=160
 
 #The rest of the simulation sees a pupil of 100x100 phase elements for a 1.05m telescope.
-npup=100
-telDiam=4.2/4.
+npup=40
+telDiam=0.8/4.
 telSec=telDiam/7.#Central obscuration
 ntel=npup#Telescope diameter in pixels
-ngsLam=640.#NGS wavelength
-sciLam=640.#sci wavelength - for fresnel, probably has to equal ngsLam unless a different atmos module is used.
+sciLam=640.#sci wavelength
 import util.tel
 pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam)
 
@@ -41,28 +40,21 @@ r0=0.137 #fried's parameter
 atmosPhaseType="phaseamp"
 
 
-#Create the WFS overview
-wfs_nsubx=5 #Number of subaps
-import util.guideStar
-wfsDict={"1":util.guideStar.NGS("1",wfs_nsubx,0.,0.,phasesize=npup/wfs_nsubx,nimg=8,minarea=0.5,sig=2e4,sourcelam=ngsLam,reconList=["recon"],pupil=pupil,atmosPhaseType="phaseamp")}
-wfsOverview=util.guideStar.wfsOverview(wfsDict)
-
 #Create a Science overview.
 import util.sci
 sciDict={}
-nsci=this.getVal("nsci",)1
-if nsci==1:
- phslam=ngsLam
-else:
- phslam=sciLam
+nsci=this.getVal("nsci",1)
+
 for i in range(nsci):
- sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),i*10.,0.,pupil,sciLam,phslam=phslam,phaseType="phaseamp")
+ sciposx=i*10.
+ sciposy=0.
+ sciposr=numpy.sqrt(sciposx**2+sciposy**2)
+ sciposphi=numpy.arctan2(sciposy,sciposx)*180/numpy.pi
+ sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),sciposr,sciposphi,pupil,sciLam,phslam=sciLam,phaseType="phaseamp",inboxDiamList=[],psfFilename="psf%d.fits"%(i+1))
  sciOverview=util.sci.sciOverview(sciDict)
 
 
 sourceList=[]
-#the wfs
-sourceList.append(wfsOverview.getWfsByID("1"))
 
 #and psf
 for i in range(nsci):
@@ -74,18 +66,4 @@ this.physProp.atmosGeom=geom(atmosDict,sourceList,this.physProp.ntel,this.physPr
 this.infScrn.atmosGeom=this.physProp.atmosGeom
 
 
-
-#Create the DM object.
-nAct=wfs_nsubx+1
-from util.dm import dmOverview,dmInfo
-dmInfoList=[dmInfo('dm',[x.idstr for x in sourceList],0.,nAct,minarea=0.1,actuatorsFrom="recon",pokeSpacing=(None if wfs_nsubx<20 else 10),maxActDist=1.5,decayFactor=0.95)]
-dmOverview=dmOverview(dmInfoList,atmosGeom)
-
-rcond=0.05#condtioning value for SVD
-recontype="pinv"#reconstruction type
-pokeval=1.#strength of poke
-gainFactor=0.5#Loop gain
-computeControl=1#To compute the control matrix after poking
-reconmxFilename="rmx.fits"#control matrix name (will be created)
-pmxFilename="pmx.fits"#interation matrix name (will be created)
 
