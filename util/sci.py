@@ -487,7 +487,7 @@ class science:
             self.pupilAmplitude.real[:npup,:npup]=self.pup*numpy.cos(phs)
             self.pupilAmplitude.imag[:npup,:npup]=self.pup*numpy.sin(phs)
         elif self.atmosPhaseType=="phaseamp":#phs[1] is amplitude, phs[0] is phase
-            if self.phaseTilt!=None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
+            if self.phaseTilt is not None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
                 phs0=phs[0]+self.phaseTilt
             else:
                 phs0=phs[0]
