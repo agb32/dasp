@@ -480,7 +480,7 @@ class science:
         # print self.pupilAmplitude.shape,self.phs.shape,self.pup.shape
         # We fill the complex amplitude
         if self.atmosPhaseType=="phaseonly":
-            if self.phaseTilt!=None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
+            if self.phaseTilt is not None:#a phase tilt is needed if binning by an even factor (to put the central spot in a single pixel)
                 phs=phs+self.phaseTilt
             self.pupilAmplitude[npup:,]=0.#clear array (may get changed by fft)
             self.pupilAmplitude[:npup,npup:,]=0.

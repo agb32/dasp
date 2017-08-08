@@ -340,7 +340,7 @@ def makemcao(nlgs=None,nngs=None,nsci=None,ndm=None,mpi=None,dirname=None,defaul
     txt=mcaoParamsTxt.replace("nsci=1","nsci=%d"%nsci)
     txt=txt.replace("nlgs=4","nlgs=%d"%nlgs)
     txt=txt.replace("nngs=3","nngs=%d"%nngs)
-    txt=txt.replace("ndm=3","ndm=%d"%ndm)
+    txt=txt.replace('this.getVal("ndm",3)','this.getVal("ndm",%d)'%ndm)
     if addvdm:#for ltao
         txt=txt.replace("dmOverview=dmOverview(dmInfoList,atmosGeom)","""dmInfoList.append(dmInfo('vdm',["sci1"],0,nAct,minarea=0.1,actuatorsFrom=["dm%dpath"%x for x in range(ndm)],maxActDist=1.5,decayFactor=0.95,reconLam=lgsLam))
 dmOverview=dmOverview(dmInfoList,atmosGeom)""")
@@ -507,7 +507,8 @@ def makepmx(nlgs=None,nngs=None,ndm=None,mpi=None,dirname="pokeSim",writeParams=
         txt=mcaoParamsTxt.replace("nlgs=4","nlgs=%d"%nlgs)
         txt=txt.replace("nsci=1","nsci=0#Add some science objects if you want to increase the DM field of view beyond that of the guide stars")
         txt=txt.replace("nngs=3","nngs=%d"%nngs)
-        txt=txt.replace("ndm=3","ndm=%d"%ndm)
+        txt=txt.replace('this.getVal("ndm",3)','this.getVal("ndm",%d)'%ndm)
+        #txt=txt.replace("ndm=3","ndm=%d"%ndm)
         txt=txt.replace("computeControl=1","computeControl=0\nr.abortAfterPoke=1")
         save(txt,dirname,"paramsPoke.py")
     if mpi:
@@ -676,7 +677,8 @@ def makemoao(dirname="moaoSim",fname="moao"):
     txt=mcaoParamsTxt.replace("nsci=1","nsci=%d"%nsci)
     txt=txt.replace("nlgs=4","nlgs=%d"%nlgs)
     txt=txt.replace("nngs=3","nngs=%d"%nngs)
-    txt=txt.replace("ndm=3","ndm=%d"%ndm)
+    txt=txt.replace('this.getVal("ndm",3)','this.getVal("ndm",%d)'%ndm)
+    #txt=txt.replace("ndm=3","ndm=%d"%ndm)
     vdmtxt="""for i in range(nsci):
     #Add the virtual DM projector
     dmInfoList.append(dmInfo('vdmsci%d'%(i+1),["sci%d"%(i+1)],0,nAct,minarea=0.1,actuatorsFrom=["dm%dpath"%x for x in range(ndm)],maxActDist=1.5,decayFactor=0.95,reconLam=lgsLam,closedLoop=0,primaryTheta=atmosGeom.sourceTheta("sci%d"%(i+1)),primaryPhi=atmosGeom.sourcePhi("sci%d"%(i+1))))
@@ -888,7 +890,8 @@ def makelearn(dirname="learnSim",fname="learn"):
     txt=mcaoParamsTxt.replace("nsci=1","nsci=%d"%nsci)
     txt=txt.replace("nlgs=4","nlgs=%d"%nlgs)
     txt=txt.replace("nngs=3","nngs=%d"%nngs)
-    txt=txt.replace("ndm=3","ndm=0")
+    txt=txt.replace('this.getVal("ndm",3)','this.getVal("ndm",0)')
+    #txt=txt.replace("ndm=3","ndm=0")
     save(txt,dirname,"params.py")
     learnscripttxt="""
 #!/bin/sh
@@ -1656,7 +1659,7 @@ if not "nopoke" in ctrl.userArgList:ctrl.doInitialPokeThenRun()
 
 mcaoParamsTxt="""
 import base.readConfig
-base.readConfig.init(globals())
+this=base.readConfig.init(globals())
 wfs_nsubx=6 #Number of subaps
 tstep=1/250.#Simulation timestep in seconds (250Hz).
 AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)
@@ -1674,10 +1677,7 @@ ngsAsterismRadius=90.#arcseconds
 nsci=1
 nlgs=4
 nngs=3
-if hasattr(this.globals,"ndm"):
-    ndm=this.globals.ndm
-else:
-    ndm=3
+ndm=this.getVal("ndm",3)
 import util.tel
 #Create a pupil function
 pupil=util.tel.Pupil(npup,ntel/2,ntel/2*telSec/telDiam)
@@ -1756,7 +1756,7 @@ r.pmxFilename="pmx.fits"#interation matrix name (will be created)
 
 scaoParamsTxt="""
 import base.readConfig
-base.readConfig.init(globals())
+this=base.readConfig.init(globals())
 wfs_nsubx=6 #Number of subaps
 tstep=1/250.#Simulation timestep in seconds (250Hz).
 AOExpTime=40.#40 seconds exposure (use --iterations=xxx to modify)
