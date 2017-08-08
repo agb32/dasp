@@ -513,7 +513,6 @@ class science:
         #self.instImg=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
         if self.nimg!=self.nfft:#bin the image... (and if they are equal, tempImg and binImg point to same data)
             cmod.binimg.binimg(self.tempImg,self.binImg)
-        print self.binImg.shape,self.instImg.shape
         fliparray2(self.binImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
         if self.atmosPhaseType=="phaseonly":
             tot=numpy.sum(self.instImg) ##We normalise the instantaneous PSF to 1
