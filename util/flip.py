@@ -93,11 +93,12 @@ def fliparray2(mx,output=None):
 		mx0=na.zeros((n,n),mx.dtype)
 	else:
 		mx0=output
-	n=n/2
-	mx0[:n,:n]        	 = mx[n:,n:,]
-	mx0[n:,n:,]        	 = mx[:n,:n]
-	mx0[n:,:n]        	 = mx[:n,n:,]
-	mx0[:n,n:,]        	 = mx[n:,:n]
+	n=n//2
+        n2=(mx.shape[0]+1)//2
+	mx0[:n,:n]        	 = mx[n2:,n2:,]
+	mx0[n:,n:,]        	 = mx[:n2,:n2]
+	mx0[n:,:n]        	 = mx[:n2,n2:,]
+	mx0[:n,n:,]        	 = mx[n2:,:n2]
 	
 	return mx0
 
