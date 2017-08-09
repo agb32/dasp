@@ -139,8 +139,9 @@ class science:
         self.fpDataType="f"#always float32 now (cmod.fft requires it).
         self.integratedImgDataType=fpDataType#floating point type
         self.cpDataType='F'#fpDataType.upper()#complex type
-        if (self.nfft/self.nimg)%2==0 and self.nfft!=self.nimg:#even binning
-            self.computePhaseTilt()
+        #if (self.nfft/self.nimg)%2==0 and self.nfft!=self.nimg:#even binning
+        #if self.nfft!=self.nimg:
+        self.computePhaseTilt()
 
         self.calcRMSFile=calcRMSFile
         self.phaseRMS=0
@@ -189,13 +190,26 @@ class science:
             cmod.fft.CleanUp()
 
     def computePhaseTilt(self):
-        """A phase tilt is necessary since binning with an even number...
-        This ensures the PSF is squarely spaced before binning"""
-        bf=self.nfft/self.nimg
-        tmp=float(self.npup)/float(self.nfft)*numpy.pi*(bf-1)
-        xtiltfn=((numpy.fromfunction(lambda x,y:y,(self.npup,self.npup))-float(self.npup)/2.+0.5)/float(self.npup)).astype(self.fpDataType)# subap tilt fn
-        self.phaseTilt=(self.pup*tmp*(xtiltfn+numpy.transpose(xtiltfn))).astype(self.fpDataType)
+        """A phase tilt is necessary since binning...
+        This ensures the PSF is squarely spaced before binning.
+        Need to shift by (binfactor-1)/2 pixels.
 
+        
+        """
+        #bf=self.nfft/self.nimg
+        #tmp=float(self.npup)/float(self.nfft)*numpy.pi*(bf-1)
+        #xtiltfn=((numpy.fromfunction(lambda x,y:y,(self.npup,self.npup))-float(self.npup)/2.+0.5)/float(self.npup)).astype(self.fpDataType)# subap tilt fn
+        #self.phaseTilt=(self.pup*tmp*(xtiltfn+numpy.transpose(xtiltfn))).astype(self.fpDataType)
+
+        bf=self.nfft/self.nimg
+        #tmp=float(self.npup)/float(self.nfft)*numpy.pi*(bf-1)
+        tmp=numpy.pi/self.nfft*(self.nfft+(bf-1))
+        xtiltfn=numpy.fromfunction(lambda x,y:y,(self.npup,self.npup))
+        self.phaseTilt=(self.pup*tmp*(xtiltfn+xtiltfn.T+1-self.npup)).astype(self.fpDataType)
+        #xtiltfn=((numpy.fromfunction(lambda x,y:y,(self.npup,self.npup))-float(self.npup)/2.+0.5)/float(self.npup)).astype(self.fpDataType)# subap tilt fn
+        #self.phaseTilt=(self.pup*tmp*(xtiltfn+numpy.transpose(xtiltfn))).astype(self.fpDataType)
+
+        
         
     def initMem(self,fftTmp=None,pupilAmplitude=None,focusAmplitude=None,tempImg=None,instImg=None,phs=None,binImg=None,longExpPSF=None):
         """Initialise memories needed... here, if memories are passed in,
@@ -513,7 +527,8 @@ class science:
         #self.instImg=fliparray2(self.tempImg)# Flip quadrants with definition consistent with FFT coordinate definition
         if self.nimg!=self.nfft:#bin the image... (and if they are equal, tempImg and binImg point to same data)
             cmod.binimg.binimg(self.tempImg,self.binImg)
-        fliparray2(self.binImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
+        self.instImg[:]=self.binImg
+        #fliparray2(self.binImg,self.instImg)# Flip quadrants with definition consistent with FFT coordinate definition
         if self.atmosPhaseType=="phaseonly":
             tot=numpy.sum(self.instImg) ##We normalise the instantaneous PSF to 1
             if tot!=0:
