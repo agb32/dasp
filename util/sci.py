@@ -37,7 +37,7 @@ class sciOverview:
     def values(self):
         return self.sciDict.values()
 class sciInfo(util.atmos.source):
-    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):#Note, if change this, also update the .copy method.
+    def __init__(self,idstr,theta,phi,pupil,sourcelam,phslam=None,nsamp=10,zeroPsf=10,psfFilename=None,summaryFilename="results.csv",histFilename=None,integrate=1,calcRMS=0,phaseType="phaseonly",nfft=None,nimg=None,realPupil=None,sciPath=None,dmpupil=None,usedmpup=0,psfSamp=1,luckyObj=None,saveString=None,diffPsfFilename=None,histListSize=None,inboxDiamList=[0.2],userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None,offsetx=0.,offsety=0.):#Note, if change this, also update the .copy method.
         super(sciInfo,self).__init__(idstr,theta,phi,alt=-1,sourcelam=sourcelam,phslam=phslam)
         self.nsamp=nsamp
         self.zeroPsf=10
@@ -63,6 +63,8 @@ class sciInfo(util.atmos.source):
         self.psfEnergyToSave=psfEnergyToSave
         self.psfMinSize=psfMinSize
         self.nimgLongExp=nimgLongExp
+        self.offsetx=offsetx#offset in pixels of the central spot
+        self.offsety=offsety#offset in pixels of the central spot
         self.sciPath=sciPath
         if self.sciPath is None:
             self.sciPath=idstr
@@ -90,7 +92,7 @@ class science:
     phaseMultiplier is used for cases where phase wavelength is different from the wavelength that this science object is at.
 
     """
-    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0,userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None):
+    def __init__(self,npup,nfft,pup,nimg=None,tstep=0.005,atmosPhaseType="phaseonly",keepDiffPsf=0,pix_scale=1.,fitsFilename=None,diffPsfFilename=None,scinSamp=1,sciPSFSamp=1,scienceListsSize=128,debug=None,timing=0,allocateMem=1,realPup=None,fpDataType="f",calcRMSFile=None,inboxDiamList=[0.2],sciFilename=None,saveFileString=None,nthreads=1,histFilename=None,phaseMultiplier=1,luckyNSampFrames=1,luckyFilename=None,luckyImgFilename=None,luckyImgSize=None,luckyHistorySize=10,luckyByteswap=0,userFitsHeader=None,psfEnergyToSave=0.,psfMinSize=10,nimgLongExp=None,offsetx=0.,offsety=0.):
         self.fftPlan=None
         self.nfft=nfft
         self.npup=npup
@@ -141,6 +143,8 @@ class science:
         self.cpDataType='F'#fpDataType.upper()#complex type
         #if (self.nfft/self.nimg)%2==0 and self.nfft!=self.nimg:#even binning
         #if self.nfft!=self.nimg:
+        self.offsetx=offsetx#offset in pixels of final image
+        self.offsety=offsety#offset in pixels of final image
         self.computePhaseTilt()
 
         self.calcRMSFile=calcRMSFile
@@ -204,11 +208,10 @@ class science:
         bf=self.nfft/self.nimg
         #tmp=float(self.npup)/float(self.nfft)*numpy.pi*(bf-1)
         tmp=numpy.pi/self.nfft*(self.nfft+(bf-1))
+        ox=self.offsetx*bf*numpy.pi/self.nfft*2
+        oy=self.offsety*bf*numpy.pi/self.nfft*2
         xtiltfn=numpy.fromfunction(lambda x,y:y,(self.npup,self.npup))
-        self.phaseTilt=(self.pup*tmp*(xtiltfn+xtiltfn.T+1-self.npup)).astype(self.fpDataType)
-        #xtiltfn=((numpy.fromfunction(lambda x,y:y,(self.npup,self.npup))-float(self.npup)/2.+0.5)/float(self.npup)).astype(self.fpDataType)# subap tilt fn
-        #self.phaseTilt=(self.pup*tmp*(xtiltfn+numpy.transpose(xtiltfn))).astype(self.fpDataType)
-
+        self.phaseTilt=(self.pup*(tmp*(xtiltfn+xtiltfn.T+1-self.npup)+ox*xtiltfn+oy*xtiltfn.T)).astype(self.fpDataType)
         
         
     def initMem(self,fftTmp=None,pupilAmplitude=None,focusAmplitude=None,tempImg=None,instImg=None,phs=None,binImg=None,longExpPSF=None):

@@ -179,6 +179,7 @@ class science(aobase.aobase):
             psfEnergyToSave=0.
             psfMinSize=10
             nimgLongExp=None
+            offsetx=offsety=0
         else:#use sciOverview.
             this.sciInfo=self.sciOverview.getSciByID(idstr)
             #a slight bodge - each will overwrite control...
@@ -186,6 +187,8 @@ class science(aobase.aobase):
             self.control["science_integrate"]=this.sciInfo.integrate
             self.control["calcRMS"]=this.sciInfo.calcRMS
             self.control["viewCentral"]=0.4#if set, the gui will only be sent the central 20% of the psfs.
+            if this.sciInfo.nimg<=20:
+                self.control["viewCentral"]=0#if set, the gui will only be sent the central 20% of the psfs.
             luckyObj=this.sciInfo.luckyObj
             if luckyObj==None:
                 self.control["lucky_integrate"]=0
@@ -252,8 +255,9 @@ class science(aobase.aobase):
                 if luckyHistorySize==0:
                     luckyHistorySize=100
                 luckyByteswap=0
-
-
+            offsetx=this.sciInfo.offsetx
+            offsety=this.sciInfo.offsety
+                
         atmosGeom=this.config.getVal("atmosGeom",default=None,raiseerror=0)
         sci_lam=None
         phsLam=None
@@ -278,7 +282,7 @@ class science(aobase.aobase):
         pix_scale=L_D*float(npup)/float(nfft)*float(nfft)/float(nimg) ##pixel scale (arcsec/pixel in the science image).  
         ##name of the FITS file to store the PSF
         #now create the science object that will do most of the work...
-        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap,userFitsHeader=userFitsHeader,psfEnergyToSave=psfEnergyToSave,psfMinSize=psfMinSize,nimgLongExp=nimgLongExp)
+        this.sciObj=util.sci.science(npup,nfft,pup,nimg=nimg,atmosPhaseType=apt,tstep=tstep,keepDiffPsf=keepDiffPsf,pix_scale=pix_scale,fitsFilename=fitsFilename,diffPsfFilename=diffPsfFilename,scinSamp=scinSamp,sciPSFSamp=sciPSFSamp,scienceListsSize=scienceListsSize,debug=self.debug,timing=self.timing,allocateMem=0,realPup=realPupil,fpDataType=self.fpDataType,inboxDiamList=inboxDiamList,sciFilename=sciFilename,saveFileString=saveFileString,nthreads=self.nthreads,histFilename=histFilename,phaseMultiplier=phaseMultiplier,luckyNSampFrames=luckyNSampFrames,luckyFilename=luckyFilename,luckyImgFilename=luckyImgFilename,luckyImgSize=luckyImgSize,luckyHistorySize=luckyHistorySize,luckyByteswap=luckyByteswap,userFitsHeader=userFitsHeader,psfEnergyToSave=psfEnergyToSave,psfMinSize=psfMinSize,nimgLongExp=nimgLongExp,offsetx=offsetx,offsety=offsety)
 
         
 
