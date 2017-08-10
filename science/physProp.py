@@ -217,6 +217,9 @@ class PhysProp(base.aobase.aobase):
                 idstr=self.idstr[i]
                 parent=self.parentList[i]
                 self.initialise(parent,idstr)
+
+            self.vibration=self.config.getVal("vibration",raiseerror=0)#typically, a util.vibration.Vibration() instance
+
     def newParent(self,parent,idstr=None):
         raise Exception("infAtmos - not yet able to accept new parent... (needs some extra coding)")
     def initialise(self,parentDict,idstr):
@@ -306,14 +309,16 @@ class PhysProp(base.aobase.aobase):
                         self.dataValid=0
                 if self.dataValid:
                     if self.control["cal_source"]:#calibration source
-                        self.outputData[0]=0.#amp 
-                        self.outputData[1]=1.#phase
+                        self.outputData[0]=0.#phase
+                        self.outputData[1]=1.#amp
                     else:
                         self.thisObjList[self.currentIdObjCnt].atmosObj.doPhysProp(self.phaseScreens,self.interpPosCol,self.interpPosRow,self.control)
                         if self.control["profilePhase"]:#compute phase covariance and profile.  This won't work if resource sharing.
                             #But doesn't matter, because its only really for testing anyway.
                             self.zernikeVariance(self.outputData,forDisplay=0)
                             self.phaseStructFunc(self.outputData,forDisplay=0)
+                    if self.vibration is not None:
+                        self.vibration.addVibration(self.outputData[0])
             else:#no new data ready
                 self.dataValid=0
         else:

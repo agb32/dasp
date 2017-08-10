@@ -142,6 +142,9 @@ def Read(filename, asFloat = 1,savespace=1,doByteSwap=1,compliant=1,memmap=None,
             bscale = string.atof(header.get('BSCALE', '1.0'))
             bzero = string.atof(header.get('BZERO', '0.0'))
             if savespace:
+                if data.dtype.char in ["b","i","H","h","I","B"]:
+                    bscale=int(bscale)
+                    bzero=int(bzero)
                 if bscale!=1:
                     data*=bscale#array(bscale,typecode=typ)
                 if bzero!=0:
