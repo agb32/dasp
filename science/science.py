@@ -336,7 +336,10 @@ class science(aobase.aobase):
             sciObj.initProfiles()
             f=int(0.4*this.sciObj.nimg)
             t=int(0.6*this.sciObj.nimg)
-            this.sciObj.instImgView=this.sciObj.instImg[f:t,f:t]
+            if self.control["viewCentral"]:
+                this.sciObj.instImgView=this.sciObj.instImg[f:t,f:t]
+            else:
+                this.sciObj.instImgView=this.sciObj.instImg
             #this.sciObj.longExpPSFView=this.sciObj.longExpPSF[f:t,f:t]
 
 
