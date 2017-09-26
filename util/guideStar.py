@@ -307,7 +307,7 @@ class LGS(util.atmos.source):
         self.calNCoeff=calNCoeff
         self.stepRangeFrac=stepRangeFrac
         self.centWeight=centWeight
-        self.correlationCentroiding=correlationCentroiding
+        self.correlationCentroiding=correlationCentroiding#0=cog, 1=fft corr, 2=diff sq, 3=sum abs diff, 4=diff sq normalised by flux, 5=brute corr
         self.corrThresh=corrThresh
         self.corrPattern=corrPattern
         self.parabolicFit=parabolicFit

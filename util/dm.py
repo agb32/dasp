@@ -259,8 +259,9 @@ class dmInfo:
         if self.reconstructList==reconstructList:
             #may already have computed stuff...
             if (self.dmflag is not None):# and (self.subarea is not None): nothing actually uses subarea, so don't bother computing it if dmflag has been specified...
-                if retPupil and (self.dmpupil is not None):
-                    return self.dmflag,self.subarea,self.dmpupil
+                if retPupil:
+                    if (self.dmpupil is not None):
+                        return self.dmflag,self.subarea,self.dmpupil
                 else:
                     return self.dmflag,self.subarea
         self.reconstructList=reconstructList

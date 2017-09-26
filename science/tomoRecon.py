@@ -1007,6 +1007,7 @@ class recon(base.aobase.aobase):
                           "Writing reconmx to file %s"%self.reconmxFilename)
                         util.FITS.Write(self.reconmx,self.reconmxFilename)
                 elif self.reconType=="pinv":
+                    print "Doing pseudo inverse to compute control matrix... (this may take a while for large simulations - consider setting up an alternative approach)"
                     self.reconmx=numpy.linalg.pinv(self.spmx,self.rcond).T.astype(numpy.float32)
                     if self.dmModeType=="modalPoke":
                         #expand the rmx back
@@ -1821,7 +1822,11 @@ class recon(base.aobase.aobase):
             pass
         return data
             
-            
+    def displayGSOverlap(self):
+        import util.guideStar
+        util.guideStar.displayGSOverlap(gsList=self.ngsList+self.lgsList,layerList=[dm.height for dm in self.dmList],telDiam=self.telDiam,telSec=self.config.getVal("telSec"),fill=True,telCol="red",tells="solid",title=0,outfile=None,sourcedir=None,nx=None,scale=2)
+    
+
 
 
     def plottable(self,objname="$OBJ"):
@@ -1855,7 +1860,7 @@ class recon(base.aobase.aobase):
         txt+="""<plot title="%s inputData%s" cmd="data=%s.inputData" ret="data" type="pylab" when="rpt"/>\n"""%(self.objID,id,objname)
         if self.reconObj!=None and hasattr(self.reconObj,"plottable"):
             txt+=self.reconObj.plottable(objname+".reconObj")
-
+        txt+="""<plot title="Display GS overlap" cmd="%s.displayGSOverlap();data='Ensure that running simulation has X forwarding, and close plot before continuing (it freezes simulation)'" type="text" when="cmd"/>\n"""%objname  
             
         return txt
     

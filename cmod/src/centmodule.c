@@ -208,7 +208,7 @@ int planSize;
   pthread_attr_t *pthread_attr;
   float corrThresh;
   float *corrPattern;
-  int correlationCentroiding;
+  int correlationCentroiding;//0=cog, 1=fftcorr, 2=diffsqu, 3=absdiffallsqu, 4=diffsqu normalised by flux, 5=brute correlation
   float *corrimg;//the output - ie what we'd be calculating centroids from.
   int corrsize;
   int corrPatternSize;
@@ -1096,7 +1096,7 @@ void computeFit(const int nimg,const int ncen,int fitsize,float *img,float *cent
 	img[i]=logf(img[i]);
     }
   }else{
-    if(corrMode==0 || corrMode==1){//maximum of parabola
+    if(corrMode==0 || corrMode==1 || corrMode==5){//maximum of parabola
       for(i=0;i<nimg*nimg;i++){
 	sum+=img[i];
 	if(img[i]>mx){
@@ -1333,6 +1333,66 @@ void diffCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPatte
 	}
 	output[(i+(nimg-ncen)/2)*corrsize+j+(nimg-ncen)/2]=s*s/(my*mx);
       }
+    }
+  }
+}
+void bruteCorrelation(int nimg,int corrsize,int ncen,float *bimg,float *corrPattern,float *output){
+  /*Calculate the correlation using brute force, not fft.
+    nimg - size of image.
+    corrsize - size of corrPattern.
+    ncen - the number of pixels for which the correlation should be computed.
+    nimg - size of the image (bimg) and the refernce (corrPattern).
+    Note: ncen<=nimg.
+
+    output and corrPattern are of size corrsize.
+
+    mode: If 1, does correlation.
+   */
+  int i,j,x,y;
+  float s,d;
+  //int m=nimg<corrsize?nimg:corrsize;
+  int mx,my;
+  int miny,minx,offy,offx,srefy,srefx,siny,sinx;
+  //int f=(nimg-ncen)/2;
+  //int t=f+ncen;
+  memset(output,0,sizeof(float)*corrsize*corrsize);
+  minx=corrsize<nimg?corrsize:nimg;
+  miny=corrsize<nimg?corrsize:nimg;
+  for(i=0;i<ncen;i++){
+    offy=i-ncen/2;//ths offset.  0 for the central point.
+    my=miny;
+    srefy=-offy-(nimg-corrsize)/2;//starting point in the reference
+    if(srefy<0)
+      srefy=0;
+    siny=(nimg-corrsize)/2+offy;//starting point in the input image
+    if(siny<0)
+      siny=0;
+    if(siny+my>nimg)
+      my=nimg-siny;
+    if(srefy+my>corrsize)
+      my=corrsize-srefy;
+    for(j=0;j<ncen;j++){
+      offx=j-ncen/2;
+      mx=minx;
+      srefx=-offx-(nimg-corrsize)/2;
+      if(srefx<0)
+	srefx=0;
+      sinx=(nimg-corrsize)/2+offx;
+      if(sinx<0)
+	sinx=0;
+      if(sinx+mx>nimg)
+	mx=nimg-sinx;
+      if(srefx+mx>corrsize)
+	mx=corrsize-srefx;
+      s=0;
+      for(y=0;y<my;y++){
+	for(x=0;x<mx;x++){
+	  d=corrPattern[(srefy+y)*corrsize+srefx+x]*bimg[(siny+y)*nimg+sinx+x];
+	  s+=d;
+	}
+      }
+      if(mx!=0 && my!=0)
+	output[(i+(corrsize-ncen)/2)*corrsize+j+(corrsize-ncen)/2]=s;///(mx*my);
     }
   }
 }
@@ -1844,10 +1904,17 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	    calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	    npxl=npxlcorr;//The subaps may have grown!!!
 	    thresholdCorrelation(npxl,c->corrThresh,bimg);
-	  }else if((c->correlationCentroiding>1) && c->corrPattern!=NULL){
+	  }else if((c->correlationCentroiding>1 && c->correlationCentroiding<5) && c->corrPattern!=NULL){//diff-squared correlation
 	    int npxlcorr=c->corrsize*c->corrsize;
 	    //int npxlout=c->ncen*c->ncen;
 	    diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
+	    npxl=npxlcorr;//the subaps may have shrunk.
+	    bimg=&c->corrimg[i*npxlcorr];
+	    thresholdCorrelation(npxl,c->corrThresh,bimg);
+	  }else if(c->correlationCentroiding==5 && c->corrPattern!=NULL){
+	    int npxlcorr=c->corrsize*c->corrsize;
+	    //int npxlout=c->ncen*c->ncen;
+	    bruteCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr]);
 	    npxl=npxlcorr;//the subaps may have shrunk.
 	    bimg=&c->corrimg[i*npxlcorr];
 	    thresholdCorrelation(npxl,c->corrThresh,bimg);
@@ -1868,7 +1935,10 @@ int centroidsFromPhase(centrunstruct *runinfo){
 	      cweight=NULL;
 	    }
 	  //Note: corrsize==nimg unless convolving with something larger.  Or if using diff correlation, corrsize can be < nimg.
-	    computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
+	    int centreOnBrightest=c->correlationCentroiding;
+	    if(centreOnBrightest==5)
+	      centreOnBrightest=1;
+	    computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,centreOnBrightest);
 	  }
 	  //and now apply the calibration... (linearisation)
 	  if(c->calData!=NULL){
@@ -1979,10 +2049,17 @@ int centroidsFromImage(centrunstruct *runinfo){
 	  calcCorrelation(c->nimg,c->corrsize,&(c->corrPattern[i*npxlcorr]),&(c->bimg[i*npxl]),bimg,runinfo->corr,c->corrPlan,c->invCorrPlan);
 	  npxl=npxlcorr;//The subaps may have grown!!!
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
-	}else if((c->correlationCentroiding>1) && c->corrPattern!=NULL){
+	}else if((c->correlationCentroiding>1 && c->correlationCentroiding<5) && c->corrPattern!=NULL){
 	  int npxlcorr=c->corrsize*c->corrsize;
 	  //int npxlout=c->ncen*c->ncen;
 	  diffCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr],c->correlationCentroiding-1);
+	  npxl=npxlcorr;//the subaps may have shrunk.
+	  bimg=&c->corrimg[i*npxlcorr];
+	  thresholdCorrelation(npxl,c->corrThresh,bimg);
+	}else if(c->correlationCentroiding==5 && c->corrPattern!=NULL){
+	  int npxlcorr=c->corrsize*c->corrsize;
+	  //int npxlout=c->ncen*c->ncen;
+	  bruteCorrelation(c->nimg,c->corrsize,c->ncen,&c->bimg[i*npxl],&c->corrPattern[i*npxlcorr],&c->corrimg[i*npxlcorr]);
 	  npxl=npxlcorr;//the subaps may have shrunk.
 	  bimg=&c->corrimg[i*npxlcorr];
 	  thresholdCorrelation(npxl,c->corrThresh,bimg);
@@ -2004,7 +2081,10 @@ int centroidsFromImage(centrunstruct *runinfo){
 	    cweight=NULL;
 	  }
 	  //Note: corrsize==nimg unless convolving with something larger.  
-	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,c->correlationCentroiding);
+	    int centreOnBrightest=c->correlationCentroiding;
+	    if(centreOnBrightest==5)
+	      centreOnBrightest=1;
+	  computeCoG(c->corrsize,c->ncen,bimg,&(c->cents[i*2]),&(c->cents[i*2+1]),cweight,centreOnBrightest);
 	}
 	//and now apply the calibration... (linearisation)
 	if(c->calData!=NULL){
@@ -2847,7 +2927,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
     }
     if(phs->dimensions[0+(c->atmosPhaseType==0?0:1)]!=phasesize*c->nsubx || phs->dimensions[1+(c->atmosPhaseType==0?0:1)]!=phasesize*c->nsubx){//we need to interpolate the phase.
       c->interpolatePhase=1;
-      printf("Interpolating phase needed.  %d %d %d %d\n",phs->dimensions[0+c->atmosPhaseType==0?0:1],phs->dimensions[1+c->atmosPhaseType==0?0:1],phasesize,c->nsubx);
+      printf("Interpolating phase needed.  %ld %ld %d %d\n",(long)phs->dimensions[0+c->atmosPhaseType==0?0:1],(long)phs->dimensions[1+c->atmosPhaseType==0?0:1],phasesize,c->nsubx);
       c->inputPhaseSize=phs->dimensions[0+(c->atmosPhaseType==0?0:1)];
     }
     c->phs=(float*)phs->data;//can include amplitude data too (phase first, then the amplitude).

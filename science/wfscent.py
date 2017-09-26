@@ -675,8 +675,8 @@ class wfscent(base.aobase.aobase):
                         self.dataValid=1
                     else:
                         if phs is not wfs.phase:
-                            print "wfscent Copying phase"
-                            wfs.phase[:]=phase
+                            print "wfscent Copying phase %s %s"%(hex(id(phs)),hex(id(wfs.phase)))
+                            wfs.phase[:]=phs
                         wfs.runCalc(self.control)
                         if additive==2 or additive==-1:#readout.
                             # this should be used for LGS sensors:

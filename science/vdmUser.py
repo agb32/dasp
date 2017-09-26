@@ -211,7 +211,7 @@ class vdmUser(base.aobase.aobase):
                     off=(dm.nact-1)/2.
                     coords=(int(sy+off),int(ey+off)+1,int(sx+off),int(ex+off)+1)
                     self.vdmCoordList.append(coords)
-                    if self.projmx!=None:#shape=nacts,totnacts
+                    if self.projmx is not None:#shape=nacts,totnacts
                         actVal=self.actValList[-1].ravel()
                         for i in dmindices:
                             print "Computing projection matrix column %d/%d  \r"%(pos,self.projmx.shape[1]),
@@ -254,7 +254,7 @@ class vdmUser(base.aobase.aobase):
                 
                         
             self.nactsInput=sum(self.nactsList)
-            if self.projmx!=None:
+            if self.projmx is not None:
                 util.FITS.Write(self.projmx,self.projMxFilename)
                 util.FITS.Write(self.dmflag,self.projMxFilename,writeMode="a")
                 print "Saved projection matrix  as %s (shape %s)"%(self.projMxFilename,str(self.projmx.shape))

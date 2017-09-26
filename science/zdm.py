@@ -66,7 +66,7 @@ class dm(base.aobase.aobase):
 
             self.nmodes=self.dmInfo.nact#number of zernikes to use.
             if self.dmInfo.zonalDM==1:
-                raise Exception("zdm does not work for a zonal DM - must be modal")
+                raise Exception("zdm does not work for a zonal DM (label %s) - must be modal"%self.dmInfo.label)
             self.dmphs=numpy.zeros((self.dmpup,self.dmpup),numpy.float32)            # DM figure
             self.subpxlInterp=self.dmInfo.subpxlInterp
             if self.conjHeight==0:
