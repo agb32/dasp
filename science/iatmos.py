@@ -287,7 +287,7 @@ class iatmos(base.aobase.aobase):
                             self.zernikeVariance(self.outputData,forDisplay=0)
                             self.phaseStructFunc(self.outputData,forDisplay=0)
                     if self.vibration is not None:
-                        self.vibration.addVibration(self.outputData)
+                        self.vibration.addVibration(self.outputData,self.thisObjList[self.currentIdObjCnt].atmosObj.sourceLam)
             else:#no new data ready
                 self.dataValid=0
         else:
