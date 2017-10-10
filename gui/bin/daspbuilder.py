@@ -1707,7 +1707,7 @@ import util.sci
 sciDict={}
 for i in range(nsci):
     id="sci%d"%(i+1)
-    sciDict[id]=util.sci.sciInfo(id,i*10.,0.,pupil,sciLam,phslam=sciLam)
+    sciDict[id]=util.sci.sciInfo(id,i*10.,0.,pupil,sciLam,phslam=sciLam,calcRMS=0)
     sourceList.append(sciDict[id])
 sciOverview=util.sci.sciOverview(sciDict)
 #Create the atmosphere object and source directions.
@@ -1787,7 +1787,7 @@ if nsci==1:
 else:
  phslam=sciLam
 for i in range(nsci):
- sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),i*10.,0.,pupil,sciLam,phslam=phslam)
+ sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),i*10.,0.,pupil,sciLam,phslam=phslam,calcRMS=0)
  sciOverview=util.sci.sciOverview(sciDict)
 
 #Create the atmosphere object and source directions.
@@ -2267,7 +2267,7 @@ if nsci==1:
 else:
  phslam=sciLam
 for i in range(nsci):
- sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),i*10.,0.,pupil,sciLam,phslam=phslam)
+ sciDict["sci%d"%(i+1)]=util.sci.sciInfo("sci%d"%(i+1),i*10.,0.,pupil,sciLam,phslam=phslam,calcRMS=0)
  sciOverview=util.sci.sciOverview(sciDict)
 
 #Create the atmosphere object and source directions.

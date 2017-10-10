@@ -347,6 +347,8 @@ class LGS(util.atmos.source):
                 self.nimg=self.clipsize//2
             if self.ncen==None:
                 self.ncen=self.nimg
+        if self.clipsize!=None and self.nimg!=None and self.clipsize%self.nimg!=0:
+            raise Exception("clipsize must be an integer multiple of nimg (currently %d, %d)"%(self.clipsize,self.nimg))
 
     def computeCoords(self,telDiam,height,fname=None):
         """Creates an array containing coords of centre of each subap.
@@ -488,7 +490,9 @@ class NGS(util.atmos.source):
                 self.nimg=self.clipsize//2
             if self.ncen==None:
                 self.ncen=self.nimg
-
+        if self.clipsize!=None and self.nimg!=None and self.clipsize%self.nimg!=0:
+            raise Exception("clipsize must be an integer multiple of nimg (currently %d, %d)"%(self.clipsize,self.nimg))
+        
     def computeCoords(self,telDiam,height,fname=None):
         """Creates an array containing coords of centre of each subap.
         Height is the height of interest (eg the DM conjugate height).
