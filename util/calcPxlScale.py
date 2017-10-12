@@ -112,3 +112,10 @@ Maybe it should be 0.21204022082201507 (180*3600/numpy.pi*1.028/1e6) since 1.028
 
 Raven turb paper gives seeing = 0.98 lambda/r0.
 """
+
+
+def J_to_r0(J,zenAng=0.,lamda=500.e-9):
+    '''Convert integrated Cn2 (aka "J" ~1e-15) to r0 (in m)'''
+    gam = zenAng*numpy.pi/180.
+    return 0.18467 * (lamda**(6./5.)) * (numpy.cos(gam)**(3./5.)) *(J**(-3./5.))
+
