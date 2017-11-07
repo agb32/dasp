@@ -211,7 +211,7 @@ class wfsOverview:
         return wfs
     def values(self):
         return self.wfsDict.values()
-
+    
 
 """
 getWfsByID(idstr)

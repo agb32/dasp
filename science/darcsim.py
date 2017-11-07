@@ -355,14 +355,17 @@ control={"ncam":%d,
         print "Running: %s"%cmd
         os.system(cmd)
 
-    def reopenSockets(self):
+    def reopenSockets(self,cam=1,dm=1):
         """Reopens the listening sockets and waits for darc to connect"""
-        print "Waiting for darc to reconnect cameras and mirrors... "
-        self.camsock,addr=self.lsock.accept()
-        print "Accepted camera connection from %s"%str(addr)
-        print "Waiting for mirror connection..."
-        self.mirsock,addr=self.lsock.accept()
-        print "Accepted mirror connection from %s"%str(addr)
+        #print "Waiting for darc to reconnect cameras and mirrors... "
+        if cam:
+            print "Waiting for darc to reconnect cameras"
+            self.camsock,addr=self.lsock.accept()
+            print "Accepted camera connection from %s"%str(addr)
+        if dm:
+            print "Waiting for mirror connection..."
+            self.mirsock,addr=self.lsock.accept()
+            print "Accepted mirror connection from %s"%str(addr)
 
     def __del__(self):
         self.endSim()
@@ -393,7 +396,7 @@ control={"ncam":%d,
             if self.useExistingDarc:
                 #darc has swapped to a different camera library - so here, just listen again.
                 print "Socket error in darcsim - reopening"
-                self.reopenSockets()#including the mirror socket.  
+                self.reopenSockets(cam=1,dm=0)#including the mirror socket.  
                 #and send again.
                 print "darcsim:  Resending data"
                 self.camsock.sendall(self.inputData)
@@ -408,7 +411,7 @@ control={"ncam":%d,
             else:
                 if self.useExistingDarc:
                     print "Socket error receiving DM demands - reopening sockets"
-                    self.reopenSockets()
+                    self.reopenSockets(cam=0,dm=1)
                 else:
                     raise Exception("Error receiving... %d (received %d)"%(r,nrec))
         #Now, if dasp has been in a paused mode, darc timeouts might mean that socket data has still been sent?  But with a frozen mirror.  So, here we read it out.
