@@ -31,15 +31,21 @@ class dm(base.aobase.aobase):
             parent={"1":parent}
         base.aobase.aobase.__init__(self,parent,config,args,forGUISetup=forGUISetup,debug=debug,idstr=idstr)
         self.sendFullDM=self.config.getVal("sendFullDM",default=0)#used if connecting to wideField.py science module
-        
+        self.atmosPhaseType=self.config.getVal("atmosPhaseType",default="phaseonly")
         if forGUISetup==1:
-            if self.sendFullDM:
-                self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
+            self.dmObj=self.config.getVal("dmOverview",default=self.config.getVal("dmObj"),raiseerror=0)
+            if self.dmObj.getDM(idstr).sendFullDM:
                 dmpup=self.dmObj.calcdmpup(self.idstr[0])#number of pixels to store the phase. May be >npup if not ground conjugate.
-                self.outputData=[(dmpup,dmpup),numpy.float32]
+                if self.atmosPhaseType=="phaseonly":
+                    self.outputData=[(dmpup,dmpup),numpy.float32]
+                else:
+                    self.outputData=[(2,dmpup,dmpup),numpy.float32]
             else:
                 npup=self.config.getVal("npup")
-                self.outputData=[(npup,npup),numpy.float64]
+                if self.atmosPhaseType=="phaseonly":
+                    self.outputData=[(npup,npup),numpy.float64]
+                else:
+                    self.outputData=[(2,npup,npup),numpy.float64]
         else: # set up for simulation.
             self.npup=self.config.getVal("npup")
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
@@ -92,8 +98,14 @@ class dm(base.aobase.aobase):
             self.telDiam=self.config.getVal("telDiam")
             if self.sendFullDM:
                 self.outputData=self.dmphs
+                if self.atmosPhaseType!="phaseonly":
+                    print "Warning - sendFullDM selected for phase type %s.  May not work..."%self.atmosPhaseType
             else:
-                self.outputData=numpy.zeros((self.npup,self.npup),numpy.float64)
+                if self.atmosPhaseType=="phaseonly":
+                    self.outputData=numpy.zeros((self.npup,self.npup),numpy.float64)
+                else:
+                    self.outputData=numpy.zeros((2,self.npup,self.npup),numpy.float64)
+                    self.outputData[1]=1.#set to 1... in case its a poking simulation.
 
             # Make Zernike fns over DM, and
             slow=0
@@ -288,7 +300,7 @@ class dm(base.aobase.aobase):
             print "zdm object assigning parents automatically"
             keylist=this.parent.keys()
             for key in keylist:
-                if this.parent[key].outputData.shape==(self.npup,self.npup):#the right shape for an atmos object
+                if this.parent[key].outputData.shape[-2:]==(self.npup,self.npup):#the right shape for an atmos object
                     print "zdm parent object %s becoming atmos with output shape %s"%(str(key),str(this.parent[key].outputData.shape))
                     this.parent["atmos"]=this.parent[key]
                 else:
@@ -303,7 +315,7 @@ class dm(base.aobase.aobase):
             if self.newDataWaiting:
                 if this.parent.has_key("atmos"):
                     if this.parent["atmos"].dataValid==1:
-                        self.outputData[:,]=this.parent["atmos"].outputData
+                        self.outputData[:]=this.parent["atmos"].outputData
                         self.dataValid=1
                         if self.control["phaseCovariance"]:
                             self.montePhaseCovariance()

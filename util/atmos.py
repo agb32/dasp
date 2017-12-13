@@ -899,6 +899,7 @@ class atmos:
         """
         
         nlayer=len(self.sortedLayerList)
+        complexAmp=None
         for ii in range(nlayer):#for each atmosphere layer... (increasing in height, but inverted, so start at top.)
             key=self.sortedLayerList[nlayer-1-ii]#reverse order
             posDict=self.positionDict[key]
@@ -947,7 +948,8 @@ class atmos:
                 #Add it to the existing complex phase, and propagate to the next layer.
                 if self.sourceLam!=500.:
                     self.interpPhs*=500./self.sourceLam
-                if key==self.sortedLayerList[-1]:#first layer
+                #if key==self.sortedLayerList[-1]:#first layer
+                if complexAmp is None:
                     complexAmp=numpy.exp(1j*self.interpPhs)
                 else:#modify phase of existing signal by the new layer phase.
                     phs=numpy.angle(complexAmp)
@@ -968,7 +970,9 @@ class atmos:
                     temp1*=kernel
                     complexAmp=numpy.fft.ifft2(temp1)#/float(n*n)
                 else:#for the ground layer, no further propagation is needed.
-                     pass   
+                     pass
+            else:
+                print "Skipping layer %s"%key
         #Now get the phase and amplitude.
         self.phs=numpy.angle(complexAmp)
         self.amp=numpy.absolute(complexAmp)
