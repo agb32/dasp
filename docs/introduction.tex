@@ -1,0 +1,582 @@
+\documentclass{article}
+\include{dasphead}
+\newcommand{\mod}[1]{\texttt{#1}}
+\begin{document}
+%\include{introductiontitle}
+\newcommand{\daspproject}{Durham AO Simulation Platform}
+\newcommand{\dasptitle}{Introduction to DASP}
+\newcommand{\daspdocno}{DASP-INT-UoD-001}
+\newcommand{\daspdoctype}{Internal}
+\newcommand{\daspissue}{0.1.1}
+\newcommand{\daspreleasedate}{\today}
+\newcommand{\daspauthorname}{Alastair Basden}
+\newcommand{\daspauthortype}{AO sim team member}
+\newcommand{\daspapprovername}{Alastair Basden}
+\newcommand{\daspapprovertype}{AO sim team member}
+\newcommand{\daspreleasername}{Alastair Basden}
+\newcommand{\daspreleasertype}{AO sim team member}
+\newcommand{\daspreviewername}{Alastair Basden}
+\newcommand{\daspreviewertype}{AO sim team member}
+\newcommand{\daspchangerecord}{
+\begin{tabular}{|l|l|l|l|}
+\hline
+Issue number & Release date & section(s) affected & Description of
+change/remarks\\ \hline
+0.1.0 & 160209 & All & First draft \\ \hline
+\end{tabular}
+}
+\newcommand{\daspnotificationlist}{
+Alastair Basden\\
+}
+\newcommand{\daspabbreviations}{
+\begin{tabular}{rl}
+AO & Adaptive Optics\\
+\end{tabular}
+}
+\newcommand{\daspapplicabledocs}{
+\begin{tabular}{|l|l|l|}\hline
+AD Number & Document title & Doc number/publication/location \\ \hline
+\end{tabular}
+}
+\newcommand{\dasprefdocs}{
+\begin{tabular}{|l|l|l|}\hline
+RD number & Document title & Doc number/publication/location \\ \hline
+\end{tabular}
+}
+\title{\dasptitle}
+
+
+
+\include{daspbody}
+
+\section{Introduction}
+This guide is intended as an introduction to DASP, and will aid you in
+creating and using AO simulations.  It includes information about how
+to configure simulations along with a description of necessary
+parameter names.
+
+\section{Installation}
+See the INSTALL file.  Basically, install dependencies, type
+``make'', then edit your environment variables as instructed.
+
+\section{Creating a first simulation}
+Run \begin{verbatim}daspbuilder.py\end{verbatim}.  This will lead you
+  through the process of creating a simulation (SCAO, GLAO, MCAO,
+  LTAO, MOAO).  Once created, follow the instructions to run this
+  simulation.  To investigate the simulation,
+  use \begin{verbatim}daspsetup.py XXX.xml\end{verbatim} where XXX.xml
+  is the name of the XML file created.  Also, read the params.py file
+  created, to see the current configuration of the simulation.
+
+\section{Running a DASP simulation}
+Usually, this is a case of executing:
+\begin{verbatim}
+python SIM.py params.py
+\end{verbatim}
+where SIM.py is the name of your simulation file.  There are various
+command line parameters that can be seen by appending --help to the
+command.  The most useful of these is --iterations=X, to specify the
+number of iterations to run for.
+
+\section{Overview}
+A DASP simulation is made from a collection of different simulation
+modules, e.g.\ to model the atmosphere, to model DMs, to model
+wavefront sensors, science PSF instruments, and wavefront
+reconstruction models.  There are many such modules, and it is simple
+to create your own.  These are found in the science/ directory.  The most useful are:
+\begin{itemize}
+\item iscrn: Generates one or more infinite length atmospheric
+  turbulence phase screens, which are then translated across the
+  telescope pupil.
+\item iatmos: Takes these phase screens and projects along a given
+  line of sight, to generate the phase aberrations at the telescope
+  pupil in a given direction.  Each iatmos module therefore produces
+  phase for 1 line of sight, for 1 wavelength.
+\item xinterp\_dm: A DM module which is based on cubic spline
+  interpolation of actuators to produce a continuous phase sheet DM
+  (by default - other surface models are also available).  
+\item zdm: A Zernike based DM.  Using the first 3 modes will give you
+  a tip-tilt mirror (piston is ignored).
+\item wfscent: Produces wavefront sensor images from the corrected or
+  uncorrected phase, adds noise, and then computes slope measurements.
+\item tomoRecon: A tomographic reconstructor module, which will also
+  do non-tomographic reconstruction.
+\item science: A module for generation of science PSF images, to
+  obtain simulation performance
+\end{itemize}
+
+\section{Parameters}
+Here we discuss parameters used by the simulation.
+\subsection{Simulation parameters}
+\subsubsection{tstep}
+The base time step of the simulation, in seconds.  Usually specified
+as $\frac{1}{framerate}$.
+\subsubsection{AOExpTime}
+The simulation exposure time.  This, along with tstep, define the
+number of iteration that the simulation will be run for.  If set to
+zero, the simulation will run indefinitely, until asked to stop by the
+user.  
+
+\subsection{Telescope parameters}
+\subsubsection{telDiam}
+Telescope diameter in m.
+\subsubsection{telSec}
+Central obscuration diameter in m.
+\subsubsection{npup}
+Number of phase elements across the pupil.
+\subsubsection{pupil}
+The telescope pupil function.  A 2D bitmap defining which areas of the
+phase fall within the telescope pupil.  The telescope pupil can be
+different for different simulation modules if necessary (for example,
+a science module may not want to see the edges of a hexagonal based
+primary mirror).  For convenience, this can be created using the
+util.tel.Pupil object, e.g.:
+\begin{verbatim}
+import util.tel
+pupil=util.tel.Pupil(npup,npup/2,npup/2.*telSec/telDiam)
+\end{verbatim}
+Spiders etc.\ can also be added.
+
+\subsection{Atmospheric parameters}
+\subsubsection{r0}
+Global integrated Fried's parameter, in m.  
+\subsubsection{l0}
+Outer scale, in m.
+\subsubsection{layerDict}
+A dictionary of atmospheric layers.  The keys will be a text string
+that you use to identify the layers.  Typically, something like L0,
+L1, L2, etc.
+
+The values will be {\texttt layer} objects (from the util.atmos
+module) used to define the characteristics of each layer.  
+
+The layer objects take parameters:
+\begin{itemize}
+\item height: The height of the layer in m above the telescope.
+\item direction: The direction in which the layer translates, in
+  degrees.
+\item speed: The speed of the layer, in ms$^{-1}$.
+\item strength: The relative strength of the layer, used to compute
+  $r_0$ for this layer.  Strengths of all layers should add up to 1.
+\item seed: Optional, a seed for the random number generator if you
+  wish to have repeatable simulations.
+\end{itemize}
+
+Example:
+\begin{verbatim}
+layerDict={"L0":layer(height=0.,direction=0.,speed=7.5,strength=0.7),
+           "L1":layer(height=4000.,direction=330.,speed=12.5,strength=0.2),
+          }
+\end{verbatim}
+
+\subsubsection{atmosGeom}
+An atmosphere and geometry object which encompasses layer heights and
+source directions (from the util.atmos module).  This takes the
+layerDict parameter, values within the wfsOverview and sciOverview
+objects, the npup value, telDiam, r0 and l0.  
+
+Example:
+\begin{verbatim}
+atmosGeom=geom(layerDict,wfsOverview.values()+sciOverview.values(),npup,npup,telDiam,r0,l0)
+\end{verbatim}
+
+
+\subsection{WFS parameters}
+WFS parameters are encapsulated in a NGS or LGS object (from the
+util.guideStar module).  A number of these objects are then used to
+create a wfsOverview object, giving an overview of all WFS objects
+within the simulation.
+
+\subsubsection{wfsOverview}
+The wfsOverview object (util.guideStar) takes a Python dictionary with
+keys corresponding to the name of the WFS module ID string (typically
+a label for the direction of interest) and values being a LGS or NGS
+object.
+
+The LGS object takes the following parameters (only the most common
+ones are given here - to see the rest, look at util.guideStar.py or in
+Python do help(util.guideStar.LGS)).
+
+\begin{itemize}
+\item idstr: The identification string for this WFS (see the
+  daspsetup.py input file).
+\item nsubx: The number of sub-apertures in one direction (the WFSs
+  are assumed to be square).
+\item theta: The offaxis direction within the field of view at which
+  the WFS is pointed, in arcseconds.  (i.e.\ r in polar coordinates)
+\item phi: The angle in degrees (i.e.\ $\theta$ in polar coordinates)
+  specifying the position of the guide star within the telescope field
+  of view.  An on-axis target would have theta=0, phi=0.  A target 10
+  arcseconds off-axis would have theta=10, and phi set depending where
+  on a 10 arcsecond radius circle the star was.
+\item height: The height of the LGS (e.g. typically 90~km for a sodium
+  laser).
+\item phasesize: The number of phase pixels per sub-aperture.
+\item pupil: The pupil function of the WFS.
+\item minarea: Optional.  The minimum fraction of sub-aperture area to be light
+  sensitive for the sub-aperture to be counted as usable. This
+  defaults to 0.5 (50\%), i.e. 50\% of the sub-aperture must not be
+  vignetted for it to be used.  
+\item sig: Optional.  The flux, in detected photons per sub-aperture per frame.
+\item launchDist: Optional.  Distance from the centre of the pupil to the laser
+  launch location, in m.  This will be zero for centre-launched
+  lasers (along with launchTheta).
+\item launchTheta: Optional.  Angle, in degrees, specifying the laser launch
+  location (along with launchDist).
+\item sourcelam: Optional.  Wavelength, in nm, of the WFS.
+\item phslam: Optional.  Wavelength of incident phase, in nm.  If not specified,
+  defaults to the WFS wavelength.  
+\item reconList: Optional.  List of reconstructor object names that this WFS
+  provides reconstruction for.  Typically will just have one entry,
+  ``recon''.
+\item nimg: Optional.  Number of CCD pixels (in each direction) for
+  each sub-aperture.
+\item nfft: Optional.  Size of the array to be used during computation
+  of the FFT.  Typically at least twice phasesize.
+\item readoutNoise: Optional.  Readout noise in electrons RMS.
+\item lgsPsf: Optional.  A PSF for each sub-aperture to specify LGS
+  elongation.
+\item spotpsf: Optional.  A single PSF to be replicated for each
+  sub-aperture.  
+\item subapFlag: Optional.  An array specifying which sub-apertures
+  are used.  If not specified, this is calculated automatically from
+  the vignetting.
+\item integSteps: Optional, default 1.  The number of time steps over
+  which WFS integration should be performed.  
+\item skyBrightness: Optional, a value or array specifying the sky
+  brightness, i.e.\ the background image.
+\item bglevel: Optional, a value or array specifying the detector
+  background level (i.e.\ bias level).
+\end{itemize}
+
+The NGS object is similar, but does not specify a height (assumed to
+be at infinity).  The lgsPsf, launchDist and launchTheta parameters
+are also not available.  
+
+Example, for a on-axis LGS and a low order off-axis NGS:
+\begin{verbatim}
+wfsOverview=util.guideStar.wfsOverview({
+    "a":util.guideStar.LGS("a",nsubx=10,theta=0.,phi=0.,height=90000.,phasesize=8,pupil=pupil),
+    "b":util.guideStar.NGS("b",nsubx=2,theta=10.,phi=45.,phasesize=40,pupil=pupil)
+    })
+\end{verbatim}
+
+\subsection{Science parameters}
+The science (PSF generation and performance analysis) parameters are
+encapsulated within a sciOverview object.
+
+\subsubsection{sciOverview}
+The sciOverview object (in the util.sci module) takes a dictionary of
+sciInfo objects (also from the util.sci module).  These objects take
+the following parameters (most are given here, for others look at
+sci.py, or in Python, do help(util.sci.sciInfo)):
+
+\begin{itemize}
+\item idstr: The ID string for this science object (see the
+  daspsetup.py input file).
+\item theta, phi: Polar coordinates of the position within the field
+  of view of this science object.  theta is in arcseconds, phi in
+  degrees.
+\item pupil: Telescope pupil function for this science object.
+\item sourcelam: Wavelength of this science object.
+\item phslam: Optional.  Wavelength of the phase input for this
+  science object.  Defaults to the sourcelam value.
+\item psfFilename: Optional.  Filename for output PSFs.  If not
+  specified, will not be saved.  This should be a FITS file, which
+  gets appended to for consecutive science objects and simulation runs.
+\item summaryFilename: Optional.  Filename for results (Strehl, etc).
+  Defaults to results.csv.  This will be appended to for consecutive
+  science objects and simulation runs.
+\item calcRMS: Optional.  Whether to calculate the RMS of input
+  phase.  Defaults to zero.
+\end{itemize}
+
+Example, for an on-axis and off-axis target:
+\begin{verbatim}
+sciOverview=util.sci.sciOverview({
+    "a":util.sci.sciInfo("a",theta=0.,phi=0.,pupil=pupil,sourcelam=1650.),
+    "b":util.sci.sciInfo("b",theta=10.,phi=45.,pupil=pupil,sourcelam=1650.),
+})
+\end{verbatim}
+
+\subsection{DM configuration}
+DM parameters are encapsulated in a dmOverview object.  
+
+\subsubsection{dmOverview}
+The dmOverview object (in the util.dm module) takes a list of dmInfo
+objects (in the util.dm module), and also the atmosGeom parameter.
+
+The dmInfo objects take the following parameters (the most important
+ones are given here, for others look at dm.py, or in Python do
+help(util.dm.dmInfo)):
+\begin{itemize}
+\item label: The DM label, as also given in the daspsetup.py input
+  file.  This identifies the DM.
+\item idlist: A list of directions that this DM will cover.  This is
+  used in MCAO systems, and for virtual DMs to compute the size of the
+  DM so that it is large enough to cover the requested field of view.
+\item height: The DM height in m above the telescope.
+\item nact: The number of actuators in 1 direction (or modes for modal
+  mirrors).
+\item minarea: Optional, default 0.2.  Vignetting of an actuator for it to be considered
+  valid.
+\item actuatorsFrom: Optional, default ``reconstructor''.  The name of
+  the reconstructor object (see the daspsetup.py input file) which
+  provides actuator commands for this DM (required since some
+  simulations might have several reconstructor objects).
+\item reconstructList: Optional, default ``all''.  A list of names of the reconstructor objects which are computing
+actuators for this DM.  See the daspsetup.py input file.
+\item zonalDM: Optional, default 1.  Set to 0 for a modal DM.
+\end{itemize}
+
+Example (for a 21x21 actuator DM and a TT mirror):
+\begin{verbatim}
+dmOverview=util.dm.dmOverview([
+ dmInfo('dm',["a","b"],height=0.,nact=21,minarea=0.1,actuatorsFrom="darc",reconstructList="all")
+ dmInfo('tt',["a","b"],height=0.,nact=3,actuatorsFrom="darc",reconstructList="all")
+    ], atmosGeom)
+\end{verbatim}
+
+\subsection{Reconstructor configuration}
+The standard reconstructor within DASP is tomoRecon.py.  This performs
+a matrix-vector multiplication reconstruction with the contents of the
+matrix optionally defined by the user.  However, this module is also
+capable of taking an interaction matrix, and computing the
+pseudo-inverse to give a least-squares control matrix.  Should another
+control matrix be required (e.g.  minimum variance), this is usually
+computed externally by the user, using the interaction matrix and
+other information that they have about the system, e.g. WFS noise
+statistics, turbulence statistics, etc.
+
+Parameters that this module can take include:
+\begin{itemize}
+\item rcond: The conditioning value for the pseudo inverse (see
+ the numpy.linalg.pinv method for further information).  This will
+ typically range from 0.1 to $10^{-6}$ depending on system type and
+ size.
+\item recontype: The type of the reconstructor.  ``pinv'' is most
+  commonly used, though other more advanced options are available.
+\item pokeval: The size of the pokes used during interaction matrix
+  computation.  This should probably be a value per DM, but that is
+  not yet implemented (though the fix is fairly trivial).
+\item gainFactor: The closed-loop gain.  Can be a single value, or a
+  value per actuator.
+\item decayFactor: An anti-windup factor to prevent unseen modes
+  building up on the DMs, typically something just less than 1.  Can
+  be a single value or a value per actuator.
+\item computeControl: A flag, whether to automatically compute a
+  control matrix after creating an interaction matrix.  For large AO
+  systems, this should probably be 0, since numpy.linalg.pinv() is not
+  efficient, and you would be better using a HPC library outside of
+  DASP to perform this algorithm.
+\item reconmxFilename: FITS filename for the control matrix (either
+  that is to be created, or to be loaded).
+\item pmxFilename: FITS filename for the interaction (poke) matrix.
+\end{itemize}
+
+\subsection{Other configurations}
+Other simulation modules can require additional parameters.  These are
+not documented here because future requirements of these modules may
+change.  However, to identify the parameter requirements for a given
+module, searching for the string ``getVal'' within the module will
+reveal that parameters (including optional ones) which are required.
+
+\subsection{Structure and separation of parameters}
+By default, all parameters created in the parameter file (assuming the
+Python version, not XML files) are global, and accessible to all
+simulation modules.  However, a hierarchy exists to enable modules to
+preferentially select parameters unique to them.  
+
+To set parameters that are unique to all modules of one type
+(e.g.\ tomoRecon), within the parameter file, one would do:
+\begin{verbatim}
+this.tomoRecon=new()
+this.tomoRecon.gainFactor=0.5
+this.tomoRecon.rcond=0.01
+etc
+\end{verbatim}
+Therefore, if other modules tried to get the value of gainFactor, they
+would fail (unless it was also specified globally).
+
+To set parameters unique to a module with a specific identification
+string (idstr as given in the daspsetup.py input file) you would use
+(for an idstr of ``scao''):
+\begin{verbatim}
+this.tomoRecon_scao=new()
+this.tomoRecon_scao.gainFactor=0.5
+this.tomoRecon_scao.rcond=0.01
+etc
+\end{verbatim}
+
+This allows a hierarchy to be built up.  For example:
+\begin{verbatim}
+myval=1
+this.tomoRecon=new()
+this.tomoRecon.myval=2
+this.tomoRecon_scao=new()
+this.tomoRecon_scao.myval=3
+\end{verbatim}
+This would allow a tomoRecon module with an idstr equal to ``scao'' to
+get the value of ``myval'' as 3.  For other tomoRecon modules, the
+value of ``myval'' would be 2.  For modules that are not tomoRecon
+modules, the value of ``myval'' would be 1.  This approach allows
+flexibility, and enables unique parameter values for different modules.
+
+
+
+\section{Simulation design}
+The daspbuilder.py tool is the recommended way to create a new
+simulation.  However, should your requirements differ or you want
+something more advanced (e.g.\ with different modules, different AO
+designs, etc.), you can create a simulation in two steps.  First
+create the simulation runtime file, typically using the {\tt
+  daspsetup} GUI (or by hand).  Then create a corresponding parameter
+file.
+
+\subsection{Creating a simulation runtime file}
+It is recommended that you use the \texttt{daspsetup} GUI for
+simulation creation.  This has a separate manual.  
+
+\section{Setting up the parameter file}
+\label{sect:paramfile}
+You now have a simulation file that can be run by the python
+interpreter.  However, before doing this, you must create the
+parameter file, which can be either in XML or Python format.  The XML
+format is now depreciated, so we recommend that a Python format is used.
+
+A good starting point for a parameter file is one created using
+daspbuilder.py.  From here, you can then edit to suit your requirements.
+
+\section{Running the simulation}
+Once the parameter file is set up, you are ready to run the
+simulation.  This can be done by executing the following command:
+
+\begin{verbatim}
+python mysimulation.py
+or
+aosim mysimulation.py params.py
+\end{verbatim}
+
+If you have a simulation that uses MPI (Message Passing Interface) to
+distribute the simulation across several different computational nodes
+(which can be selected within daspbuilder.py or in daspsetup.py), then
+you need to launch the simulation in a slightly different way, as
+given in the first line of the simulation file.  Depending on your
+version of MPI libraries, you will need to use either mpipython
+(Scientific module), or standard python (mpi4py module).  The first
+line of your simulation file will give a suggested way to run with
+MPI.  For example, to run a simulation on 4 nodes, you would use:
+\begin{verbatim}
+mpirun -np 4 python mysimulation.py params.py
+\end{verbatim}
+For further information, investigate the mpirun command, e.g.\ to
+specify which compute nodes the simulation should run on.
+
+
+\subsection{Command line arguments}
+There are a number of command line arguments that can be passed to a
+simulation.  These include
+\begin{enumerate}
+\item -h or --help to display a help message (including an up to date
+  list of command line arguments).
+\item --start-paused to place the simulation in an initial paused
+  state.
+\item --param-file=FILENAME to specify a parameter file name (the
+  default is params.xml).
+\item --iterations=N to specify the number of iterations the simulation
+  is run for (the default is infinity if not specified in the
+  parameter file).
+\item --param=''valid python text string'' to change a parameter on the fly,
+  for example, you could use --param=''this.globals.wfs\_n=16'' to
+  change the value of wfs\_n to 16, but without having to change the
+  parameter file.  Note, this should be used with care, because there
+  will probably be no record of the change (unless the commandline
+  switch is saved).  These changes are inserted after the parameter
+  file has been executed, so any dependencies within it won't be
+  changed.
+\item --init=''name=value;name=value'' to specify name and value pairs
+  to be inserted before parameter file execution.  If the parameter
+  file is written correctly, these values will then be picked up and used.
+\item --batchno=VALUE can be used to run a specific batch (specific
+  parameters from the parameter file, as chosen by you).  Within the
+  parameter file, the ``batchno'' parameter specifies the current
+  batch number. 
+\end{enumerate}
+
+
+\section{Controlling the simulation}
+Once you have a running simulation, you may connect to it, to analyse
+and debug it, and to display plots of any data you are interested in.
+To do this, use the daspctrl.py GUI (which has a separate manual).  After the GUI has started, you
+should first connect the simulation,
+giving the hostname and port number that you wish to connect to.  By
+default, the simulation processes will be listening on port number
+9000 plus their MPI rank (so for a four process simulation you should
+connect to ports 9000, 9001, 9002 and 9003 on the respective nodes on
+which the processes are running).  If for any reason, the simulation
+process was unable to open a listening port at this port number (for
+example, someone else was running a simulation which had taken this
+port), it will increase the port number by the total number of
+processes running in your simulation (four in this case) and try
+again.  This will repeat until it is able to open a port
+successfully.  You should then click the ``Get plots'' button which
+will interrogate the running simulation to find out what modules are
+present, and provide buttons for control of the simulation, for
+example opening and closing the loop, restarting a science exposure,
+etc.  
+
+Further details about the simulation control GUI are given in
+\citet{simctrlgui}
+
+The command line programme daspanalyse.py can also be used to
+interrogate the simulation.  By default, with no arguments, it will
+connect to a simulation on port 9000 and print out the PSF parameters
+(Strehl ratio etc.) of all science objects within that simulation.
+Other options are also available.  This provides a handy way to check
+simulation progress.
+
+
+
+\subsection{Visualisation}
+Within the daspctrl.py GUI, it is possible to visualise aspects of the
+simulation.  Once you have connected, click the ``Get plots'' button.
+This will interrogate the running simulation to find out what modules
+are present, and within these, what can be visualised.  Then, you can
+select the relevant module, and display the relevant plots that you
+are interested in, for example DM shape, corrected phase, WFS images,
+short exposure PSFs, long integration PSFs, etc.
+
+\subsection{Short cuts}
+There are several shortcuts or handy hints which can be implemented
+when running a simulation.  The first is to use the batch facility in
+cases where a parameter space has to be explored.  By setting up a
+variable in the parameter file which depends on batch number, a number
+of different simulations can then be run just by using a different
+batch number (use --batchno=XXX on the command line).
+
+When you wish to run a large number of simulations which require user
+input, e.g.\ to poke the deformable mirror and hence compute a poke
+matrix, this can become tedious.  The use of the
+\texttt{initialCommand} method in the control object can then be used
+to automate these inputs, by giving commands to the simulation which
+can be executed after a given iteration.  So, for example, you might
+use this to open the loop and start a poke at iteration zero.  Then at
+a number of iterations later, you might close the loop and start the
+real simulation.  This then means that the simulation can be run
+without user intervention from start to finish.  Daspsetup.py and
+daspbuilder.py take this approach.
+
+Finally, if you wish to create some statistics from a number (e.g. 10)
+of runs of the same simulation (so that you can for example find an
+error estimate for the computed Strehl ratio etc), you can create a
+simple bash script which will run all the simulations for you.  This
+of course will only work if the simulation requires no user
+intervention between start and finish.  
+
+
+
+\pagebreak
+\bibliography{references}
+
+\printindex
+\end{document}
