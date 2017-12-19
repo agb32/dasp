@@ -382,8 +382,8 @@ class parseSimXml:
         """
         procDict={}#keys are cpus, values are list of objects on this cpu.
         orderedProcDict={}#keys are cpus, vaules are list of object on this cpu, in the order in which they will be created and exec'd.
-        importList=["numpy","util.Ctrl","base.mpiGet","base.mpiSend","base.shmGet","base.shmSend"]#,"Scientific.MPI"]
-        objectList=["newMPIGet","newMPISend","newSHMGet","newSHMSend"]
+        importList=["numpy","util.Ctrl"]#,"Scientific.MPI"]
+        objectList=[]
         MPIRank={}
         MPIRank2={}
         nprocesses=0
@@ -406,6 +406,9 @@ class parseSimXml:
                     importList.append(o.imp)
                 if o.object not in objectList:
                     objectList.append(o.object)
+        if nprocesses>1:
+            objectList=["newMPIGet","newMPISend","newSHMGet","newSHMSend"]+objectList
+            importList=importList+["base.mpiGet","base.mpiSend","base.shmGet","base.shmSend"]
         #First, insert the mpi/shm connections...
         self.insertRemoteConnections(procDict)
         #Now add things to the exec list order...
