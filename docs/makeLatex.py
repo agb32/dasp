@@ -55,11 +55,14 @@ if __name__=="__main__":
         for rem in removeList:
             if rem in modlist:
                 modlist.remove(rem)
-        modstr=string.join(modlist)
-        print "Documenting modules",modstr
-        if os.system("epydoc --latex -o modules %s"%modstr)!=0:
-            print "Error: epydoc not found or no modules specified"
-            raise Exception("Epydoc not found or no modules specified")
+        modstr=string.join(modlist).strip()
+        if len(modstr)>0:
+            print "Documenting modules",modstr
+            if os.system("epydoc --latex -o modules %s"%modstr)!=0:
+                print "Error: epydoc not found or no modules specified"
+                raise Exception("Epydoc not found or no modules specified")
+        else:
+            print "Skipping epydoc"
         sys.exit(0)
         #simlines=open("simapi-orig.tex").readlines()
         #os.system("make modules/api.pdf")
