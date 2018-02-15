@@ -8,3 +8,10 @@ can be modelled, up to ELT scale.
 Installation
 ------------
 See the INSTALL file.
+
+Pre-built documentation
+-----------------------
+Some pre-built PDF documentation is available at
+http://community.dur.ac.uk/a.g.basden/daspDocs/
+The source code for these documents is included within the dasp source
+code. 
