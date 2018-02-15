@@ -63,8 +63,11 @@ if __name__=="__main__":
                 raise Exception("Epydoc not found or no modules specified")
         else:
             print "Skipping epydoc"
-            os.mkdir("modules")
-            open("modules/api.tex","w").write("\\documentclass{article}\n\\makeindex\n\\begin{document}\nAPI documentation not generated.  Please check Latex environment and run docs/makeLatex.py\n\\end{document}")
+            try:
+                os.mkdir("modules")
+                open("modules/api.tex","w").write("\\documentclass{article}\n\\makeindex\n\\begin{document}\nAPI documentation not generated.  Please check Latex environment and run docs/makeLatex.py\n\\end{document}")
+            except:
+                pass
 
 
         sys.exit(0)
