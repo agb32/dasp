@@ -63,6 +63,10 @@ if __name__=="__main__":
                 raise Exception("Epydoc not found or no modules specified")
         else:
             print "Skipping epydoc"
+            os.mkdir("modules")
+            open("modules/api.tex","w").write("\\documentclass{article}\n\\begin{document}\nAPI documentation not generated.  Please check Latex environment and run docs/makeLatex.py\n\\end{document}")
+
+
         sys.exit(0)
         #simlines=open("simapi-orig.tex").readlines()
         #os.system("make modules/api.pdf")
