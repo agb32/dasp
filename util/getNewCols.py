@@ -26,11 +26,26 @@ class getNewCols:
         newpos=self.interpPosition+self.stepSize
         nremove=math.floor(newpos)
         self.nadd=int(math.ceil(newpos)-self.extraCols)
+        if newpos%1==0:
+            self.nadd+=1
         oldExtraCols=self.extraCols
         self.extraCols+=self.nadd-nremove
         self.interpPosition=newpos-nremove
         return nremove,self.nadd,self.interpPosition
 
+
+    def nextOld(self):
+        """Returns as a tuple, the number of colums to remove, the number of columns to add, and the interpolation position to use.
+        This was wrong - try with stepSize=0.75 to see why...
+        """
+        newpos=self.interpPosition+self.stepSize
+        nremove=math.floor(newpos)
+        self.nadd=int(math.ceil(newpos)-self.extraCols)
+        oldExtraCols=self.extraCols
+        self.extraCols+=self.nadd-nremove
+        self.interpPosition=newpos-nremove
+        return nremove,self.nadd,self.interpPosition
+    
 
 
 if __name__=="__main__":

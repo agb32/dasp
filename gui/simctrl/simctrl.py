@@ -251,11 +251,12 @@ class simctrlGUI:
             if owned==-1:#not owned by you...
                 notowned=1
             elif owned==0:#not connected
-                try:
+                data=[]
+                #try:
 
-                    data=self.sim.queryPortDict()
-                except:
-                    data=[]
+                #    data=self.sim.queryPortDict()
+                #except:
+                #    data=[]
                 if data==[]:
                     data=[["localhost",9000,"Guess",os.environ.get("USER","?")]]
                     # try:
@@ -299,6 +300,7 @@ class simctrlGUI:
         if user!=None and user!=os.environ["USER"]:
             print "WARNING - not your simulation"
             owned=-1
+        import time
         s=self.sim.openConnection(host,port)
         if s==None:
             print "Couldn't connect"

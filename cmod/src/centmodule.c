@@ -2518,7 +2518,7 @@ int setupThreads(centstruct *c,int nthreads){
   //and now set up...
   c->nthreads=nthreads;
   if(nthreads>0){
-    printf("Setting up %d threads\n",nthreads);
+    //printf("Setting up %d threads\n",nthreads);
     pthread_barrier_init(&c->barrier,NULL,nthreads+1);
     //pthread_mutex_init(&c->mutex,NULL);
     //pthread_cond_init(&c->cond,NULL);
@@ -2783,7 +2783,7 @@ PyObject *py_update(PyObject *self,PyObject *args){
 	}
 	c->refCents=(float*)aobj->data;
       }else{
-	printf("Warning - setting refCents to NULL\n");
+	//printf("Warning - setting refCents to NULL\n");
 	c->refCents=NULL;
       }
       break;
@@ -3055,7 +3055,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
   c->cents=(float*)cents->data;
   c->subflag=(int*)subflag->data;
   c->bimg=(float*)bimg->data;
-  printf("init bimg %p\n",c->bimg);
+  //printf("init bimg %p\n",c->bimg);
   c->fracSubArea=(float*)fracSubArea->data;
   c->fftpxls=fftsize*fftsize;
   c->phasepxls=phasesize*phasesize;

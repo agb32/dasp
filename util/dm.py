@@ -52,11 +52,16 @@ MirrorSurface class - class for interpolating a surface over actuators.
 class dmInfo:
     """A class holding info for a single DM (multiple source directions).
     """
-    def __init__(self,label,idlist,height,nact,fov=None,minarea=0.25,actoffset=0.,closedLoop=1,
-                 actuatorsFrom="reconstructor",primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
-                 actSpacing=None,reconLam=None,subpxlInterp=1,reconstructList="all",pokeSpacing=None,
-                 interpType="spline",maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
-                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,fixToGradientOperator=0,cn2=None,dmflag=None,dmDynamics=None,polcMatrix=None,sendFullDM=0):
+    def __init__(self,label,idlist,height,nact,fov=None,minarea=0.25,
+                 actoffset=0.,closedLoop=1,actuatorsFrom="reconstructor",
+                 primaryTheta=0.,primaryPhi=0.,gainAdjustment=1.,zonalDM=1,
+                 actSpacing=None,reconLam=None,subpxlInterp=1,
+                 reconstructList="all",pokeSpacing=None,interpType="spline",
+                 maxActDist=None,slaving=None,actCoupling=0.,actFlattening=None,
+                 alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,
+                 rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,
+                 fixToGradientOperator=0,cn2=None,dmflag=None,dmDynamics=None,
+                 polcMatrix=None,sendFullDM=0):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -96,7 +101,7 @@ class dmInfo:
         maxStroke is given in microns, the max Peak-Valley allowed.
         stuckActs - None, or (nstuck,clumpsize,maxRadius,minRadius,seed)
         dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be  [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
-        polcMatrix - if using polc, should be equal to dI + gMP where d is decay factor (typically 1-g), g is gain, M is control matrix, and P is poke matrix (for this DM).
+        polcMatrix - if using polc, should be equal to dI + gMP where d is decay factor (typically 1-g or just less), g is gain, M is control matrix, and P is poke matrix (for this DM).
         sendFullDM - whether to send the full DM surface...
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
@@ -2081,6 +2086,11 @@ class DMLineOfSight:
                     phs=self.selectedDmPhs
                 if self.conjHeight<0:
                     phs=-phs
+                if phs.shape[0]!=phs.shape[1]:
+                    print "dm.selectSubPupil:"
+                    print "%s %s %s %s %s %s %s %s"%(phs.shape,self.dmyaxisInterp.shape,self.dmxaxisInterp.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,outputData.shape,addToOutput,self.nthreads)
+                    print "%s %s %s %s %s %s"%(phs.dtype.char,self.dmyaxisInterp.dtype.char,self.dmxaxisInterp.dtype.char,self.yaxisInterp.dtype.char,self.xaxisInterp.dtype.char,outputData.dtype.char)
+                    print "%d %d %d %d %d %s"%(self.xoff,self.xoffend,self.yoff,self.yoffend,self.dmpup,self.dmphs.shape)
                 gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
                 #out=self.interpolated
         elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:

@@ -820,7 +820,7 @@ def compress(rmx,mbits=15,outfile=None):
     return r
 
 
-def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=0,idstr=None,power=-2,coneScale=1,actSpacingScale=-5./3,noiseScale=1.,noisePower=1.,hlist=None,strList=None,initDict=None):
+def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=0,idstr=None,power=-2,coneScale=1,actSpacingScale=-5./3,noiseScale=1.,noisePower=1.,hlist=None,strList=None,initDict=None,deleteTemp=1):
     if type(config) in [type(""),type([])]:
         import base.readConfig
         config=base.readConfig.AOXml(config,batchno=batchno,initDict=initDict)
@@ -843,7 +843,9 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     pup=c.getVal("pupil")
     
     if hlist is None:
-        hlist=c.getVal("hListdm")
+        hlist=c.getVal("hListdm",raiseerror=0)
+        if hlist is None:
+            hlist=c.getVal("dmHeight")
     hlistOrig=hlist
     if strList is None:
         cn2Orig=numpy.array(c.getVal("strListdm"))
@@ -922,8 +924,10 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     invNoiseCov=numpy.zeros((ncents,),numpy.float32)
     invNoiseCovNgs=numpy.zeros((ncentsNgs,),numpy.float32)
     lgssig=c.getVal("wfs_sig",raiseerror=0)
-    if lgssig is None:
+    if len(lgsList)>0 and lgssig is None:
         lgssig=numpy.array([x.sig for x in lgsList]).mean()
+    else:#no lgs.
+        lgssig=0.
     wfsSigList=c.getVal("wfsSigList",raiseerror=0)
     wfsSigList=[x.sig for x in ngsList]
     print "Noise covariance scaling by %s for ngs, %g for lgs"%(str((numpy.array(wfsSigList)/1e6*noiseScale)**noisePower),(lgssig/1e6*noiseScale)**noisePower)
@@ -946,6 +950,8 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
         invNoiseCov[start:end]=(lgssig/1e6*noiseScale)**noisePower
         invNoiseCov[start+ncents/2:end+ncents/2]=(lgssig/1e6*noiseScale)**noisePower
         start=end
+    if deleteTemp==0:
+        util.FITS.Write(invNoiseCov,"invNoiseCov.fits")
     #Now separate out ngs and lgs for split tomo.
     #First, use both lgs and ngs, for high order...
     data=util.FITS.Read(pmx)[1]
@@ -965,9 +971,10 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     #util.FITS.Write(lgsarr,pmx)
     #del(lgsarr)
     #Now take just the ngs part...
-    ngsarr=numpy.empty((nactsCumList[-1],ncentsNgs),data.dtype)
-    ngsarr[:,:ncentsNgs/2]=data[:,:ncentsNgs/2]
-    ngsarr[:,ncentsNgs/2:]=data[:,ncents/2:ncents/2+ncentsNgs/2]
+    if len(lgsList)>0:
+        ngsarr=numpy.empty((nactsCumList[-1],ncentsNgs),data.dtype)
+        ngsarr[:,:ncentsNgs/2]=data[:,:ncentsNgs/2]
+        ngsarr[:,ncentsNgs/2:]=data[:,ncents/2:ncents/2+ncentsNgs/2]
     #Now, if sig for any is zero, set to zero.
     start=0
     resavepmx=0
@@ -975,25 +982,28 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
         gs=ngsList[i]
         end=start+ncentNgsList[i]
         if wfsSigList[i]==0:#this wfs isn't used...
-            ngsarr[:,start:end]=0
-            ngsarr[:,ncentsNgs/2+start:ncentsNgs/2+end]=0
+            if len(lgsList)>0:
+                ngsarr[:,start:end]=0
+                ngsarr[:,ncentsNgs/2+start:ncentsNgs/2+end]=0
             resavepmx=1
             data[:,start:end]=0
             data[:,ncents/2+start:ncents/2+end]=0
         start=end
-
-    util.FITS.Write(ngsarr,"/var/ali/tmpngs.fits",doByteSwap=0)
-    print "ngsarr shape %s"%str(ngsarr.shape)
-    del(ngsarr)
+    if len(lgsList)>0:
+        util.FITS.Write(ngsarr,"/var/ali/tmpngs.fits",doByteSwap=0)
+        print "ngsarr shape %s"%str(ngsarr.shape)
+        del(ngsarr)
     if resavepmx:
         print "Overwriting pmx with some zeros... for sig==0 wfss"
         util.FITS.Write(data,pmx,doByteSwap=0)
+    print "Search for NaNs: %s"%numpy.any(numpy.isnan(data))
     del(data)
     
 
     t1=time.time()
     mr=util.computeRecon.makeRecon(pmx,rcond)#,regularisation=regparam)
     if startStage==0:
+        print "invNoiseCov Nans: %s, max %g, min %g"%(numpy.any(numpy.isnan(invNoiseCov)),invNoiseCov.max(),invNoiseCov.min())
         res=mr.dotdot(diagScaling=invNoiseCov)
         print "Doing fancy regularisation"
         if res.shape[0]!=nactsCumList[-1]:
@@ -1014,20 +1024,24 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
     if startStage==3:
         rmx=mr.denseDotDense(transA=1,diagScaling=invNoiseCov)#finalDot(rmxtype=1,valmin=0.02,maxelements=0.1,minelements=0.05)
         startStage=4
-        # Now subtract TT.  Here, subtract from the NGS too...
-        nxOld=0
-        pos=0#ncentsNgs/2
-        print "ncentLgsList: %s, rmx shape %s"%(str(ncentLgsList),str(rmx.shape))
-        for i in range(len(ncentList)):
-            nx=ncentList[i]
-            if nx!=nxOld:
-                rmtt=numpy.identity(nx)-1./nx
-                nxOld=nx
-            rmx[pos:pos+nx]=numpy.dot(rmtt,rmx[pos:pos+nx])
-            rmx[pos+ncents/2:pos+ncents/2+nx]=numpy.dot(rmtt,rmx[pos+ncents/2:pos+ncents/2+nx])
-            pos+=nx
-            #rmx[i*nx:(i+1)*nx]=numpy.dot(rmtt,rmx[i*nx:(i+1)*nx])
-        print "Writing TT-subtracted rmx to %s"%mr.rmxdensename
+        # Now subtract TT.  Here, subtract from the NGS too... but only if there are LGS present.
+        if len(lgsList)>0:
+            nxOld=0
+            pos=0#ncentsNgs/2
+            print "ncentLgsList: %s, rmx shape %s"%(str(ncentLgsList),str(rmx.shape))
+            for i in range(len(ncentList)):
+                nx=ncentList[i]
+                if nx!=nxOld:
+                    rmtt=numpy.identity(nx)-1./nx
+                    nxOld=nx
+                rmx[pos:pos+nx]=numpy.dot(rmtt,rmx[pos:pos+nx])
+                rmx[pos+ncents/2:pos+ncents/2+nx]=numpy.dot(rmtt,rmx[pos+ncents/2:pos+ncents/2+nx])
+                pos+=nx
+                #rmx[i*nx:(i+1)*nx]=numpy.dot(rmtt,rmx[i*nx:(i+1)*nx])
+            print "Writing TT-subtracted rmx to %s"%mr.rmxdensename
+        else:
+            print "Writing rmx to %s (no LGS, so no TT-subtraction)"%mr.rmxdensename
+                    
         util.FITS.Write(rmx,mr.rmxdensename,doByteSwap=0)
     t2=time.time()
     open(mr.timename,"a").write("Total time %gs\n"%(t2-t1))
@@ -1036,73 +1050,76 @@ def reconstruct(config=["params.xml"],batchno=0,pmx=None,rcond=1e-06,startStage=
 
 
     #rmx shaoe ncents,nacts.
-    print "Removing temporary files"
-    try:
-        os.unlink(pmx[:-5]+"_dotted.fits")
-    #os.unlink(pmx[:-5]+".fits")
-        os.unlink(pmx[:-5]+"_inv%g.fits"%rcond)
-        os.unlink(pmx[:-5]+"_timing.txt")
-    except:
-        pass
-    print "Doing ngs",rmx.shape,nactsCumList[-1],ncents
+    if deleteTemp:
+        print "Removing temporary files"
+        try:
+            os.unlink(pmx[:-5]+"_dotted.fits")
+        #os.unlink(pmx[:-5]+".fits")
+            os.unlink(pmx[:-5]+"_inv%g.fits"%rcond)
+            os.unlink(pmx[:-5]+"_timing.txt")
+        except:
+            pass
     #And write rmx into the correct parts of a larger matrix...
     #rmxAll=numpy.empty((ncents,rmx.shape[1]),rmx.dtype)
     #rmxAll[ncentsNgs/2:ncents/2]=rmx[:ncentsLgs/2]
     #rmxAll[ncents/2+ncentsNgs/2:ncents]=rmx[ncentsLgs/2:]
     rmxAll=rmx
 
-    #Now do the ngs part too.
-    pmx="/var/ali/tmpngs.fits"
-    startStage=0
-    t1=time.time()
-    mr=util.computeRecon.makeRecon(pmx,rcond)#,regularisation=regparam)
-    if startStage==0 and len(ngsList)>0:
-        res=mr.dotdot(diagScaling=invNoiseCovNgs)
-        print "Doing fancy regularisation"
-        if res.shape[0]!=nactsCumList[-1]:
-            raise Exception("Wrong number of acts: %s, %s"%(str(res.shape),str(nactsCumList)))
+    if len(lgsList)>0:
+        #Now do the ngs part too.
+        print "Doing ngs",rmx.shape,nactsCumList[-1],ncents
+        pmx="/var/ali/tmpngs.fits"
+        startStage=0
+        t1=time.time()
+        mr=util.computeRecon.makeRecon(pmx,rcond)#,regularisation=regparam)
+        if startStage==0 and len(ngsList)>0:
+            res=mr.dotdot(diagScaling=invNoiseCovNgs)
+            print "Doing fancy regularisation"
+            if res.shape[0]!=nactsCumList[-1]:
+                raise Exception("Wrong number of acts: %s, %s"%(str(res.shape),str(nactsCumList)))
 
-        for i in range(len(nactsCumList)-1):#add the laplacian...
-            res[nactsCumList[i]:nactsCumList[i+1],nactsCumList[i]:nactsCumList[i+1]]+=laplist[i]#If this is wrong, try changing maxActDist.
-        print "Saving laplacian..."
-        util.FITS.Write(res,mr.dottedname,doByteSwap=0,extraHeader="REGPARAM= %s"%str(cn2))
-        del(res)
-        startStage=1
-    print "Using LU decomposition"
-    if startStage==1 and len(ngsList)>0:
-        inva=mr.makeLUInv()
-        startStage=3
-        del(inva)
+            for i in range(len(nactsCumList)-1):#add the laplacian...
+                res[nactsCumList[i]:nactsCumList[i+1],nactsCumList[i]:nactsCumList[i+1]]+=laplist[i]#If this is wrong, try changing maxActDist.
+            print "Saving laplacian..."
+            util.FITS.Write(res,mr.dottedname,doByteSwap=0,extraHeader="REGPARAM= %s"%str(cn2))
+            del(res)
+            startStage=1
+        print "Using LU decomposition"
+        if startStage==1 and len(ngsList)>0:
+            inva=mr.makeLUInv()
+            startStage=3
+            del(inva)
 
-    if startStage==3:
-        if len(ngsList)>0:
-            rmx=mr.denseDotDense(transA=1,diagScaling=invNoiseCovNgs)#finalDot(rmxtype=1,valmin=0.02,maxelements=0.1,minelements=0.05)
-            startStage=4
-            # Now average TT (since its ngs).
-            nxOld=0
-            pos=0
-            for i in range(len(ncentNgsList)):
-                nx=ncentNgsList[i]
-                if nx!=nxOld:
-                    avtt=numpy.ones((nx,nx),numpy.float32)/nx
-                    nxOld=nx
-                rmxAll[pos:pos+nx]+=numpy.dot(avtt,rmx[pos:pos+nx])
-                rmxAll[pos+ncents/2:pos+ncents/2+nx]+=numpy.dot(avtt,rmx[pos+ncentsNgs/2:pos+ncentsNgs/2+nx])
-                pos+=nx
-        
-        #Get the expected output filename...
-        mr=util.computeRecon.makeRecon(pmxOrig,rcond)#,regularisation=regparam)
-            
-        print "Writing TT-ngs/lgs rmx to %s"%mr.rmxdensename
-        util.FITS.Write(rmxAll,mr.rmxdensename,doByteSwap=0)
-    print "Removing more temporary files"
-    try:
-        os.unlink(pmx[:-5]+"_dotted.fits")
-        os.unlink(pmx[:-5]+".fits")
-        os.unlink(pmx[:-5]+"_inv%g.fits"%rcond)
-        os.unlink(pmx[:-5]+"_timing.txt")
-    except:
-        print "Unable to remove some non-existant files"
+        if startStage==3:
+            if len(ngsList)>0:
+                rmx=mr.denseDotDense(transA=1,diagScaling=invNoiseCovNgs)#finalDot(rmxtype=1,valmin=0.02,maxelements=0.1,minelements=0.05)
+                startStage=4
+                # Now average TT (since its ngs).
+                nxOld=0
+                pos=0
+                for i in range(len(ncentNgsList)):
+                    nx=ncentNgsList[i]
+                    if nx!=nxOld:
+                        avtt=numpy.ones((nx,nx),numpy.float32)/nx
+                        nxOld=nx
+                    rmxAll[pos:pos+nx]+=numpy.dot(avtt,rmx[pos:pos+nx])
+                    rmxAll[pos+ncents/2:pos+ncents/2+nx]+=numpy.dot(avtt,rmx[pos+ncentsNgs/2:pos+ncentsNgs/2+nx])
+                    pos+=nx
+
+            #Get the expected output filename...
+            mr=util.computeRecon.makeRecon(pmxOrig,rcond)#,regularisation=regparam)
+
+            print "Writing TT-ngs/lgs rmx to %s"%mr.rmxdensename
+            util.FITS.Write(rmxAll,mr.rmxdensename,doByteSwap=0)
+        if deleteTemp:
+            print "Removing more temporary files"
+            try:
+                os.unlink(pmx[:-5]+"_dotted.fits")
+                os.unlink(pmx[:-5]+".fits")
+                os.unlink(pmx[:-5]+"_inv%g.fits"%rcond)
+                os.unlink(pmx[:-5]+"_timing.txt")
+            except:
+                print "Unable to remove some non-existant files"
 
     t2=time.time()
     open(mr.timename,"a").write("Total time %gs\n"%(t2-t1))

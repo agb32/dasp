@@ -45,15 +45,15 @@ class WideField(base.aobase.aobase):
     """Create a WideField object.  This object can take several iscrn
     objects as parents, and returns a wide-field image, or sub-aperture images of the relevant phase.
 
-    Thoughts on resource sharing: each iatmos object stores phasescreens from
+    Thoughts on resource sharing: each wideField object stores phasescreens from
     the nLayers iscrn.thisObjDict objects.  This is potentially a large amount of data
-    when replicated over a number of different iatmos objects (different sky
+    when replicated over a number of different wideField objects (different sky
     directions).  However, the phasescreens should be identical.  So, we can
-    create 1 iatmos object which resource shares between all the others.
+    create 1 wideField object which resource shares between all the others.
 
-    Alternatively, we have 1 iatmos object which is able to compute
+    Alternatively, we have 1 wideField object which is able to compute
     lots of directions from one call to generateNext.  You would then only
-    ever need one iatmos module running on a given node, serving up pupil
+    ever need one wideField module running on a given node, serving up pupil
     phase for lots of different directions, ie the outputData would be 3D.
 
     Having a resource sharing object is best - particularly if you have lots
@@ -107,6 +107,7 @@ class WideField(base.aobase.aobase):
                     isdm=1
                 except:#either not a DM, or no dmObj specified...
                     isdm=0
+                    print "(ignore the error: was just working out whether a DM or atmosphere)"
                 if isdm or key.startswith("dm") or key in dmParentList:
                     self.dmParentDict[key]=self.parentDict[key]
                 else:
@@ -120,7 +121,7 @@ class WideField(base.aobase.aobase):
             self.interpolationNthreads=self.config.getVal("interpolationNthreads",default=0)#a tuple of (nthreads,nblockx,nblocky)
             self.dmObj=self.config.getVal("dmOverview",raiseerror=0)
             self.dmList=[]
-            for key in self.dmParentDict.keys():
+            for key in self.dmKeys:#dmParentDict.keys():
                 self.dmList.append(self.dmObj.getDM(key,raiseerror=1))
 
             self.parentSendWholeScreen=0
@@ -249,16 +250,16 @@ class WideField(base.aobase.aobase):
                     #First, see if we can copy from parent - if not, create ourselves (this relies on the seed being a constant, not the current time).
                     try:
                         self.phaseScreens[key]=self.scrnParentDict[pkey].thisObjDict[key].screen#[xxx].copy()
-                        print "iatmos: Copied initial screen from parent %s[%d]"%(str(pkey),str(key))
-                        print "TODO: iatmos - is this copy of initial screen needed?"
+                        print "wideField: Copied initial screen from parent %s[%d]"%(str(pkey),str(key))
+                        print "TODO: wideField - is this copy of initial screen needed?"
                     except:
-                        print "iatmos: cannot copy parent screen %s - generating directly."%str(key)
+                        print "wideField: cannot copy parent screen %s - generating directly."%str(key)
                         self.phaseScreens[key]=numpy.array(iscrn.computeInitialScreen(self.config,idstr=str(key)))
                     if self.phaseScreens[key].dtype.char!=self.scrnDataType:
-                        raise Exception("iatmos and iscrn should use the same dataType value %s %s"%(self.phaseScreens[key].dtype.char,self.scrnDataType))
+                        raise Exception("wideField and iscrn should use the same dataType value %s %s"%(self.phaseScreens[key].dtype.char,self.scrnDataType))
                     ps=self.phaseScreens[key]
                     if ps.shape!=(self.atmosGeom.getScrnYPxls(key,rotateDirections=1),self.atmosGeom.getScrnXPxls(key,rotateDirections=1)):
-                        raise Exception("Phase screen size unexpected in iatmos: %s -> %s"%(str(ps.shape),str((self.atmosGeom.getScrnYPxls(key,rotateDirections=1),self.atmosGeom.getScrnXPxls(key,rotateDirections=1)))))
+                        raise Exception("Phase screen size unexpected in wideField: %s -> %s"%(str(ps.shape),str((self.atmosGeom.getScrnYPxls(key,rotateDirections=1),self.atmosGeom.getScrnXPxls(key,rotateDirections=1)))))
                     if self.ygradient!=None:
                         self.ygradient[key]=numpy.empty(ps.shape,self.scrnDataType)
                         self.ygradient[key][1:-1]=(ps[2:]-ps[:-2])*0.5
@@ -301,7 +302,7 @@ class WideField(base.aobase.aobase):
             #    parent=self.parentList[i]
             #    self.initialise(parent,idstr)
     def newParent(self,parent,idstr=None):
-        raise Exception("iatmos - not yet able to accept new parent... (needs some extra coding)")
+        raise Exception("wideField - not yet able to accept new parent... (needs some extra coding)")
 
     def initialise(self,parentDict,idstr):
         """note, parent should be a dictionary here...
@@ -357,6 +358,7 @@ class WideField(base.aobase.aobase):
             key=self.dmKeys[n]
             wavelengthAdjustor=dm.reconLam/float(sourceLam)
             dmpup=dm.calcdmpup(self.atmosGeom)
+            print "Input to LOS shape for dm %d, wfs %s is %s"%(n,self.idstr,str(self.dmParentDict[key].outputData.shape))
             for i in range(self.nFieldY):
                 for j in range(self.nFieldX):
                     ydiff=-this.atmosObj.fov+pitchY/2.+i*pitchY/2.
@@ -393,7 +395,7 @@ class WideField(base.aobase.aobase):
         sourcePhi=atmosObj.sourcePhi
         wfsObj=self.thisObjList[self.currentIdObjCnt].wfsObj
         if self.debug:
-            print "iatmos: GenerateNext (debug=%s)"%str(self.debug)
+            print "wideField: GenerateNext (debug=%s)"%str(self.debug)
         if self.generate==1:
             if self.newDataWaiting:
                 nvalid=0
@@ -404,10 +406,10 @@ class WideField(base.aobase.aobase):
                         if self.scrnParentDict[pkey].dataValid==1:
                             if self.inputData[pkey] is not self.scrnParentDict[pkey].outputData:
                                 #create the arrays...
-                                #print "Allocating iatmos arrays (hopefully this only happens during first iteration...)"
+                                #print "Allocating wideField arrays (hopefully this only happens during first iteration...)"
                                 self.inputData[pkey]=self.scrnParentDict[pkey].outputData
                                 if self.inputData[pkey].dtype.char!=self.scrnDataType:
-                                    raise Exception("iatmos and iscrn dataTypes must be same (%s %s, key %s)"%(self.inputData[pkey].dtype.char,self.scrnDataType,pkey))
+                                    raise Exception("wideField and iscrn dataTypes must be same (%s %s, key %s)"%(self.inputData[pkey].dtype.char,self.scrnDataType,pkey))
                                 if self.parentSendWholeScreen==0:
                                     pos=0
                                     for key in self.layerListDict[pkey]:
@@ -419,12 +421,14 @@ class WideField(base.aobase.aobase):
                         self.dataValid=1
                         self.makeLayers()#this is the first of resource sharers
                     elif nvalid>0:
-                        print "ERROR: iatmos - received wrong number (%d/%d) of phase screens"%(self.nvalid,len(self.scrnParentDict.keys()))
+                        print "ERROR: wideField - received wrong number (%d/%d) of phase screens"%(self.nvalid,len(self.scrnParentDict.keys()))
                         self.dataValid=0
                     else:
-                        print "iatmos: Waiting for data from iscrn, but not valid"
+                        print "wideField: Waiting for data from iscrn, but not valid"
                         self.dataValid=0
                 if self.dataValid:
+                    if self.debug:
+                        print "wideField: starting fields"
                     self.outputData[:]=0
                     fovpitchY=atmosObj.fov*2*2/(self.nFieldY+1.)
                     fovpitchX=atmosObj.fov*2*2/(self.nFieldX+1.)
@@ -453,9 +457,15 @@ class WideField(base.aobase.aobase):
                                     atmosObj.sourceAlt=self.fieldAlt[fieldY,fieldX]
                                 #print "%g diff %g, %g, pitch %g, %g, dir: %g, %g"%(atmosObj.fov, xdiff,ydiff,fovpitchX,fovpitchY,thetanew,phinew)
                                 atmosObj.updatePositionDict()
+                                if self.debug:
+                                    print "createPupilPhs %d %d"%(fieldY,fieldX)
                                 atmosObj.createPupilPhs(self.interpPosRow,self.insertPos,self.control)
                             #Add in any DM phase... (select correct part for part of the fov)
+                            if self.debug:
+                                print "addDmPhase %d %d (%s)"%(fieldY,fieldX,self.currentIdObjCnt)
                             self.addDmPhase(self.pupilphs,fieldX,fieldY)
+                            if self.debug:
+                                print "done addDmPhase"
                             #Now, use the phase to generate the wide-field images...
                             #update the psf for correct part of the field.
                             #widefieldImageFov tells us which parts to select.  
@@ -684,7 +694,7 @@ class WideField(base.aobase.aobase):
         """Return a XML string which contains the commands to be sent
         over a socket to obtain certain data for plotting.  The $OBJ symbol
         will be replaced by the instance name of the object - e.g.
-        if scrn=iatmos.iatmos(...) then $OBJ would be replaced by scrn."""
+        if scrn=wideField.wideField(...) then $OBJ would be replaced by scrn."""
         this=self.thisObjList[self.sentPlotsCnt]
         if this.idstr==None or this.idstr=="":
             id=""

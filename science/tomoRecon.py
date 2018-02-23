@@ -183,6 +183,12 @@ class recon(base.aobase.aobase):
             self.npup=config.getVal("npup")
             self.telDiam=config.getVal("telDiam")
 
+            self.globalPolc=config.getVal("globalPolc",raiseerror=0)
+            if type(self.globalPolc)==type(""):
+                try:
+                    self.globalPolc=util.FITS.Read(self.globalPolc)[1]
+                except:
+                    print("WARNING: Unable to read polc matrix %s - will cause problems if the loop is closed (but okay if just poking)"%self.globalPolc)
             self.poke=0
             self.poking=0
 
@@ -1081,6 +1087,8 @@ class recon(base.aobase.aobase):
         #wfsdata=self.wfsdata
         data=self.inputData#numpy.zeros(wfsdata*2,numpy.Float)
         if self.multirate==0:
+            if self.globalPolc is not None:
+                self.outputData[:]=numpy.dot(self.globalPolc,self.outputData)
             for i in range(len(self.nactsList)):
                 dm=self.dmList[i]
                 d=self.outputData[self.nactsCumList[i]:self.nactsCumList[i+1]]

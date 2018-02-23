@@ -68,10 +68,12 @@ class analyse:
         #conn=Connection(host,port)
         #can use conn.getpeername() to get the IP/port.
         conn=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.settimeout(5.0)
         try:
             if pr:
                 print "INFORMATION Connecting..."
             conn.connect((host,port))
+            conn.settimeout(None)
             if pr:
                 print "Connected..."
             self.connList.append(conn)
@@ -109,7 +111,9 @@ class analyse:
         return connList
     def queryPortDict(self,host="129.234.187.10",port=8999):
         conn=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.settimeout(5.)
         conn.connect((host,port))
+        conn.settimeout(None)
         serialise.Send(["get"],conn)
         data=serialise.ReadMessage(conn.fileno())
         conn.close()

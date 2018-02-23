@@ -26,6 +26,7 @@ def getArgs(args):
     ilist=[]#outputs - strehl, etc.
     exclude=[]#list of strings to exclude
     vallist=[]#values to be printed
+    valslist=[]#values to be printed up to semicolon
     valcharlist=[]#tuples of (N,text) where N is the number of characters after finding text to print.
     printid=0
     printdict=0
@@ -41,7 +42,7 @@ def getArgs(args):
         if a[:7]=="--grep=":
             glist.append(a[7:])
         elif a[:6]=="--help":
-            print "Usage: --grep=STRING --file=FILENAME --param=PARAMETER [--printid --printidBefore --printall --printdict --printall --printfile --printindex --space --precision --exclude=xxx --val=xxx --printval --before=yymmddhhmmss --after=yymmddhhmmss"
+            print "Usage: --grep=STRING --file=FILENAME --param=PARAMETER [--printid --printidBefore --printall --printdict --printall --printfile --printindex --space --precision --exclude=xxx --val[#|s]=xxx --printval --before=yymmddhhmmss --after=yymmddhhmmss"
             print "Or:  grep string filename parameter"
             print "Note, strehl and inbox can be prefixed with % to return in percentage, eg %strehl %inbox0.1"
             print "Exclude parameter is a text string to be excluded"
@@ -89,6 +90,8 @@ def getArgs(args):
             exclude.append(a[10:])
         elif a[:6]=="--val=":
             vallist.append(a[6:])
+        elif a[:7]=="--vals=":
+            valslist.append(a[7:])
         elif a[:5]=="--val":
             valcharlist.append((int(a[5:a.index("=")]),a[a.index("=")+1:]))
         elif a[:10]=="--printval":
@@ -110,10 +113,10 @@ def getArgs(args):
                         got=1
                 if got==0:#its a grep string
                     glist.append(a)
-    return glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist,before,after
+    return glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist,valslist,before,after
 
 
-def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0,precision=0,exclude=[],vallist=[],printval=0,valcharlist=[],before=None,after=None):
+def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printindex=0,space=0,precision=0,exclude=[],vallist=[],printval=0,valcharlist=[],valslist=[],before=None,after=None):
     """glist - strings to grep for.
     flist - list of filenames
     ilist - list of values to return (e.g. strehl, etc)
@@ -217,6 +220,21 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
                         txt+="%s%s%s"%(fillchr,v,str(val))
                     else:
                         txt+="%s%sNone"%(fillchr,v)
+                for v in valslist:
+                    try:
+                        indx=line.index(v)+len(v)
+                    except:
+                        indx=None
+                    if not printval:
+                        v=""
+                    if indx!=None:
+                        try:
+                            indx2=line[indx:].index(";")+indx
+                        except:
+                            indx2=len(line)
+                        txt+="%s%s%s"%(fillchr,v,line[indx:indx2])
+                    else:
+                        txt+="%s%sNone"%(fillchr,v)
                 for n,v in valcharlist:
                     try:
                         indx=line.index(v)+len(v)
@@ -260,6 +278,6 @@ def grep(glist,flist,ilist,printid=0,printdict=0,printall=0,printfile=0,printind
 
 
 if __name__=="__main__":
-    glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist,before,after=getArgs(sys.argv[1:])
-    txt=grep(glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist,before,after)
+    glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist,valslist,before,after=getArgs(sys.argv[1:])
+    txt=grep(glist,flist,ilist,printid,printdict,printall,printfile,printindex,space,precision,exclude,vallist,printval,valcharlist,valslist,before,after)
     print txt

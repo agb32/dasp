@@ -108,7 +108,7 @@ class centcmod:
           if corrimg.dtype.char!="f" or corrimg.shape!=corrPattern.shape:
             raise Exception("corrimg wrong shape or type")
 
-    print "centcmod: cmod.cent.initialise"
+    #print "centcmod: cmod.cent.initialise"
     #print self.nthreads,self.nsubaps,self.ncen,self.fftsize,self.clipsize,self.nimg,self.phasesize,self.readnoise,self.readbg,self.addPoisson,self.noiseFloor,self.sig,self.skybrightness,self.calsource,self.pxlPower,self.nintegrations,self.nlatency,self.seed,self.cents,self.fracSubArea,self.opticalBinning,self.centWeight,correlationCentroiding,corrThresh,threshType,imageOnly,useBrightest,preBinningFactor
     #Problem? self.seed has been a list sometimes?
     try:

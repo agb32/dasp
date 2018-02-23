@@ -1206,9 +1206,6 @@ class iatmos:
         for key in self.sortedLayerList:#for each atmosphere layer... (increasing in height)
             posDict=self.positionDict[key]
             if len(posDict)>0:#this layer is used (ie below star height)
-                
-
-
                 #print "atmos time2 %g"%(time.time()-t1)
                 x=posDict[0]
                 y=posDict[1]
