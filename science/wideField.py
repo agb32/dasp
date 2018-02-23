@@ -358,7 +358,6 @@ class WideField(base.aobase.aobase):
             key=self.dmKeys[n]
             wavelengthAdjustor=dm.reconLam/float(sourceLam)
             dmpup=dm.calcdmpup(self.atmosGeom)
-            print "Input to LOS shape for dm %d, wfs %s is %s"%(n,self.idstr,str(self.dmParentDict[key].outputData.shape))
             for i in range(self.nFieldY):
                 for j in range(self.nFieldX):
                     ydiff=-this.atmosObj.fov+pitchY/2.+i*pitchY/2.
