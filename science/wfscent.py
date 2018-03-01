@@ -710,6 +710,15 @@ class wfscent(base.aobase.aobase):
                             wfs.outputData[:,:,0]-=wfs.outputData[:,:,0].sum()/N
                             # subtract average y centroid:
                             wfs.outputData[:,:,1]-=wfs.outputData[:,:,1].sum()/N
+                        if self.control["calcCovariance"]:
+                            if wfs.outSquare is None:
+                                wfs.outSquare=wfs.outputData**2
+                                wfs.outSum=wfs.outputData.copy()
+                                wfs.outN=1
+                            else:
+                                wfs.outSquare+=wfs.outputData**2
+                                wfs.outSum+=wfs.outputData
+                                wfs.outN+=1
                         
                 if self.timing:
                     print("INFORMATION:wfscent: time:{0:s}".format( str(time.time()-t1) ))
