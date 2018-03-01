@@ -100,6 +100,10 @@ class source(object):
         scale=util.calcPxlScale.pxlScale(self.sourcelam,d,self.phasesize,self.nfft,self.clipsize/self.nimg)
         if hasattr(self,"preBinningFactor"):
             scale*=self.preBinningFactor
+        if self.clipsize%self.nimg!=0:
+            print("WARNING: Calc of pixel scale where clipsize%nimg != 0")
+        if scale==0:
+            print("WARNING: Pixel scale computed to be 0")
         return scale
         
 class geom:
