@@ -1552,7 +1552,8 @@ class centroid:
             self.runSlopeCalc(control)
         else:
             #self.reorderedPhs[:]=0
-            self.phase[:]=0
+            if self.phase is not None:
+                self.phase[:]=0
             self.runCalc(control)
         control["cal_source"]=c
         #self.linearSteps=steps

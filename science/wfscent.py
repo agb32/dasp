@@ -496,7 +496,7 @@ class wfscent(base.aobase.aobase):
         """
         #first find the maximum sizes for the arrays, and whether any objects
         #can use the FPGAs.
-        #print "wfscent finalInitialisation"
+        #print "wfscent finalInitialisation %s"%str(self.idstr)
         if self.doneFinalInit:
             return
         self.doneFinalInit=1

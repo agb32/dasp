@@ -138,20 +138,6 @@ class simsetup:
 
         #Object preferences
         self.vLeft.pack_start(gtk.Label("Object preferences"),False)
-        h=gtk.HBox()
-        self.hboxName=h
-        self.vLeft.pack_start(h,False)
-        h.pack_start(gtk.Label("Name:"),False)
-        self.entryName=gtk.Entry()
-        self.entryName.set_width_chars(5)
-        self.entryName.set_tooltip_text("Optional - select a name for the python object")
-        self.entryName.connect("changed",self.nameChanged)
-        h.pack_start(self.entryName,True)
-
-        self.checkButtonGroupShare=gtk.CheckButton("Share")
-        self.checkButtonGroupShare.set_tooltip_text("Does the object in the group implement resource sharing?")
-        self.vLeft.pack_start(self.checkButtonGroupShare,False)
-        self.checkButtonGroupShare.connect("toggled",self.groupShareToggled)
         
         h=gtk.HBox()
         self.vLeft.pack_start(h,False)
@@ -161,6 +147,22 @@ class simsetup:
         self.entryIdstr.set_tooltip_text("Select an idstr (identification string) for the python object.  This will be used to match to entries within the parameter file")
         self.entryIdstr.connect("changed",self.idstrChanged)
         h.pack_start(self.entryIdstr,True)
+
+        h=gtk.HBox()
+        self.hboxName=h
+        self.vLeft.pack_start(h,False)
+        h.pack_start(gtk.Label("Name:"),False)
+        self.entryName=gtk.Entry()
+        self.entryName.set_width_chars(5)
+        self.entryName.set_tooltip_text("Optional - select a name for the python object - the python object will then be assigned to this name, rather than to a generic list.")
+        self.entryName.connect("changed",self.nameChanged)
+        h.pack_start(self.entryName,True)
+
+        self.checkButtonGroupShare=gtk.CheckButton("Share")
+        self.checkButtonGroupShare.set_tooltip_text("Does the object in the group implement resource sharing?")
+        self.vLeft.pack_start(self.checkButtonGroupShare,False)
+        self.checkButtonGroupShare.connect("toggled",self.groupShareToggled)
+
         
         h=gtk.HBox()
         self.vLeft.pack_start(h,False)
