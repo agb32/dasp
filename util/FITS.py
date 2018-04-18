@@ -21,6 +21,7 @@ import numpy
 import os.path,os
 import fcntl
 import traceback
+import distutils.version
 error = 'FITS error'
 #
 # Read a FITS image file
@@ -235,8 +236,10 @@ def Write(data, filename, extraHeader = None,writeMode='w',doByteSwap=1,preserve
     file.write(header)
     if numpy.little_endian and doByteSwap:
         data.byteswap(True)
-    #data.tofile(file)
-    file.write(data.tobytes())
+    if distutils.version.LooseVersion(numpy.version.version) < distutils.version.LooseVersion('1.9.0'):
+        data.tofile(file)
+    else:
+        file.write(data.tobytes()) 
     numBlock = (data.itemsize*data.size + 2880 - 1) // 2880
     padding = ' ' * (numBlock*2880 - data.itemsize*data.size)
     file.write(padding)
