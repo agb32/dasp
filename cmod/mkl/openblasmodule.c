@@ -95,9 +95,9 @@ static PyObject* ludecomp(PyObject *self,PyObject *args){
   info=0;
   Py_BEGIN_ALLOW_THREADS;
   if(Aarray->descr->type_num==NPY_FLOAT){
-    LAPACKE_sgetrf(CblasRowMajor,m,n,(float*)Aarray->data,m,(ATLAS_INT*)ipiv->data);//,&info);
+    info=LAPACKE_sgetrf(CblasRowMajor,m,n,(float*)Aarray->data,m,(ATLAS_INT*)ipiv->data);//,&info);
   }else{
-    LAPACKE_dgetrf(CblasRowMajor,m,n,(double*)Aarray->data,m,(ATLAS_INT*)ipiv->data);//,&info);
+    info=LAPACKE_dgetrf(CblasRowMajor,m,n,(double*)Aarray->data,m,(ATLAS_INT*)ipiv->data);//,&info);
   }
   Py_END_ALLOW_THREADS;
   if(info!=0){
@@ -175,9 +175,9 @@ static PyObject *luinv(PyObject *self,PyObject *args){
   info=0;
   Py_BEGIN_ALLOW_THREADS;
   if(Aarray->descr->type_num==NPY_FLOAT){
-    LAPACKE_sgetri(CblasRowMajor,n,(float*)Aarray->data,n,(ATLAS_INT*)ipiv->data);//,&info);
+    info=LAPACKE_sgetri(CblasRowMajor,n,(float*)Aarray->data,n,(ATLAS_INT*)ipiv->data);//,&info);
   }else{
-    LAPACKE_dgetri(CblasRowMajor,n,(double*)Aarray->data,n,(ATLAS_INT*)ipiv->data);//,&info);
+    info=LAPACKE_dgetri(CblasRowMajor,n,(double*)Aarray->data,n,(ATLAS_INT*)ipiv->data);//,&info);
 
   }
   Py_END_ALLOW_THREADS;
@@ -200,6 +200,240 @@ static PyObject *luinv(PyObject *self,PyObject *args){
 
 
 }
+
+
+static PyObject* choleskydecomp(PyObject *self,PyObject *args){
+  PyArrayObject *Aarray;//,*ipiv;
+  //ATLAS_INT info=0;
+  ATLAS_INT n,m;
+  lapack_int ret=0;
+  char *uplo;
+  lapack_int lda;
+  if(!PyArg_ParseTuple(args,"O!s",&PyArray_Type,&Aarray,&uplo)){
+    printf("Usage: A, 'U' or 'L'.\n");
+    return NULL;
+  }
+  printf("uplo: %c\n",uplo[0]);
+  if(Aarray->nd!=2){
+    printf("A must be 2D\n");
+    return NULL;
+  }
+  n=Aarray->dimensions[0];
+  m=Aarray->dimensions[1];
+  printf("%d %d\n",(int)Aarray->strides[0],(int)Aarray->strides[1]);
+  if(!(Aarray->descr->type_num==NPY_FLOAT || Aarray->descr->type_num==NPY_DOUBLE)){
+    printf("A must be float or double\n");
+    return NULL;
+  }
+  if(Aarray->descr->type_num==NPY_FLOAT){
+    lda=Aarray->strides[0]/sizeof(float);
+    if(Aarray->strides[1]!=sizeof(float)){
+      //if(!PyArray_ISCONTIGUOUS(Aarray)){
+      printf("A must be contiguous in x\n");
+      return NULL;
+    }
+  }else{
+    lda=Aarray->strides[0]/sizeof(double);
+    if(Aarray->strides[1]!=sizeof(double)){
+      printf("A must be contiguous in x\n");
+      return NULL;
+    }
+  }
+  Py_BEGIN_ALLOW_THREADS;
+  if(Aarray->descr->type_num==NPY_FLOAT){
+    ret=LAPACKE_spotrf(CblasRowMajor,uplo[0],n,(float*)Aarray->data,lda);//,&info); int matrix_layout, char uplo, lapack_int n, float* a,lapack_int lda );
+  }else{
+    ret=LAPACKE_dpotrf(CblasRowMajor,uplo[0],n,(double*)Aarray->data,lda);//,&info);
+  }
+  Py_END_ALLOW_THREADS;
+  if(ret!=0){
+    printf("Error in trf: info=%ld\n",(long int)ret);
+    return NULL;
+  }
+  return Py_BuildValue("l",(long)ret);
+}
+
+static PyObject *choleskyinv(PyObject *self,PyObject *args){
+  PyArrayObject *Aarray;
+  lapack_int ret,lda;
+  char *uplo;
+  //ATLAS_INT info=0;
+  ATLAS_INT n,m;//,lwork;
+  //int checkWorkSize=0;
+  //char *workarr=NULL;
+  if(!PyArg_ParseTuple(args,"O!s",&PyArray_Type,&Aarray,&uplo)){
+    printf("Usage: A containing results from choleskydecomp\n");
+    return NULL;
+  }
+  if(Aarray->nd!=2){
+    printf("A must be 2D\n");
+    return NULL;
+  }
+  n=Aarray->dimensions[0];
+  m=Aarray->dimensions[1];
+  if(m!=n){
+    printf("A must be square\n");
+    return NULL;
+  }
+  if(!(Aarray->descr->type_num==NPY_FLOAT || Aarray->descr->type_num==NPY_DOUBLE)){
+    printf("A must be float or double\n");
+    return NULL;
+  }
+  if(Aarray->descr->type_num==NPY_FLOAT){
+    lda=Aarray->strides[0]/sizeof(float);
+    if(Aarray->strides[1]!=sizeof(float)){
+      //if(!PyArray_ISCONTIGUOUS(Aarray)){
+      printf("A must be contiguous in x\n");
+      return NULL;
+    }
+  }else{
+    lda=Aarray->strides[0]/sizeof(double);
+    if(Aarray->strides[1]!=sizeof(double)){
+      printf("A must be contiguous in x\n");
+      return NULL;
+    }
+  }
+
+
+  Py_BEGIN_ALLOW_THREADS;
+  if(Aarray->descr->type_num==NPY_FLOAT){
+    ret=LAPACKE_spotri(CblasRowMajor,uplo[0],n,(float*)Aarray->data,lda);//,&info);int matrix_layout, char uplo, lapack_int n, float* a,lapack_int lda );
+  }else{
+    ret=LAPACKE_dpotri(CblasRowMajor,uplo[0],n,(double*)Aarray->data,lda);//,&info);
+
+  }
+  Py_END_ALLOW_THREADS;
+
+  if(ret!=0){
+    printf("Error in choleskyinv: info=%ld\n",(long int)ret);
+    return NULL;
+  }
+  return Py_BuildValue("l",(long)ret);
+
+
+}
+
+
+static PyObject* symludecomp(PyObject *self,PyObject *args){
+  PyArrayObject *Aarray,*ipiv;
+  //ATLAS_INT info=0;
+  ATLAS_INT n,m;
+  lapack_int ret=0;
+  char *uplo;
+  if(!PyArg_ParseTuple(args,"O!sO!",&PyArray_Type,&Aarray,&uplo,&PyArray_Type,&ipiv)){
+    printf("Usage: A, 'U' or 'L'.\n");
+    return NULL;
+  }
+  printf("uplo: %c\n",uplo[0]);
+  if(Aarray->nd!=2){
+    printf("A must be 2D\n");
+    return NULL;
+  }
+  n=Aarray->dimensions[0];
+  m=Aarray->dimensions[1];
+  if(n!=m){
+    printf("Must be square for symludecomp\n");
+  return NULL;
+  }
+  if(ipiv->nd!=1 || ipiv->dimensions[0]<(m<n?m:n)){
+    printf("ipiv should be 1D with dimensions equal to min of dimension of A\n");
+    return NULL;
+  }
+
+  if(!(Aarray->descr->type_num==NPY_FLOAT || Aarray->descr->type_num==NPY_DOUBLE)){
+    printf("A must be float or double\n");
+    return NULL;
+  }
+  if(sizeof(ATLAS_INT)!=ipiv->descr->elsize || ipiv->descr->kind!='i'){
+    printf("ipiv should be integer type size %ld (has size %d, kind %c\n",sizeof(ATLAS_INT),ipiv->descr->elsize,ipiv->descr->kind);
+    return NULL;
+  }
+  if(!PyArray_ISCONTIGUOUS(Aarray)){
+    printf("A must be contiguous\n");
+    return NULL;
+  }
+  if(!PyArray_ISCONTIGUOUS(ipiv)){
+    printf("ipiv must be contiguous\n");
+    return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS;
+  if(Aarray->descr->type_num==NPY_FLOAT){
+    ret=LAPACKE_ssytrf(CblasRowMajor,uplo[0],n,(float*)Aarray->data,m,(lapack_int*)ipiv->data);
+  }else{
+    ret=LAPACKE_dsytrf(CblasRowMajor,uplo[0],n,(double*)Aarray->data,m,(lapack_int*)ipiv->data);
+  }
+  Py_END_ALLOW_THREADS;
+  if(ret!=0){
+    printf("Error in trf: info=%ld\n",(long int)ret);
+    return NULL;
+  }
+  return Py_BuildValue("l",(long)ret);
+}
+
+
+static PyObject *symluinv(PyObject *self,PyObject *args){
+  PyArrayObject *Aarray,*ipiv;
+  lapack_int ret;
+  char *uplo;
+  //ATLAS_INT info=0;
+  ATLAS_INT n,m;//,lwork;
+  //int checkWorkSize=0;
+  //char *workarr=NULL;
+  if(!PyArg_ParseTuple(args,"O!sO!",&PyArray_Type,&Aarray,&uplo,&PyArray_Type,&ipiv)){
+    printf("Usage: A containing results from symludecomp\n");
+    return NULL;
+  }
+  if(Aarray->nd!=2){
+    printf("A must be 2D\n");
+    return NULL;
+  }
+  n=Aarray->dimensions[0];
+  m=Aarray->dimensions[1];
+  if(m!=n){
+    printf("A must be square\n");
+    return NULL;
+  }
+  if(ipiv->nd!=1 || ipiv->dimensions[0]<(m<n?m:n)){
+    printf("ipiv should be 1D with dimensions equal to min of dimension of A\n");
+    return NULL;
+  }
+  if(!(Aarray->descr->type_num==NPY_FLOAT || Aarray->descr->type_num==NPY_DOUBLE)){
+    printf("A must be float or double\n");
+    return NULL;
+  }
+  if(sizeof(ATLAS_INT)!=ipiv->descr->elsize || ipiv->descr->kind!='i'){
+    printf("ipiv should be integer type size %ld\n",sizeof(ATLAS_INT));
+    return NULL;
+  }
+  if(!PyArray_ISCONTIGUOUS(Aarray)){
+    printf("A must be contiguous\n");
+    return NULL;
+  }
+  if(!PyArray_ISCONTIGUOUS(ipiv)){
+    printf("ipiv must be contiguous\n");
+    return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS;
+  if(Aarray->descr->type_num==NPY_FLOAT){
+    ret=LAPACKE_ssytri(CblasRowMajor,uplo[0],n,(float*)Aarray->data,n,(lapack_int*)ipiv->data);//,&info);int matrix_layout, char uplo, lapack_int n, float* a,lapack_int lda );
+  }else{
+    ret=LAPACKE_dsytri(CblasRowMajor,uplo[0],n,(double*)Aarray->data,n,(lapack_int*)ipiv->data);//,&info);
+
+  }
+  Py_END_ALLOW_THREADS;
+
+  if(ret!=0){
+    printf("Error in choleskyinv: info=%ld\n",(long int)ret);
+    return NULL;
+  }
+  return Py_BuildValue("l",(long)ret);
+
+
+}
+
+
 
 /*
 static PyObject* svd(PyObject *self,PyObject *args){
@@ -549,8 +783,12 @@ res-numpy.dot(a[:5],a[:,:8])
 static PyMethodDef openblasMethods[] = {
   //  {"svd",svd, METH_VARARGS,"Do SVD of a square array."},
   {"gemm",gemm, METH_VARARGS,"Do matrix-matrix multiply."},
-  {"ludecomp",ludecomp,METH_VARARGS,"Do LU decomposition (destroys input)"},
+   {"ludecomp",ludecomp,METH_VARARGS,"Do LU decomposition (destroys input)"},
   {"luinv",luinv,METH_VARARGS,"Use results from ludecomp to do inversion"},
+   {"choleskydecomp",choleskydecomp,METH_VARARGS,"Do Cholesky decomposition (destroys input)"},
+  {"choleskyinv",choleskyinv,METH_VARARGS,"Use results from choleskydecomp to do inversion"},
+   {"symludecomp",symludecomp,METH_VARARGS,"Do symmetric LU decomposition (destroys input)"},
+  {"symluinv",symluinv,METH_VARARGS,"Use results from symludecomp to do inversion"},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 //PyMODINIT_FUNC 

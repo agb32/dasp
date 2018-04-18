@@ -143,9 +143,12 @@ class dm(base.aobase.aobase):
                 #util.FITS.Write(self.zern,'zernike_dump.fits')#agb: bother doing this?
             else:#use the faster method.
                 self.zern=util.zernikeMod.Zernike(self.dmpupil,self.nmodes,computeInv=0).zern
-                if self.orthonormalZernike:#DON'T SET THIS FOR MAP
+                if self.orthonormalZernike==1:#DON'T SET THIS FOR MAP
                     print "Scaling zernikes (don't do this for MAP)"
                     util.zernikeMod.normalise(self.zern)#normalise to orthonormal (ie numpy.sum(zern[i]*zern[i])==1).
+                elif self.orthonormalZernike==2:#scale for NOLL:
+                    print "Scaling zernikes for NOLL"
+                    util.zernikeMod.normalise(self.zern,scaleto=self.zern[0].sum()**2)
             self.control={"dm_update":1,"phaseCovariance":0}
             self.lastPhaseCovariance=0
 

@@ -2037,7 +2037,9 @@ class DMLineOfSight:
 
         #print self.yoff,self.yoffend,self.xoff,self.xoffend,self.dmphs.shape
         self.selectedDmPhs=self.dmphs[self.yoff:self.yoffend,self.xoff:self.xoffend]
-
+        #if self.selectedDmPhs.shape[0]!=self.selectedDmPhs.shape[1]:
+        #    print "WARNING: selectedDMPhs is not square.  %s %d->%d, %d->%d"%(str(self.dmphs.shape),self.yoff,self.yoffend,self.xoff,self.xoffend)
+            
 
 
     def selectSubPupil(self,outputData,addToOutput=0,removePiston=1):
@@ -2086,11 +2088,11 @@ class DMLineOfSight:
                     phs=self.selectedDmPhs
                 if self.conjHeight<0:
                     phs=-phs
-                if phs.shape[0]!=phs.shape[1]:
-                    print "dm.selectSubPupil:"
-                    print "%s %s %s %s %s %s %s %s"%(phs.shape,self.dmyaxisInterp.shape,self.dmxaxisInterp.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,outputData.shape,addToOutput,self.nthreads)
-                    print "%s %s %s %s %s %s"%(phs.dtype.char,self.dmyaxisInterp.dtype.char,self.dmxaxisInterp.dtype.char,self.yaxisInterp.dtype.char,self.xaxisInterp.dtype.char,outputData.dtype.char)
-                    print "%d %d %d %d %d %s"%(self.xoff,self.xoffend,self.yoff,self.yoffend,self.dmpup,self.dmphs.shape)
+                #if phs.shape[0]!=phs.shape[1]:
+                #    print "dm.selectSubPupil:"
+                #    print "%s %s %s %s %s %s %s %s"%(phs.shape,self.dmyaxisInterp.shape,self.dmxaxisInterp.shape,self.yaxisInterp.shape,self.xaxisInterp.shape,outputData.shape,addToOutput,self.nthreads)
+                #    print "%s %s %s %s %s %s"%(phs.dtype.char,self.dmyaxisInterp.dtype.char,self.dmxaxisInterp.dtype.char,self.yaxisInterp.dtype.char,self.xaxisInterp.dtype.char,outputData.dtype.char)
+                #    print "%d %d %d %d %d %s"%(self.xoff,self.xoffend,self.yoff,self.yoffend,self.dmpup,self.dmphs.shape)
                 gslCubSplineInterp(phs,self.dmyaxisInterp,self.dmxaxisInterp,self.yaxisInterp,self.xaxisInterp,outputData,addToOutput,self.nthreads)
                 #out=self.interpolated
         elif self.alignmentOffset[0]!=0 or self.alignmentOffset[1]!=0:
