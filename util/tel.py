@@ -307,7 +307,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
         #self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
         #self.puptmp+=pup
-        return pup
+        return pup.copy()#to make it contiguous.
 
 
     def writeZemaxPupil(self,telDiam,fout=None,fullSpider=0):
