@@ -50,7 +50,7 @@ wfsOverview=util.guideStar.wfsOverview(wfsDict)
 #Create a Science overview.
 import util.sci
 sciDict={}
-nsci=this.getVal("nsci",)1
+nsci=this.getVal("nsci",1)
 if nsci==1:
  phslam=ngsLam
 else:

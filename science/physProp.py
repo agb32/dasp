@@ -334,8 +334,8 @@ class PhysProp(base.aobase.aobase):
                 #use the exact same copy from the infScrn object.
                 #Note, this only works if it is in the same python process.
                 self.phaseScreens[key]=self.parent[key].screen
-                nremCol,naddCol,self.interpPosCol[key]=self.newCols[key].next()
-                nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].next()
+                nremCol,naddCol,self.interpPosCol[key]=self.newCols[key].nextOld()
+                nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].nextOld()
             else:#construct the layer.
                 self.makeLayer(key)
     
@@ -373,8 +373,8 @@ class PhysProp(base.aobase.aobase):
     def makeLayer(self,key):
         """make the phasescreen from the newly added cols/rows passed from infScrn object"""
         #first, add the new phase values into the phase array.
-        nremCol,naddCol,self.interpPosCol[key]=self.newCols[key].next()
-        nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].next()
+        nremCol,naddCol,self.interpPosCol[key]=self.newCols[key].nextOld()
+        nremRow,naddRow,self.interpPosRow[key]=self.newRows[key].nextOld()
         self.nremCol[key]=nremCol
         self.naddCol[key]=naddCol
         self.nremRow[key]=nremRow
