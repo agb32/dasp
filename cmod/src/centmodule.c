@@ -1690,8 +1690,8 @@ void interpolatePhase(int sub,float *phs,float *inputPhs,centstruct *c){
 	      f[3]=inputPhs[totInputSize*3-1];
 	    }else{
 	      f[1]=inputPhs[inx+i];
-	      f[1]=inputPhs[totInputSize+inx+i];
-	      f[1]=inputPhs[totInputSize*2+inx+i];
+	      f[2]=inputPhs[totInputSize+inx+i];
+	      f[3]=inputPhs[totInputSize*2+inx+i];
 	    }
 	    f[0]=f[1];//reuse first row
 	  }else if(iny+4>totInputSize){
@@ -1726,12 +1726,12 @@ void interpolatePhase(int sub,float *phs,float *inputPhs,centstruct *c){
 	      f[2]=inputPhs[(iny+2)*totInputSize+inx+i];
 	      f[3]=inputPhs[(iny+3)*totInputSize+inx+i];
 	    }
-	    //do the dot product
-	    tmp[i*4]=mx[0]*f[0]+mx[1]*f[1]+mx[2]*f[2]+mx[3]*f[3];
-	    tmp[i*4+1]=mx[4]*f[0]+mx[5]*f[1]+mx[6]*f[2]+mx[7]*f[3];
-	    tmp[i*4+2]=mx[8]*f[0]+mx[9]*f[1]+mx[10]*f[2]+mx[11]*f[3];
-	    tmp[i*4+3]=mx[12]*f[0]+mx[13]*f[1]+mx[14]*f[2]+mx[15]*f[3];
 	  }
+	  //do the dot product
+	  tmp[i*4]=mx[0]*f[0]+mx[1]*f[1]+mx[2]*f[2]+mx[3]*f[3];
+	  tmp[i*4+1]=mx[4]*f[0]+mx[5]*f[1]+mx[6]*f[2]+mx[7]*f[3];
+	  tmp[i*4+2]=mx[8]*f[0]+mx[9]*f[1]+mx[10]*f[2]+mx[11]*f[3];
+	  tmp[i*4+3]=mx[12]*f[0]+mx[13]*f[1]+mx[14]*f[2]+mx[15]*f[3];
 	}
       }
       inxlast=inx;
