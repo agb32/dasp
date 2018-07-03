@@ -334,6 +334,8 @@ class dm(base.aobase.aobase):
                     if self.actStart==None:
                         self.getActuatorOffsets(this.parent["recon"].outputData)
                     self.reconData=this.parent["recon"].outputData[self.actStart:self.actEnd]
+                    if self.dmInfo.iirCoeffs is not None:
+                        self.applyIIR(self.reconData)
                     self.update()
                     self.dataValid=1#update the output.
             if self.dataValid:
@@ -380,6 +382,12 @@ class dm(base.aobase.aobase):
         else:
             self.dataValid=0
 
+    def applyIIR(self,reconData):
+        """Applies an IIR filter to the reconstructor data"""
+        a=self.dmInfo.iirCoeffs[0]
+        b=self.dmInfo.iirCoeffs[1]
+        reconDat[:]=scipy.signal.filter(a,b,reconData)
+        
     def getActuatorOffsets(self,reconOutput):
         if self.nmodes==reconOutput.size:
             self.actStart=0

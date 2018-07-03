@@ -61,7 +61,7 @@ class dmInfo:
                  alignmentOffset=(0,0),infFunc=None,tiltAngle=0.,tiltTheta=0.,
                  rotation=None,decayFactor=None,maxStroke=0,stuckActs=None,
                  fixToGradientOperator=0,cn2=None,dmflag=None,dmDynamics=None,
-                 polcMatrix=None,sendFullDM=0):
+                 polcMatrix=None,sendFullDM=0,iirCoeffs=None):
         """idlist is a list of (dm ID,source ID) or just a list of source ID, where dm ID is the idstr for a 
         particular DM object (ie at this height, for a particular direction), and source ID is the idstr for 
         a given source direction.  If this list is just a list of source ID, the dm ID is made by 
@@ -103,6 +103,7 @@ class dmInfo:
         dmDynamics - an array of the fraction of shift to new position that occur each timestep, e.g. for a simulation with the WFS updating every 4 frames, this could be  [0.5,0.5,0.5,1.] would move 50% after 1 step, 75% after 2 steps, 87.5% after 3 steps, and arrive after 4 steps.
         polcMatrix - if using polc, should be equal to dI + gMP where d is decay factor (typically 1-g or just less), g is gain, M is control matrix, and P is poke matrix (for this DM).
         sendFullDM - whether to send the full DM surface...
+        iirCoeffs - None, or coefficients for temporal shaping of the DM - see e.g. science/zdm.py for how these are used.
         """
         self.label=label#the label for this DM.  This can be used as the same as vdmUser object idstr.
         self.height=height#dm conjugate height.  Zenith is calculated automatically.
@@ -144,6 +145,7 @@ class dmInfo:
         self.dmDynamics=dmDynamics
         self.polcMatrix=polcMatrix
         self.sendFullDM=sendFullDM
+        self.iirCoeffs=iirCoeffs
         self.reconstructList=reconstructList#list of source directions to be reconstructed
         if self.zonalDM==1:# and pokeSpacing!=None and pokeSpacing>0 and pokeSpacing<self.nact:
             self.pokeSpacing=pokeSpacing

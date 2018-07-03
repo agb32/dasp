@@ -8,7 +8,7 @@ class Vibration:
         npup - in pixels
         tstep - in seconds
         freqList - in Hz
-        angleList - in arcsec
+        angleList - in arcsec - this is the amplitude of the vibration
         phaseList - in radians
         dirnList - in degrees.
         """
