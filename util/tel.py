@@ -138,7 +138,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         self.hexEllipseFact=hexEllipseFact
         self.symmetricHex=symmetricHex
         self.apoFunc=apoFunc
-        self.rotation=rotation
+        self.rotation=float(rotation)
         if dmminarea==None:
             self.dmminarea=minarea
         else:

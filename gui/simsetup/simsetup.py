@@ -720,7 +720,7 @@ class simsetup:
             if self.doing=="object":
                 self.newObj=self.createNewSimObj()
         except:
-            pass
+            traceback.print_exc()
             
         
     def selectProc(self,w,a=None):
@@ -732,7 +732,8 @@ class simsetup:
             if self.doing=="object":
                 self.newObj=self.createNewSimObj()
         except:
-            pass
+            traceback.print_exc()
+
 
     def nameChanged(self,w,data=None):
         if self.selobj!=None and self.selobj.has_key("obj"):
