@@ -74,7 +74,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
     
     """
 
-    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0,pupilMap=None,height=0.,fov=0.,outside=0.):
+    def __init__(self,npup,r1=None,r2=0,nsubx=None,minarea=0.5,apoFunc=None,nAct=None,dmminarea=None,spider=None,hexDiam=0,hexAreaInner=0.,hexAreaOuter=0.,hexEllipseFact=1.,symmetricHex=0,pupilMap=None,height=0.,fov=0.,outside=0.,rotation=0.):
         """ Constructor for the Pupil class
 
         Parameters: 
@@ -107,6 +107,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
           height: The height of this pupil in m.
           fov: fov of this pupil (radius, not diam), in arcsec
           outside: value of pupil outside the fov.
+        @type rotation: float, the angle to rotate the pupil.  Only useful for hexagonal pupils obviously, since rotation of a circle is a null operation!
         """
 ##         print "creating"
 ##         inarr=None
@@ -137,6 +138,7 @@ class Pupil(user_array.container):#UserArray.UserArray):
         self.hexEllipseFact=hexEllipseFact
         self.symmetricHex=symmetricHex
         self.apoFunc=apoFunc
+        self.rotation=rotation
         if dmminarea==None:
             self.dmminarea=minarea
         else:
@@ -303,6 +305,11 @@ class Pupil(user_array.container):#UserArray.UserArray):
         if self.symmetricHex:
             pup+=pup[::-1]+pup[:,::-1]+pup[::-1,::-1]
         pup=(pup>0)
+        if self.rotation!=0:
+            pup=pup.astype("f")
+            import cmod.utils
+            cmod.utils.rotateArray(pup,self.rotation)
+            pup=(pup>=0.3).astype(numpy.uint8)
         #print nhexy,nhexx
         pup=pup[int(d)/2:-int(d)/2,int(d)/2:-int(d)/2]
         #self.puptmp=Pupil(self.npup,self.r1,self.r2).fn.astype("i")
