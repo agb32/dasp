@@ -145,7 +145,17 @@ class dmInfo:
         self.dmDynamics=dmDynamics
         self.polcMatrix=polcMatrix
         self.sendFullDM=sendFullDM
-        self.iirCoeffs=iirCoeffs
+        self.iirCoeffs = iifCoeffs
+        # Allocate for the state of the filter if it is set
+        # You need 1 state for each actuator
+        if iirCoeffs is not None:
+            self.iirCoeffs = [numpy.array(cofs, 'd') for cofs in iirCoeffs]
+            if len(iirCoeffs[0]) != len(iirCoeffs[1]):
+                print 'IIR coefficients for dm are set but number os coefs a and b do not match!'
+                raise Exception( 'IIR Coefs for dm do not match' )
+            self.iirZi = []
+            for i in range(self.nact):
+                self.iirZi.append( numpy.zeros(len(iirCoeffs[0])-1,'d') )
         self.reconstructList=reconstructList#list of source directions to be reconstructed
         if self.zonalDM==1:# and pokeSpacing!=None and pokeSpacing>0 and pokeSpacing<self.nact:
             self.pokeSpacing=pokeSpacing

@@ -19,6 +19,8 @@ import util.zernikeMod
 import util.FITS
 #from cmod.interp import gslCubSplineInterp
 import base.aobase
+from scipy.signal import lfilter
+
 class dm(base.aobase.aobase):
     """
     Zernike DM simulation object:
@@ -386,7 +388,11 @@ class dm(base.aobase.aobase):
         """Applies an IIR filter to the reconstructor data"""
         a=self.dmInfo.iirCoeffs[0]
         b=self.dmInfo.iirCoeffs[1]
-        reconDat[:]=scipy.signal.filter(a,b,reconData)
+        for i in range(len(reconData)):
+            new_mode_val, self.dmInfo.iirZi[i] = lfilter(b, a, [reconData[i]], zi=self.dmInfo.iirZi[i])
+            self.reconData[i] = new_mode_val[0]
+        #
+        # print self.reconData
         
     def getActuatorOffsets(self,reconOutput):
         if self.nmodes==reconOutput.size:
@@ -478,6 +484,8 @@ class dm(base.aobase.aobase):
         if self.sentPlotsCnt==0:
             txt+="""<plot title="zdm output%s" cmd="data=%s.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
             txt+="""<plot title="zdm mirror%s" cmd="data=-%s.dmphs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
+            txt += """<plot title="zdm modes%s" cmd="data=%s.reconData" ret="data" type="pylab" when="rpt"/>\n""" % (
+            id, objname)
         txt+="""<plot title="zdm selected mirror%s" cmd="data=-%s.thisObjList[%d].lineOfSight.selectedDmPhs" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname,self.sentPlotsCnt)
         self.sentPlotsCnt=(self.sentPlotsCnt+1)%len(self.thisObjList)
         return txt
