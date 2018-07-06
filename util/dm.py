@@ -145,7 +145,7 @@ class dmInfo:
         self.dmDynamics=dmDynamics
         self.polcMatrix=polcMatrix
         self.sendFullDM=sendFullDM
-        self.iirCoeffs = iifCoeffs
+        self.iirCoeffs = Nonex
         # Allocate for the state of the filter if it is set
         # You need 1 state for each actuator
         if iirCoeffs is not None:
