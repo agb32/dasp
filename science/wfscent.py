@@ -104,8 +104,11 @@ class wfscent(base.aobase.aobase):
         """
         if parent is None:
             obj=config.getVal("wfsOverview",raiseerror=0)
-            wfsobj=obj.getWfsByID(idstr)
-            npup=wfsobj.nsubx*wfsobj.phasesize
+            if obj is not None:
+                wfsobj=obj.getWfsByID(idstr)
+                npup=wfsobj.nsubx*wfsobj.phasesize
+            else:
+                npup=config.getVal("wfs_nsubx")*config.getVal("wfs_n")
             class Dummy:
                 dataValid=1
                 outputData=numpy.zeros((npup,npup),numpy.float32)
