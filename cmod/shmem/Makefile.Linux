@@ -14,7 +14,8 @@ HEADER_INC =
 # Don't change below here
 #
 PYTHON_BASE= $(shell ${PYTHON_EXEC} ../pypath.py base)
-PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version) -I${PYTHON_BASE}/lib/python$(shell ${PYTHON_EXEC} ../pypath.py version)/site-packages/numpy/core/include
+NUMPY_BASE= $(shell ${PYTHON_EXEC} ../pypath.py numpy)
+PYTHON_INC= -I${PYTHON_BASE}/include/python$(shell ${PYTHON_EXEC} ../pypath.py version) -I${PYTHON_BASE}/lib/python$(shell ${PYTHON_EXEC} ../pypath.py version)/site-packages/numpy/core/include -I${NUMPY_BASE}
 LDFLAGS = ${LDSHARED} ${LDDIRS}
 INC_DIRS = ${PYTHON_INC} ${HEADER_INC}
 CFLAGS  = ${COPTS} ${INC_DIRS}

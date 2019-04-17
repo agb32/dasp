@@ -32,6 +32,9 @@ if __name__=="__main__":
    elif term=="site-packages":
       from distutils.sysconfig import get_python_lib;
       op+=get_python_lib()
+   elif term=="numpy":
+      import numpy
+      op=numpy.get_include()
    else:
       print "Unknown option"
       sys.exit(1)

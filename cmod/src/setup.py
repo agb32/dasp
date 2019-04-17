@@ -16,7 +16,8 @@
 from distutils.core import setup, Extension
 from distutils.unixccompiler import UnixCCompiler
 import sys,os.path
-idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include']
+import numpy
+idnumpy=[sys.prefix+'/lib/python%d.%d/site-packages/numpy/core/include'%(sys.version_info[0],sys.version_info[1]),sys.prefix+'/include',numpy.get_include()]
 idgsl=['/opt/local/include'] # Added for different GSL locations, NAB 08/Apr/2013
 ld=os.environ.get("LD_LIBRARY_PATH","").split(":")+[sys.prefix+'/lib','/usr/lib','/usr/lib64','/usr/local/lib64','/usr/local/lib','/opt/local/lib','/opt/local/lib64']
 

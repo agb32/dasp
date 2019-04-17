@@ -407,7 +407,7 @@ class wfscent(base.aobase.aobase):
                 spotpsf=this.config.getVal("spotpsf",default=None,raiseerror=0)#a spot PSF, eg an airy disc (eg createAiryDisc(self.fftsize,self.fftsize/2,0.5,0.5)), or LGS elongated spots.
             else:
                 spotpsf=wfsobj.spotpsf
-        if wfsobj.cameraImage:
+        if wfsobj is not None and wfsobj.cameraImage:
             if parent.values()[0].outputData.dtype.char!="f" or parent.values()[0].outputData.flags.contiguous==False:
                 raise Exception("wfscent with cameraImage!=0 requires a float32 contiguous input from parent")
             inputImage=parent.values()[0].outputData
