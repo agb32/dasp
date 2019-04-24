@@ -291,7 +291,7 @@ class wfscent(base.aobase.aobase):
             preBinningFactor=this.config.getVal("preBinningFactor",default=1)
             parabolicFit=0#use wfsObj if you want these!
             gaussianFitVals=None
-            seed=this.config.getVal("wfs_seed",default=this.config.getVal("seed",default=0,raiseerror=0),raiseerror=0)
+            seed=int(this.config.getVal("wfs_seed",default=this.config.getVal("seed",default=0,raiseerror=0),raiseerror=0))
             subapLocation=None
             centroidPower=None
         else:

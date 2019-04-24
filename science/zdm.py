@@ -45,9 +45,9 @@ class dm(base.aobase.aobase):
             else:
                 npup=self.config.getVal("npup")
                 if self.atmosPhaseType=="phaseonly":
-                    self.outputData=[(npup,npup),numpy.float64]
+                    self.outputData=[(npup,npup),numpy.float32]
                 else:
-                    self.outputData=[(2,npup,npup),numpy.float64]
+                    self.outputData=[(2,npup,npup),numpy.float32]
         else: # set up for simulation.
             self.npup=self.config.getVal("npup")
             self.atmosGeom=self.config.getVal("atmosGeom",default=None,raiseerror=0)
@@ -104,9 +104,9 @@ class dm(base.aobase.aobase):
                     print "Warning - sendFullDM selected for phase type %s.  May not work..."%self.atmosPhaseType
             else:
                 if self.atmosPhaseType=="phaseonly":
-                    self.outputData=numpy.zeros((self.npup,self.npup),numpy.float64)
+                    self.outputData=numpy.zeros((self.npup,self.npup),numpy.float32)
                 else:
-                    self.outputData=numpy.zeros((2,self.npup,self.npup),numpy.float64)
+                    self.outputData=numpy.zeros((2,self.npup,self.npup),numpy.float32)
                     self.outputData[1]=1.#set to 1... in case its a poking simulation.
 
             # Make Zernike fns over DM, and

@@ -211,7 +211,10 @@ class centroid:
         if phase is None or (phase.dtype.char=="f" and phase.flags.contiguous):
             self.phase=phase
         else:
-            print "centroid: will need to copy phase since non contiguous or not correct datatype"
+            if phase is None:
+                print "centroid: will need to copy phase since not supplied"
+            else:
+                print "centroid: will need to copy phase since non contiguous or not correct datatype: %s %s"%(str(phase.dtype),str(phase.flags.contiguous))
             self.phase=phase.astype(numpy.float32)
         self.sig=sig
         self.timing=0

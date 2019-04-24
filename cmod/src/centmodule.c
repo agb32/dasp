@@ -2882,6 +2882,7 @@ PyObject *py_initialise(PyObject *self,PyObject *args){
 		       &pupfn,&spotpsfObj,&PyArray_Type,&cents,
 		       &PyArray_Type,&subflag,&PyArray_Type,&bimg,&PyArray_Type,&fracSubArea,&opticalBinning,&centWeightObj,&correlationCentroiding,&corrThresh,&corrPatternObj,&corrimgObj,&threshType,&imageOnly,&useBrightestObj,&preBinningFactor,&parabolicFit,&gaussianFit,&gaussianMinVal,&gaussianReplaceVal,&inputImageObj,&subapLocationObj)){
     printf("Usage: nthreads,nsubaps,ncen,fftsize,clipsize,nimg,phasesize,readnoise,readbg,addpoisson,noisefloor,sig,skybrightness,calsource,pxlpower,nintegrations,nlatency,seed,phs,pupfn,spotpsf,cents,subflag,bimg,fracsubarea,opticalbinning,centWeight,correlationCentroiding,corrThresh,corrPattern,corrimg,threshType,imageOnly,useBrightest,preBinningFactor,parabolicFit,gaussianFit,gaussianMinVal,gaussianReplaceVal\ninputImage(None), subapLocation(None) (for when input is an input image)");
+    printf("iiiiiiiffifOOifiilOO!OO!O!O!O!iOifOOiiOiiiffOO\n");
     return NULL;
   }
   if((c=malloc(sizeof(centstruct)))==NULL){
