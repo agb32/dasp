@@ -142,38 +142,40 @@ Also an option to allow an existing darc to connect/disconnect/reconnect to the 
             sl=[]
             nsubList=[]
             print "Wavefront sensors for darcsim %s: %s"%(str(self.idstr),str(self.wfsIDList))
-            if self.wfsOverview==None:
-                for key in self.wfsIDList:
-                    self.config.setSearchOrder(["wfscent_%s"%key,"wfscent","globals"])
-                    pupfn=self.config.getVal("pupil")
-                    if type(pupfn)!=numpy.ndarray:
-                        pupfn=pupfn.fn
-                    pupfn=pupfn.astype(numpy.float32)
-                    wfs_minarea=self.config.getVal("wfs_minarea")
-                    nsubx=self.config.getVal("wfs_nsubx")
-                    n=self.config.getVal("wfs_n")
-                    nimg=self.config.getVal("wfs_nimg")
-                    y,x=nsubx*nimg,nsubx*nimg
-                    npxlx.append(x)
-                    npxly.append(y)
-                    nsub=0
-                    for i in xrange(nsubx):        
-                        for j in xrange(nsubx):
-                            if pupfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()>wfs_minarea*n*n:
-                                #this is a used subap.
-                                sl.append((i*nimg,(i+1)*nimg,1,j*nimg,(j+1)*nimg,1))
-                                nsub+=1
-                    nsubList.append(nsub)
-            else:
-                for key in self.wfsIDList:
-                    wfs=self.wfsOverview.getWfsByID(key)
-                    nsubList.append(wfs.getSubapFlag().sum())
-                    npxlx.append(wfs.nsubx*wfs.nimg)
-                    npxly.append(wfs.nsubx*wfs.nimg)
-
-            if len(self.wfsIDList)==0:#parent is probably something that combines wfs images.
+            npxlxTmp=self.config.getVal("npxlx",raiseerror=0)
+            if len(self.wfsIDList)==0 or npxlxTmp is not None:#parent is probably something that combines wfs images.
                 npxlx=self.config.getVal("npxlx")
                 npxly=self.config.getVal("npxly")
+            else:
+                if self.wfsOverview==None:
+                    for key in self.wfsIDList:
+                        self.config.setSearchOrder(["wfscent_%s"%key,"wfscent","globals"])
+                        pupfn=self.config.getVal("pupil")
+                        if type(pupfn)!=numpy.ndarray:
+                            pupfn=pupfn.fn
+                        pupfn=pupfn.astype(numpy.float32)
+                        wfs_minarea=self.config.getVal("wfs_minarea")
+                        nsubx=self.config.getVal("wfs_nsubx")
+                        n=self.config.getVal("wfs_n")
+                        nimg=self.config.getVal("wfs_nimg")
+                        y,x=nsubx*nimg,nsubx*nimg
+                        npxlx.append(x)
+                        npxly.append(y)
+                        nsub=0
+                        for i in xrange(nsubx):        
+                            for j in xrange(nsubx):
+                                if pupfn[i*n:(i+1)*n,j*n:(j+1)*n].sum()>wfs_minarea*n*n:
+                                    #this is a used subap.
+                                    sl.append((i*nimg,(i+1)*nimg,1,j*nimg,(j+1)*nimg,1))
+                                    nsub+=1
+                        nsubList.append(nsub)
+                else:
+                    for key in self.wfsIDList:
+                        wfs=self.wfsOverview.getWfsByID(key)
+                        nsubList.append(wfs.getSubapFlag().sum())
+                        npxlx.append(wfs.nsubx*wfs.nimg)
+                        npxly.append(wfs.nsubx*wfs.nimg)
+
             self.config.setSearchOrder(so)
             #Open a listening socket, for the darc camera and mirror to connect to.
             self.lsock=socket.socket()
@@ -437,6 +439,7 @@ control={"ncam":%d,
         else:
             id=" (%s)"%self.idstr
         txt=""
+        txt+="""<plot title="darcsim combined input%s" cmd="data=%s.inputData" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
         txt+="""<plot title="darcsim output%s" cmd="data=%s.outputData" ret="data" type="pylab" when="rpt" palette="gray"/>\n"""%(id,objname)
         return txt
 
