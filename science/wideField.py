@@ -449,7 +449,7 @@ class WideField(base.aobase.aobase):
                                 xnew=xcentre+xdiff
                                 ynew=ycentre+ydiff
                                 thetanew=numpy.sqrt(xnew*xnew+ynew*ynew)
-                                phinew=numpy.arctan2(ynew,xnew)
+                                phinew=numpy.arctan2(ynew,xnew)*180/numpy.pi
                                 atmosObj.sourceTheta=thetanew
                                 atmosObj.sourcePhi=phinew
                                 if self.fieldAlt!=None:
