@@ -677,7 +677,7 @@ void addArrArr(int datasize,float *data,float *adder){
     data[i]+=adder[i];
   }
 }
-inline float rk_float(pcg32_random_t *state){
+static inline float rk_float(pcg32_random_t *state){
   return pcg32_random_r(state)*2.3283064365386963e-10;
 }
 static double loggam(double x){
