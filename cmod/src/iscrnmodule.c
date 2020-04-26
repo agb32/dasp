@@ -195,7 +195,7 @@ int nextNewRows(NewRowsStruct *nr){
   return nr->nadd;
 }
 
-inline int mvm(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,double beta,double *y,int incy){
+static inline int mvm(int m,int n,double alpha,double *A,int lda,int ldb,double *x,int incx,double beta,double *y,int incy){
   //performs:
   //y=beta*y + alpha* A dot x
   //todo();
