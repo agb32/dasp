@@ -970,7 +970,7 @@ void computeCoG(int nimg,int ncen,float const * const img,float *centx,float *ce
   }
 }
 
-inline void makeFitVector(float *vec,float *subap,int nimg,int fitsize,int startx,int starty){
+static inline void makeFitVector(float *vec,float *subap,int nimg,int fitsize,int startx,int starty){
   //vec should have size [6].
   int x,y;
   float val;
