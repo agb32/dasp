@@ -1912,7 +1912,7 @@ n=fftsize*(nFieldX+1.)/2
 #data=interpolation.zoom(data,wfs_nsubx*(n+2*b)/data.shape[0])
 #For identical image per subap, use this one:
 data=interpolation.zoom(data,(n+2*b)/data.shape[0])*100
-widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,n+2*b,n+2*b),numpy.float32)
+widefieldImage=numpy.zeros((wfs_nsubx,wfs_nsubx,int(n+2*b),int(n+2*b)),numpy.float32)
 for i in range(wfs_nsubx):
     for j in range(wfs_nsubx):
         widefieldImage[i,j]=data # use this for same image per subap.
