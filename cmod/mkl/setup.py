@@ -129,6 +129,11 @@ if os.path.exists("/usr/lib64/atlas/libatlas.so"):
     atpath="/usr/lib64/atlas/"
 elif os.path.exists("/usr/lib/libatlas.so"):
     atpath="/usr/lib/"
+elif os.path.exists("/usr/lib/x86_64-linux-gnu/atlas/libatlas.so"):
+    atpath="/usr/lib/x86_64-linux-gnu/atlas/"
+elif os.path.exists("/usr/lib/x86_64-linux-gnu/libatlas.so"):
+    atpath="/usr/lib/x86_64-linux-gnu/"
+
 if atpath!=None:
     #versions=os.listdir("/opt/intel/mkl")
     #versions=map(lambda x:string.split(x,"."),versions)
@@ -140,7 +145,7 @@ if atpath!=None:
         atlaslib=[atpath]
         ld=[sys.prefix+'/lib']
         #mkllib=["/opt/intel/mkl/%s/lib/em64t"%version]
-        atlasinclude=["/usr/include/","/usr/include/atlas"]
+        atlasinclude=["/usr/include/","/usr/include/atlas","/usr/include/x86_64-linux-gnu/"]
         print "Using atlas/lapack"
         cont=1
 if cont==0:
