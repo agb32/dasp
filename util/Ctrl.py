@@ -736,7 +736,7 @@ print("INFORMATION:^^Ctrl^^:Starting poking")
 
         cmd="""maxmodes,wfsObj_int,global_tstep=0,None,None
 for obj in ctrl.compList:
-  if hasattr(obj,"npokes"):
+  if hasattr(obj,"npokes"): 
     if obj.npokes>maxmodes:
       maxmodes=obj.npokes     
   elif hasattr(obj,"nmodes"):
@@ -748,12 +748,14 @@ for obj in ctrl.compList:
     wfsObj_int=obj.wfs_int
 maxmodes=maxmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
 #Now share maxmodes with all other processes, and then select the max.
-import base.mpiWrapper
-c=base.mpiWrapper.comm
-import numpy
-nm=numpy.zeros((c.size,),numpy.int32)
-c.share(numpy.array([maxmodes]).astype(numpy.int32),nm)
-maxmodes=nm.max()
+import os
+if not os.environ.has_key("DASPNOMPI"): # check if we are using mpi
+  import base.mpiWrapper
+  c=base.mpiWrapper.comm
+  import numpy
+  nm=numpy.zeros((c.size,),numpy.int32)
+  c.share(numpy.array([maxmodes]).astype(numpy.int32),nm)
+  maxmodes=nm.max()
 ctrl.initialCommand("ctrl.doSciRun()",freq=-1,startiter=maxmodes+10)
 print("INFORMATION:^^Ctrl^^:Will close loop after %d iterations"%(maxmodes+10))
 		"""
