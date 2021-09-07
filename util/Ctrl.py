@@ -749,7 +749,9 @@ for obj in ctrl.compList:
 maxmodes=maxmodes*(1 if wfsObj_int==None else wfsObj_int/global_tstep)
 #Now share maxmodes with all other processes, and then select the max.
 import os
-if not os.environ.has_key("DASPNOMPI"): # check if we are using mpi
+if not os.environ.has_key("DASPNOMPI") or \
+(os.environ.has_key("DASPNOMPI") and \
+os.environ['DASPNOMPI'].lower()!='yes'): # check if we are using mpi
   import base.mpiWrapper
   c=base.mpiWrapper.comm
   import numpy
